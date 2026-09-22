@@ -1,0 +1,18 @@
+Um app de musculação para iPhone + Apple Watch que funcione como um personal automático.
+
+* Guarda seus treinos, exercícios, máquinas, séries, repetições e cargas.
+* Você abre o app e ele já mostra exatamente o treino do dia, sem precisar escolher nada.
+* Registra quando você treinou, quanto tempo durou e quantas vezes fez cada treino.
+* Acompanha sua evolução por exercício e sugere quando aumentar, manter ou reduzir a carga.
+* Controla descanso entre séries e duração total do treino.
+* Usa dados do Apple Watch via HealthKit, principalmente frequência cardíaca e, quando disponível, gasto energético e outros indicadores.
+* Cruza esses dados com seu desempenho. Ex.: carga, repetições, falhas, frequência cardíaca, tempo de descanso e histórico recente.
+* Decide qual treino vem a seguir considerando o que você já fez e há quanto tempo.
+* Pode adaptar volume, intensidade, carga e eventualmente trocar exercícios ou renovar a ficha.
+* Você basicamente só confirma o que fez, corrige alguma informação se necessário e segue as instruções.
+* Histórico e dados ficam prioritariamente no celular, reduzindo custo e preservando privacidade.
+* A IA entra para decisões mais complexas e revisões periódicas, não precisa ser chamada a cada série.
+* Pode usar modelo local ou APIs gratuitas/baratas, tentando manter o custo recorrente em R$ 0.
+* O desenvolvimento pode ser feito com Codex/Claude, começando por um plano de arquitetura bem definido e evoluindo o app conforme você for usando na academia.
+
+A ideia central é: **abrir → ver o que fazer e com qual carga → treinar → marcar o resultado → o app recalcular o próximo passo sozinho.**
