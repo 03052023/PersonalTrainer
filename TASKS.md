@@ -33,7 +33,7 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 ### Tarefas M0
 
-- [ ] **T0.0 [PROJ][MAC-CI] Validar instalação gratuita Windows → iPhone + Watch**
+- [~] Codex · task/T0.0-windows-device-probe **T0.0 [PROJ][MAC-CI] Validar instalação gratuita Windows → iPhone + Watch**
   - Escopo: `Validation/DeviceProbe/**`, `Scripts/build-device-probe.sh`, `Scripts/check-device-probe.py`, `.github/workflows/device-probe.yml`, `WINDOWS_SETUP.md`, `README.md`, `SPEC.md`, `ARCHITECTURE.md`, `.gitignore`, esta tarefa em `TASKS.md`.
   - Fazer: app mínimo nativo com companion, HealthKit sob protocolo + Live + Fake, autorização somente por botão e leitura da última FC com data; compilação e empacotamento não assinados em macOS hospedado, acionados manualmente. Não grava treino, não implementa sessão/WatchConnectivity nem altera o domínio.
   - Ambiente: edição no Windows; `[MAC-CI]` exige compilação real com Xcode no runner macOS. Não exige Mac do usuário. O custo deve permanecer zero; não executar Actions privados sem verificar bloqueio de gasto excedente.
