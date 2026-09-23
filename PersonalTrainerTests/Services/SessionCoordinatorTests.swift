@@ -7,7 +7,9 @@ import XCTest
 /// T1.3: `SessionCoordinator` é o único caminho de escrita de sessão (ARCHITECTURE §7). Cobre
 /// `startSession`, cada `SessionEvent.Kind`, idempotência por `event.id` e por `setID` (RF-22),
 /// last-write-wins em `setUpdated`, persistência imediata (RF-06) e o fan-out de `eventsApplied`.
-/// Tudo em `@MainActor` com container in-memory (ARCHITECTURE §10).
+/// M2: `prescribedTargetReps` no snapshot (T2.11), `deleteSession` (T2.13, com o planner real para
+/// o critério "apagar a última sessão de A devolve a prescrição anterior") e `substituteExercise`
+/// (RF-34). Tudo em `@MainActor` com container in-memory (ARCHITECTURE §10).
 @MainActor
 final class SessionCoordinatorTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
@@ -792,6 +794,350 @@ final class SessionCoordinatorTests: XCTestCase {
         XCTAssertEqual(first?.kind, .sessionFinished(endedAt: endedAt))
     }
 
+    // MARK: - T2.11: meta de reps no snapshot (SPEC P5)
+
+    func testT2_11_startSession_copiesTargetRepsToSnapshot() throws {
+        let fixture = try makeFixture()
+        let legPressDefinition = definition(from: fixture.legPress)
+        let planned = PlannedExercise(
+            id: UUID(),
+            exercise: legPressDefinition,
+            target: ExerciseTarget(exerciseID: fixture.legPress.uuid, order: 0),
+            // SPEC P5 (`hold`): meta = menor reps da última sessão + 1, diferente de `repMin`.
+            prescription: ExercisePrescription(
+                exerciseID: fixture.legPress.uuid,
+                load: 100,
+                sets: 3,
+                repMin: 8,
+                repMax: 12,
+                targetReps: 10,
+                targetRIR: 2,
+                restSeconds: 120,
+                note: .hold
+            )
+        )
+        let plan = SessionPlan(
+            programID: UUID(),
+            programName: "Programa padrão",
+            programDayID: UUID(),
+            programDayName: "Dia A",
+            exercises: [planned],
+            generatedAt: now
+        )
+
+        _ = try fixture.coordinator.startSession(plan: plan, now: now, source: .iphone)
+
+        let fresh = ModelContext(fixture.container)
+        let snapshot = try fetchSessionExercise(planned.id, in: fresh)
+        XCTAssertEqual(snapshot.prescribedTargetReps, 10)
+        XCTAssertEqual(snapshot.prescribedRepMin, 8)
+        XCTAssertEqual(snapshot.note, .hold)
+    }
+
+    // MARK: - T2.13: apagar sessão
+
+    func testT2_13_deleteSession_completed_removesItsExercisesAndSets_keepsOthersAndCatalog() throws {
+        let fixture = try makeFixture()
+        let deletedID = try startSession(fixture)
+        for index in 0..<2 {
+            try fixture.coordinator.logSet(
+                sessionID: deletedID,
+                sessionExerciseID: fixture.plan.exercises[0].id,
+                index: index,
+                load: 100,
+                reps: 10,
+                rir: 2,
+                isWarmup: false,
+                now: now.addingTimeInterval(Double(index + 1) * 180)
+            )
+        }
+        try fixture.coordinator.finishSession(sessionID: deletedID, now: now.addingTimeInterval(3_600))
+
+        let keptPlan = makePlan(legPress: fixture.legPress, squat: fixture.squat)
+        let keptAt = now.addingTimeInterval(86_400)
+        let keptID = try fixture.coordinator.startSession(plan: keptPlan, now: keptAt, source: .iphone)
+        let keptSetID = try fixture.coordinator.logSet(
+            sessionID: keptID,
+            sessionExerciseID: keptPlan.exercises[0].id,
+            index: 0,
+            load: 105,
+            reps: 8,
+            rir: 2,
+            isWarmup: false,
+            now: keptAt.addingTimeInterval(180)
+        )
+        try fixture.coordinator.finishSession(sessionID: keptID, now: keptAt.addingTimeInterval(3_600))
+
+        try fixture.coordinator.deleteSession(id: deletedID)
+
+        XCTAssertNil(fixture.coordinator.session(withID: deletedID))
+        XCTAssertEqual(fixture.coordinator.session(withID: keptID)?.uuid, keptID)
+        // Contexto novo: o que está no store, não o que o contexto ainda tem em memória.
+        let fresh = ModelContext(fixture.container)
+        let sessions = try fresh.fetch(FetchDescriptor<WorkoutSessionModel>())
+        XCTAssertEqual(sessions.map { $0.uuid }, [keptID])
+        let sessionExercises = try fresh.fetch(FetchDescriptor<SessionExerciseModel>())
+        XCTAssertEqual(Set(sessionExercises.map { $0.uuid }), Set(keptPlan.exercises.map { $0.id }))
+        let sets = try fresh.fetch(FetchDescriptor<SetLogModel>())
+        XCTAssertEqual(sets.map { $0.uuid }, [keptSetID])
+        // `exercise` é `nullify`: o catálogo nunca é apagado junto (ARCHITECTURE §5).
+        XCTAssertEqual(try fresh.fetchCount(FetchDescriptor<ExerciseModel>()), 2)
+    }
+
+    func testT2_13_deleteSession_inProgress_clearsActiveSession_withoutPublishingEvent() async throws {
+        let fixture = try makeFixture()
+        let sessionID = try startSession(fixture)
+        _ = try fixture.coordinator.logSet(
+            sessionID: sessionID,
+            sessionExerciseID: fixture.plan.exercises[0].id,
+            index: 0,
+            load: 100,
+            reps: 10,
+            rir: 2,
+            isWarmup: false,
+            now: now.addingTimeInterval(180)
+        )
+        let stream = fixture.coordinator.eventsApplied
+
+        try fixture.coordinator.deleteSession(id: sessionID)
+
+        XCTAssertNil(fixture.coordinator.activeSession)
+        XCTAssertEqual(try fixture.context.fetchCount(FetchDescriptor<WorkoutSessionModel>()), 0)
+        XCTAssertEqual(try fixture.context.fetchCount(FetchDescriptor<SessionExerciseModel>()), 0)
+        XCTAssertEqual(try fixture.context.fetchCount(FetchDescriptor<SetLogModel>()), 0)
+
+        // RF-02 volta a permitir iniciar; e o primeiro evento do stream é esse início, ou seja,
+        // a exclusão não publicou nada (sem caso de sync para ela nesta versão).
+        let restartAt = now.addingTimeInterval(600)
+        let newID = try fixture.coordinator.startSession(
+            plan: makePlan(legPress: fixture.legPress, squat: fixture.squat),
+            now: restartAt,
+            source: .iphone
+        )
+        XCTAssertEqual(fixture.coordinator.activeSession?.uuid, newID)
+        var iterator = stream.makeAsyncIterator()
+        let first = await iterator.next()
+        XCTAssertEqual(first?.sessionID, newID)
+        XCTAssertEqual(first?.occurredAt, restartAt)
+    }
+
+    func testT2_13_deleteSession_unknownID_throwsSessionNotFound() throws {
+        let fixture = try makeFixture()
+        _ = try startSession(fixture)
+        let unknown = UUID()
+
+        assertThrows(.sessionNotFound(unknown)) {
+            try fixture.coordinator.deleteSession(id: unknown)
+        }
+        XCTAssertEqual(try fixture.context.fetchCount(FetchDescriptor<WorkoutSessionModel>()), 1)
+    }
+
+    /// Critério de T2.13 com o motor real: a prescrição e o dia são derivados do histórico
+    /// (ADR 003), então apagar a última sessão do Dia A devolve a rotação e a carga anteriores.
+    func testT2_13_deletingLastSessionOfDayA_restoresRotationAndPreviousPrescription() throws {
+        let fixture = try makeFixture()
+        let program = try insertTwoDayProgram(fixture)
+        let planner = SessionPlanner(modelContext: fixture.context, coordinator: fixture.coordinator)
+        let day: TimeInterval = 86_400
+
+        // A (há 6 dias) 3 × 12 @ 100 → B (há 4 dias) → A (há 2 dias) 3 × 12 @ 105.
+        let firstA = try runDay(program.dayA, load: 100, reps: 12, startedAt: now.addingTimeInterval(-6 * day), planner: planner, fixture: fixture)
+        XCTAssertEqual(firstA.prescription.load, 100)
+        XCTAssertEqual(firstA.prescription.note, .calibrate)
+        _ = try runDay(program.dayB, load: 60, reps: 10, startedAt: now.addingTimeInterval(-4 * day), planner: planner, fixture: fixture)
+        let lastA = try runDay(program.dayA, load: 105, reps: 12, startedAt: now.addingTimeInterval(-2 * day), planner: planner, fixture: fixture)
+        XCTAssertEqual(lastA.prescription.load, 105, "SPEC P4: 100 + inc 5")
+        XCTAssertEqual(lastA.prescription.note, .increase)
+
+        // Antes: a última sessão é do Dia A → próximo é B; o Dia A já subiria para 110.
+        let before = try XCTUnwrap(try planner.nextPlan(now: now))
+        XCTAssertEqual(before.programDayID, program.dayB)
+        let dayABefore = try XCTUnwrap(try planner.plan(forDayID: program.dayA, now: now))
+        XCTAssertEqual(dayABefore.exercises.first?.prescription.load, 110)
+
+        try fixture.coordinator.deleteSession(id: lastA.sessionID)
+
+        // Depois: a última é a do Dia B → próximo volta a ser A, com a prescrição derivada da
+        // primeira sessão de A (100 + 5), e não mais 110.
+        let after = try XCTUnwrap(try planner.nextPlan(now: now))
+        XCTAssertEqual(after.programDayID, program.dayA)
+        let legPress = try XCTUnwrap(after.exercises.first)
+        XCTAssertEqual(legPress.exercise.id, fixture.legPress.uuid)
+        XCTAssertEqual(legPress.prescription.load, 105)
+        XCTAssertEqual(legPress.prescription.note, .increase)
+        XCTAssertEqual(legPress.prescription.targetReps, 8)
+    }
+
+    // MARK: - RF-34: substituteExercise
+
+    func testRF34_substituteExercise_swapsExerciseAndReplacesPrescription() async throws {
+        let fixture = try makeFixture()
+        let hack = try insertHackMachine(fixture)
+        let sessionID = try startSession(fixture)
+        let exerciseID = fixture.plan.exercises[0].id
+        let stream = fixture.coordinator.eventsApplied
+        let substitutedAt = now.addingTimeInterval(30)
+
+        try fixture.coordinator.substituteExercise(
+            sessionID: sessionID,
+            sessionExerciseID: exerciseID,
+            with: makeSubstitution(replacing: exerciseID, with: hack),
+            now: substitutedAt
+        )
+
+        let fresh = ModelContext(fixture.container)
+        let swapped = try fetchSessionExercise(exerciseID, in: fresh)
+        XCTAssertEqual(swapped.exerciseUUID, hack.uuid)
+        XCTAssertEqual(swapped.exerciseName, "Hack machine")
+        XCTAssertEqual(swapped.exercise?.uuid, hack.uuid)
+        XCTAssertEqual(swapped.substitutedFromUUID, fixture.legPress.uuid)
+        XCTAssertEqual(swapped.order, 0)
+        XCTAssertFalse(swapped.wasSkipped)
+        // Prescrição do substituto (calibração), não mais a do leg press (100 kg, increase).
+        XCTAssertNil(swapped.prescribedLoad)
+        XCTAssertEqual(swapped.prescribedSets, 4)
+        XCTAssertEqual(swapped.prescribedRepMin, 6)
+        XCTAssertEqual(swapped.prescribedRepMax, 10)
+        XCTAssertEqual(swapped.prescribedRIR, 2)
+        XCTAssertEqual(swapped.restSeconds, 90)
+        XCTAssertEqual(swapped.note, .calibrate)
+        XCTAssertEqual(swapped.prescribedTargetReps, 6)
+
+        // O outro exercício da sessão não muda.
+        let other = try fetchSessionExercise(fixture.plan.exercises[1].id, in: fresh)
+        XCTAssertEqual(other.exerciseUUID, fixture.squat.uuid)
+        XCTAssertNil(other.substitutedFromUUID)
+
+        // A troca passa por `apply`: o evento chega aos observadores.
+        var iterator = stream.makeAsyncIterator()
+        let event = await iterator.next()
+        XCTAssertEqual(event?.sessionID, sessionID)
+        XCTAssertEqual(event?.occurredAt, substitutedAt)
+        XCTAssertEqual(event?.source, .iphone)
+        XCTAssertEqual(event?.kind, .exerciseSubstituted(sessionExerciseID: exerciseID, newExerciseID: hack.uuid))
+    }
+
+    func testRF34_substituteExercise_withLoggedSet_throwsUnsupportedAndChangesNothing() throws {
+        let fixture = try makeFixture()
+        let hack = try insertHackMachine(fixture)
+        let sessionID = try startSession(fixture)
+        let exerciseID = fixture.plan.exercises[0].id
+        // Até um aquecimento basta: as séries são do exercício antigo.
+        _ = try fixture.coordinator.logSet(
+            sessionID: sessionID,
+            sessionExerciseID: exerciseID,
+            index: 0,
+            load: 60,
+            reps: 12,
+            rir: nil,
+            isWarmup: true,
+            now: now.addingTimeInterval(60)
+        )
+
+        assertThrows(.unsupported) {
+            try fixture.coordinator.substituteExercise(
+                sessionID: sessionID,
+                sessionExerciseID: exerciseID,
+                with: makeSubstitution(replacing: exerciseID, with: hack),
+                now: now.addingTimeInterval(120)
+            )
+        }
+
+        let fresh = ModelContext(fixture.container)
+        let untouched = try fetchSessionExercise(exerciseID, in: fresh)
+        XCTAssertEqual(untouched.exerciseUUID, fixture.legPress.uuid)
+        XCTAssertEqual(untouched.exerciseName, "Leg press 45°")
+        XCTAssertNil(untouched.substitutedFromUUID)
+        XCTAssertEqual(untouched.prescribedLoad, 100)
+        XCTAssertEqual(untouched.note, .increase)
+        XCTAssertEqual(untouched.sets.count, 1)
+    }
+
+    func testRF34_substituteExercise_invalidInputs_throwWithoutChanges() throws {
+        let fixture = try makeFixture()
+        let hack = try insertHackMachine(fixture)
+        let sessionID = try startSession(fixture)
+        let exerciseID = fixture.plan.exercises[0].id
+        let unknownSession = UUID()
+        let unknownSessionExercise = UUID()
+        let ghost = ExerciseDefinition(
+            slug: "fantasma",
+            name: "Fantasma",
+            primaryMuscles: [.quads],
+            equipment: .machine,
+            loadUnit: .kilograms,
+            loadIncrement: 5
+        )
+        let ghostPlan = PlannedExercise(
+            id: exerciseID,
+            exercise: ghost,
+            target: ExerciseTarget(exerciseID: ghost.id, order: 0),
+            prescription: ExercisePrescription(exerciseID: ghost.id)
+        )
+
+        assertThrows(.sessionNotFound(unknownSession)) {
+            try fixture.coordinator.substituteExercise(
+                sessionID: unknownSession,
+                sessionExerciseID: exerciseID,
+                with: makeSubstitution(replacing: exerciseID, with: hack),
+                now: now
+            )
+        }
+        assertThrows(.sessionExerciseNotFound(unknownSessionExercise)) {
+            try fixture.coordinator.substituteExercise(
+                sessionID: sessionID,
+                sessionExerciseID: unknownSessionExercise,
+                with: makeSubstitution(replacing: unknownSessionExercise, with: hack),
+                now: now
+            )
+        }
+        assertThrows(.exerciseNotFound(ghost.id)) {
+            try fixture.coordinator.substituteExercise(
+                sessionID: sessionID,
+                sessionExerciseID: exerciseID,
+                with: ghostPlan,
+                now: now
+            )
+        }
+
+        // O contexto fica numa variável: o modelo não pode sobreviver ao contexto que o buscou.
+        let fresh = ModelContext(fixture.container)
+        let untouched = try fetchSessionExercise(exerciseID, in: fresh)
+        XCTAssertEqual(untouched.exerciseUUID, fixture.legPress.uuid)
+        XCTAssertEqual(untouched.prescribedLoad, 100)
+        XCTAssertEqual(untouched.prescribedTargetReps, 6)
+        XCTAssertNil(untouched.substitutedFromUUID)
+
+        try fixture.coordinator.finishSession(sessionID: sessionID, now: now.addingTimeInterval(3_600))
+        assertThrows(.sessionNotInProgress(sessionID)) {
+            try fixture.coordinator.substituteExercise(
+                sessionID: sessionID,
+                sessionExerciseID: exerciseID,
+                with: makeSubstitution(replacing: exerciseID, with: hack),
+                now: now.addingTimeInterval(3_700)
+            )
+        }
+    }
+
+    func testRF34_substituteExercise_sameExercise_isNoOp() throws {
+        let fixture = try makeFixture()
+        let sessionID = try startSession(fixture)
+        let exerciseID = fixture.plan.exercises[0].id
+
+        try fixture.coordinator.substituteExercise(
+            sessionID: sessionID,
+            sessionExerciseID: exerciseID,
+            with: makeSubstitution(replacing: exerciseID, with: fixture.legPress),
+            now: now.addingTimeInterval(30)
+        )
+
+        let unchanged = try fetchSessionExercise(exerciseID, in: fixture.context)
+        XCTAssertEqual(unchanged.exerciseUUID, fixture.legPress.uuid)
+        XCTAssertNil(unchanged.substitutedFromUUID)
+        XCTAssertEqual(unchanged.prescribedLoad, 100)
+        XCTAssertEqual(unchanged.note, .increase)
+    }
+
     // MARK: - Fixtures
 
     private struct Fixture {
@@ -893,6 +1239,113 @@ final class SessionCoordinatorTests: XCTestCase {
 
     private func startSession(_ fixture: Fixture) throws -> UUID {
         try fixture.coordinator.startSession(plan: fixture.plan, now: now, source: .iphone)
+    }
+
+    /// Terceiro exercício do catálogo, alvo das trocas (fora do plano da fixture).
+    private func insertHackMachine(_ fixture: Fixture) throws -> ExerciseModel {
+        let hack = makeExerciseModel(slug: "hack-machine", name: "Hack machine", loadIncrement: 5)
+        fixture.context.insert(hack)
+        try fixture.context.save()
+        return hack
+    }
+
+    /// O que `SessionPlanning.substitutionPlan` devolveria para um exercício nunca feito:
+    /// calibração (SPEC P2), alvo do original (4 × 6–10, 90 s), `id` = exercício substituído.
+    private func makeSubstitution(replacing sessionExerciseID: UUID, with model: ExerciseModel) -> PlannedExercise {
+        PlannedExercise(
+            id: sessionExerciseID,
+            exercise: definition(from: model),
+            target: ExerciseTarget(exerciseID: model.uuid, order: 0, sets: 4, repMin: 6, repMax: 10, targetRIR: 1, restSeconds: 90),
+            prescription: ExercisePrescription(
+                exerciseID: model.uuid,
+                load: nil,
+                sets: 4,
+                repMin: 6,
+                repMax: 10,
+                targetReps: 6,
+                targetRIR: 2,
+                restSeconds: 90,
+                note: .calibrate
+            )
+        )
+    }
+
+    private struct TwoDayProgram {
+        let dayA: UUID
+        let dayB: UUID
+    }
+
+    /// Programa ativo "AB": Dia A = leg press (3 × 8–12, RIR 2, carga inicial 100, inc 5);
+    /// Dia B = agachamento (carga inicial 60).
+    private func insertTwoDayProgram(_ fixture: Fixture) throws -> TwoDayProgram {
+        let context = fixture.context
+        let program = ProgramModel(
+            uuid: UUID(),
+            name: "AB",
+            isActive: true,
+            createdAt: now.addingTimeInterval(-30 * 86_400)
+        )
+        context.insert(program)
+
+        let dayA = ProgramDayModel(uuid: UUID(), name: "Dia A", order: 0)
+        let dayB = ProgramDayModel(uuid: UUID(), name: "Dia B", order: 1)
+        context.insert(dayA)
+        context.insert(dayB)
+        program.days.append(dayA)
+        program.days.append(dayB)
+
+        for (day, exercise, startingLoad) in [(dayA, fixture.legPress, 100.0), (dayB, fixture.squat, 60.0)] {
+            let target = ProgramExerciseModel(
+                uuid: UUID(),
+                order: 0,
+                sets: 3,
+                repMin: 8,
+                repMax: 12,
+                targetRIR: 2,
+                restSeconds: 120,
+                startingLoad: startingLoad
+            )
+            context.insert(target)
+            target.exercise = exercise
+            day.exercises.append(target)
+        }
+        try context.save()
+        return TwoDayProgram(dayA: dayA.uuid, dayB: dayB.uuid)
+    }
+
+    private struct DayRun {
+        let sessionID: UUID
+        /// Prescrição do (único) exercício do dia no momento do início.
+        let prescription: ExercisePrescription
+    }
+
+    /// Planeja o dia, inicia pela API do planner e registra as séries prescritas com a mesma
+    /// carga e reps (RIR 2), finalizando 1 h depois: o caminho real da Home até o fim do treino.
+    private func runDay(
+        _ dayID: UUID,
+        load: Double,
+        reps: Int,
+        startedAt: Date,
+        planner: SessionPlanner,
+        fixture: Fixture
+    ) throws -> DayRun {
+        let plan = try XCTUnwrap(try planner.plan(forDayID: dayID, now: startedAt))
+        let planned = try XCTUnwrap(plan.exercises.first)
+        let sessionID = try planner.startSession(from: plan, now: startedAt)
+        for index in 0..<planned.prescription.sets {
+            try fixture.coordinator.logSet(
+                sessionID: sessionID,
+                sessionExerciseID: planned.id,
+                index: index,
+                load: load,
+                reps: reps,
+                rir: 2,
+                isWarmup: false,
+                now: startedAt.addingTimeInterval(Double(index + 1) * 180)
+            )
+        }
+        try fixture.coordinator.finishSession(sessionID: sessionID, now: startedAt.addingTimeInterval(3_600))
+        return DayRun(sessionID: sessionID, prescription: planned.prescription)
     }
 
     private func setLoggedEvent(
