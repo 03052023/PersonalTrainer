@@ -123,6 +123,9 @@ Backend, contas, sync em nuvem/CloudKit, funções sociais, nutrição, prescri�
 | RF-29 | Recuperação: HRV, FC de repouso e sono (médias 7 vs. 28 dias); sugestão "use o Watch à noite" quando faltam dados noturnos. | M5 |
 | RF-30 | Sugestão de encaixe do aeróbico na semana, evitando interferência com treino pesado de pernas (§7.10 A5). | M5 |
 | RF-31 | Card "Saúde" na Home e tela de detalhe; tudo só leitura do HealthKit, sem gravar. | M5 |
+| RF-33 | Adicionar e remover exercícios de cada dia manualmente (5 é só o padrão; mínimo 1, máximo 10). | M2 |
+| RF-34 | Botão "Trocar" em cada exercício (na sessão e na edição): oferece substitutos do catálogo com o **mesmo padrão de movimento** e mesmo grupo primário (ex.: supino reto com barra → supino com halteres → supino na máquina → flexão), ordenados por semelhança; na sessão vale só para aquele treino, na edição fica no programa. O histórico de carga de cada exercício é separado (P3); o substituto começa em calibração se nunca foi feito. | M2 |
+| RF-35 | Hipertrofia com três formatos de divisão: **completo** (todo o corpo equilibrado, padrão ABC), **foco inferior** (glúteos e pernas com mais volume, superior em manutenção) e **foco superior** (peito, ombros, braços e costas com mais volume, inferior em manutenção). Volume do foco no topo da faixa de §7.9; manutenção ≈ 1/3 do volume (Bickel 2011). | M2 |
 | RF-32 | Botão "Por quê?" em notas de prescrição, metas e sugestões, mostrando a regra e as referências científicas completas do catálogo `references.v1.json` (§7.9). | M2 (catálogo e notas), cresce a cada milestone |
 
 ## 7. Regras de domínio
@@ -309,7 +312,7 @@ Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → M2 robustez + Healt
 10. Só RIR entra na avaliação; séries com RIR ausente não recebem o bônus de P4.
 11. O app do Watch é **opcional** por desenho: tudo em M1–M2 funciona só com o iPhone, e a FC vem do app Exercício nativo do relógio via HealthKit até o companion existir (ver §7.6 e §13).
 12. Sem Mac: o projeto Xcode é gerado por XcodeGen no GitHub Actions; o motor é testado localmente no Windows (ARCHITECTURE ADR 008/009).
-13. **Sem IA em nenhuma fase** (2026-09-23). Revisão periódica e saúde são regras determinísticas (§7.8, §7.10). Se um dia houver necessidade real, reabre-se a decisão com uma ADR.
+13. **Sem IA no app gratuito** (2026-09-23). Revisão periódica e saúde são regras determinísticas (§7.8, §7.10). Ideia futura do usuário, fora do escopo atual: uma camada paga opcional com IA para personalização extra. Se for adiante, exige ADR própria e continua sem tocar no motor determinístico (a IA só proporia ajustes que o usuário aceita).
 14. Aeróbico é registrado pelo app Exercício do Watch e apenas lido pelo app; o app não prescreve sessões de cardio, só meta semanal e sugestões de encaixe.
 
 ## 12. Questões abertas (não bloqueiam M0–M1)
