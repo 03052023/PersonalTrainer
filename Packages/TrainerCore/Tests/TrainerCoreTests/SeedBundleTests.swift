@@ -433,6 +433,85 @@ func validatorRejectsDuplicateExerciseOrder() {
     }
 }
 
+@Test("P2 validador aceita startingLoad zero ou positivo")
+func validatorAcceptsNonNegativeStartingLoad() throws {
+    for startingLoad in [0.0, 40.0] {
+        let bundle = Fixture.bundle(programs: [
+            Fixture.program(days: [Fixture.day([Fixture.target(startingLoad: startingLoad)])]),
+        ])
+        try SeedValidator.validate(bundle)
+    }
+}
+
+@Test("P2/P8 validador rejeita startingLoad negativo ou não finito")
+func validatorRejectsInvalidStartingLoad() {
+    for startingLoad in [-40.0, .nan, .infinity] {
+        let bundle = Fixture.bundle(programs: [
+            Fixture.program(days: [Fixture.day([Fixture.target(startingLoad: startingLoad)])]),
+        ])
+
+        #expect(
+            throws: SeedValidationError.invalidStartingLoad(
+                exerciseSlug: Fixture.benchSlug,
+                program: Fixture.programName
+            ),
+            "startingLoad \(startingLoad)"
+        ) {
+            try SeedValidator.validate(bundle)
+        }
+    }
+}
+
+@Test("Seed validador rejeita version < 1 em qualquer dos arquivos")
+func validatorRejectsInvalidVersion() {
+    #expect(throws: SeedValidationError.invalidVersion(0)) {
+        try SeedValidator.validate(Fixture.bundle(catalogVersion: 0))
+    }
+    #expect(throws: SeedValidationError.invalidVersion(-1)) {
+        try SeedValidator.validate(Fixture.bundle(programVersion: -1))
+    }
+}
+
+@Test("Seed validador rejeita id de programa duplicado")
+func validatorRejectsDuplicateProgramID() {
+    let bundle = Fixture.bundle(programs: [
+        Fixture.program(id: Fixture.spareID),
+        Fixture.program(id: Fixture.spareID, isActive: false, name: "Reserva"),
+    ])
+
+    #expect(throws: SeedValidationError.duplicateProgramID(Fixture.spareID)) {
+        try SeedValidator.validate(bundle)
+    }
+}
+
+@Test("S2 validador rejeita id de dia duplicado, mesmo com ordens distintas")
+func validatorRejectsDuplicateDayID() {
+    let bundle = Fixture.bundle(programs: [
+        Fixture.program(days: [
+            Fixture.day(id: Fixture.spareID, order: 0),
+            Fixture.day([Fixture.target(exerciseID: Fixture.squatID)], id: Fixture.spareID, order: 1, name: "Dia B"),
+        ]),
+    ])
+
+    #expect(throws: SeedValidationError.duplicateDayID(Fixture.spareID)) {
+        try SeedValidator.validate(bundle)
+    }
+}
+
+@Test("Seed validador rejeita id de alvo duplicado, mesmo em dias diferentes")
+func validatorRejectsDuplicateTargetID() {
+    let bundle = Fixture.bundle(programs: [
+        Fixture.program(days: [
+            Fixture.day([Fixture.target(id: Fixture.spareID)], order: 0),
+            Fixture.day([Fixture.target(id: Fixture.spareID, exerciseID: Fixture.squatID)], order: 1, name: "Dia B"),
+        ]),
+    ])
+
+    #expect(throws: SeedValidationError.duplicateTargetID(Fixture.spareID)) {
+        try SeedValidator.validate(bundle)
+    }
+}
+
 // MARK: - Helpers
 
 /// Repository root derived from this file's location:
@@ -528,48 +607,56 @@ private enum Fixture {
     }
 
     static func target(
+        id: UUID = UUID(),
         exerciseID: UUID = benchID,
         order: Int = 0,
         sets: Int = 3,
         repMin: Int = 8,
         repMax: Int = 12,
         targetRIR: Int = 2,
-        restSeconds: Int = 120
+        restSeconds: Int = 120,
+        startingLoad: Double? = nil
     ) -> ExerciseTarget {
         ExerciseTarget(
+            id: id,
             exerciseID: exerciseID,
             order: order,
             sets: sets,
             repMin: repMin,
             repMax: repMax,
             targetRIR: targetRIR,
-            restSeconds: restSeconds
+            restSeconds: restSeconds,
+            startingLoad: startingLoad
         )
     }
 
     static func day(
         _ exercises: [ExerciseTarget] = [target()],
+        id: UUID = UUID(),
         order: Int = 0,
         name: String = dayName
     ) -> ProgramDayTemplate {
-        ProgramDayTemplate(name: name, order: order, exercises: exercises)
+        ProgramDayTemplate(id: id, name: name, order: order, exercises: exercises)
     }
 
     static func program(
+        id: UUID = UUID(),
         days: [ProgramDayTemplate] = [day()],
         isActive: Bool = true,
         name: String = programName
     ) -> ProgramTemplate {
-        ProgramTemplate(name: name, days: days, isActive: isActive)
+        ProgramTemplate(id: id, name: name, days: days, isActive: isActive)
     }
 
     static func bundle(
         exercises: [ExerciseDefinition] = [exercise(), exercise(id: squatID, slug: "barbell-back-squat")],
-        programs: [ProgramTemplate] = [program()]
+        programs: [ProgramTemplate] = [program()],
+        catalogVersion: Int = 1,
+        programVersion: Int = 1
     ) -> SeedBundle {
         SeedBundle(
-            catalog: SeedExerciseCatalog(version: 1, exercises: exercises),
-            programs: SeedProgramFile(version: 1, programs: programs)
+            catalog: SeedExerciseCatalog(version: catalogVersion, exercises: exercises),
+            programs: SeedProgramFile(version: programVersion, programs: programs)
         )
     }
 }

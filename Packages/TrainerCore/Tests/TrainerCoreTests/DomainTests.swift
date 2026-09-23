@@ -170,6 +170,29 @@ func loadPreservesValueForZeroIncrement() {
     #expect(Load.round(0, toIncrement: 0) == 0)
 }
 
+@Test("P8 Load não move uma carga já na grade quando o incremento não é diádico")
+func loadKeepsOnGridValuesWithNonDyadicIncrement() {
+    // 0.3 / 0.1 is 2.999…96 in IEEE-754; a plain floor would answer 0.2.
+    #expect(Load.round(0.3, toIncrement: 0.1) == 0.3)
+    #expect(Load.round(2.3, toIncrement: 0.1) == 2.3)
+    #expect(Load.round(0.7, toIncrement: 0.1, rule: .up) == 0.7)
+    #expect(Load.round(3.3, toIncrement: 1.1) == 3.3)
+}
+
+@Test("P8 Load continua arredondando valores realmente fora da grade")
+func loadStillRoundsOffGridValues() {
+    #expect(Load.round(0.25, toIncrement: 0.1) == 0.2)
+    #expect(Load.round(54, toIncrement: 2.5) == 52.5)
+    #expect(Load.round(9, toIncrement: 2.5) == 7.5)
+    #expect(Load.round(4.5, toIncrement: 5) == 0)
+}
+
+@Test("P8 Load normaliza zero negativo")
+func loadNormalisesNegativeZero() {
+    #expect(Load.round(-0.0, toIncrement: 2.5).sign == .plus)
+    #expect(Load.round(-1, toIncrement: 2.5, rule: .up).sign == .plus)
+}
+
 private func expectCodableRoundTrip<T>(_ value: T) throws
 where T: Codable & Equatable {
     let data = try JSONEncoder().encode(value)

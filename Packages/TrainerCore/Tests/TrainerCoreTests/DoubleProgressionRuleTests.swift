@@ -65,12 +65,19 @@ private func warmup(_ load: Double, _ reps: Int) -> SetSpec {
 }
 
 /// Builds a history entry `daysAgo` days before `referenceNow`. The session ID is
-/// derived from the date so identical inputs always produce identical entries.
-private func entry(daysAgo: Double, sets: [SetSpec], wasDeload: Bool = false) -> ExerciseHistoryEntry {
+/// derived from the date so identical inputs always produce identical entries; pass
+/// `sessionID` to build two entries on the same date (SPEC P11 tie-break) or two
+/// entries of the same session (the same exercise twice in one day).
+private func entry(
+    daysAgo: Double,
+    sets: [SetSpec],
+    wasDeload: Bool = false,
+    sessionID: UUID? = nil
+) -> ExerciseHistoryEntry {
     let date = referenceNow.addingTimeInterval(-daysAgo * day)
     let stamp = String(UInt64(date.timeIntervalSince1970), radix: 16)
     let suffix = String(repeating: "0", count: max(0, 12 - stamp.count)) + stamp
-    let sessionID = UUID(uuidString: "00000000-0000-0000-0000-" + suffix)!
+    let derivedID = UUID(uuidString: "00000000-0000-0000-0000-" + suffix)!
     let results = sets.enumerated().map { offset, spec in
         SetResult(
             load: spec.load,
@@ -80,7 +87,23 @@ private func entry(daysAgo: Double, sets: [SetSpec], wasDeload: Bool = false) ->
             completedAt: date.addingTimeInterval(Double(offset) * 180)
         )
     }
-    return ExerciseHistoryEntry(sessionID: sessionID, date: date, sets: results, wasDeload: wasDeload)
+    return ExerciseHistoryEntry(
+        sessionID: sessionID ?? derivedID,
+        date: date,
+        sets: results,
+        wasDeload: wasDeload
+    )
+}
+
+/// Explicit session IDs in a group that can never collide with the date-derived ones.
+private func fixedSessionID(_ n: UInt8) -> UUID {
+    let hex = String(n, radix: 16).uppercased()
+    let suffix = String(repeating: "0", count: 12 - hex.count) + hex
+    return UUID(uuidString: "00000000-0000-0000-0001-" + suffix)!
+}
+
+private func labels<T>(of value: T) -> [String] {
+    Mirror(reflecting: value).children.compactMap(\.label)
 }
 
 private func prescribe(
@@ -137,6 +160,27 @@ func P3_referenceLoadIsModeOfWorkingSets() {
 @Test("P3 empate na moda escolhe a carga maior")
 func P3_modeTie_prefersHeavierLoad() {
     let history = [entry(daysAgo: 2, sets: [working(60, 10), working(62.5, 10)])]
+
+    #expect(prescribe(history).load == 62.5)
+}
+
+@Test("P3 a moda vence a carga da última série")
+func P3_modeDiffersFromLastSet_usesMode() {
+    // Last working set is 62.5 but 60 was used twice.
+    let history = [entry(daysAgo: 2, sets: [working(60, 10), working(60, 10), working(62.5, 10)])]
+
+    let result = prescribe(history)
+
+    #expect(result.load == 60)
+    #expect(result.targetReps == 11)
+    #expect(result.note == .hold)
+}
+
+@Test("P3 a moda vence a carga mais pesada isolada e a última série")
+func P3_modeBeatsHeaviestSingleAndLastSet() {
+    let history = [entry(daysAgo: 2, sets: [
+        working(60, 10), working(62.5, 10), working(62.5, 10), working(62.5, 10), working(65, 10),
+    ])]
 
     #expect(prescribe(history).load == 62.5)
 }
@@ -244,9 +288,9 @@ func P6_failureWithoutPreviousSession_retries() {
     #expect(result.note == .retry)
 }
 
-@Test("P6 segunda falha consecutiva na mesma carga reduz com arredondamento e piso L − inc")
+@Test("P6 segunda falha consecutiva na mesma carga reduz para min(round↓(0,9·L), L − inc)")
 func P6_secondConsecutiveFailureSameLoad_decreases() {
-    // L = 60, inc = 5: round-down(54) = 50 but the floor L − inc = 55 wins.
+    // L = 60, inc = 5: round-down(54) = 50 and L − inc = 55; the smaller, 50, wins.
     let history = [
         entry(daysAgo: 4, sets: [working(60, 7), working(60, 7), working(60, 6)]),
         entry(daysAgo: 2, sets: [working(60, 8), working(60, 7), working(60, 7)]),
@@ -254,8 +298,62 @@ func P6_secondConsecutiveFailureSameLoad_decreases() {
 
     let result = prescribe(history, exercise: makeExercise(increment: 5))
 
-    #expect(result.load == 55)
+    #expect(result.load == 50)
     #expect(result.targetReps == 8)
+    #expect(result.note == .decrease)
+}
+
+@Test("P6 exemplo da SPEC: L = 60, inc = 2,5 → 52,5")
+func P6_specExample_60by2_5_decreasesTo52_5() {
+    let history = [
+        entry(daysAgo: 4, sets: [working(60, 7), working(60, 7), working(60, 6)]),
+        entry(daysAgo: 2, sets: [working(60, 7), working(60, 7), working(60, 7)]),
+    ]
+
+    let result = prescribe(history)
+
+    #expect(result.load == 52.5)
+    #expect(result.note == .decrease)
+}
+
+@Test("P6 exemplo da SPEC: L = 10, inc = 2,5 → 7,5")
+func P6_specExample_10by2_5_decreasesTo7_5() {
+    // round-down(9) = 7.5 and L − inc = 7.5: the 10 % cut and the one-increment drop agree.
+    let history = [
+        entry(daysAgo: 4, sets: [working(10, 7), working(10, 7), working(10, 6)]),
+        entry(daysAgo: 2, sets: [working(10, 7), working(10, 7), working(10, 7)]),
+    ]
+
+    let result = prescribe(history)
+
+    #expect(result.load == 7.5)
+    #expect(result.note == .decrease)
+}
+
+@Test("P6 exemplo da SPEC: L = 5, inc = 2,5 → 2,5 pelo piso P8")
+func P6_specExample_5by2_5_floorsAt2_5() {
+    let history = [
+        entry(daysAgo: 4, sets: [working(5, 7), working(5, 7), working(5, 6)]),
+        entry(daysAgo: 2, sets: [working(5, 7), working(5, 7), working(5, 7)]),
+    ]
+
+    let result = prescribe(history)
+
+    #expect(result.load == 2.5)
+    #expect(result.note == .decrease)
+}
+
+@Test("P6 referência fora do incremento: a redução continua na grade P8")
+func P6_offIncrementReference_decreaseStaysOnGrid() {
+    // L = 6 (override, SPEC P10), inc = 2.5: base 5, round-down(5.4) = 5, base − inc = 2.5.
+    let history = [
+        entry(daysAgo: 4, sets: [working(6, 7), working(6, 7), working(6, 6)]),
+        entry(daysAgo: 2, sets: [working(6, 7), working(6, 7), working(6, 7)]),
+    ]
+
+    let result = prescribe(history)
+
+    #expect(result.load == 2.5)
     #expect(result.note == .decrease)
 }
 
@@ -274,15 +372,16 @@ func P6_secondFailureAtDifferentLoad_retries() {
 
 @Test("P6 após decrease a próxima falha na nova carga é retry, não decrease")
 func P6_failureAfterDecreaseAtNewLoad_retries() {
+    // 60 → 52.5 after two failures (P6), then a first failure at 52.5.
     let history = [
         entry(daysAgo: 6, sets: [working(60, 7), working(60, 7), working(60, 6)]),
         entry(daysAgo: 4, sets: [working(60, 7), working(60, 7), working(60, 6)]),
-        entry(daysAgo: 2, sets: [working(57.5, 7), working(57.5, 7), working(57.5, 7)]),
+        entry(daysAgo: 2, sets: [working(52.5, 7), working(52.5, 7), working(52.5, 7)]),
     ]
 
     let result = prescribe(history)
 
-    #expect(result.load == 57.5)
+    #expect(result.load == 52.5)
     #expect(result.note == .retry)
 }
 
@@ -394,6 +493,22 @@ func P8_startingLoadBelowIncrement_isRaisedToMinimum() {
     #expect(result.load == 2.5)
 }
 
+@Test("P8 séries com carga não finita são ignoradas e nunca chegam à prescrição")
+func P8_nonFiniteLoads_areIgnored() {
+    let onlyBroken = [entry(daysAgo: 2, sets: [working(.nan, 10), working(.infinity, 10)])]
+    let mixed = [entry(daysAgo: 2, sets: [working(.nan, 12), working(60, 12), working(60, 12), working(60, 12)])]
+
+    let calibrated = prescribe(onlyBroken, target: makeTarget(startingLoad: 40))
+    let increased = prescribe(mixed)
+
+    // No usable working set → SPEC P2, as if the session had never been recorded.
+    #expect(calibrated.load == 40)
+    #expect(calibrated.note == .calibrate)
+    // The broken set is dropped; the three valid ones are a full success.
+    #expect(increased.load == 62.5)
+    #expect(increased.note == .increase)
+}
+
 // MARK: - P9 returning after a pause
 
 @Test("P9 retorno após 22 dias reduz 10 % com nota returning e prevalece sobre P4")
@@ -459,6 +574,56 @@ func P9_pauseIsMeasuredFromLastEvaluableSession() {
     #expect(prescribe(history).note == .returning)
 }
 
+@Test("P9 deload recente zera a pausa; P4–P6 avaliam a última sessão normal")
+func P9_recentDeloadResetsPause_evaluatesLastNormalSession() {
+    // Normal session 25 days ago, deload 5 days ago: the exercise was trained 5 days
+    // ago, so this is not a return; the verdict comes from the normal session (P4).
+    let history = [
+        entry(daysAgo: 25, sets: [working(60, 12), working(60, 12), working(60, 12)]),
+        entry(daysAgo: 5, sets: [working(50, 8), working(50, 7)], wasDeload: true),
+    ]
+
+    let result = prescribe(history)
+
+    #expect(result.load == 62.5)
+    #expect(result.note == .increase)
+}
+
+@Test("P9 deload antigo não zera a pausa e não fornece L: retorno a partir da sessão normal")
+func P9_oldDeloadDoesNotResetPause_isReturning() {
+    // Last training of any kind was 25 days ago → returning. L is 60 (normal
+    // session), not 50 (deload): 0.9 × 60 = 54 → 52.5, whereas 0.9 × 50 would give 45.
+    let history = [
+        entry(daysAgo: 30, sets: [working(60, 12), working(60, 12), working(60, 12)]),
+        entry(daysAgo: 25, sets: [working(50, 8), working(50, 7)], wasDeload: true),
+    ]
+
+    let result = prescribe(history)
+
+    #expect(result.load == 52.5)
+    #expect(result.note == .returning)
+}
+
+@Test("P9 deload sem séries de trabalho não zera a pausa (P7)")
+func P9_deloadWithoutWorkingSets_doesNotResetPause() {
+    let history = [
+        entry(daysAgo: 25, sets: [working(60, 12), working(60, 12), working(60, 12)]),
+        entry(daysAgo: 2, sets: [warmup(20, 5)], wasDeload: true),
+    ]
+
+    #expect(prescribe(history).note == .returning)
+}
+
+@Test("P9/P3 histórico só com deload não tem carga de referência e cai em P2")
+func P9_deloadOnlyHistory_fallsBackToCalibration() {
+    let history = [entry(daysAgo: 2, sets: [working(50, 8), working(50, 8)], wasDeload: true)]
+
+    let result = prescribe(history, target: makeTarget(startingLoad: 40))
+
+    #expect(result.load == 40)
+    #expect(result.note == .calibrate)
+}
+
 // MARK: - P10 override
 
 @Test("P10 o registro real prevalece: a carga digitada vira a referência")
@@ -518,20 +683,105 @@ func P11_shuffledHistoryOrder_sameOutput() {
     #expect(newestFirst == mixed)
 }
 
+@Test("P11 datas iguais: o maior id de sessão é tratado como a mais recente")
+func P11_equalDates_higherSessionIDIsTreatedAsLatest() {
+    let success = [working(60, 12), working(60, 12), working(60, 12)]
+    let failure = [working(60, 7), working(60, 7), working(60, 7)]
+
+    // Failure carries the higher id → it is "latest"; the success before it is not a
+    // failure, so this is a first failure: retry.
+    let failureLast = [
+        entry(daysAgo: 2, sets: success, sessionID: fixedSessionID(1)),
+        entry(daysAgo: 2, sets: failure, sessionID: fixedSessionID(2)),
+    ]
+    // Swapping the ids swaps the verdict: the success is now "latest" → increase.
+    let successLast = [
+        entry(daysAgo: 2, sets: success, sessionID: fixedSessionID(2)),
+        entry(daysAgo: 2, sets: failure, sessionID: fixedSessionID(1)),
+    ]
+
+    #expect(prescribe(failureLast).note == .retry)
+    #expect(prescribe(failureLast) == prescribe(failureLast.reversed()))
+    #expect(prescribe(successLast).note == .increase)
+    #expect(prescribe(successLast) == prescribe(successLast.reversed()))
+}
+
+@Test("P11 mesmo exercício duas vezes na mesma sessão: as séries são somadas, em qualquer ordem")
+func P11_sameExerciseTwiceInOneSession_setsAreMerged() {
+    let sessionID = fixedSessionID(7)
+    let firstHalf = entry(daysAgo: 2, sets: [working(60, 12), working(60, 12), working(60, 12)], sessionID: sessionID)
+    let secondHalf = entry(daysAgo: 2, sets: [working(60, 7)], sessionID: sessionID)
+
+    let forward = prescribe([firstHalf, secondHalf])
+    let backward = prescribe([secondHalf, firstHalf])
+
+    // All four sets belong to one session: the 7-rep set makes it a failure (P6),
+    // never a success on the first three sets alone.
+    #expect(forward == backward)
+    #expect(forward.load == 60)
+    #expect(forward.note == .retry)
+}
+
+@Test("P11 reps = Int.max não trava o motor (P5 satura a meta em repMax)")
+func P11_repsAtIntMax_doesNotTrap() {
+    let history = [entry(daysAgo: 2, sets: [working(60, Int.max)])]
+
+    let result = prescribe(history)
+
+    #expect(result.load == 60)
+    #expect(result.targetReps == 12)
+    #expect(result.note == .hold)
+}
+
+@Test("P2 RIR alvo = Int.max não trava o motor (T + 1 satura)")
+func P2_targetRIRAtIntMax_doesNotTrap() {
+    let result = prescribe([], target: makeTarget(targetRIR: Int.max))
+
+    #expect(result.load == nil)
+    #expect(result.targetRIR == Int.max)
+    #expect(result.note == .calibrate)
+}
+
+@Test("P4 RIR alvo próximo de Int.max não trava e não concede o bônus")
+func P4_targetRIRNearIntMax_noBonusAndNoTrap() {
+    let history = [entry(daysAgo: 2, sets: [working(60, 12, rir: 4), working(60, 12, rir: 4), working(60, 12, rir: 4)])]
+
+    let result = prescribe(history, target: makeTarget(targetRIR: Int.max - 1))
+
+    #expect(result.load == 62.5)
+    #expect(result.note == .increase)
+}
+
 // MARK: - P12 no heart rate
 
 @Test("P12 tipos de entrada do motor não têm campo de frequência cardíaca")
 func P12_engineInputTypes_haveNoHeartRateField() {
     let set = SetResult(load: 60, reps: 10, rir: 2, completedAt: referenceNow)
     let history = ExerciseHistoryEntry(sessionID: fixedTargetID, date: referenceNow, sets: [set])
+    let summary = SessionSummary(
+        id: fixedTargetID,
+        programDayID: fixedTargetID,
+        startedAt: referenceNow,
+        status: .completed,
+        primaryMusclesTrained: [.chest],
+        workingSetCount: 3
+    )
 
-    let labels = Mirror(reflecting: set).children.compactMap(\.label)
-        + Mirror(reflecting: history).children.compactMap(\.label)
-        + Mirror(reflecting: makeTarget()).children.compactMap(\.label)
+    // AGENTS R2 names these two structs explicitly: their exact shape is pinned so
+    // any new field forces a conscious review.
+    #expect(labels(of: set) == ["load", "reps", "rir", "isWarmup", "completedAt"])
+    #expect(labels(of: history) == ["sessionID", "date", "sets", "wasDeload"])
 
-    let suspicious = labels.filter {
-        let lowered = $0.lowercased()
-        return lowered.contains("heart") || lowered.contains("bpm")
+    // Every input of `prescribe` and `nextDay` is scanned for cardiovascular vocabulary.
+    let allLabels = labels(of: set)
+        + labels(of: history)
+        + labels(of: makeTarget())
+        + labels(of: makeExercise())
+        + labels(of: summary)
+    let forbiddenTerms = ["heart", "bpm", "pulse", "cardio"]
+    let suspicious = allLabels.filter { label in
+        let lowered = label.lowercased()
+        return forbiddenTerms.contains { lowered.contains($0) }
     }
 
     #expect(suspicious.isEmpty)

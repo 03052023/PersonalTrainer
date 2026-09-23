@@ -64,13 +64,16 @@ private extension RotationSelector {
     ///
     /// Input order is not trusted: sessions are ranked by `startedAt` descending,
     /// with `id` as a deterministic tie-breaker for identical instants (SPEC P11).
+    /// The higher `uuidString` ranks as the more recent — the same convention as
+    /// `DoubleProgressionRule` and the app's `HistoryMapper`, so every engine agrees
+    /// on which of two same-instant sessions is "the last one".
     static func referenceSession(in sessions: [SessionSummary]) -> SessionSummary? {
         sessions
             .sorted { lhs, rhs in
                 if lhs.startedAt != rhs.startedAt {
                     return lhs.startedAt > rhs.startedAt
                 }
-                return lhs.id.uuidString < rhs.id.uuidString
+                return lhs.id.uuidString > rhs.id.uuidString
             }
             .first(where: movesRotation)
     }
