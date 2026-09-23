@@ -1,0 +1,231 @@
+{
+  "version": 1,
+  "programs": [
+    {
+      "id": "26262EE7-89B0-4048-93F9-1720FD9CBE40",
+      "name": "Programa ABC",
+      "isActive": true,
+      "days": [
+        {
+          "id": "72FC489D-1D0A-444D-91E6-A1C161E537FB",
+          "name": "Dia A — Superior empurrar",
+          "order": 0,
+          "exercises": [
+            {
+              "id": "29E8A320-A3CC-4B24-B76F-15D07D47C0A9",
+              "exerciseID": "44979BE9-E276-42B9-AC77-76C831062888",
+              "order": 0,
+              "sets": 3,
+              "repMin": 6,
+              "repMax": 10,
+              "targetRIR": 2,
+              "restSeconds": 180,
+              "startingLoad": null
+            },
+            {
+              "id": "CF34FDDD-96FE-4263-BEE3-D1970C270190",
+              "exerciseID": "79DD67B9-B416-4492-9080-ECF151567891",
+              "order": 1,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 120,
+              "startingLoad": null
+            },
+            {
+              "id": "4B71B8AE-A1EC-4F02-BA69-9723C798F44B",
+              "exerciseID": "A6C1ABFC-0F95-409B-A5B4-A67AB0A17B00",
+              "order": 2,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 120,
+              "startingLoad": null
+            },
+            {
+              "id": "4D2DD3D0-16E2-463B-930C-1B44913E379B",
+              "exerciseID": "ACC5492D-0E98-45D7-A0BC-41C974C15FB2",
+              "order": 3,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 120,
+              "startingLoad": null
+            },
+            {
+              "id": "43121DAC-CB10-482E-950E-CB364D72010A",
+              "exerciseID": "DA046A61-1335-48A4-A255-7E3940965DD2",
+              "order": 4,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 120,
+              "startingLoad": null
+            },
+            {
+              "id": "CA50F13D-FA57-4ADE-AAA5-A07A51E4A27F",
+              "exerciseID": "F334C89D-BA40-42DB-971F-5582A84259B5",
+              "order": 5,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 120,
+              "startingLoad": null
+            }
+          ]
+        },
+        {
+          "id": "9591928D-FB3E-4BD6-B2FA-5D9804DF930A",
+          "name": "Dia B — Inferior",
+          "order": 1,
+          "exercises": [
+            {
+              "id": "0729C57D-D98B-43AE-BB41-6BAF50CE6DD0",
+              "exerciseID": "DDA2E060-ADD5-4505-B4F1-067B7A451951",
+              "order": 0,
+              "sets": 3,
+              "repMin": 6,
+              "repMax": 10,
+              "targetRIR": 2,
+              "restSeconds": 180,
+              "startingLoad": null
+            },
+            {
+              "id": "7B229CF2-BAEA-4CE9-8615-F7EB8020B059",
+              "exerciseID": "E4A32243-EAC3-47F6-B149-BD29570E13D1",
+              "order": 1,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 120,
+              "startingLoad": null
+            },
+            {
+              "id": "51CE191C-7BC9-47DD-A1E1-502E6062ECC1",
+              "exerciseID": "7B3A13B1-8A31-4CE0-AAC3-F5429C1D1530",
+              "order": 2,
+              "sets": 3,
+              "repMin": 6,
+              "repMax": 10,
+              "targetRIR": 2,
+              "restSeconds": 180,
+              "startingLoad": null
+            },
+            {
+              "id": "43028EE9-EC46-44CF-B873-53626FB37E49",
+              "exerciseID": "AF5E71FF-6E05-4EBF-B1EB-C69E2C5FA4FE",
+              "order": 3,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 120,
+              "startingLoad": null
+            },
+            {
+              "id": "B412850B-1AB2-46D6-AF95-9EC4AA36B350",
+              "exerciseID": "2CE74B2F-3292-4289-8346-76F17F60AE56",
+              "order": 4,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 120,
+              "startingLoad": null
+            },
+            {
+              "id": "B658BAA1-01BF-4364-9FBA-B91D255B9042",
+              "exerciseID": "84822646-546B-4E54-9673-A868A06AA70D",
+              "order": 5,
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 15,
+              "targetRIR": 2,
+              "restSeconds": 120,
+              "startingLoad": null
+            }
+          ]
+        },
+        {
+          "id": "795BFEE6-B683-4DCB-844C-4609F6C21400",
+          "name": "Dia C — Superior puxar",
+          "order": 2,
+          "exercises": [
+            {
+              "id": "8BD865BB-78A2-4089-A9BC-1154A6233D34",
+              "exerciseID": "0112D559-1B6C-4E1B-A568-FAD5B05239CB",
+              "order": 0,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 120,
+              "startingLoad": null
+            },
+            {
+              "id": "4C7F48C5-C6CC-406C-89D3-ADCD82A99239",
+              "exerciseID": "3C4F420D-2967-4986-ABB6-E6611E0FCC9C",
+              "order": 1,
+              "sets": 3,
+              "repMin": 6,
+              "repMax": 10,
+              "targetRIR": 2,
+              "restSeconds": 180,
+              "startingLoad": null
+            },
+            {
+              "id": "9E331624-0068-4106-9A9C-9F66A6200698",
+              "exerciseID": "35CE0A33-0152-47EC-AFF7-A5930B5A2926",
+              "order": 2,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 120,
+              "startingLoad": null
+            },
+            {
+              "id": "71B7E870-700B-45AE-ACFA-866A82E38D40",
+              "exerciseID": "FD32CC7D-93CC-4A77-B683-E5810E6586A8",
+              "order": 3,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 120,
+              "startingLoad": null
+            },
+            {
+              "id": "39BEC7BE-1919-42BD-952F-D7DA0DF1078A",
+              "exerciseID": "D226D440-66D5-4172-9C82-462DBE23132E",
+              "order": 4,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 120,
+              "startingLoad": null
+            },
+            {
+              "id": "216B1AD6-477C-4DC9-9C05-21272E649195",
+              "exerciseID": "D41B575D-CE48-4ED6-9A79-6103D648370D",
+              "order": 5,
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 15,
+              "targetRIR": 2,
+              "restSeconds": 120,
+              "startingLoad": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
