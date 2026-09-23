@@ -9,6 +9,9 @@ import TrainerCore
 /// O double do coordinator é `private` e prefixado pela feature para não colidir com os das
 /// outras tarefas. Só previews usam `Date()` aqui: não é ViewModel nem serviço, e o timer de
 /// descanso precisa do relógio real para contar na tela do Xcode.
+///
+/// Vive em `PreviewSupport/`, fora de `Features/`, porque grava direto no `ModelContext` (só
+/// para montar a fixture); assim o grep de AGENTS R4 sobre `Features/` continua limpo.
 @MainActor
 enum SessionPreviewSupport {
     struct Fixture {
@@ -167,10 +170,12 @@ enum SessionPreviewSupport {
             return nil
         }
 
+        let notifications = FakeNotificationScheduler()
         let viewModel = ActiveSessionViewModel(
             sessionID: session.uuid,
             coordinator: coordinator,
-            restTimer: RestTimer(notifications: FakeNotificationScheduler()),
+            restTimer: RestTimer(notifications: notifications),
+            notifications: notifications,
             now: { Date() }
         )
         return Fixture(

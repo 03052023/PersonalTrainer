@@ -46,6 +46,8 @@ struct SetEntryView: View {
 
     private var completeButton: some View {
         // O frame vai no rótulo, não no botão: assim a área tocável e pintada tem ≥ 56 pt.
+        // Sem `.controlSize(.large)`: somado ao frame ele levaria o botão a ~80 pt; a meta é
+        // ~60 pt (RNF-06 pede ≥ 44), o bastante para o toque com a mão suada sem roubar a tela.
         Button(action: onComplete) {
             Text("Concluir série")
                 .font(.title3.weight(.semibold))
@@ -54,7 +56,6 @@ struct SetEntryView: View {
                 .frame(maxWidth: .infinity, minHeight: 56)
         }
         .buttonStyle(.borderedProminent)
-        .controlSize(.large)
     }
 
     // MARK: - Helpers puros (testáveis sem UI)

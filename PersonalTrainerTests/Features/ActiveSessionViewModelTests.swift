@@ -77,6 +77,7 @@ final class ActiveSessionViewModelTests: XCTestCase {
             sessionID: UUID(),
             coordinator: fixture.coordinator,
             restTimer: fixture.timer,
+            notifications: FakeNotificationScheduler(),
             now: { self.clock }
         )
 
@@ -449,6 +450,7 @@ final class ActiveSessionViewModelTests: XCTestCase {
             sessionID: fixture.session.uuid,
             coordinator: fixture.coordinator,
             restTimer: fixture.timer,
+            notifications: FakeNotificationScheduler(),
             now: { self.clock }
         )
     }

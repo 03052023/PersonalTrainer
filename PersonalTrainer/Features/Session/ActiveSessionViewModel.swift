@@ -9,7 +9,8 @@ import TrainerCore
 /// `ModelContext` (AGENTS R4): toda mutação passa por `SessionCoordinating`, que salva
 /// imediatamente (RF-06). A tela não usa `@Query` (ARCHITECTURE §15, "re-renderiza").
 ///
-/// Datas vêm sempre do closure `now` injetado (SPEC P11), nunca de `Date()`.
+/// Datas vêm sempre do closure `now` injetado (SPEC P11), nunca de `Date()`. O serviço de
+/// notificações só entra para pedir permissão na primeira série concluída (AGENTS §7).
 @Observable
 @MainActor
 final class ActiveSessionViewModel {
@@ -25,16 +26,22 @@ final class ActiveSessionViewModel {
     private(set) var isFinished: Bool = false
 
     private let coordinator: any SessionCoordinating
+    private let notifications: any NotificationScheduling
     private let now: () -> Date
+    /// A permissão de notificação é pedida uma vez por instância, na primeira série concluída
+    /// (AGENTS §7: nunca no launch). Estado interno, não de tela.
+    @ObservationIgnored private var hasRequestedNotificationAuthorization = false
 
     init(
         sessionID: UUID,
         coordinator: any SessionCoordinating,
         restTimer: RestTimer,
+        notifications: any NotificationScheduling,
         now: @escaping () -> Date
     ) {
         self.coordinator = coordinator
         self.restTimer = restTimer
+        self.notifications = notifications
         self.now = now
         let session = coordinator.session(withID: sessionID)
         self.session = session
@@ -129,6 +136,8 @@ final class ActiveSessionViewModel {
             errorMessage = message(for: error, fallback: "Não foi possível registrar a série.")
             return
         }
+
+        requestNotificationAuthorizationIfNeeded()
 
         // Aquecimento não inicia descanso: o usuário segue direto para a próxima série.
         if !draft.isWarmup, exercise.restSeconds > 0 {
@@ -270,6 +279,23 @@ final class ActiveSessionViewModel {
             targetRIR: exercise.prescribedRIR,
             note: exercise.note ?? .hold
         )
+    }
+
+    // MARK: - Notificações
+
+    /// AGENTS §7: a permissão é pedida na primeira ação que precisa dela — a primeira série
+    /// concluída, a partir da qual o timer de descanso passa a agendar avisos (RF-05) —, nunca
+    /// no launch. Só depois de a série estar gravada, para o pedido nunca atrasar o registro
+    /// (RNF-02). O resultado não muda o fluxo: sem permissão o timer segue em primeiro plano.
+    private func requestNotificationAuthorizationIfNeeded() {
+        guard !hasRequestedNotificationAuthorization else {
+            return
+        }
+        hasRequestedNotificationAuthorization = true
+        let notifications = self.notifications
+        Task {
+            _ = await notifications.requestAuthorization()
+        }
     }
 
     // MARK: - Erros

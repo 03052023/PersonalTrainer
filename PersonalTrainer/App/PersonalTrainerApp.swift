@@ -1,13 +1,18 @@
 import SwiftUI
 
-/// Ponto de entrada do app iPhone. Em M0 mostra apenas o placeholder (TASKS.md T0.1);
-/// `AppEnvironment` e o container SwiftData entram em tarefas posteriores.
+/// Ponto de entrada do app iPhone (T1.1). Monta o `AppEnvironment` real uma vez por processo
+/// (store persistente + seed do bundle, ARCHITECTURE §11) e o injeta nas views: `.environment`
+/// para os serviços e `.modelContainer` para os `@Query` do histórico (ARCHITECTURE §3).
 @main
 @MainActor
 struct PersonalTrainerApp: App {
+    @State private var environment = AppEnvironment.live()
+
     var body: some Scene {
         WindowGroup {
-            RootPlaceholderView()
+            RootView()
+                .environment(environment)
+                .modelContainer(environment.modelContainer)
         }
     }
 }
