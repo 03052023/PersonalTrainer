@@ -32,6 +32,47 @@ final class MapperTests: XCTestCase {
         XCTAssertEqual(roundTripped, definition)
     }
 
+    func testExerciseMapper_movementPatternAndIsCustom_roundTrip() throws {
+        let container = try ModelContainerFactory.make(.inMemory)
+        let context = container.mainContext
+        let definition = ExerciseDefinition(
+            id: UUID(),
+            slug: "supino-maquina-do-usuario",
+            name: "Supino na máquina (meu)",
+            primaryMuscles: [.chest],
+            secondaryMuscles: [.triceps],
+            equipment: .machine,
+            loadUnit: .plates,
+            loadIncrement: 1,
+            isUnilateral: false,
+            machineNotes: nil,
+            movementPattern: .horizontalPush,
+            isCustom: true
+        )
+
+        let model = ExerciseMapper.model(from: definition)
+        XCTAssertEqual(model.movementPatternRaw, "horizontalPush")
+        XCTAssertTrue(model.isCustom)
+        XCTAssertFalse(model.isArchived)
+        context.insert(model)
+        try context.save()
+
+        let stored = try XCTUnwrap(context.fetch(FetchDescriptor<ExerciseModel>()).first)
+        XCTAssertEqual(try ExerciseMapper.definition(from: stored), definition)
+    }
+
+    func testExerciseMapper_unknownMovementPatternRaw_mapsToNilWithoutThrowing() throws {
+        let container = try ModelContainerFactory.make(.inMemory)
+        let model = ExerciseMapper.model(from: sampleDefinition())
+        container.mainContext.insert(model)
+        model.movementPatternRaw = "teleport"
+
+        // Padrão é opcional e só alimenta o "Trocar" (RF-34): raw desconhecido não é erro.
+        let definition = try ExerciseMapper.definition(from: model)
+        XCTAssertNil(definition.movementPattern)
+        XCTAssertFalse(definition.isCustom)
+    }
+
     func testExerciseMapper_unknownEquipmentRaw_throws() {
         let model = ExerciseMapper.model(from: sampleDefinition())
         model.equipmentRaw = "hologram"
@@ -140,9 +181,53 @@ final class MapperTests: XCTestCase {
                     ]
                 ),
             ],
-            isActive: true
+            isActive: true,
+            // `goalRaw` nasce "hypertrophy" (SchemaV2): o mapper devolve o objetivo explícito.
+            goal: .hypertrophy
         )
         XCTAssertEqual(template, expected)
+    }
+
+    func testProgramMapper_goalAndSummary_roundTrip() throws {
+        let container = try ModelContainerFactory.make(.inMemory)
+        let context = container.mainContext
+        let program = ProgramModel(
+            uuid: UUID(),
+            name: "Força",
+            isActive: false,
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            goalRaw: ProgramGoal.strength.rawValue,
+            summary: "Básicos pesados, 3×/semana"
+        )
+        context.insert(program)
+        try context.save()
+
+        let template = try ProgramMapper.template(from: program)
+        XCTAssertEqual(template.goal, .strength)
+        XCTAssertEqual(template.summary, "Básicos pesados, 3×/semana")
+
+        let rebuilt = try ProgramMapper.model(from: template, exercises: [:], createdAt: program.createdAt)
+        XCTAssertEqual(rebuilt.goalRaw, "strength")
+        XCTAssertEqual(rebuilt.summary, "Básicos pesados, 3×/semana")
+    }
+
+    func testProgramMapper_unknownGoalRaw_mapsToNilGoalWithoutThrowing() throws {
+        let container = try ModelContainerFactory.make(.inMemory)
+        let context = container.mainContext
+        let program = ProgramModel(
+            uuid: UUID(),
+            name: "Futuro",
+            isActive: false,
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            goalRaw: "parkour"
+        )
+        context.insert(program)
+        try context.save()
+
+        // Objetivo gravado por versão futura não pode impedir o planejamento: `nil` = hipertrofia.
+        let template = try ProgramMapper.template(from: program)
+        XCTAssertNil(template.goal)
+        XCTAssertEqual(template.effectiveGoal, .hypertrophy)
     }
 
     func testProgramMapper_missingExerciseRelation_throws() throws {
