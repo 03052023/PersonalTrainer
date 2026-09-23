@@ -124,7 +124,7 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 ### Tarefas M1
 
-- [~] **T1.1 [CI] AppEnvironment, injeção e navegação raiz** — G1 — contratos em `main` (commit c3cedc1: `AppEnvironment`, `SessionPlanning`, `SessionCoordinating`, `SetDraft`); `RootView` e fábricas `live()`/`preview()` ficam com o integrador
+- [~] **T1.1 [CI] AppEnvironment, injeção e navegação raiz** — G1 — escrito e integrado (contratos c3cedc1; `RootView`, `AppEnvironment+Factories`, `PersonalTrainerApp` em 19bca44; correções 34476f2); aguarda run verde de "App build (manual)"
   - Escopo: `PersonalTrainer/App/AppEnvironment.swift`, `App/RootView.swift`, `App/PersonalTrainerApp.swift` (substituir placeholder).
   - Fazer: `AppEnvironment` (`@Observable`, `@MainActor`) segurando container, `SessionCoordinator`, `SessionPlanner`, serviços (fakes por padrão em DEBUG/simulador); `TabView` Home · Histórico; `.modelContainer`.
   - Depende de: T0.5, T0.8. Interfaces de `SessionCoordinator`/`SessionPlanner` são definidas aqui como protocolos vazios para que T1.2/T1.3 preencham em paralelo.
@@ -166,7 +166,7 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
   - Depende de: T0.8 (protocolo). Totalmente paralelizável.
   - Aceite: CA1-3 (parte timer); timer correto após app em background por 2 min.
 
-- [ ] **T1.8 [CI] Finalizar sessão + resumo** — G4
+- [~] **T1.8 [CI] Finalizar sessão + resumo** — G4 — `SessionFlowView` + `SessionSummaryView` (19bca44/34476f2); aguarda run verde
   - Escopo: `Features/Session/SessionSummaryView.swift`, `Features/Session/ActiveSessionViewModel+Finish.swift`.
   - Fazer: emitir `sessionFinished`, mostrar resumo (duração, séries de trabalho, exercícios pulados), botão Fechar → Home recalcula.
   - Depende de: T1.5.
@@ -184,7 +184,7 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
   - Depende de: T0.5, T0.6, T0.9.
   - Aceite: rodar duas vezes não duplica; teste in-memory.
 
-- [ ] **T1.11 [CI] Teste de integração do loop completo** — G4
+- [~] **T1.11 [CI] Teste de integração do loop completo** — G4 — `PersonalTrainerTests/Integration/FullLoopTests.swift` cobre P4, P5, P6, sessão dupla e exercício pulado (CA1-5, CA1-6); aguarda run verde
   - Escopo: `PersonalTrainerTests/Integration/FullLoopTests.swift`.
   - Fazer: seed → plano A → iniciar → registrar 3×12 em um exercício com `startingLoad` 40 → finalizar → plano B → … → plano A de novo → afirmar carga 42,5 e nota `increase`; variante de falha dupla → `decrease`.
   - Depende de: T1.2, T1.3, T1.10.
@@ -194,6 +194,15 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
   - Escopo: nenhum arquivo; anotar achados em `TASKS.md` seção "Achados de campo".
   - Depende de: tudo de M1.
   - Aceite: CA1-1 a CA1-9 marcados manualmente.
+
+### Achados da revisão do M1 (2026-09-23) — decisões pendentes do arquiteto
+
+- **Meta de reps não chega à tela (SPEC P5).** `SessionExerciseModel` não guarda `ExercisePrescription.targetReps`; a 1ª série pré-preenche `repMin` mesmo em `hold`. Correção exige **SchemaV2** (`prescribedTargetReps`) + coordinator copiando o valor + `makeDraft`. Vira tarefa `[SCHEMA]` em M2 (T2.11).
+- **Calibração começa em 0 kg** (seed sem `startingLoad`): "Concluir série" fica habilitado com 0 kg. Decidir: bloquear quando `prescribedLoad == nil && load == 0` (exceto `bodyweight`) ou pedir a carga explicitamente. Candidata a T2.8b.
+- **Sem "voltar" com sessão ativa.** Da sessão só se sai finalizando ou abandonando; "Retomar" hoje só ocorre ao relançar o app. Decidir se M2 ganha um botão "Voltar" que mantém a sessão `inProgress`.
+- **Store persistente falhou → cai em memória em silêncio** (logado). Decidir se M2 mostra aviso "dados não estão sendo salvos".
+- **Duas linhas iguais de prescrição** (`CurrentExercisePanel` e `SetEntryView`) após a correção C2; polimento de layout.
+- **A confirmar no CI:** `SeedLoader` insere o grafo do programa pela raiz (ProgramMapper monta relações antes do insert); `TEST_HOST` do bundle de testes precisa ser o app para `Bundle.main` conter os JSON do seed.
 
 ---
 

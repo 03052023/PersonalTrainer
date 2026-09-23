@@ -383,9 +383,10 @@ PersonalTrainer/                        ← raiz do repo (Windows: C:\Users\leon
 │       ├── Sources/TrainerCore/{Domain,Engine,Sync,Summary}/
 │       └── Tests/TrainerCoreTests/
 ├── PersonalTrainer/                     (target iOS — XcodeGen inclui a pasta inteira, exceto Support/)
-│   ├── App/            PersonalTrainerApp.swift · RootPlaceholderView.swift · (T1.1) AppEnvironment.swift · RootView.swift
-│   ├── Features/       Home/ · Session/ · History/ · Catalog/ · Program/ · Settings/
-│   ├── Services/       HealthKit/ · WatchSync/ · Notifications/ · (T1.x) Planning/ · Session/ · RestTimer/ · Seed/ · Backup/
+│   ├── App/            PersonalTrainerApp.swift · AppEnvironment.swift · AppEnvironment+Factories.swift · RootView.swift
+│   ├── Features/       Home/ · Session/ · History/ · (M2) Catalog/ · Program/ · Settings/
+│   ├── PreviewSupport/ doubles privados de SessionPlanning/SessionCoordinating para #Preview (fora de Features/ para o grep R4 ficar limpo)
+│   ├── Services/       Planning/ · Session/ · RestTimer/ · Seed/ · Notifications/ · HealthKit/ · WatchSync/ · (M2) Backup/
 │   ├── Persistence/    Schema/{SchemaV1,CurrentSchema}.swift · MigrationPlan.swift · ModelContainerFactory.swift · Mappers/ · Repositories/
 │   ├── Resources/      Seed/exercises.v1.json · Seed/program-default.v1.json · (Assets.xcassets)
 │   └── Support/        PersonalTrainer.entitlements · Info.plist (gerado, fora do Git)
