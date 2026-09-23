@@ -232,6 +232,8 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 - [ ] **T2.6 [CI] Edição de programa** — G2 — Escopo: `Features/Program/*`, `Persistence/Repositories/ProgramRepository.swift`. Depende de: T0.5, T2.5 (picker de exercício). Aceite: CA2-4.
 - [ ] **T2.7 [CI] Painel de frequência semanal** — G2 — Escopo: `Features/Home/WeeklyFrequencyCard.swift`, `Features/Settings/WeeklyTargetsView.swift`. Depende de: T2.3. Aceite: CA2-6.
 - [x] **T2.8 Regra P9 (retorno após pausa)** — G1 — entregue dentro de T0.3 (2026-09-22). CA2-7 coberto por teste de tabela.
+- [ ] **T2.11 [SCHEMA][CI] SchemaV2: objetivo do programa e meta de reps no snapshot** — Escopo: `Persistence/Schema/SchemaV2.swift`, `MigrationPlan.swift` (estágio leve V1→V2), `Domain/ProgramGoal.swift` (TrainerCore: `hypertrophy`, `strength`, `endurance` + tabela de padrões da SPEC §7.9), `ProgramModel.goalRaw` (padrão `hypertrophy`), `SessionExerciseModel.prescribedTargetReps` (copiado pelo coordinator; `makeDraft` passa a usar). Testes: migração abre store V1 de fixture; draft da 1ª série usa `targetReps` em `hold`. Resolve o achado "meta de reps não chega à tela".
+- [ ] **T2.12 [CI] Escolha do objetivo na edição de programa** — Escopo: `Features/Program/GoalPicker.swift`, ajuste em T2.6. Depende de: T2.11.
 - [ ] **T2.9 [CI] Substituir exercício + editar/excluir série + abandonar** — G2 — Escopo: `Features/Session/ExercisePickerSheet.swift`, `Features/Session/SetEditSheet.swift`, ajustes em `ActiveSessionViewModel`. Eventos já existem (T1.3). Depende de: T1.5, T2.5. Aceite: CA2-3, CA2-8.
 - [ ] **T2.10 [CI] Resumo enriquecido + gráfico de carga por exercício** — G3 — Escopo: `Features/History/ExerciseProgressChart.swift` (Swift Charts), `SessionSummaryView` com tonelagem e FC. Depende de: T2.2, T2.3.
 
@@ -290,6 +292,9 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 - [ ] **T4.1 FrequencyAwareSelector** — Escopo: `Engine/FrequencyAwareSelector.swift` + testes. Depende de: T0.4, T2.3. Sem Mac.
 - [ ] **T4.2 DeloadPolicy** — Escopo: `Engine/DeloadPolicy.swift`, ajuste em `DoubleProgressionRule` para ignorar entradas `wasDeload` + testes. Depende de: T0.3. Sem Mac.
 - [ ] **T4.3 ProgramRotationPolicy** — Escopo: `Engine/ProgramRotationPolicy.swift` + testes. Depende de: T0.2. Sem Mac.
+- [ ] **T4.5 Revisão periódica em TrainerCore (SPEC §7.8 R1–R5, R7)** — Escopo: `Engine/Review/EstimatedOneRepMax.swift`, `Engine/Review/ReviewReport.swift`, `Engine/Review/ProgramReviewer.swift` + testes de tabela por regra. Entradas: histórico por exercício, `SessionSummary`s, programa, objetivo, `now`. Saída: `ReviewReport` com sinais e `[ProgramSuggestion]` (deload, volume ±, troca de exercício/faixa, frequência), cada uma com motivo e números. Sem Mac.
+- [ ] **T4.6 Sinais secundários do HealthKit (SPEC §7.8 R6)** — Escopo: `Services/HealthKit/LiveHealthKitService+Recovery.swift` (HRV, FC de repouso, sono: médias 7 vs 28 dias), `Engine/Review/RecoveryContext.swift` (struct só com tendências agregadas, sem amostras), modulação das sugestões + testes. Depende de: T4.5, T2.1. Nunca toca `ProgressionRule`.
+- [ ] **T4.7 [CI] Tela de sugestões na abertura** — Escopo: `Features/Review/*`, `Services/Review/ReviewScheduler.swift` (a cada `reviewIntervalWeeks`, ou gatilho de deload), aplicação de sugestões aceitas via `ProgramRepository`. Recusar mantém o programa; cada decisão fica registrada. Depende de: T4.5, T2.6.
 - [ ] **T4.4 [CI] Integrar políticas no SessionPlanner + configurações** — Escopo: `SessionPlanner.swift`, `Features/Settings/ProgramPolicyView.swift`, `Features/Home/PlannerReasonBanner.swift`. Depende de: T4.1–T4.3. Aceite: CA4-5.
 
 ---

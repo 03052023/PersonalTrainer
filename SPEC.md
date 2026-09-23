@@ -194,6 +194,34 @@ FC **nunca é usada para**: prescrever carga, séries ou repetições; decidir d
 
 Motivo: em musculação, FC reflete descanso, cafeína, temperatura e estresse muito mais do que prontidão muscular. Usá-la para carga produziria prescrições erráticas e não determinísticas na prática.
 
+### 7.8 Revisão periódica e sugestões de programa (M4)
+
+Segundo nível de recalibração, além do ajuste por sessão (§7.2): a cada `reviewIntervalWeeks` (padrão 4) ou por gatilho de deload (§7.5), o app calcula um **relatório de revisão** e, na próxima abertura, apresenta **sugestões** que o usuário aceita ou recusa. Recusar mantém tudo como está. Nada muda sozinho.
+
+| Regra | Descrição |
+|-------|-----------|
+| **R1 Desempenho** | Por exercício, 1RM estimado por sessão = carga × (1 + reps/30) (Epley) sobre a melhor série de trabalho. Estagnação = sem aumento do melhor 1RM estimado em 3 sessões consecutivas do exercício. |
+| **R2 Fadiga** | Sinais: proporção de séries de trabalho com RIR 0 nas últimas 2 semanas > 30 %; ≥ 50 % dos exercícios com nota `decrease` ou `retry` (§7.5 a). |
+| **R3 Volume** | Séries de trabalho por grupo primário por semana, comparadas à faixa alvo do objetivo do programa (§7.9). Abaixo → sugerir +1 série por exercício do grupo (máx. +2 por revisão); acima do teto com fadiga (R2) → sugerir −1. |
+| **R4 Aderência** | Sessões concluídas por semana vs. dias do programa; se < 70 % em 4 semanas, sugerir programa com menos dias antes de sugerir mais volume. |
+| **R5 Sugestões** | Deload (R2 verdadeiro, ou R1 em ≥ 50 % dos exercícios); troca de exercício ou de faixa de repetições (R1 em um exercício por 2 revisões seguidas); ajuste de volume (R3); mudança de frequência (R4). Cada sugestão traz o motivo em uma frase e os números que a geraram. |
+| **R6 Sinais secundários do HealthKit** | Tendência de HRV e de FC de repouso (média de 7 dias vs. 28 dias) e horas de sono, quando disponíveis. Só **modulam** sugestões já geradas por R1–R4: HRV em queda ≥ 10 % reforça deload; HRV estável ou em alta enfraquece (a sugestão vira "opcional"). Nunca geram sugestão sozinhos, nunca alteram carga de série (P12). |
+| **R7 Determinismo** | Mesmo histórico → mesmo relatório. IA (M5) só redige explicações e alternativas a partir do relatório pronto. |
+
+Base: autorregulação por RIR/RPE (Zourdos 2016; Helms 2016); dose-resposta de volume (Schoenfeld 2017); frequência ≥ 2×/semana por grupo (Schoenfeld 2016; Grgic 2018); HRV como marcador de recuperação com evidência moderada, majoritariamente em endurance, por isso secundário aqui.
+
+### 7.9 Objetivo do programa (M2)
+
+Cada programa tem um `goal`: `hypertrophy` (padrão), `strength` ou `endurance`. O objetivo define os padrões usados pelo seed, pela edição de programa e pela revisão (§7.8):
+
+| Objetivo | Faixa de reps | RIR alvo | Volume alvo por grupo/semana (séries de trabalho) | Descanso |
+|----------|---------------|----------|---------------------------------------------------|----------|
+| Hipertrofia | 6–12 (compostos), 8–15 (isolados) | 1–3 | 10–20 | 90–180 s |
+| Força | 3–6 | 1–3 | 6–12 | 180–300 s |
+| Resistência muscular | 12–20 | 2–4 | 8–16 | 60–90 s |
+
+Progresso por objetivo é medido por desempenho (1RM estimado, volume) e aderência; composição corporal só entra por registro manual ou peso corporal do HealthKit, como contexto.
+
 ### 7.7 Determinismo e IA
 
 O motor (progressão + seleção + deload) é código puro em Swift, testado por casos de tabela. IA (M5) só recebe um **pacote de análise** exportado e devolve **sugestões de alteração de programa** que o usuário aplica manualmente ou importa como novo programa. A IA nunca escreve no banco durante uma sessão.
