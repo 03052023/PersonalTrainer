@@ -1,0 +1,99 @@
+# Build manual do app iPhone + companion watchOS em runner macOS padrão (ARCHITECTURE ADR 008).
+# Sem segredos e sem credenciais Apple: o IPA sai sem assinatura Apple e é reassinado localmente.
+# Antes de executar, confirmar o orçamento de US$ 0 do GitHub Actions (WINDOWS_SETUP.md).
+name: App build (manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: app-build
+  cancel-in-progress: true
+defaults:
+  run:
+    # `shell: bash` explícito ativa -o pipefail (o padrão implícito é só `bash -e`).
+    shell: bash
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+        run: |
+          brew install xcodegen
+          xcodegen --version
+      - name: Generate Xcode project
+        run: |
+          xcodegen generate --spec project.yml
+          test -d PersonalTrainer.xcodeproj
+          test -f PersonalTrainer/Support/Info.plist
+          test -f PersonalTrainerWatch/Support/Info.plist
+      - name: Select iPhone simulator
+        id: simulator
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          listing = subprocess.run(
+              ["xcrun", "simctl", "list", "-j", "devices", "available"],
+              check=True, capture_output=True, text=True,
+          ).stdout
+          devices = json.loads(listing)["devices"]
+          marker = ".SimRuntime.iOS-"
+          candidates = []
+          for runtime, entries in devices.items():
+              if marker not in runtime:
+                  continue
+              version = tuple(int(part) for part in runtime.split(marker, 1)[1].split("-") if part.isdigit())
+              for device in entries:
+                  name = device.get("name", "")
+                  if not device.get("isAvailable") or not name.startswith("iPhone"):
+                      continue
+                  is_base_model = not any(token in name for token in ("Pro", "Max", "Plus", "Air", "mini", "SE"))
+                  candidates.append((version, is_base_model, name, device["udid"]))
+          if not candidates:
+              print("::error::Nenhum simulador iPhone disponível no runner")
+              print(listing)
+              sys.exit(1)
+          # Runtime iOS mais novo primeiro; entre eles, prefere o modelo base.
+          candidates.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
+          version, _, name, udid = candidates[0]
+          print(f"Simulador escolhido: {name} ({udid}), iOS {'.'.join(str(n) for n in version)}")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"udid={udid}\nname={name}\n")
+          PY
+      - name: Test on simulator
+        env:
+          SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
+        run: |
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          if command -v xcbeautify >/dev/null 2>&1; then
+            pretty=(xcbeautify --renderer github-actions)
+          else
+            pretty=(cat)
+          fi
+          xcodebuild test -project PersonalTrainer.xcodeproj -scheme PersonalTrainer -configuration Debug \
+            -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
+            -derivedDataPath build/app/DerivedData \
+            -resultBundlePath build/app/TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO 2>&1 | "${pretty[@]}"
+      - name: Build unsigned device IPA
+        run: bash Scripts/build-app.sh
+      - name: Keep package for local re-signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: PersonalTrainer-for-resigning
+          path: |
+            build/app/PersonalTrainer-for-resigning.ipa
+            build/app/SHA256.txt
+            build/app/SOURCE_COMMIT.txt
+            build/app/XCODE_VERSION.txt
+          if-no-files-found: error
+          retention-days: 3
