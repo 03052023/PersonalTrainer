@@ -20,7 +20,10 @@ A instalação gratuita dos apps ainda precisa ser comprovada nos aparelhos: rot
 - [x] Documentação (SPEC, ARCHITECTURE, TASKS, AGENTS) alinhada com a implementação.
 - [x] `TrainerCore`: domínio, motor de progressão (P1–P12), rotação (S1–S4), resumos, DTOs de sync, seed — **186 testes passando no Windows**.
 - [x] App: esquema SwiftData V1, mappers, protocolos e fakes, projeto `project.yml`, workflows de CI — **compilados e testados no GitHub Actions em 2026-09-23** (repositório público `03052023/PersonalTrainer`; os três workflows verdes).
-- [x] **M0 fechado.** Próximo: M1 (Home, sessão ativa, registro de séries, timer, histórico), depois a instalação no iPhone (T0.0 V3–V5, ver WINDOWS_SETUP.md).
+- [x] **M0 fechado.**
+- [x] **M1 verde no CI (2026-09-23):** Home com o treino do dia, sessão ativa com registro de séries e timer de descanso, resumo ao finalizar, histórico, seed automático; teste de ponta a ponta cobrindo P4/P5/P6. Instalador em cada run de "App build (manual)".
+- [ ] **Próximo:** instalar no iPhone (T0.0 V3–V5 e T1.12, ver WINDOWS_SETUP.md); depois M2 (HealthKit, edição, backup).
+- Decisões de 2026-09-23: sem IA em nenhuma fase; M5 passa a ser saúde aeróbica e recuperação (SPEC §7.10).
 
 ## Requisitos de desenvolvimento
 
