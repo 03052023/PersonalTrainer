@@ -45,20 +45,9 @@
               "startingLoad": null
             },
             {
-              "id": "4D2DD3D0-16E2-463B-930C-1B44913E379B",
-              "exerciseID": "ACC5492D-0E98-45D7-A0BC-41C974C15FB2",
-              "order": 3,
-              "sets": 3,
-              "repMin": 8,
-              "repMax": 12,
-              "targetRIR": 2,
-              "restSeconds": 120,
-              "startingLoad": null
-            },
-            {
               "id": "43121DAC-CB10-482E-950E-CB364D72010A",
               "exerciseID": "DA046A61-1335-48A4-A255-7E3940965DD2",
-              "order": 4,
+              "order": 3,
               "sets": 3,
               "repMin": 8,
               "repMax": 12,
@@ -69,7 +58,7 @@
             {
               "id": "CA50F13D-FA57-4ADE-AAA5-A07A51E4A27F",
               "exerciseID": "F334C89D-BA40-42DB-971F-5582A84259B5",
-              "order": 5,
+              "order": 4,
               "sets": 3,
               "repMin": 8,
               "repMax": 12,
@@ -96,20 +85,9 @@
               "startingLoad": null
             },
             {
-              "id": "7B229CF2-BAEA-4CE9-8615-F7EB8020B059",
-              "exerciseID": "E4A32243-EAC3-47F6-B149-BD29570E13D1",
-              "order": 1,
-              "sets": 3,
-              "repMin": 8,
-              "repMax": 12,
-              "targetRIR": 2,
-              "restSeconds": 120,
-              "startingLoad": null
-            },
-            {
               "id": "51CE191C-7BC9-47DD-A1E1-502E6062ECC1",
               "exerciseID": "7B3A13B1-8A31-4CE0-AAC3-F5429C1D1530",
-              "order": 2,
+              "order": 1,
               "sets": 3,
               "repMin": 6,
               "repMax": 10,
@@ -120,7 +98,7 @@
             {
               "id": "43028EE9-EC46-44CF-B873-53626FB37E49",
               "exerciseID": "AF5E71FF-6E05-4EBF-B1EB-C69E2C5FA4FE",
-              "order": 3,
+              "order": 2,
               "sets": 3,
               "repMin": 8,
               "repMax": 12,
@@ -131,7 +109,7 @@
             {
               "id": "B412850B-1AB2-46D6-AF95-9EC4AA36B350",
               "exerciseID": "2CE74B2F-3292-4289-8346-76F17F60AE56",
-              "order": 4,
+              "order": 3,
               "sets": 3,
               "repMin": 8,
               "repMax": 12,
@@ -142,7 +120,7 @@
             {
               "id": "B658BAA1-01BF-4364-9FBA-B91D255B9042",
               "exerciseID": "84822646-546B-4E54-9673-A868A06AA70D",
-              "order": 5,
+              "order": 4,
               "sets": 3,
               "repMin": 12,
               "repMax": 15,
@@ -202,20 +180,9 @@
               "startingLoad": null
             },
             {
-              "id": "39BEC7BE-1919-42BD-952F-D7DA0DF1078A",
-              "exerciseID": "D226D440-66D5-4172-9C82-462DBE23132E",
-              "order": 4,
-              "sets": 3,
-              "repMin": 8,
-              "repMax": 12,
-              "targetRIR": 2,
-              "restSeconds": 120,
-              "startingLoad": null
-            },
-            {
               "id": "216B1AD6-477C-4DC9-9C05-21272E649195",
               "exerciseID": "D41B575D-CE48-4ED6-9A79-6103D648370D",
-              "order": 5,
+              "order": 4,
               "sets": 3,
               "repMin": 12,
               "repMax": 15,

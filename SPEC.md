@@ -218,13 +218,27 @@ Base: autorregulação por RIR/RPE (Zourdos 2016; Helms 2016); dose-resposta de 
 
 ### 7.9 Objetivo do programa (M2)
 
-Cada programa tem um `goal`: `hypertrophy` (padrão), `strength` ou `endurance`. O objetivo define os padrões usados pelo seed, pela edição de programa e pela revisão (§7.8):
+Cada programa tem um `goal`: `hypertrophy` (padrão), `strength`, `endurance` ou `longevity`. Todo programa gerado por padrão tem **5 exercícios por dia** (decisão do usuário, 2026-09-23); o usuário pode adicionar ou remover na edição. O objetivo define os padrões usados pelo seed, pela edição de programa e pela revisão (§7.8):
 
 | Objetivo | Faixa de reps | RIR alvo | Volume alvo por grupo/semana (séries de trabalho) | Descanso |
 |----------|---------------|----------|---------------------------------------------------|----------|
 | Hipertrofia | 6–12 (compostos), 8–15 (isolados) | 1–3 | 10–20 | 90–180 s |
 | Força | 3–6 | 1–3 | 6–12 | 180–300 s |
 | Resistência muscular | 12–20 | 2–4 | 8–16 | 60–90 s |
+| Longevidade | 8–15 | 2–3 | 6–12 | 90–120 s |
+
+**Longevidade** = saúde geral e envelhecimento com autonomia. Além da musculação acima, ativa metas semanais com base científica sólida, acompanhadas no painel de saúde (§7.10):
+
+| Componente | Meta padrão | Base |
+|------------|-------------|------|
+| Força | 2–3 sessões/semana, todos os grandes grupos | OMS 2020 (≥ 2 dias/semana); menor mortalidade com 30–60 min/semana de força (Momma 2022) |
+| Aeróbico | 150–300 min moderados-equivalentes, com ≥ 1 sessão vigorosa quando possível | OMS 2020; VO2max é forte preditor de mortalidade (Mandsager 2018) |
+| Equilíbrio | 2–3×/semana, em rotinas curtas (apoio unipodal, caminhada em linha) | OMS 2020 para ≥ 65 anos; reduz quedas (Sherrington 2019, Cochrane) |
+| Mobilidade/flexibilidade | 2–3×/semana, 5–10 min | ACSM: melhora amplitude de movimento; efeito fraco em prevenção de lesão, por isso sugestão leve |
+| Passos | ≥ 7.000/dia | Menor mortalidade até ~7.000–10.000 passos (Paluch 2022) |
+| Sono | 7–9 h | Consenso AASM/SRS |
+
+Equilíbrio e mobilidade aparecem como blocos opcionais de 5–10 min no fim do treino ou em dias livres; o app só registra "feito/não feito". Passos, aeróbico, VO2max e sono vêm do HealthKit. Nada disso altera a prescrição de carga (P12).
 
 Progresso por objetivo é medido por desempenho (1RM estimado, volume) e aderência; composição corporal só entra por registro manual ou peso corporal do HealthKit, como contexto.
 

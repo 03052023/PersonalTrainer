@@ -74,12 +74,12 @@ func seedDefaultProgramHasThreeOrderedDays() throws {
     #expect(program.days.map(\.order) == [0, 1, 2])
 }
 
-@Test("Seed cada dia do programa padrão tem 5 a 6 exercícios em ordem 0..n-1")
+@Test("Seed cada dia do programa padrão tem 5 exercícios em ordem 0..n-1")
 func seedDefaultProgramDaysHaveFiveToSixExercises() throws {
     let program = try #require(loadSeedBundle().programs.programs.first)
 
     for day in program.days {
-        #expect((5...6).contains(day.exercises.count), "\(day.name)")
+        #expect(day.exercises.count == 5, "\(day.name)")
         #expect(day.exercises.map(\.order) == Array(0..<day.exercises.count), "\(day.name)")
     }
 }

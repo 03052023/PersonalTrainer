@@ -35,7 +35,7 @@ final class SeedLoaderTests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<ExerciseModel>()), 45)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramModel>()), 1)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramDayModel>()), 3)
-        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramExerciseModel>()), 18)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramExerciseModel>()), 15)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<UserSettingsModel>()), 1)
     }
 
@@ -73,7 +73,7 @@ final class SeedLoaderTests: XCTestCase {
         let days = program.days.sorted { $0.order < $1.order }
         XCTAssertEqual(days.map(\.order), [0, 1, 2])
         for day in days {
-            XCTAssertEqual(day.exercises.count, 6, day.name)
+            XCTAssertEqual(day.exercises.count, 5, day.name)
             XCTAssertEqual(day.program?.uuid, program.uuid, day.name)
             for programExercise in day.exercises {
                 XCTAssertNotNil(programExercise.exercise, "\(day.name) · order \(programExercise.order)")
@@ -123,7 +123,7 @@ final class SeedLoaderTests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<ExerciseModel>()), 45)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramModel>()), 1)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramDayModel>()), 3)
-        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramExerciseModel>()), 18)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramExerciseModel>()), 15)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<UserSettingsModel>()), 1)
     }
 
@@ -200,7 +200,7 @@ final class SeedLoaderTests: XCTestCase {
         // O programa já existia: o seed não o reinstala nem duplica.
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramModel>()), 1)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramDayModel>()), 3)
-        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramExerciseModel>()), 18)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramExerciseModel>()), 15)
     }
 
     func testLoadIfNeeded_existingProgram_isLeftUntouched() throws {
