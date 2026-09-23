@@ -254,6 +254,8 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 ## M3 — Apple Watch
 
+**Adiado em 2026-09-23 por decisão do usuário** (o app próprio do relógio fica para outra versão; o Watch continua sendo usado via app Exercício e HealthKit).
+
 **Objetivo:** treinar só com o relógio, iPhone no armário. FC ao vivo. Zero perda ou duplicação de séries.
 
 **Pré-condição (2026-09-22):** M3 só começa depois de T0.0 V3–V5 aprovados no aparelho (instalação do companion pelo Windows, leitura de FC no relógio, renovação semanal). Enquanto isso, a FC vem do app Exercício nativo do Watch via HealthKit (SPEC §7.6, ADR 010) e o app do Watch é opcional. Se V3–V5 falharem, M3 fica suspenso e M4 segue normalmente.
@@ -286,7 +288,11 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 ---
 
-## M4 — Inteligência de programa
+## M4 — Inteligência de programa e diálogo
+
+**Entra na versão 2 (2026-09-23), junto com M2 e M5.** Inclui o diálogo do app (SPEC §7.11 C1–C8, RF-37..RF-39). Parte de cálculo (TrainerCore) começa em paralelo; telas e integração na rodada final.
+
+- [~] **T4.8 [CI] Diálogo do app (SPEC §7.11)** — Services/Coach/CoachFeedBuilder.swift (junta revisão, deload, saúde, validade da instalação, retomada, marcos, backup, longevidade), Services/Coach/CoachLogStore.swift (decisões em JSON, cadência/silêncio), Services/Coach/ProvisioningExpiryReader.swift (lê ExpirationDate do embedded.mobileprovision; notificação na véspera), Features/Coach/* (feed na Home, destaque na abertura, ações).
 
 **Objetivo:** seleção por frequência, deload automático, troca de programa ao fim do mesociclo. Tudo em `TrainerCore` com testes; UI mínima.
 
@@ -302,12 +308,12 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 ### Tarefas M4
 
-- [ ] **T4.1 FrequencyAwareSelector** — Escopo: `Engine/FrequencyAwareSelector.swift` + testes. Depende de: T0.4, T2.3. Sem Mac.
-- [ ] **T4.2 DeloadPolicy** — Escopo: `Engine/DeloadPolicy.swift`, ajuste em `DoubleProgressionRule` para ignorar entradas `wasDeload` + testes. Depende de: T0.3. Sem Mac.
-- [ ] **T4.3 ProgramRotationPolicy** — Escopo: `Engine/ProgramRotationPolicy.swift` + testes. Depende de: T0.2. Sem Mac.
-- [ ] **T4.5 Revisão periódica em TrainerCore (SPEC §7.8 R1–R5, R7)** — Escopo: `Sources/TrainerCore/Review/EstimatedOneRepMax.swift`, `Review/ReviewReport.swift`, `Review/ProgramSuggestion.swift`, `Review/ProgramReviewer.swift` + testes de tabela por regra. Entradas: histórico por exercício, `SessionSummary`s, programa, objetivo, `now`. Saída: `ReviewReport` com sinais e `[ProgramSuggestion]` (deload, volume ±, troca de exercício/faixa, frequência), cada uma com regra, motivo e números. `Review/` é módulo separado de `Engine/` (que continua sem qualquer referência a FC, R2). Sem Mac.
-- [ ] **T4.7 [CI] Tela de sugestões na abertura** — Escopo: `Features/Review/*`, `Services/Review/ReviewScheduler.swift` (a cada `reviewIntervalWeeks`, ou gatilho de deload), aplicação de sugestões aceitas via `ProgramRepository`. Recusar mantém o programa; cada decisão fica registrada. Depende de: T4.5, T2.6. A modulação por recuperação (R6) chega em T5.4.
-- [ ] **T4.4 [CI] Integrar políticas no SessionPlanner + configurações** — Escopo: `SessionPlanner.swift`, `Features/Settings/ProgramPolicyView.swift`, `Features/Home/PlannerReasonBanner.swift`. Depende de: T4.1–T4.3. Aceite: CA4-5.
+- [~] **T4.1 FrequencyAwareSelector** — Escopo: `Engine/FrequencyAwareSelector.swift` + testes. Depende de: T0.4, T2.3. Sem Mac.
+- [~] **T4.2 DeloadPolicy** — Escopo: `Engine/DeloadPolicy.swift`, ajuste em `DoubleProgressionRule` para ignorar entradas `wasDeload` + testes. Depende de: T0.3. Sem Mac.
+- [~] **T4.3 ProgramRotationPolicy** — Escopo: `Engine/ProgramRotationPolicy.swift` + testes. Depende de: T0.2. Sem Mac.
+- [~] **T4.5 Revisão periódica em TrainerCore (SPEC §7.8 R1–R5, R7)** — Escopo: `Sources/TrainerCore/Review/EstimatedOneRepMax.swift`, `Review/ReviewReport.swift`, `Review/ProgramSuggestion.swift`, `Review/ProgramReviewer.swift` + testes de tabela por regra. Entradas: histórico por exercício, `SessionSummary`s, programa, objetivo, `now`. Saída: `ReviewReport` com sinais e `[ProgramSuggestion]` (deload, volume ±, troca de exercício/faixa, frequência), cada uma com regra, motivo e números. `Review/` é módulo separado de `Engine/` (que continua sem qualquer referência a FC, R2). Sem Mac.
+- [~] **T4.7 [CI] Tela de sugestões na abertura** — Escopo: `Features/Review/*`, `Services/Review/ReviewScheduler.swift` (a cada `reviewIntervalWeeks`, ou gatilho de deload), aplicação de sugestões aceitas via `ProgramRepository`. Recusar mantém o programa; cada decisão fica registrada. Depende de: T4.5, T2.6. A modulação por recuperação (R6) chega em T5.4.
+- [~] **T4.4 [CI] Integrar políticas no SessionPlanner + configurações** — Escopo: `SessionPlanner.swift`, `Features/Settings/ProgramPolicyView.swift`, `Features/Home/PlannerReasonBanner.swift`. Depende de: T4.1–T4.3. Aceite: CA4-5.
 
 ---
 

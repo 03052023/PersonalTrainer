@@ -126,6 +126,9 @@ Backend, contas, sync em nuvem/CloudKit, funções sociais, nutrição, prescri�
 | RF-33 | Adicionar e remover exercícios de cada dia manualmente (5 é só o padrão; mínimo 1, máximo 10). | M2 |
 | RF-34 | Botão "Trocar" em cada exercício (na sessão e na edição): oferece substitutos do catálogo com o **mesmo padrão de movimento** e mesmo grupo primário (ex.: supino reto com barra → supino com halteres → supino na máquina → flexão), ordenados por semelhança; na sessão vale só para aquele treino, na edição fica no programa. O histórico de carga de cada exercício é separado (P3); o substituto começa em calibração se nunca foi feito. | M2 |
 | RF-35 | Hipertrofia com três formatos de divisão: **completo** (todo o corpo equilibrado, padrão ABC), **foco inferior** (glúteos e pernas com mais volume, superior em manutenção) e **foco superior** (peito, ombros, braços e costas com mais volume, inferior em manutenção). Volume do foco no topo da faixa de §7.9; manutenção ≈ 1/3 do volume (Bickel 2011). | M2 |
+| RF-37 | Diálogo do app (§7.11 C1–C8): feed de mensagens na Home, destaque na abertura, ações aceitar/recusar, registro de decisões. | M4 (nesta versão) |
+| RF-38 | Deload automático com opção de desfazer (§7.5, §7.11 C1): sessões marcadas `isDeload`, prescrição reduzida, ignoradas pela progressão. | M4 (nesta versão) |
+| RF-39 | Seleção do próximo dia por frequência semanal e recuperação de 48 h (S5–S7), ativável em Ajustes (padrão: ligado quando o programa tem ≥ 4 dias). | M4 (nesta versão) |
 | RF-36 | Programas com qualquer número de dias (A, B, C, D, E… de 1 a 7): adicionar, remover, renomear e reordenar dias na edição de programa; a rotação (S1–S2) já funciona com N dias. Programas do seed podem ter 4 ou 5 dias quando o objetivo pede (ex.: foco inferior/superior, combate com dia de condicionamento), sempre com frequência ≥ 2×/semana por grupo quando possível (Schoenfeld 2016). | M2 |
 | RF-32 | Botão "Por quê?" em notas de prescrição, metas e sugestões, mostrando a regra e as referências científicas completas do catálogo `references.v1.json` (§7.9). | M2 (catálogo e notas), cresce a cada milestone |
 
@@ -272,6 +275,23 @@ Só leitura do HealthKit; o aeróbico é feito com o app Exercício do Apple Wat
 | **A5 Encaixe sem interferência** | Ao sugerir aeróbico para completar a meta: preferir dias sem treino de inferior; se no mesmo dia, sugerir ≥ 6 h de intervalo e modalidade de baixo impacto (bicicleta, caminhada) em vez de corrida; nunca sugerir vigoroso nas 24 h antes de um dia de inferior. Base: meta-análises de treino concorrente (Wilson 2012; Schumann 2022) mostram que a interferência na hipertrofia e força é pequena e depende de volume, modalidade e proximidade das sessões. |
 | **A6 Determinismo** | Regras fixas e testadas; sugestões trazem o motivo e os números. |
 
+### 7.11 Diálogo do app com o usuário (M4, entregue com M2 e M5)
+
+O app conversa com o usuário por **mensagens** curtas, geradas por regras determinísticas, exibidas na abertura (se houver algo novo e importante) e numa seção da Home. Cada mensagem tem título, uma frase de motivo com os números, botão "Por quê?" (referências) e ações. Nada muda sem o usuário ver; ações que alteram o programa pedem confirmação.
+
+| Regra | Mensagem | Ações | Cadência |
+|-------|----------|-------|----------|
+| **C1 Deload** | Gatilhos de §7.5 (≥ 50 % dos exercícios com `decrease`, ou N semanas desde o último deload, padrão 6) → "Semana mais leve programada" com o motivo. O deload é **aplicado automaticamente** na próxima passagem da rotação, com opção de desfazer. | "Ok" / "Seguir normal" | Quando dispara |
+| **C2 Revisão periódica** | Sugestões de §7.8 (R1–R6): mais/menos séries por grupo, trocar exercício ou faixa de reps após estagnação, reduzir dias se a aderência cair, trocar de programa após o mesociclo (padrão 8 semanas, preservando cargas). | "Aplicar" / "Agora não" / "Não sugerir mais isto" | A cada 4 semanas ou gatilho |
+| **C3 Saúde** | Sugestões de §7.10 (usar o Watch à noite, caminhada/corrida de 20 min ao ar livre para o VO2máx, completar minutos de aeróbico evitando a véspera de pernas, sono baixo, recuperação em queda, passos). | "Entendi" / "Lembrar amanhã" | Diária, no máximo 1 por tipo a cada 3 dias |
+| **C4 Validade da instalação** | Lê a data de expiração do perfil de assinatura embutido no app; 2 dias antes: "O app expira em 2 dias; renove pelo Impactor" + notificação local na véspera. | "Como renovar" | Diária nos últimos 2 dias |
+| **C5 Retomada** | ≥ 6 dias sem sessão → "Bom te ver de volta" com o próximo dia e, se ≥ 21 dias, aviso de que as cargas vêm reduzidas (P9). | "Começar" | Ao abrir |
+| **C6 Marco pessoal** | Novo melhor 1RM estimado de um exercício (Epley), em tom de progresso, sem linguagem de academia. | "Ver evolução" | Por sessão |
+| **C7 Backup** | Último backup há ≥ 14 dias (ou nunca, com ≥ 5 sessões) → lembrete. | "Fazer backup" / "Depois" | Semanal |
+| **C8 Longevidade** | Com objetivo Longevidade: lembrete leve de equilíbrio e mobilidade (5–10 min) se não marcados na semana; registra "feito". | "Feito" / "Pular" | Semanal |
+
+Mensagens dispensadas respeitam a cadência (não voltam antes); "Não sugerir mais isto" silencia a regra para aquele item. Decisões ficam registradas localmente (log JSON) para auditoria e para não repetir.
+
 ### 7.7 Determinismo
 
 Motor de prescrição (§7.2, §7.3), políticas de programa (§7.5, §7.8) e saúde (§7.10) são código puro em Swift, testados por casos de tabela, sem aleatoriedade e sem IA. O usuário sempre vê a regra e os números por trás de qualquer número ou sugestão.
@@ -297,7 +317,7 @@ Sem HealthKit, sem Watch, sem edição de programa, sem exportação. Isso já e
 
 ## 10. Fases
 
-Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → M2 robustez + HealthKit + edição + backup → M3 Apple Watch (opcional, condicionado à instalação) → M4 inteligência de programa (deload, frequência, revisão periódica) → M5 saúde aeróbica e recuperação.
+Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → **versão 2 = M2 (objetivos, edição, backup, HealthKit) + M4 (deload, frequência, revisão periódica, diálogo) + M5 (saúde aeróbica e recuperação) + identidade visual** → M3 app do Apple Watch (adiado por decisão do usuário em 2026-09-23).
 
 ## 11. Decisões já tomadas
 
