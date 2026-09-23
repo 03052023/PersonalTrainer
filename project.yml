@@ -71,7 +71,7 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         # HealthKit (ARCHITECTURE §8, AR-6): strings obrigatórias definidas já em M0.
-        NSHealthShareUsageDescription: "O Personal lê seus treinos e suas amostras de frequência cardíaca no app Saúde para mostrar o resumo de cada sessão. Os dados ficam só neste aparelho."
+        NSHealthShareUsageDescription: "O Personal lê do app Saúde seus treinos, frequência cardíaca, VO2máx, variabilidade da frequência cardíaca, frequência cardíaca em repouso, sono, passos e data de nascimento/sexo (opcionais) para mostrar o resumo de cada sessão, seus minutos de aeróbico e sua recuperação. Os dados ficam só neste aparelho."
         NSHealthUpdateUsageDescription: "O Personal grava cada sessão de musculação concluída como um treino no app Saúde."
     settings:
       base:

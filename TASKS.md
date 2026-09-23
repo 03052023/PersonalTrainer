@@ -1,4 +1,4 @@
-# TASKS — Plano de execução
+﻿# TASKS — Plano de execução
 
 Versão 0.1 · 2026-09-22. Regras em [SPEC.md](SPEC.md), desenho em [ARCHITECTURE.md](ARCHITECTURE.md), conduta dos agentes em [AGENTS.md](AGENTS.md).
 
@@ -313,6 +313,8 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 ## M5 — Saúde aeróbica e recuperação (SPEC §7.10)
 
+**Antecipado em 2026-09-23 a pedido do usuário:** construído em paralelo com o M2 e entregue na mesma versão (antes de M3 e M4). Depende do HealthKit funcionar no aparelho com a instalação pelo Impactor (verificado no primeiro treino finalizado).
+
 **Objetivo:** o app lê do HealthKit o que o Watch já mede (treinos aeróbicos, FC, VO2max, HRV, FC de repouso, sono) e devolve três coisas: minutos aeróbicos da semana contra a meta, tendência de VO2max e recuperação, e sugestões práticas ("use o Watch à noite", "caminhe 20 min ao ar livre", "faça o aeróbico na quinta, não na véspera de pernas"). Sem IA. Nada aqui grava no HealthKit nem altera a musculação.
 
 **Critérios de aceitação M5**
@@ -326,10 +328,10 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 | CA5-5 | Sugestão de encaixe nunca cai na véspera ou no dia de um treino de inferior (teste A5). |
 | CA5-6 | Nenhuma referência a FC em `Packages/TrainerCore/Sources/TrainerCore/Engine` (`check-boundaries.sh` continua verde). |
 
-- [ ] **T5.1 Regras de saúde em TrainerCore (A1–A6)** — Escopo: `Sources/TrainerCore/Health/HeartRateZones.swift` (FCmáx Tanaka, limiares ACSM, zonas), `Health/AerobicWeek.swift` (minutos por intensidade a partir de intervalos de FC já agregados por treino), `Health/Vo2MaxTrend.swift` (tendência + tabela de referência por idade/sexo), `Health/RecoveryTrend.swift` (médias 7 vs 28 dias, alertas), `Health/HealthSuggestions.swift` (A3, A4, A5 com o calendário do programa) + testes de tabela. Entradas são structs simples (`AerobicWorkoutSummary`, `DailyRecoverySample`); nada de HealthKit aqui. Sem Mac.
-- [ ] **T5.2 [CI] Leitura de saúde no HealthKit** — Escopo: `Services/HealthKit/LiveHealthKitService+Health.swift` (+ protocolo e fake): treinos aeróbicos dos últimos 28 dias com amostras de FC agregadas por minuto, `vo2Max` (180 dias), `heartRateVariabilitySDNN`, `restingHeartRate`, `sleepAnalysis`, `dateOfBirth`/`biologicalSex` (só para FCmáx e faixa de VO2max; opcional se negado). Depende de: T2.1.
-- [ ] **T5.3 [CI] Card "Saúde" e tela de detalhe** — Escopo: `Features/Health/*` (card na Home, tela com semana aeróbica, VO2max, recuperação, lista de sugestões com "ok, entendi"). Depende de: T5.1, T5.2.
-- [ ] **T5.4 Modulação da revisão por recuperação (SPEC §7.8 R6)** — Escopo: `Sources/TrainerCore/Review/RecoveryContext.swift` (só tendências agregadas), ajuste em `ProgramReviewer` + testes. Depende de: T4.5, T5.1. Nunca toca `Engine/`.
+- [~] **T5.1 Regras de saúde em TrainerCore (A1–A6)** — Escopo: `Sources/TrainerCore/Health/HeartRateZones.swift` (FCmáx Tanaka, limiares ACSM, zonas), `Health/AerobicWeek.swift` (minutos por intensidade a partir de intervalos de FC já agregados por treino), `Health/Vo2MaxTrend.swift` (tendência + tabela de referência por idade/sexo), `Health/RecoveryTrend.swift` (médias 7 vs 28 dias, alertas), `Health/HealthSuggestions.swift` (A3, A4, A5 com o calendário do programa) + testes de tabela. Entradas são structs simples (`AerobicWorkoutSummary`, `DailyRecoverySample`); nada de HealthKit aqui. Sem Mac.
+- [~] **T5.2 [CI] Leitura de saúde no HealthKit** — Escopo: `Services/HealthKit/LiveHealthKitService+Health.swift` (+ protocolo e fake): treinos aeróbicos dos últimos 28 dias com amostras de FC agregadas por minuto, `vo2Max` (180 dias), `heartRateVariabilitySDNN`, `restingHeartRate`, `sleepAnalysis`, `dateOfBirth`/`biologicalSex` (só para FCmáx e faixa de VO2max; opcional se negado). Depende de: T2.1.
+- [~] **T5.3 [CI] Card "Saúde" e tela de detalhe** — Escopo: `Features/Health/*` (card na Home, tela com semana aeróbica, VO2max, recuperação, lista de sugestões com "ok, entendi"). Depende de: T5.1, T5.2.
+- [~] **T5.4 Modulação da revisão por recuperação (SPEC §7.8 R6)** — Escopo: `Sources/TrainerCore/Review/RecoveryContext.swift` (só tendências agregadas), ajuste em `ProgramReviewer` + testes. Depende de: T4.5, T5.1. Nunca toca `Engine/`.
 
 ---
 
