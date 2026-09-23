@@ -31,10 +31,10 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 | CA0-3 | O IPA do job contém `Payload/PersonalTrainer.app/Watch/PersonalTrainerWatch.app` com os dois executáveis; os apps mostram "Personal — em construção". | ✔ verificado por `Scripts/build-app.sh` no mesmo run (texto dos placeholders só será visto no aparelho, V3) |
 | CA0-4 | Entitlement HealthKit e strings `NSHealthShareUsageDescription`/`NSHealthUpdateUsageDescription` presentes nos dois targets; `WKBackgroundModes` contém `workout-processing` (verificado por `Scripts/build-app.sh`). | ✔ mesmo run |
 | CA0-5 | `ModelContainerFactory.make(.inMemory)` abre `SchemaV1` em teste XCTest e insere/lê um `WorkoutSessionModel` com um `SetLogModel`. | ✔ PersonalTrainerTests no simulador, mesmo run |
-
-**M0 fechado em 2026-09-23** (exceto T0.0 V3–V5, que dependem do aparelho e seguem como pré-condição de M3).
 | CA0-6 | `Scripts/check-boundaries.sh` passa (R1–R3). | ✔ |
 | CA0-7 | `ActiveSessionSnapshot` e `SessionEvent` fazem round-trip JSON em teste e rejeitam `schemaVersion` maior que o suportado. | ✔ |
+
+**M0 fechado em 2026-09-23** (exceto T0.0 V3–V5, que dependem do aparelho e seguem como pré-condição de M3).
 
 ### Tarefas M0
 
@@ -124,43 +124,43 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 ### Tarefas M1
 
-- [ ] **T1.1 [CI] AppEnvironment, injeção e navegação raiz** — G1
+- [~] **T1.1 [CI] AppEnvironment, injeção e navegação raiz** — G1 — contratos em `main` (commit c3cedc1: `AppEnvironment`, `SessionPlanning`, `SessionCoordinating`, `SetDraft`); `RootView` e fábricas `live()`/`preview()` ficam com o integrador
   - Escopo: `PersonalTrainer/App/AppEnvironment.swift`, `App/RootView.swift`, `App/PersonalTrainerApp.swift` (substituir placeholder).
   - Fazer: `AppEnvironment` (`@Observable`, `@MainActor`) segurando container, `SessionCoordinator`, `SessionPlanner`, serviços (fakes por padrão em DEBUG/simulador); `TabView` Home · Histórico; `.modelContainer`.
   - Depende de: T0.5, T0.8. Interfaces de `SessionCoordinator`/`SessionPlanner` são definidas aqui como protocolos vazios para que T1.2/T1.3 preencham em paralelo.
   - Aceite: app abre em duas abas vazias.
 
-- [ ] **T1.2 [CI] SessionPlanner** — G2
+- [~] **T1.2 [CI] SessionPlanner** — G2 — `task/T1.2-planner`
   - Escopo: `Services/Planning/SessionPlanner.swift`, `PersonalTrainerTests/Services/SessionPlannerTests.swift`.
   - Fazer: `nextPlan() -> SessionPlan` (DTO: dia + prescrições, sem gravar) e `startSession(from plan) -> UUID` (cria `WorkoutSessionModel` com snapshots via evento `sessionStarted`). Usa `RotationSelector` + `DoubleProgressionRule` + mappers. Recusa iniciar se já há `inProgress`.
   - Depende de: T0.3, T0.4, T0.9, T1.1.
   - Aceite: teste: seed in-memory → `nextPlan()` retorna Dia A com cargas `nil`/`startingLoad`.
 
-- [ ] **T1.3 [CI] SessionCoordinator** — G2
+- [~] **T1.3 [CI] SessionCoordinator** — G2 — `task/T1.3-coordinator`
   - Escopo: `Services/Session/SessionCoordinator.swift`, `Services/Session/AppliedEventStore.swift`, `PersonalTrainerTests/Services/SessionCoordinatorTests.swift`.
   - Fazer: `apply(_:)` para todos os `SessionEvent.Kind` (M1 usa `sessionStarted`, `setLogged`, `exerciseSkipped`, `sessionFinished`, `sessionAbandoned`; os demais implementados mas sem UI); `save()` imediato; dedup por `event.id`; `AsyncStream<SessionEvent>` `eventsApplied`; `activeSession() -> WorkoutSessionModel?`.
   - Depende de: T0.5, T0.7, T1.1.
   - Aceite: teste por `Kind`; teste de idempotência; teste de que `setLogged` está no disco após `apply` (reabrir contexto).
 
-- [ ] **T1.4 [CI] Tela Home** — G3
+- [~] **T1.4 [CI] Tela Home** — G3 — `task/T1.4-home`
   - Escopo: `Features/Home/HomeView.swift`, `Features/Home/HomeViewModel.swift`, `Features/Home/PrescriptionRow.swift`.
   - Fazer: card "Próximo treino: <dia>", lista de `PrescriptionRow`, botão Iniciar/Retomar. Formatação pt-BR ("60 kg", "3 × 8–12", "RIR 2", "2 min"). A Home **não** conhece `ActiveSessionView`: expõe `onStart(sessionID)` e quem liga Home → Sessão é `RootView` (T1.8), evitando dependência com T1.5 dentro do mesmo grupo paralelo.
   - Depende de: T1.2, T1.3.
   - Aceite: CA1-1, CA1-2 (navegação).
 
-- [ ] **T1.5 [CI] Tela de sessão ativa (estrutura)** — G3
+- [~] **T1.5 [CI] Tela de sessão ativa (estrutura)** — G3 — `task/T1.5-active-session`
   - Escopo: `Features/Session/ActiveSessionView.swift`, `Features/Session/ActiveSessionViewModel.swift`, `Features/Session/ExerciseProgressList.swift`.
   - Fazer: ViewModel mantém estado em memória da sessão (não `@Query`), lista de exercícios com progresso "2/3", exercício atual destacado, botões Pular / Finalizar (com confirmação). Delega registro de série ao componente T1.6 via closure e ao coordinator via evento.
   - Depende de: T1.3. Pode rodar em paralelo com T1.4 e T1.6 usando dados de preview.
   - Aceite: CA1-4, CA1-6 (fluxo), CA1-9.
 
-- [ ] **T1.6 [CI] Componente de registro de série** — G3
+- [~] **T1.6 [CI] Componente de registro de série** — G3 — `task/T1.6-set-entry`
   - Escopo: `Features/Session/SetEntryView.swift`, `Features/Session/LoadStepper.swift`, `Features/Session/RIRPicker.swift`.
   - Fazer: view pura (entrada: `SetDraft`; saída: `onComplete(SetDraft)`), steppers grandes de carga (passo = `loadIncrement`, toque longo acelera) e reps, seletor RIR 0–5 em segmentos, toggle aquecimento, botão **Concluir série** ≥ 56 pt. Sem acesso a coordinator/SwiftData.
   - Depende de: T0.2 apenas. Totalmente paralelizável.
   - Aceite: previews com Dynamic Type XXL sem quebra; RNF-06.
 
-- [ ] **T1.7 [CI] Timer de descanso** — G3
+- [~] **T1.7 [CI] Timer de descanso** — G3 — `task/T1.7-rest-timer`
   - Escopo: `Services/RestTimer/RestTimer.swift`, `Features/Session/RestTimerView.swift`, `Services/Notifications/LiveNotificationScheduler.swift`.
   - Fazer: `RestTimer` `@Observable` baseado em `endDate`; agenda `UNNotificationRequest` ao iniciar, cancela ao pular; haptic ao zerar em primeiro plano; view compacta (anel + "1:32" + botões +30 s / Pular). Pedir permissão de notificação na primeira vez.
   - Depende de: T0.8 (protocolo). Totalmente paralelizável.
@@ -172,13 +172,13 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
   - Depende de: T1.5.
   - Aceite: CA1-5 (fluxo).
 
-- [ ] **T1.9 [CI] Histórico (lista + detalhe)** — G3
+- [~] **T1.9 [CI] Histórico (lista + detalhe)** — G3 — `task/T1.9-history`
   - Escopo: `Features/History/HistoryListView.swift`, `Features/History/SessionDetailView.swift`.
   - Fazer: `@Query` de `WorkoutSessionModel` ordenado por `startedAt` desc; linha com dia, data, duração, nº séries; detalhe com exercícios e séries "60 kg × 10 @ RIR 2", pulados marcados.
   - Depende de: T0.5. Paralelizável com toda a G3.
   - Aceite: CA1-7.
 
-- [ ] **T1.10 [CI] SeedLoader no primeiro launch** — G2
+- [~] **T1.10 [CI] SeedLoader no primeiro launch** — G2 — `task/T1.10-seed-loader`
   - Escopo: `Services/Seed/SeedLoader.swift`, `Persistence/Mappers/ProgramMapper.swift` (adicionar `ProgramTemplate → ProgramModel` com lookup `[UUID: ExerciseModel]`), `PersonalTrainerTests/Services/SeedLoaderTests.swift`.
   - Fazer: ler JSONs do bundle (`SeedBundle.decode` + `SeedValidator.validate`), upsert de exercícios por `slug` preservando edições do usuário, inserir o programa ativo se não existir, criar `UserSettingsModel`, gravar `schemaSeedVersion`; idempotente. O `project.yml` já inclui `PersonalTrainer/Resources/**` como recursos do target.
   - Depende de: T0.5, T0.6, T0.9.
