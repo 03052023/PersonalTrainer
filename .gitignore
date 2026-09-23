@@ -1,3 +1,9 @@
+# Projeto principal gerado por XcodeGen a partir de project.yml (T0.1): não versionar
+/PersonalTrainer.xcodeproj
+/PersonalTrainer/Support/Info.plist
+/PersonalTrainerWatch/Support/Info.plist
+/build/
+
 # Xcode
 *.xcodeproj/xcuserdata/
 *.xcodeproj/project.xcworkspace/xcuserdata/

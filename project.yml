@@ -1,0 +1,142 @@
+# project.yml — fonte única do PersonalTrainer.xcodeproj (T0.1).
+#
+# O .xcodeproj NÃO é versionado: `xcodegen generate` o recria no runner macOS (ver
+# .github/workflows/app-build.yml). Como o projeto é regenerado a partir do disco em todo
+# build, qualquer arquivo novo em PersonalTrainer/, PersonalTrainerWatch/ ou
+# PersonalTrainerTests/ entra no target certo sem editar project.pbxproj — o mesmo efeito
+# das synchronized folders previstas em ARCHITECTURE §2, sem conflito de merge entre agentes.
+#
+# Chaves conforme XcodeGen Docs/ProjectSpec.md (Options, Target, Target Source, Dependency,
+# Swift Package, Plist, Target Scheme). Os Info.plist são gerados em */Support/Info.plist e
+# ficam fora do Git; os .entitlements são versionados e referenciados por CODE_SIGN_ENTITLEMENTS.
+name: PersonalTrainer
+
+options:
+  bundleIdPrefix: com.personaltrainer
+  xcodeVersion: "26.0"
+  developmentLanguage: pt-BR
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "18.0"
+    watchOS: "11.0"
+
+configs:
+  Debug: debug
+  Release: release
+
+# Swift 6 language mode com strict concurrency em todos os targets (ARCHITECTURE §2).
+# DEVELOPMENT_TEAM vazio: o build no CI é sem assinatura; a reassinatura acontece localmente.
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+
+packages:
+  TrainerCore:
+    path: Packages/TrainerCore
+
+targets:
+  PersonalTrainer:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: PersonalTrainer
+        excludes:
+          # Info.plist gerado e .entitlements não entram em nenhuma build phase.
+          - "Support/**"
+    dependencies:
+      # Watch app de target único: XcodeGen cria a fase "Embed Watch Content" (…/Watch)
+      # porque o alvo dependente é um app com platform watchOS. Não usar supportedDestinations.
+      - target: PersonalTrainerWatch
+      - package: TrainerCore
+        product: TrainerCore
+    info:
+      path: PersonalTrainer/Support/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: pt-BR
+        CFBundleDisplayName: Personal
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+          UISceneConfigurations: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        # HealthKit (ARCHITECTURE §8, AR-6): strings obrigatórias definidas já em M0.
+        NSHealthShareUsageDescription: "O Personal lê seus treinos e suas amostras de frequência cardíaca no app Saúde para mostrar o resumo de cada sessão. Os dados ficam só neste aparelho."
+        NSHealthUpdateUsageDescription: "O Personal grava cada sessão de musculação concluída como um treino no app Saúde."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.personaltrainer.app
+        CODE_SIGN_ENTITLEMENTS: PersonalTrainer/Support/PersonalTrainer.entitlements
+        GENERATE_INFOPLIST_FILE: "NO"
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+    scheme:
+      testTargets:
+        - PersonalTrainerTests
+      gatherCoverageData: true
+
+  PersonalTrainerWatch:
+    type: application
+    platform: watchOS
+    deploymentTarget: "11.0"
+    sources:
+      - path: PersonalTrainerWatch
+        excludes:
+          - "Support/**"
+    dependencies:
+      - package: TrainerCore
+        product: TrainerCore
+    info:
+      path: PersonalTrainerWatch/Support/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: pt-BR
+        CFBundleDisplayName: Personal
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        # Companion de target único (watchOS 7+). Nunca adicionar NSExtension aqui: o instalador
+        # passaria a exigir o app em PlugIns/ ("Foundation extension … PlugIns directory").
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: com.personaltrainer.app
+        WKRunsIndependentlyOfCompanionApp: false
+        # Sessão de treino ativa em segundo plano (ARCHITECTURE §9, AR-7; CA0-4).
+        WKBackgroundModes:
+          - workout-processing
+        NSHealthShareUsageDescription: "O Personal lê sua frequência cardíaca durante o treino para mostrá-la ao vivo e no resumo da sessão."
+        NSHealthUpdateUsageDescription: "O Personal grava a sessão de treino em andamento como um treino no app Saúde."
+    settings:
+      base:
+        # Descendente do bundle ID do app iOS, separado por ponto (exigência do instalador).
+        PRODUCT_BUNDLE_IDENTIFIER: com.personaltrainer.app.watchkitapp
+        CODE_SIGN_ENTITLEMENTS: PersonalTrainerWatch/Support/PersonalTrainerWatch.entitlements
+        GENERATE_INFOPLIST_FILE: "NO"
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+
+  PersonalTrainerTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: PersonalTrainerTests
+    dependencies:
+      # TEST_HOST/BUNDLE_LOADER são definidos automaticamente pelo XcodeGen a partir desta dependência.
+      - target: PersonalTrainer
+      - package: TrainerCore
+        product: TrainerCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.personaltrainer.app.tests
+        GENERATE_INFOPLIST_FILE: "YES"
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete

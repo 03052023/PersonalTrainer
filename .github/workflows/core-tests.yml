@@ -1,0 +1,34 @@
+# Testes do pacote TrainerCore (Swift puro) em Linux + verificação de fronteiras (AGENTS.md R1–R3).
+# Roda só quando o pacote, o script de fronteira ou este workflow mudam.
+name: Core tests
+on:
+  push:
+    paths:
+      - "Packages/**"
+      - "Scripts/check-boundaries.sh"
+      - ".github/workflows/core-tests.yml"
+  pull_request:
+    paths:
+      - "Packages/**"
+      - "Scripts/check-boundaries.sh"
+      - ".github/workflows/core-tests.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: core-tests-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # Package.swift usa swift-tools-version 6.0 e swiftLanguageMode(.v6): qualquer toolchain ≥ 6.0.
+    container: swift:6.1
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check TrainerCore boundaries
+        run: bash Scripts/check-boundaries.sh
+      - name: Swift version
+        run: swift --version
+      - name: Test TrainerCore
+        run: swift test --package-path Packages/TrainerCore
