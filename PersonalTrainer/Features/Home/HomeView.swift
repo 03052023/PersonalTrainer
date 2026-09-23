@@ -1,25 +1,35 @@
 import SwiftUI
+import TrainerCore
 
-/// Tela inicial (SPEC F1, RF-01, RF-02): próximo treino e botão Iniciar/Retomar.
+/// Tela inicial (SPEC F1, RF-01, RF-02, S4, RF-17, RF-32): próximo treino (com menu para
+/// escolher outro dia), selo do objetivo, painel "Esta semana" e botão Iniciar/Retomar.
 ///
 /// A Home não conhece `ActiveSessionView` (TASKS T1.4): devolve o `uuid` da sessão em
-/// `onOpenSession` e o `RootView` decide para onde navegar. O ViewModel chega por `init`;
-/// nada aqui lê o `AppEnvironment` do ambiente nem escreve no `ModelContext` (AGENTS R4).
+/// `onOpenSession` e o `RootView` decide para onde navegar. O ViewModel e o catálogo de
+/// referências chegam por `init`; nada aqui lê o `AppEnvironment` do ambiente nem escreve no
+/// `ModelContext` (AGENTS R4). O `WeeklyFrequencyCard` lê com `@Query`, então quem apresenta
+/// esta view precisa de `.modelContainer` no ambiente (o app já injeta na raiz).
 struct HomeView: View {
     @Bindable private var model: HomeViewModel
+    private let references: ReferenceCatalog
     private let onOpenSession: (UUID) -> Void
 
-    init(model: HomeViewModel, onOpenSession: @escaping (UUID) -> Void) {
+    init(model: HomeViewModel, references: ReferenceCatalog, onOpenSession: @escaping (UUID) -> Void) {
         self.model = model
+        self.references = references
         self.onOpenSession = onOpenSession
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                content
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
+                VStack(spacing: 16) {
+                    content
+                    WeeklyFrequencyCard(references: references)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 16)
             }
             // Fechamento isolado ao MainActor e capturando só o ViewModel (classe @MainActor,
             // portanto Sendable): a struct da view não precisa cruzar a fronteira do @Sendable.
@@ -46,7 +56,20 @@ struct HomeView: View {
     @ViewBuilder
     private var content: some View {
         if let plan = model.plan {
-            PlanCard(plan: plan)
+            PlanCard(
+                plan: plan,
+                days: model.days,
+                selectedDayID: model.selectedDayID,
+                goal: model.goal,
+                references: references,
+                canChooseDay: model.activeSessionID == nil,
+                onSelectDay: { dayID in
+                    model.selectDay(dayID)
+                },
+                onSelectAutomatic: {
+                    model.selectAutomaticDay()
+                }
+            )
         } else if model.didFailToLoad {
             ContentUnavailableView(
                 "Não foi possível carregar o treino",

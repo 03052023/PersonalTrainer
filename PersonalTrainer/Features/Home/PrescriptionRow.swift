@@ -2,24 +2,38 @@ import SwiftUI
 import TrainerCore
 
 /// Uma linha do card da Home (SPEC F1, RF-01; CA1-1): nome do exercício, resumo
-/// "S × min–max · carga · RIR T · descanso" e a nota da prescrição em pt-BR.
+/// "S × min–max · carga · RIR T · descanso", a nota da prescrição em pt-BR e o botão
+/// "Por quê?" da nota (SPEC RF-32).
 /// View pura: só formata o `PlannedExercise`; nada de coordinator ou SwiftData.
 struct PrescriptionRow: View {
     let exercise: PlannedExercise
+    let references: ReferenceCatalog
+
+    init(exercise: PlannedExercise, references: ReferenceCatalog) {
+        self.exercise = exercise
+        self.references = references
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(exercise.exercise.name)
-                    .font(.body.weight(.medium))
-                Spacer(minLength: 0)
-                PrescriptionNoteBadge(note: exercise.prescription.note)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(exercise.exercise.name)
+                        .font(.body.weight(.medium))
+                    Spacer(minLength: 0)
+                    PrescriptionNoteBadge(note: exercise.prescription.note)
+                }
+                Text(Self.summary(for: exercise))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
-            Text(Self.summary(for: exercise))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            // Só o texto é combinado: o botão "Por quê?" fica fora para continuar acionável
+            // sozinho no VoiceOver.
+            .accessibilityElement(children: .combine)
+
+            // Esconde-se sozinho quando o catálogo não tem referências para a nota.
+            WhyButton(topic: ReferenceCatalog.topic(for: exercise.prescription.note), catalog: references)
         }
-        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Formatação (pt-BR)

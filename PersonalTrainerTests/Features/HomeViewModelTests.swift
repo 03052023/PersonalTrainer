@@ -4,9 +4,10 @@ import TrainerCore
 import XCTest
 @testable import PersonalTrainer
 
-/// T1.4: `HomeViewModel` sobre doubles de `SessionPlanning`/`SessionCoordinating` e a formatação
-/// pt-BR de `PrescriptionRow` (CA1-1). Tudo em `@MainActor` (ARCHITECTURE §10); a única sessão
-/// SwiftData vive num container in-memory.
+/// T1.4 / T2.14 / T2.7: `HomeViewModel` sobre doubles de `SessionPlanning`/`SessionCoordinating`
+/// (plano, dias, objetivo, escolha manual do dia — SPEC S4), a formatação pt-BR de
+/// `PrescriptionRow` (CA1-1) e o painel semanal `WeeklyFrequencyCard` (SPEC §7.4, CA2-6).
+/// Tudo em `@MainActor` (ARCHITECTURE §10); dados SwiftData vivem em containers in-memory.
 @MainActor
 final class HomeViewModelTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
@@ -199,6 +200,273 @@ final class HomeViewModelTests: XCTestCase {
         XCTAssertFalse(model.isPresentingError)
     }
 
+    // MARK: - Dias e objetivo (T2.14, SPEC §7.9)
+
+    func testRefresh_loadsDaysSortedByOrder_andGoal() {
+        let planner = HomeTestPlanner(planToReturn: makePlan())
+        let dayA = ProgramDayTemplate(name: "Dia A — Superior empurrar", order: 0)
+        let dayB = ProgramDayTemplate(name: "Dia B — Inferior", order: 1)
+        let dayC = ProgramDayTemplate(name: "Dia C — Superior puxar", order: 2)
+        planner.daysToReturn = [dayC, dayA, dayB]
+        planner.goalToReturn = .strength
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+
+        XCTAssertTrue(model.days.isEmpty, "Nada é lido no init")
+        XCTAssertNil(model.goal)
+        model.refresh()
+
+        XCTAssertEqual(model.days.map(\.id), [dayA.id, dayB.id, dayC.id], "SPEC S1: ordem do programa")
+        XCTAssertEqual(model.goal, .strength)
+        XCTAssertNil(model.selectedDayID, "Sem escolha manual, a Home segue a rotação")
+    }
+
+    func testRefresh_daysAndGoalFailures_doNotHideThePlan() {
+        let planner = HomeTestPlanner(planToReturn: makePlan())
+        planner.daysToReturn = [ProgramDayTemplate(name: "Dia A", order: 0)]
+        planner.goalToReturn = .hypertrophy
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+        model.refresh()
+        XCTAssertEqual(model.days.count, 1)
+        XCTAssertEqual(model.goal, .hypertrophy)
+
+        planner.daysError = HomeTestError.boom
+        planner.goalError = HomeTestError.boom
+        model.refresh()
+
+        XCTAssertTrue(model.days.isEmpty)
+        XCTAssertNil(model.goal)
+        XCTAssertNotNil(model.plan, "O plano não depende do menu de dias nem do selo do objetivo")
+        XCTAssertFalse(model.didFailToLoad)
+        XCTAssertNil(model.errorMessage)
+    }
+
+    // MARK: - selectDay / selectAutomaticDay (T2.14, SPEC S4)
+
+    func testSelectDay_S4_showsPlanForChosenDay_withInjectedClock() {
+        let rotationPlan = makePlan(dayName: "Dia A")
+        let dayC = UUID()
+        let manualPlan = makePlan(dayID: dayC, dayName: "Dia C")
+        let planner = HomeTestPlanner(planToReturn: rotationPlan)
+        planner.plansByDayID = [dayC: manualPlan]
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+        model.refresh()
+        XCTAssertEqual(model.plan, rotationPlan)
+
+        model.selectDay(dayC)
+
+        XCTAssertEqual(model.plan, manualPlan)
+        XCTAssertEqual(model.selectedDayID, dayC)
+        XCTAssertNil(model.errorMessage)
+        XCTAssertEqual(planner.planForDayCalls.map { $0.dayID }, [dayC])
+        XCTAssertEqual(planner.planForDayCalls.map { $0.now }, [now], "SPEC P11: o relógio injetado vai para o planejador")
+    }
+
+    func testSelectDay_S4_overrideSurvivesRefresh() {
+        let rotationPlan = makePlan(dayName: "Dia A")
+        let dayC = UUID()
+        let manualPlan = makePlan(dayID: dayC, dayName: "Dia C")
+        let planner = HomeTestPlanner(planToReturn: rotationPlan)
+        planner.plansByDayID = [dayC: manualPlan]
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+        model.refresh()
+        model.selectDay(dayC)
+
+        // Trocar de aba chama onAppear → refresh(): a escolha não pode sumir sem o usuário ver.
+        model.refresh()
+
+        XCTAssertEqual(model.plan, manualPlan)
+        XCTAssertEqual(model.selectedDayID, dayC)
+        XCTAssertEqual(planner.nextPlanCalls.count, 1, "Com escolha manual, a rotação não é consultada")
+        XCTAssertEqual(planner.planForDayCalls.count, 2, "O dia escolhido é replanejado com o relógio atual")
+    }
+
+    func testSelectAutomaticDay_S2_clearsOverrideAndReturnsToRotation() {
+        let rotationPlan = makePlan(dayName: "Dia A")
+        let dayC = UUID()
+        let planner = HomeTestPlanner(planToReturn: rotationPlan)
+        planner.plansByDayID = [dayC: makePlan(dayID: dayC, dayName: "Dia C")]
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+        model.refresh()
+        model.selectDay(dayC)
+
+        model.selectAutomaticDay()
+
+        XCTAssertNil(model.selectedDayID)
+        XCTAssertEqual(model.plan, rotationPlan)
+        XCTAssertEqual(planner.nextPlanCalls.count, 2)
+    }
+
+    func testStartSession_S4_afterSelectDay_startsChosenPlanAndClearsOverride() {
+        let rotationPlan = makePlan(dayName: "Dia A")
+        let dayC = UUID()
+        let manualPlan = makePlan(dayID: dayC, dayName: "Dia C")
+        let planner = HomeTestPlanner(planToReturn: rotationPlan)
+        planner.plansByDayID = [dayC: manualPlan]
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+        model.refresh()
+        model.selectDay(dayC)
+
+        let returned = model.startSession()
+
+        XCTAssertEqual(returned, planner.sessionIDToReturn)
+        XCTAssertEqual(planner.startedPlans.map { $0.plan }, [manualPlan], "A sessão é do dia escolhido")
+        XCTAssertNil(model.selectedDayID, "A escolha é consumida ao iniciar; a rotação segue dela (S4)")
+    }
+
+    func testRefresh_whenChosenDayLeftTheProgram_fallsBackToRotation() {
+        let rotationPlan = makePlan(dayName: "Dia A")
+        let dayC = UUID()
+        let planner = HomeTestPlanner(planToReturn: rotationPlan)
+        planner.plansByDayID = [dayC: makePlan(dayID: dayC, dayName: "Dia C")]
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+        model.refresh()
+        model.selectDay(dayC)
+
+        // Programa editado ou trocado: o planejador não conhece mais o dia.
+        planner.plansByDayID = [:]
+        model.refresh()
+
+        XCTAssertNil(model.selectedDayID)
+        XCTAssertEqual(model.plan, rotationPlan)
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func testSelectDay_unknownDay_keepsCurrentPlanAndExplains() {
+        let rotationPlan = makePlan()
+        let planner = HomeTestPlanner(planToReturn: rotationPlan)
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+        model.refresh()
+
+        model.selectDay(UUID())
+
+        XCTAssertEqual(model.plan, rotationPlan)
+        XCTAssertNil(model.selectedDayID)
+        XCTAssertEqual(model.errorMessage, "Este dia não existe mais no programa ativo.")
+    }
+
+    func testSelectDay_plannerThrows_keepsCurrentPlanAndExplains() {
+        let rotationPlan = makePlan()
+        let planner = HomeTestPlanner(planToReturn: rotationPlan)
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+        model.refresh()
+
+        planner.planForDayError = HomeTestError.boom
+        model.selectDay(UUID())
+
+        XCTAssertEqual(model.plan, rotationPlan, "Falha ao escolher não apaga o plano que estava na tela")
+        XCTAssertNil(model.selectedDayID)
+        XCTAssertFalse(model.didFailToLoad)
+        XCTAssertEqual(model.errorMessage, "Não foi possível carregar o dia escolhido.")
+
+        model.isPresentingError = false
+        planner.planForDayError = PlanningError.exerciseNotFound(UUID())
+        model.selectDay(UUID())
+        XCTAssertEqual(model.errorMessage, "Um exercício do programa não foi encontrado no catálogo.")
+    }
+
+    func testSelectDay_withActiveSession_isRejected() throws {
+        let container = try ModelContainerFactory.make(.inMemory)
+        let session = try insertInProgressSession(into: container.mainContext)
+        let dayC = UUID()
+        let planner = HomeTestPlanner(planToReturn: makePlan())
+        planner.plansByDayID = [dayC: makePlan(dayID: dayC, dayName: "Dia C")]
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator(activeSession: session))
+        model.refresh()
+
+        model.selectDay(dayC)
+
+        XCTAssertNil(model.selectedDayID)
+        XCTAssertTrue(planner.planForDayCalls.isEmpty, "RF-02: com treino em andamento só existe Retomar")
+        XCTAssertEqual(model.errorMessage, "Já existe um treino em andamento. Toque em Retomar treino.")
+        withExtendedLifetime(container) {}
+    }
+
+    func testRefresh_whenSessionStartedElsewhere_clearsOverride() throws {
+        let container = try ModelContainerFactory.make(.inMemory)
+        let session = try insertInProgressSession(into: container.mainContext)
+        let rotationPlan = makePlan(dayName: "Dia A")
+        let dayC = UUID()
+        let planner = HomeTestPlanner(planToReturn: rotationPlan)
+        planner.plansByDayID = [dayC: makePlan(dayID: dayC, dayName: "Dia C")]
+        let coordinator = HomeTestCoordinator()
+        let model = makeModel(planner: planner, coordinator: coordinator)
+        model.refresh()
+        model.selectDay(dayC)
+
+        // Ex.: sessão iniciada pelo relógio (M3); ao terminar, a rotação já segue do dia feito.
+        coordinator.activeSession = session
+        model.refresh()
+
+        XCTAssertNil(model.selectedDayID)
+        XCTAssertEqual(model.activeSessionID, session.uuid)
+        XCTAssertEqual(model.plan, rotationPlan)
+        withExtendedLifetime(container) {}
+    }
+
+    func testDayPickerMenu_sortsByProgramOrder() {
+        let dayB = ProgramDayTemplate(name: "Dia B", order: 1)
+        let dayA = ProgramDayTemplate(name: "Dia A", order: 0)
+        let dayC = ProgramDayTemplate(name: "Dia C", order: 2)
+
+        XCTAssertEqual(DayPickerMenu.sorted([dayC, dayA, dayB]).map(\.name), ["Dia A", "Dia B", "Dia C"])
+    }
+
+    // MARK: - WeeklyFrequencyCard (T2.7, SPEC §7.4, CA2-6)
+
+    func testWeeklyFrequency_CA2_6_chestShowsOneOfTwoAfterADayAInTheWeek() throws {
+        let container = try ModelContainerFactory.make(.inMemory)
+        let context = container.mainContext
+        let bench = insertExercise(slug: "supino-reto", name: "Supino reto", primary: [.chest], secondary: [.triceps], into: context)
+        // `now` = terça 2023-11-14 22:13:20 UTC → semana [segunda 13/11 00:00, segunda 20/11 00:00).
+        insertSession(status: .completed, startedAt: now.addingTimeInterval(-3_600), exercise: bench, isWarmup: false, into: context)
+        // Não contam (SPEC §7.4): semana anterior, abandonada e só aquecimento.
+        insertSession(status: .completed, startedAt: now.addingTimeInterval(-8 * 86_400), exercise: bench, isWarmup: false, into: context)
+        insertSession(status: .abandoned, startedAt: now.addingTimeInterval(-7_200), exercise: bench, isWarmup: false, into: context)
+        insertSession(status: .completed, startedAt: now.addingTimeInterval(-10_800), exercise: bench, isWarmup: true, into: context)
+        try context.save()
+
+        let sessions = try context.fetch(FetchDescriptor<WorkoutSessionModel>())
+        let report = WeeklyFrequencyCard.report(sessions: sessions, now: now, calendar: utcCalendar())
+        let entries = WeeklyFrequencyCard.visibleEntries(report)
+        let chest = try XCTUnwrap(entries.first { $0.muscle == .chest })
+        let triceps = try XCTUnwrap(entries.first { $0.muscle == .triceps })
+
+        XCTAssertEqual(WeeklyFrequencyCard.chipText(chest), "Peito 1/2")
+        XCTAssertEqual(WeeklyFrequencyCard.chipText(triceps), "Tríceps 0/2", "Secundário não conta (SPEC §7.4 v1)")
+        XCTAssertEqual(entries.map(\.muscle), MuscleGroup.allCases, "Meta padrão 2× em todos os grupos, na ordem fixa")
+        XCTAssertEqual(report.weekStart, Date(timeIntervalSince1970: 1_699_833_600), "Semana começa segunda 00:00")
+        withExtendedLifetime(container) {}
+    }
+
+    func testWeeklyFrequency_visibleEntries_hideGroupsWithoutTarget() {
+        let report = WeeklyFrequencyReport(
+            weekStart: now,
+            weekEnd: now.addingTimeInterval(7 * 86_400),
+            entries: [
+                WeeklyFrequencyEntry(muscle: .chest, completed: 1, target: 2),
+                WeeklyFrequencyEntry(muscle: .calves, completed: 0, target: 0),
+                WeeklyFrequencyEntry(muscle: .core, completed: 3, target: 1),
+            ]
+        )
+
+        XCTAssertEqual(WeeklyFrequencyCard.visibleEntries(report).map(\.muscle), [.chest, .core])
+    }
+
+    func testWeeklyFrequency_textsArePortuguese() {
+        XCTAssertEqual(
+            MuscleGroup.allCases.map { WeeklyFrequencyCard.muscleName($0) },
+            ["Peito", "Costas", "Ombros", "Bíceps", "Tríceps", "Quadríceps", "Posteriores", "Glúteos", "Panturrilhas", "Core"]
+        )
+        XCTAssertEqual(
+            WeeklyFrequencyCard.accessibilityText(WeeklyFrequencyEntry(muscle: .chest, completed: 1, target: 2)),
+            "Peito: 1 de 2 sessões"
+        )
+        XCTAssertEqual(
+            WeeklyFrequencyCard.accessibilityText(WeeklyFrequencyEntry(muscle: .core, completed: 0, target: 1)),
+            "Core: 0 de 1 sessão"
+        )
+    }
+
     // MARK: - PrescriptionRow (CA1-1)
 
     func testPrescriptionRow_summary_matchesSpecFormat() {
@@ -244,8 +512,15 @@ final class HomeViewModelTests: XCTestCase {
         return HomeViewModel(planner: planner, coordinator: coordinator, now: { fixedNow })
     }
 
-    /// Dia A com três exercícios: kg com carga, kg sem carga (P2) e nível de máquina.
-    private func makePlan() -> SessionPlan {
+    /// Calendário gregoriano em UTC: a semana do painel não depende do fuso do runner.
+    private func utcCalendar() -> Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0) ?? calendar.timeZone
+        return calendar
+    }
+
+    /// Dia com três exercícios: kg com carga, kg sem carga (P2) e nível de máquina.
+    private func makePlan(dayID: UUID = UUID(), dayName: String = "Dia A") -> SessionPlan {
         let squat = ExerciseDefinition(
             slug: "agachamento-livre",
             name: "Agachamento livre",
@@ -273,8 +548,8 @@ final class HomeViewModelTests: XCTestCase {
         return SessionPlan(
             programID: UUID(),
             programName: "Programa ABC",
-            programDayID: UUID(),
-            programDayName: "Dia A",
+            programDayID: dayID,
+            programDayName: dayName,
             exercises: [
                 PlannedExercise(
                     id: UUID(),
@@ -297,6 +572,90 @@ final class HomeViewModelTests: XCTestCase {
             ],
             generatedAt: now
         )
+    }
+
+    @discardableResult
+    private func insertExercise(
+        slug: String,
+        name: String,
+        primary: [MuscleGroup],
+        secondary: [MuscleGroup],
+        into context: ModelContext
+    ) -> ExerciseModel {
+        let exercise = ExerciseModel(
+            uuid: UUID(),
+            slug: slug,
+            name: name,
+            primaryMusclesRaw: SchemaV1.encodeMuscleGroups(primary),
+            secondaryMusclesRaw: SchemaV1.encodeMuscleGroups(secondary),
+            equipmentRaw: Equipment.barbell.rawValue,
+            loadUnitRaw: LoadUnit.kilograms.rawValue,
+            loadIncrement: 2.5,
+            isUnilateral: false,
+            machineNotes: nil,
+            isArchived: false
+        )
+        context.insert(exercise)
+        return exercise
+    }
+
+    /// Sessão com um exercício e uma série (de trabalho ou aquecimento), ligada ao catálogo.
+    private func insertSession(
+        status: SessionStatus,
+        startedAt: Date,
+        exercise: ExerciseModel,
+        isWarmup: Bool,
+        into context: ModelContext
+    ) {
+        let session = WorkoutSessionModel(
+            uuid: UUID(),
+            programDayUUID: UUID(),
+            programDayName: "Dia A",
+            statusRaw: status.rawValue,
+            startedAt: startedAt,
+            endedAt: startedAt.addingTimeInterval(3_600),
+            notes: "",
+            hkWorkoutUUID: nil,
+            avgHeartRate: nil,
+            maxHeartRate: nil,
+            isDeload: false,
+            sourceRaw: DeviceSource.iphone.rawValue
+        )
+        context.insert(session)
+
+        let sessionExercise = SessionExerciseModel(
+            uuid: UUID(),
+            order: 0,
+            exerciseUUID: exercise.uuid,
+            exerciseName: exercise.name,
+            prescribedLoad: 60,
+            prescribedSets: 3,
+            prescribedRepMin: 8,
+            prescribedRepMax: 12,
+            prescribedRIR: 2,
+            restSeconds: 120,
+            noteRaw: PrescriptionNote.hold.rawValue,
+            wasSkipped: false,
+            substitutedFromUUID: nil
+        )
+        context.insert(sessionExercise)
+        sessionExercise.exercise = exercise
+        session.exercises.append(sessionExercise)
+
+        let completedAt = startedAt.addingTimeInterval(180)
+        let set = SetLogModel(
+            uuid: UUID(),
+            index: 0,
+            load: 60,
+            reps: 10,
+            rir: 2,
+            isWarmup: isWarmup,
+            completedAt: completedAt,
+            sourceRaw: DeviceSource.iphone.rawValue,
+            updatedAt: completedAt
+        )
+        context.insert(set)
+        sessionExercise.sets.append(set)
     }
 
     private func insertInProgressSession(into context: ModelContext) throws -> WorkoutSessionModel {
@@ -332,7 +691,16 @@ private final class HomeTestPlanner: SessionPlanning {
     var nextPlanError: (any Error)?
     var startError: (any Error)?
     var sessionIDToReturn = UUID()
+    /// Planos por dia para `plan(forDayID:now:)` (SPEC S4); `planToReturn` também responde pelo
+    /// próprio dia.
+    var plansByDayID: [UUID: SessionPlan] = [:]
+    var planForDayError: (any Error)?
+    var daysToReturn: [ProgramDayTemplate] = []
+    var daysError: (any Error)?
+    var goalToReturn: ProgramGoal?
+    var goalError: (any Error)?
     private(set) var nextPlanCalls: [Date] = []
+    private(set) var planForDayCalls: [(dayID: UUID, now: Date)] = []
     private(set) var startedPlans: [(plan: SessionPlan, now: Date)] = []
 
     init(planToReturn: SessionPlan?) {
@@ -348,6 +716,13 @@ private final class HomeTestPlanner: SessionPlanning {
     }
 
     func plan(forDayID dayID: UUID, now: Date) throws -> SessionPlan? {
+        planForDayCalls.append((dayID: dayID, now: now))
+        if let planForDayError {
+            throw planForDayError
+        }
+        if let plan = plansByDayID[dayID] {
+            return plan
+        }
         guard let planToReturn, planToReturn.programDayID == dayID else { return nil }
         return planToReturn
     }
@@ -358,6 +733,20 @@ private final class HomeTestPlanner: SessionPlanning {
             throw startError
         }
         return sessionIDToReturn
+    }
+
+    func activeProgramDays() throws -> [ProgramDayTemplate] {
+        if let daysError {
+            throw daysError
+        }
+        return daysToReturn
+    }
+
+    func activeProgramGoal() throws -> ProgramGoal? {
+        if let goalError {
+            throw goalError
+        }
+        return goalToReturn
     }
 }
 

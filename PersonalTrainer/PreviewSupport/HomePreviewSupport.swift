@@ -1,58 +1,109 @@
 import Foundation
+import SwiftData
 import SwiftUI
 import TrainerCore
 
 // Doubles e fixtures só para os #Preview da feature Home (AGENTS R9: previews usam fakes).
 // Tudo privado ao arquivo e prefixado por "Home" para não colidir com doubles de outras
 // features; por isso os previews da Home vivem aqui, e não em cada arquivo de view.
+// O `WeeklyFrequencyCard` usa `@Query`: os previews da Home recebem um container in-memory
+// vazio (painel zerado); nada aqui insere modelos no app real (R4).
 
 // MARK: - Previews
 
 #Preview("Home — próximo treino") {
-    HomeView(
-        model: HomeViewModel(
-            planner: HomePreviewPlanner(fixedPlan: HomePreviewFixture.plan),
-            coordinator: HomePreviewCoordinator(),
-            now: { HomePreviewFixture.referenceDate }
-        ),
-        onOpenSession: { _ in }
-    )
+    if let container = HomePreviewFixture.makeContainer() {
+        HomeView(
+            model: HomeViewModel(
+                planner: HomePreviewPlanner(fixedPlan: HomePreviewFixture.plan),
+                coordinator: HomePreviewCoordinator(),
+                now: { HomePreviewFixture.referenceDate }
+            ),
+            references: HomePreviewFixture.references,
+            onOpenSession: { _ in }
+        )
+        .modelContainer(container)
+    } else {
+        Text("Não foi possível montar os dados de preview")
+    }
 }
 
 #Preview("Home — retomar") {
-    HomeView(
-        model: HomeViewModel(
-            planner: HomePreviewPlanner(fixedPlan: HomePreviewFixture.plan),
-            coordinator: HomePreviewCoordinator(activeSession: HomePreviewFixture.makeInProgressSession()),
-            now: { HomePreviewFixture.referenceDate }
-        ),
-        onOpenSession: { _ in }
-    )
+    if let container = HomePreviewFixture.makeContainer() {
+        HomeView(
+            model: HomeViewModel(
+                planner: HomePreviewPlanner(fixedPlan: HomePreviewFixture.plan),
+                coordinator: HomePreviewCoordinator(activeSession: HomePreviewFixture.makeInProgressSession()),
+                now: { HomePreviewFixture.referenceDate }
+            ),
+            references: HomePreviewFixture.references,
+            onOpenSession: { _ in }
+        )
+        .modelContainer(container)
+    } else {
+        Text("Não foi possível montar os dados de preview")
+    }
 }
 
 #Preview("Home — sem programa") {
-    HomeView(
-        model: HomeViewModel(
-            planner: HomePreviewPlanner(fixedPlan: nil),
-            coordinator: HomePreviewCoordinator(),
-            now: { HomePreviewFixture.referenceDate }
-        ),
-        onOpenSession: { _ in }
-    )
+    if let container = HomePreviewFixture.makeContainer() {
+        HomeView(
+            model: HomeViewModel(
+                planner: HomePreviewPlanner(fixedPlan: nil),
+                coordinator: HomePreviewCoordinator(),
+                now: { HomePreviewFixture.referenceDate }
+            ),
+            references: .empty,
+            onOpenSession: { _ in }
+        )
+        .modelContainer(container)
+    } else {
+        Text("Não foi possível montar os dados de preview")
+    }
 }
 
 #Preview("PlanCard") {
     ScrollView {
-        PlanCard(plan: HomePreviewFixture.plan)
-            .padding()
+        PlanCard(
+            plan: HomePreviewFixture.plan,
+            days: HomePreviewFixture.days,
+            selectedDayID: nil,
+            goal: .hypertrophy,
+            references: HomePreviewFixture.references,
+            onSelectDay: { _ in },
+            onSelectAutomatic: {}
+        )
+        .padding()
     }
 }
 
 #Preview("PrescriptionRow") {
-    List {
+    VStack(spacing: 16) {
         ForEach(HomePreviewFixture.plan.exercises) { exercise in
-            PrescriptionRow(exercise: exercise)
+            PrescriptionRow(exercise: exercise, references: HomePreviewFixture.references)
         }
+    }
+    .padding()
+}
+
+#Preview("DayPickerMenu") {
+    DayPickerMenu(
+        dayName: HomePreviewFixture.plan.programDayName,
+        days: HomePreviewFixture.days,
+        selectedDayID: HomePreviewFixture.days.last?.id,
+        onSelectDay: { _ in },
+        onSelectAutomatic: {}
+    )
+    .padding()
+}
+
+#Preview("WeeklyFrequencyCard") {
+    if let container = HomePreviewFixture.makeContainer() {
+        WeeklyFrequencyCard(references: HomePreviewFixture.references)
+            .padding()
+            .modelContainer(container)
+    } else {
+        Text("Não foi possível montar os dados de preview")
     }
 }
 
@@ -62,8 +113,62 @@ private enum HomePreviewFixture {
     /// Data fixa (SPEC P11): previews determinísticos.
     static let referenceDate = Date(timeIntervalSince1970: 1_758_600_000)
 
+    /// Id do Dia A, compartilhado entre o plano e a lista de dias do menu.
+    static let dayAID = UUID()
+
     /// Dia A com três exercícios cobrindo carga em kg, carga vazia (P2) e nível de máquina.
     static let plan: SessionPlan = makePlan()
+
+    /// Três dias no formato do seed ("Dia A — ...").
+    static let days: [ProgramDayTemplate] = [
+        ProgramDayTemplate(id: dayAID, name: "Dia A — Inferior", order: 0),
+        ProgramDayTemplate(id: UUID(), name: "Dia B — Superior empurrar", order: 1),
+        ProgramDayTemplate(id: UUID(), name: "Dia C — Superior puxar", order: 2),
+    ]
+
+    /// Catálogo mínimo para o botão "Por quê?" aparecer nos previews (o do app vem de
+    /// `references.v1.json`). Referências reais, citadas como no catálogo.
+    static let references = ReferenceCatalog(
+        version: 1,
+        references: [
+            ScientificReference(
+                id: "schoenfeld-2017-volume",
+                authors: "Schoenfeld BJ, Ogborn D, Krieger JW",
+                year: 2017,
+                title: "Dose-response relationship between weekly resistance training volume and increases in muscle mass: A systematic review and meta-analysis",
+                source: "Journal of Sports Sciences",
+                doi: "10.1080/02640414.2016.1210197",
+                level: .metaAnalysis,
+                summary: "Mais séries semanais por grupo muscular se associam a mais hipertrofia."
+            ),
+            ScientificReference(
+                id: "schoenfeld-2016-frequency",
+                authors: "Schoenfeld BJ, Ogborn D, Krieger JW",
+                year: 2016,
+                title: "Effects of Resistance Training Frequency on Measures of Muscle Hypertrophy: A Systematic Review and Meta-Analysis",
+                source: "Sports Medicine",
+                doi: "10.1007/s40279-016-0543-8",
+                level: .metaAnalysis,
+                summary: "Treinar cada grupo muscular pelo menos 2 vezes por semana favorece a hipertrofia."
+            ),
+        ],
+        topics: [
+            "goal.hypertrophy": ["schoenfeld-2017-volume"],
+            "note.increase": ["schoenfeld-2017-volume"],
+            "note.calibrate": ["schoenfeld-2017-volume"],
+            "note.hold": ["schoenfeld-2017-volume"],
+            "topic.frequency": ["schoenfeld-2016-frequency"],
+        ],
+        explanations: [
+            "goal.hypertrophy": "Hipertrofia: faixas moderadas de repetições, perto da falha, com volume semanal suficiente.",
+            "topic.frequency": "Cada grupo muscular rende mais quando é treinado ao menos duas vezes por semana.",
+        ]
+    )
+
+    @MainActor
+    static func makeContainer() -> ModelContainer? {
+        try? ModelContainerFactory.make(.inMemory)
+    }
 
     private static func makePlan() -> SessionPlan {
         let squat = ExerciseDefinition(
@@ -101,7 +206,7 @@ private enum HomePreviewFixture {
         return SessionPlan(
             programID: UUID(),
             programName: "Programa ABC",
-            programDayID: UUID(),
+            programDayID: dayAID,
             programDayName: "Dia A — Inferior",
             exercises: [
                 PlannedExercise(
@@ -190,13 +295,32 @@ private final class HomePreviewPlanner: SessionPlanning {
         fixedPlan
     }
 
+    /// O preview só tem o plano do Dia A; os outros dias reaproveitam os mesmos exercícios com
+    /// o nome do dia escolhido, o bastante para ver o menu funcionando.
     func plan(forDayID dayID: UUID, now: Date) throws -> SessionPlan? {
-        guard let fixedPlan, fixedPlan.programDayID == dayID else { return nil }
-        return fixedPlan
+        guard let fixedPlan, let day = HomePreviewFixture.days.first(where: { $0.id == dayID }) else {
+            return nil
+        }
+        return SessionPlan(
+            programID: fixedPlan.programID,
+            programName: fixedPlan.programName,
+            programDayID: day.id,
+            programDayName: day.name,
+            exercises: fixedPlan.exercises,
+            generatedAt: now
+        )
     }
 
     func startSession(from plan: SessionPlan, now: Date) throws -> UUID {
         UUID()
+    }
+
+    func activeProgramDays() throws -> [ProgramDayTemplate] {
+        fixedPlan == nil ? [] : HomePreviewFixture.days
+    }
+
+    func activeProgramGoal() throws -> ProgramGoal? {
+        fixedPlan == nil ? nil : .hypertrophy
     }
 }
 

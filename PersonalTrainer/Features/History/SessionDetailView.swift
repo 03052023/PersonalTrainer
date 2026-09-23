@@ -2,18 +2,21 @@ import SwiftData
 import SwiftUI
 import TrainerCore
 
-/// Detalhe de uma sessão do histórico (SPEC F5, RF-09, CA1-7): cabeçalho com data, duração,
-/// séries de trabalho, tonelagem e FC (média/máx quando há amostras), seguido de uma
-/// `SessionExerciseSection` por exercício, na ordem da sessão.
+/// Detalhe de uma sessão do histórico (SPEC F5, RF-09, RF-12, RF-14, CA1-7, CA2-2): cabeçalho
+/// com data, duração, séries de trabalho, exercícios realizados, tonelagem e FC (média/máx
+/// quando há amostras), seguido de uma `SessionExerciseSection` por exercício, na ordem da
+/// sessão; cada uma leva à evolução de carga do exercício (`ExerciseProgressView`, T2.10).
 ///
 /// Só leitura: recebe o modelo por `init` e nunca toca o `ModelContext` (R4). Não lê
 /// `AppEnvironment`; quem navega até aqui é `HistoryListView`.
 @MainActor
 struct SessionDetailView: View {
     let session: WorkoutSessionModel
+    let references: ReferenceCatalog
 
-    init(session: WorkoutSessionModel) {
+    init(session: WorkoutSessionModel, references: ReferenceCatalog) {
         self.session = session
+        self.references = references
     }
 
     var body: some View {
@@ -22,14 +25,18 @@ struct SessionDetailView: View {
                 LabeledContent("Data", value: DateFormatting.shortDate(session.startedAt))
                 LabeledContent("Duração", value: DateFormatting.duration(stats.duration))
                 LabeledContent("Séries de trabalho", value: "\(stats.workingSetCount)")
+                LabeledContent("Exercícios realizados", value: "\(stats.exerciseCount)")
                 LabeledContent("Tonelagem", value: tonnageText)
-                LabeledContent("FC média / máx", value: heartRateText)
+                LabeledContent(
+                    "FC média / máx",
+                    value: Self.heartRateText(average: session.avgHeartRate, maximum: session.maxHeartRate)
+                )
                 if let statusText {
                     LabeledContent("Situação", value: statusText)
                 }
             }
             ForEach(orderedExercises, id: \.uuid) { sessionExercise in
-                SessionExerciseSection(sessionExercise: sessionExercise)
+                SessionExerciseSection(sessionExercise: sessionExercise, references: references)
             }
         }
         .navigationTitle(session.programDayName)
@@ -67,14 +74,14 @@ struct SessionDetailView: View {
         return "\(number) kg"
     }
 
-    /// FC só é exibida (SPEC §7.6); sem amostras ou sem autorização, "FC indisponível"
-    /// (ARCHITECTURE §15, HealthKit).
-    private var heartRateText: String {
-        guard let average = session.avgHeartRate else {
+    /// FC só é exibida (SPEC §7.6); sem amostras, sem autorização ou com valor não positivo
+    /// (nenhuma leitura real), "FC indisponível" (CA2-2; ARCHITECTURE §15, HealthKit).
+    static func heartRateText(average: Double?, maximum: Double?) -> String {
+        guard let average, average.isFinite, average > 0 else {
             return "FC indisponível"
         }
         let averageText = "\(Int(average.rounded()))"
-        guard let maximum = session.maxHeartRate else {
+        guard let maximum, maximum.isFinite, maximum > 0 else {
             return "\(averageText) / — bpm"
         }
         return "\(averageText) / \(Int(maximum.rounded())) bpm"
@@ -223,7 +230,7 @@ private enum SessionDetailPreviewData {
 #Preview("Sessão concluída") {
     if let fixture = SessionDetailPreviewData.make() {
         NavigationStack {
-            SessionDetailView(session: fixture.session)
+            SessionDetailView(session: fixture.session, references: .empty)
         }
         .modelContainer(fixture.container)
     } else {
