@@ -1,4 +1,4 @@
-﻿# TASKS — Plano de execução
+# TASKS — Plano de execução
 
 Versão 0.1 · 2026-09-22. Regras em [SPEC.md](SPEC.md), desenho em [ARCHITECTURE.md](ARCHITECTURE.md), conduta dos agentes em [AGENTS.md](AGENTS.md).
 
