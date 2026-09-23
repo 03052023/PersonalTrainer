@@ -1,4 +1,5 @@
 import Foundation
+import os
 import SwiftData
 import TrainerCore
 
@@ -16,6 +17,11 @@ final class SessionPlanner: SessionPlanning {
     private let coordinator: any SessionCoordinating
     private let progression: any ProgressionRule
     private let selector: any WorkoutSelector
+    /// AGENTS §4: `subsystem` = bundle id, `category` = nome do serviço.
+    private let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "PersonalTrainer",
+        category: "SessionPlanner"
+    )
 
     init(
         modelContext: ModelContext,
@@ -70,6 +76,92 @@ final class SessionPlanner: SessionPlanning {
         }
         return try coordinator.startSession(plan: plan, now: now, source: .iphone)
     }
+
+    // MARK: - SessionPlanning (M2)
+
+    /// Dias do programa ativo para o seletor manual da Home (T2.14, SPEC S4). O mapper já
+    /// ordena por `order` (SPEC S1). Relação de catálogo anulada lança
+    /// `PlanningError.exerciseNotFound`, como em `nextPlan`.
+    func activeProgramDays() throws -> [ProgramDayTemplate] {
+        guard let program = try activeProgram() else {
+            return []
+        }
+        return try programTemplate(from: program).days
+    }
+
+    /// SPEC §7.9: `goalRaw` desconhecido (versão futura, store editado) vale como hipertrofia,
+    /// o mesmo padrão de `ProgramTemplate.effectiveGoal`.
+    func activeProgramGoal() throws -> ProgramGoal? {
+        guard let program = try activeProgram() else {
+            return nil
+        }
+        return program.goal ?? .hypertrophy
+    }
+
+    /// RF-34: mantém do alvo original séries, faixa, RIR, descanso, ordem e `id`; o motor roda
+    /// com o histórico do NOVO exercício (P3 é por exercício).
+    ///
+    /// `startingLoad` só é mantido quando se volta ao próprio exercício do alvo: a carga inicial
+    /// de um supino com barra não serve para halteres, e com ela o P2 prescreveria essa carga em
+    /// vez de deixar o usuário calibrar. `exerciseID` passa a ser o do substituto, porque o
+    /// motor o copia para `ExercisePrescription.exerciseID`.
+    func substitutionPlan(
+        replacing sessionExerciseID: UUID,
+        target: ExerciseTarget,
+        newExerciseID: UUID,
+        now: Date
+    ) throws -> PlannedExercise {
+        guard let exerciseModel = try fetchExercise(uuid: newExerciseID) else {
+            throw PlanningError.exerciseNotFound(newExerciseID)
+        }
+        let exercise = try ExerciseMapper.definition(from: exerciseModel)
+        let substituteTarget = ExerciseTarget(
+            id: target.id,
+            exerciseID: exercise.id,
+            order: target.order,
+            sets: target.sets,
+            repMin: target.repMin,
+            repMax: target.repMax,
+            targetRIR: target.targetRIR,
+            restSeconds: target.restSeconds,
+            startingLoad: exercise.id == target.exerciseID ? target.startingLoad : nil
+        )
+        let entries = try history(forExerciseUUID: exercise.id)
+        let prescription = progression.prescribe(
+            target: substituteTarget,
+            exercise: exercise,
+            history: entries,
+            now: now
+        )
+        // Mesmo id do exercício substituído: o coordinator reescreve o snapshot existente.
+        return PlannedExercise(
+            id: sessionExerciseID,
+            exercise: exercise,
+            target: substituteTarget,
+            prescription: prescription
+        )
+    }
+
+    /// RF-34: candidatos do catálogo não arquivado, ranqueados por `ExerciseSubstitution`. O
+    /// próprio exercício é excluído. Vazio se ele não tem padrão de movimento (contrato de
+    /// `SessionPlanning`) ou se `limit <= 0`. O exercício de origem pode estar arquivado (ainda
+    /// está no programa ou na sessão); só os candidatos precisam estar visíveis.
+    func substitutes(for exerciseID: UUID, limit: Int) throws -> [ExerciseDefinition] {
+        guard let exerciseModel = try fetchExercise(uuid: exerciseID) else {
+            throw PlanningError.exerciseNotFound(exerciseID)
+        }
+        let exercise = try ExerciseMapper.definition(from: exerciseModel)
+        guard exercise.movementPattern != nil, limit > 0 else {
+            return []
+        }
+        let catalog = try visibleCatalog()
+        return ExerciseSubstitution.candidates(
+            for: exercise,
+            in: catalog,
+            excluding: [exerciseID],
+            limit: limit
+        )
+    }
 }
 
 // MARK: - Leitura do banco
@@ -119,6 +211,37 @@ private extension SessionPlanner {
         )
         let sessionExercises = try modelContext.fetch(descriptor)
         return try HistoryMapper.historyEntries(from: sessionExercises, exerciseUUID: uuid)
+    }
+
+    /// Inclui arquivados: quem chama decide se isso importa.
+    func fetchExercise(uuid: UUID) throws -> ExerciseModel? {
+        var descriptor = FetchDescriptor<ExerciseModel>(
+            predicate: #Predicate<ExerciseModel> { $0.uuid == uuid }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
+    }
+
+    /// Catálogo não arquivado, ordenado por `slug` para que a entrada do ranqueamento seja
+    /// determinística (SPEC P11). Um exercício com raw value inválido é pulado e logado: é
+    /// uma lista de sugestões, e um registro corrompido não deve esconder os outros.
+    func visibleCatalog() throws -> [ExerciseDefinition] {
+        let descriptor = FetchDescriptor<ExerciseModel>(
+            predicate: #Predicate<ExerciseModel> { $0.isArchived == false }
+        )
+        let models = try modelContext.fetch(descriptor)
+        var definitions: [ExerciseDefinition] = []
+        definitions.reserveCapacity(models.count)
+        for model in models {
+            do {
+                definitions.append(try ExerciseMapper.definition(from: model))
+            } catch {
+                let slug = model.slug
+                let reason = String(describing: error)
+                logger.error("Exercício \(slug, privacy: .public) fora dos substitutos: \(reason, privacy: .public)")
+            }
+        }
+        return definitions.sorted { $0.slug < $1.slug }
     }
 }
 

@@ -6,6 +6,7 @@ import XCTest
 
 /// T1.2: `SessionPlanner` sobre container in-memory, tudo em `@MainActor` (ARCHITECTURE §10).
 /// O coordinator é um double que só registra chamadas: o planejador nunca grava nada sozinho.
+/// M2: dias do programa ativo (T2.14), objetivo (§7.9), plano de substituição e candidatos (RF-34).
 @MainActor
 final class SessionPlannerTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
@@ -309,6 +310,238 @@ final class SessionPlannerTests: XCTestCase {
         XCTAssertTrue(fixture.coordinator.startCalls.isEmpty)
     }
 
+    // MARK: - activeProgramDays (T2.14, SPEC S4)
+
+    func testS4_activeProgramDays_withoutActiveProgram_isEmpty() throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        let inactive = insertProgram(name: "Antigo", isActive: false, createdAt: now, into: context)
+        _ = insertDay(name: "Dia X", order: 0, program: inactive, into: context)
+        try context.save()
+
+        XCTAssertEqual(try fixture.planner.activeProgramDays(), [])
+    }
+
+    func testS4_activeProgramDays_returnsActiveProgramDaysOrderedByOrder() throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        let abc = try insertABCProgram(into: context)
+        // Programa inativo com dia próprio: não pode aparecer no seletor.
+        let inactive = insertProgram(name: "Antigo", isActive: false, createdAt: now, into: context)
+        _ = insertDay(name: "Dia X", order: 0, program: inactive, into: context)
+        try context.save()
+
+        let days = try fixture.planner.activeProgramDays()
+
+        // Inseridos B antes de A na fixture: vale `order` (SPEC S1).
+        XCTAssertEqual(days.map(\.id), [abc.dayA.uuid, abc.dayB.uuid])
+        XCTAssertEqual(days.map(\.name), ["Dia A", "Dia B"])
+        XCTAssertEqual(days.map(\.order), [0, 1])
+        XCTAssertEqual(days.first?.exercises.map(\.exerciseID), [abc.bench.uuid, abc.squat.uuid])
+        XCTAssertEqual(days.last?.exercises.map(\.exerciseID), [abc.row.uuid])
+    }
+
+    // MARK: - activeProgramGoal (SPEC §7.9)
+
+    func testActiveProgramGoal_followsGoalRaw_defaultsToHypertrophy() throws {
+        let fixture = try makeFixture()
+        XCTAssertNil(try fixture.planner.activeProgramGoal(), "Sem programa ativo não há objetivo")
+
+        let abc = try insertABCProgram(into: fixture.context)
+        XCTAssertEqual(try fixture.planner.activeProgramGoal(), .hypertrophy, "Padrão do SchemaV2")
+
+        abc.program.goalRaw = ProgramGoal.strength.rawValue
+        try fixture.context.save()
+        XCTAssertEqual(try fixture.planner.activeProgramGoal(), .strength)
+
+        // Raw desconhecido (versão futura): vale como hipertrofia, igual a `effectiveGoal`.
+        abc.program.goalRaw = "powerlifting"
+        try fixture.context.save()
+        XCTAssertEqual(try fixture.planner.activeProgramGoal(), .hypertrophy)
+    }
+
+    // MARK: - substitutionPlan (RF-34)
+
+    func testRF34_substitutionPlan_withoutHistory_calibratesWithOriginalTarget() throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        let abc = try insertABCProgram(into: context)
+        let dumbbell = insertExercise(
+            slug: "supino-halteres",
+            name: "Supino com halteres",
+            primary: [.chest],
+            equipment: .dumbbell,
+            increment: 2,
+            pattern: .horizontalPush,
+            into: context
+        )
+        try context.save()
+        let target = try ProgramMapper.target(from: abc.benchTarget)
+        let sessionExerciseID = UUID()
+
+        let planned = try fixture.planner.substitutionPlan(
+            replacing: sessionExerciseID,
+            target: target,
+            newExerciseID: dumbbell.uuid,
+            now: now
+        )
+
+        // Mesmo id do exercício substituído: o coordinator reescreve aquele snapshot.
+        XCTAssertEqual(planned.id, sessionExerciseID)
+        XCTAssertEqual(planned.exercise.id, dumbbell.uuid)
+        XCTAssertEqual(planned.exercise.name, "Supino com halteres")
+        // Alvo do original (séries, faixa, RIR, descanso, ordem), agora apontando para o novo.
+        XCTAssertEqual(planned.target.id, abc.benchTarget.uuid)
+        XCTAssertEqual(planned.target.exerciseID, dumbbell.uuid)
+        XCTAssertEqual(planned.target.order, 0)
+        XCTAssertEqual(planned.target.sets, 3)
+        XCTAssertEqual(planned.target.repMin, 8)
+        XCTAssertEqual(planned.target.repMax, 12)
+        XCTAssertEqual(planned.target.targetRIR, 2)
+        XCTAssertEqual(planned.target.restSeconds, 120)
+        XCTAssertNil(planned.target.startingLoad, "A carga inicial do supino reto não vale para halteres")
+        // SPEC P2 sem `startingLoad`: carga vazia, meta = repMin, RIR alvo = T + 1.
+        XCTAssertEqual(planned.prescription.exerciseID, dumbbell.uuid)
+        XCTAssertNil(planned.prescription.load)
+        XCTAssertEqual(planned.prescription.note, .calibrate)
+        XCTAssertEqual(planned.prescription.targetReps, 8)
+        XCTAssertEqual(planned.prescription.targetRIR, 3)
+        XCTAssertEqual(planned.prescription.sets, 3)
+        XCTAssertEqual(planned.prescription.repMin, 8)
+        XCTAssertEqual(planned.prescription.repMax, 12)
+        XCTAssertEqual(planned.prescription.restSeconds, 120)
+
+        // Só leitura.
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<WorkoutSessionModel>()), 0)
+        XCTAssertTrue(fixture.coordinator.startCalls.isEmpty)
+        XCTAssertTrue(fixture.coordinator.appliedEvents.isEmpty)
+    }
+
+    func testRF34_P3_substitutionPlan_usesHistoryOfNewExerciseOnly() throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        let abc = try insertABCProgram(into: context)
+        let dumbbell = insertExercise(
+            slug: "supino-halteres",
+            name: "Supino com halteres",
+            primary: [.chest],
+            equipment: .dumbbell,
+            increment: 2,
+            pattern: .horizontalPush,
+            into: context
+        )
+
+        // Supino reto há 2 dias: 3 × 12 @ 40 (daria 42,5). Não pode vazar para o substituto.
+        let benchAt = now.addingTimeInterval(-2 * 86_400)
+        let benchSession = insertSession(status: .completed, day: abc.dayA, startedAt: benchAt, into: context)
+        let benchInSession = insertSessionExercise(order: 0, exercise: abc.bench, session: benchSession, into: context)
+        // Halteres há 5 dias: 3 × 12 @ 20 (inc 2) → SPEC P4: 22, nota increase.
+        let dumbbellAt = now.addingTimeInterval(-5 * 86_400)
+        let dumbbellSession = insertSession(status: .completed, day: abc.dayA, startedAt: dumbbellAt, into: context)
+        let dumbbellInSession = insertSessionExercise(order: 0, exercise: dumbbell, session: dumbbellSession, into: context)
+        for index in 0..<3 {
+            insertSet(
+                index: index,
+                load: 40,
+                reps: 12,
+                rir: 2,
+                isWarmup: false,
+                completedAt: benchAt.addingTimeInterval(Double(index + 1) * 180),
+                sessionExercise: benchInSession,
+                into: context
+            )
+            insertSet(
+                index: index,
+                load: 20,
+                reps: 12,
+                rir: 2,
+                isWarmup: false,
+                completedAt: dumbbellAt.addingTimeInterval(Double(index + 1) * 180),
+                sessionExercise: dumbbellInSession,
+                into: context
+            )
+        }
+        try context.save()
+        let target = try ProgramMapper.target(from: abc.benchTarget)
+
+        let planned = try fixture.planner.substitutionPlan(
+            replacing: UUID(),
+            target: target,
+            newExerciseID: dumbbell.uuid,
+            now: now
+        )
+
+        XCTAssertEqual(planned.prescription.exerciseID, dumbbell.uuid)
+        XCTAssertEqual(planned.prescription.load, 22)
+        XCTAssertEqual(planned.prescription.note, .increase)
+        XCTAssertEqual(planned.prescription.targetReps, 8)
+        XCTAssertEqual(planned.prescription.targetRIR, 2)
+    }
+
+    func testRF34_substitutionPlan_backToTargetExercise_keepsStartingLoad() throws {
+        let fixture = try makeFixture()
+        let abc = try insertABCProgram(into: fixture.context)
+        let target = try ProgramMapper.target(from: abc.benchTarget)
+
+        // Troca desfeita (voltar ao exercício do programa): a carga inicial dele continua valendo.
+        let planned = try fixture.planner.substitutionPlan(
+            replacing: UUID(),
+            target: target,
+            newExerciseID: abc.bench.uuid,
+            now: now
+        )
+
+        XCTAssertEqual(planned.target.startingLoad, 40)
+        XCTAssertEqual(planned.prescription.load, 40)
+        XCTAssertEqual(planned.prescription.note, .calibrate)
+    }
+
+    func testRF34_substitutionPlan_unknownExercise_throwsExerciseNotFound() throws {
+        let fixture = try makeFixture()
+        let abc = try insertABCProgram(into: fixture.context)
+        let target = try ProgramMapper.target(from: abc.benchTarget)
+        let unknown = UUID()
+
+        XCTAssertThrowsError(
+            try fixture.planner.substitutionPlan(replacing: UUID(), target: target, newExerciseID: unknown, now: now)
+        ) { error in
+            XCTAssertEqual(error as? PlanningError, .exerciseNotFound(unknown))
+        }
+    }
+
+    // MARK: - substitutes (RF-34)
+
+    func testRF34_substitutes_returnsVisibleCatalogCandidatesExcludingItself() throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        let bench = insertExercise(slug: "supino-reto", name: "Supino reto", primary: [.chest], equipment: .barbell, increment: 2.5, pattern: .horizontalPush, into: context)
+        let dumbbell = insertExercise(slug: "supino-halteres", name: "Supino com halteres", primary: [.chest], equipment: .dumbbell, increment: 2, pattern: .horizontalPush, into: context)
+        _ = insertExercise(slug: "supino-maquina", name: "Supino na máquina", primary: [.chest], equipment: .machine, increment: 5, pattern: .horizontalPush, isArchived: true, into: context)
+        _ = insertExercise(slug: "remada-baixa", name: "Remada baixa", primary: [.back], equipment: .machine, increment: 5, pattern: .horizontalPull, into: context)
+        try context.save()
+
+        let candidates = try fixture.planner.substitutes(for: bench.uuid, limit: 5)
+
+        // Arquivado fica fora; o próprio supino reto também; remada é outro padrão e grupo.
+        XCTAssertEqual(candidates.map(\.id), [dumbbell.uuid])
+        XCTAssertEqual(candidates.first?.movementPattern, .horizontalPush)
+        XCTAssertEqual(try fixture.planner.substitutes(for: bench.uuid, limit: 0), [])
+    }
+
+    func testRF34_substitutes_exerciseWithoutPattern_isEmpty_unknown_throws() throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        let noPattern = insertExercise(slug: "agachamento", name: "Agachamento", primary: [.quads], equipment: .barbell, increment: 2.5, into: context)
+        _ = insertExercise(slug: "leg-press", name: "Leg press", primary: [.quads], equipment: .machine, increment: 5, pattern: .squat, into: context)
+        try context.save()
+        let unknown = UUID()
+
+        XCTAssertEqual(try fixture.planner.substitutes(for: noPattern.uuid, limit: 5), [])
+        XCTAssertThrowsError(try fixture.planner.substitutes(for: unknown, limit: 5)) { error in
+            XCTAssertEqual(error as? PlanningError, .exerciseNotFound(unknown))
+        }
+    }
+
     // MARK: - Fixtures
 
     private struct Fixture {
@@ -373,6 +606,8 @@ final class SessionPlannerTests: XCTestCase {
         primary: [MuscleGroup],
         equipment: Equipment,
         increment: Double,
+        pattern: MovementPattern? = nil,
+        isArchived: Bool = false,
         into context: ModelContext
     ) -> ExerciseModel {
         let model = ExerciseModel(
@@ -386,8 +621,10 @@ final class SessionPlannerTests: XCTestCase {
             loadIncrement: increment,
             isUnilateral: false,
             machineNotes: nil,
-            isArchived: false
+            isArchived: isArchived
         )
+        // Campo do SchemaV2, atribuído fora do init para não depender da ordem dos parâmetros.
+        model.movementPatternRaw = pattern?.rawValue
         context.insert(model)
         return model
     }
