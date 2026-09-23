@@ -1,15 +1,18 @@
 # Testes do pacote TrainerCore (Swift puro) em Linux + verificação de fronteiras (AGENTS.md R1–R3).
-# Roda só quando o pacote, o script de fronteira ou este workflow mudam.
+# Roda só quando o pacote, os JSON de seed (lidos por SeedBundleTests via #filePath), o script de
+# fronteira ou este workflow mudam.
 name: Core tests
 on:
   push:
     paths:
       - "Packages/**"
+      - "PersonalTrainer/Resources/Seed/**"
       - "Scripts/check-boundaries.sh"
       - ".github/workflows/core-tests.yml"
   pull_request:
     paths:
       - "Packages/**"
+      - "PersonalTrainer/Resources/Seed/**"
       - "Scripts/check-boundaries.sh"
       - ".github/workflows/core-tests.yml"
   workflow_dispatch:
@@ -27,7 +30,7 @@ jobs:
     container: swift:6.3
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Check TrainerCore boundaries
         run: bash Scripts/check-boundaries.sh
       - name: Swift version

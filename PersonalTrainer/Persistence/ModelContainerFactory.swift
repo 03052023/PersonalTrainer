@@ -7,8 +7,11 @@ import SwiftData
 ///   incluído no backup do iCloud do iPhone (ARCHITECTURE §15, "Store corrompido").
 /// - `.inMemory`: previews e testes; nada toca o disco.
 ///
-/// CloudKit fica explicitamente desligado: `@Attribute(.unique)` é incompatível com ele
-/// e sync em nuvem está fora de escopo (ADR 001).
+/// CloudKit fica desligado: `@Attribute(.unique)` é incompatível com ele e sync em nuvem
+/// está fora de escopo (ADR 001). O app não tem entitlement iCloud, então o padrão de
+/// `ModelConfiguration` já não ativa CloudKit; usam-se as formas mínimas documentadas
+/// dos inicializadores (`schema:url:` e `schema:isStoredInMemoryOnly:`), sem argumentos
+/// opcionais, porque este código é escrito sem compilador local (AGENTS R11).
 enum ModelContainerFactory {
     enum Mode {
         case persistent
@@ -16,27 +19,17 @@ enum ModelContainerFactory {
     }
 
     static func make(_ mode: Mode) throws -> ModelContainer {
-        let schema = Schema(versionedSchema: SchemaV1.self)
+        // `CurrentSchema`, e não `SchemaV1`: quando `SchemaV2` entrar no plano, o container
+        // precisa abrir com a última versão sem que alguém lembre de editar esta linha.
+        let schema = Schema(versionedSchema: CurrentSchema.self)
         let configuration: ModelConfiguration
 
         switch mode {
         case .persistent:
             let url = try persistentStoreURL()
-            configuration = ModelConfiguration(
-                "PersonalTrainer",
-                schema: schema,
-                url: url,
-                allowsSave: true,
-                cloudKitDatabase: .none
-            )
+            configuration = ModelConfiguration(schema: schema, url: url)
         case .inMemory:
-            configuration = ModelConfiguration(
-                "PersonalTrainer",
-                schema: schema,
-                isStoredInMemoryOnly: true,
-                allowsSave: true,
-                cloudKitDatabase: .none
-            )
+            configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         }
 
         return try ModelContainer(

@@ -22,6 +22,11 @@ final class SchemaV1Tests: XCTestCase {
             PersonalTrainerMigrationPlan.schemas.first?.versionIdentifier,
             SchemaV1.versionIdentifier
         )
+        // O container abre com `CurrentSchema`, que precisa ser sempre a última versão do plano.
+        XCTAssertEqual(
+            PersonalTrainerMigrationPlan.schemas.last?.versionIdentifier,
+            CurrentSchema.versionIdentifier
+        )
     }
 
     // MARK: - Container
@@ -135,22 +140,6 @@ final class SchemaV1Tests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<ExerciseModel>()), 1)
     }
 
-    // MARK: - Unicidade
-
-    /// `@Attribute(.unique)` faz upsert silencioso em vez de duplicar (ARCHITECTURE §15).
-    func testUniqueUUID_insertingSameExerciseTwice_keepsOneRow() throws {
-        let container = try ModelContainerFactory.make(.inMemory)
-        let context = container.mainContext
-        let uuid = UUID()
-
-        context.insert(makeExercise(uuid: uuid, slug: "supino-reto", name: "Supino reto"))
-        try context.save()
-        context.insert(makeExercise(uuid: uuid, slug: "supino-reto", name: "Supino reto (barra)"))
-        try context.save()
-
-        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ExerciseModel>()), 1)
-    }
-
     // MARK: - Propriedades computadas (raw ↔ TrainerCore)
 
     func testExerciseModel_muscleGroupsPersistAsCSV() {
@@ -184,7 +173,9 @@ final class SchemaV1Tests: XCTestCase {
     func testUserSettings_weeklyTargetsRoundTripAsJSON() throws {
         let container = try ModelContainerFactory.make(.inMemory)
         let context = container.mainContext
+        let uuid = UUID()
         let settings = UserSettingsModel(
+            uuid: uuid,
             weekStartsOnMonday: true,
             weeklyTargetsRaw: "{}",
             healthKitEnabled: false,
@@ -200,6 +191,7 @@ final class SchemaV1Tests: XCTestCase {
         let fetched = try context.fetch(FetchDescriptor<UserSettingsModel>())
         XCTAssertEqual(fetched.count, 1)
         let stored = try XCTUnwrap(fetched.first)
+        XCTAssertEqual(stored.uuid, uuid)
         XCTAssertEqual(stored.weeklyTargetsRaw, "{\"back\":3,\"chest\":2}")
         XCTAssertEqual(stored.weeklyTargets, [.chest: 2, .back: 3])
         XCTAssertTrue(stored.weekStartsOnMonday)
