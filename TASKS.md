@@ -20,13 +20,13 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 **Objetivo:** projeto gerado por XcodeGen compila no CI para iPhone e Watch (placeholders), `TrainerCore` tem domínio, motor v1, resumos e DTOs de sync com testes verdes localmente e no CI Linux. Nenhuma tela funcional ainda.
 
-**Estado em 2026-09-22:** motor, seed, sync e resumos entregues e testados no Windows (160 testes). Esquema SwiftData, mappers, protocolos/fakes e projeto XcodeGen escritos e revisados estaticamente, aguardando o primeiro run do CI (T0.11). Probe T0.0 pronto para o mesmo run.
+**Estado em 2026-09-22:** motor, seed, sync e resumos entregues, revisados adversarialmente e testados no Windows (186 testes). Esquema SwiftData, mappers, protocolos/fakes e projeto XcodeGen escritos e revisados estaticamente (findings aplicados em `fix/app-review`), aguardando o primeiro run do CI (T0.11). Probe T0.0 pronto para o mesmo run.
 
 **Critérios de aceitação M0**
 
 | CA | Verificação | Estado |
 |----|-------------|--------|
-| CA0-1 | `Scripts/swift-test.ps1` (Windows) e o job "Core tests" (Linux) passam com ≥ 1 teste por regra P1–P9, P11, P12 e S1–S4. | Windows ✔ (160 testes); Linux aguarda T0.11 |
+| CA0-1 | `Scripts/swift-test.ps1` (Windows) e o job "Core tests" (Linux) passam com ≥ 1 teste por regra P1–P9, P11, P12 e S1–S4. | Windows ✔ (186 testes); Linux aguarda T0.11 |
 | CA0-2 | Job "App build (manual)" verde: `xcodegen generate`, `xcodebuild test` no simulador (PersonalTrainerTests) e build `generic/platform=iOS` sem erros de concorrência. | aguarda T0.11 |
 | CA0-3 | O IPA do job contém `Payload/PersonalTrainer.app/Watch/PersonalTrainerWatch.app` com os dois executáveis; os apps mostram "Personal — em construção". | aguarda T0.11 |
 | CA0-4 | Entitlement HealthKit e strings `NSHealthShareUsageDescription`/`NSHealthUpdateUsageDescription` presentes nos dois targets; `WKBackgroundModes` contém `workout-processing` (verificado por `Scripts/build-app.sh`). | escrito; aguarda T0.11 |

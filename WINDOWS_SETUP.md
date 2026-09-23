@@ -1,108 +1,103 @@
-# Validação no Windows: iPhone + Apple Watch
+# Windows → iPhone + Apple Watch, sem Mac e sem custo
 
-Estado: código de teste preparado; não equivale a instalação, leitura real ou integração completa.
+Atualizado em 2026-09-22 com fatos verificados (fontes no fim). Estado: código pronto para o primeiro run do CI; **nada foi instalado em aparelho ainda**.
 
-## Objetivo e aparelhos
+## 1. Situação
 
-Validar um caminho sem mensalidade nem assinatura Apple paga, mantendo o app nativo.
-Desenvolvimento em `C:\Users\leona\Developer\PersonalTrainer`; originais preservados no OneDrive.
-Aparelhos informados: iPhone 17 / iOS 26.6.2 e Apple Watch Series 7 GPS 41 mm / watchOS 26.5.
-Nenhum número de série ou identificador de dispositivo é necessário no repositório.
+- Você só tem Windows e nunca terá Mac. Os builds Apple rodam em runners macOS do GitHub Actions; a instalação no iPhone é feita por uma ferramenta de sideload no Windows com a sua conta Apple gratuita.
+- Já está no repositório: o probe de validação (`Validation/DeviceProbe`, lê a última FC do Saúde), o app principal (projeto gerado por XcodeGen a partir de `project.yml`) e três workflows: **Core tests** (Linux, automático a cada push), **Device probe (manual)** e **App build (manual)** (macOS, só quando você dispara).
+- Localmente, no Windows, só o motor (`Packages/TrainerCore`) compila e testa: `powershell -ExecutionPolicy Bypass -File Scripts/swift-test.ps1`.
 
-## O que este teste faz
+## 2. Decisões
 
-`Validation/DeviceProbe` contém um projeto isolado com app de iPhone e companion do Watch.
-Em cada aparelho, o botão **Autorizar e ler FC** solicita somente leitura da frequência cardíaca.
-O resultado é a última amostra das últimas 24 horas, com a data. Não é FC ao vivo.
-Ausência de amostra não prova que o usuário recusou acesso: HealthKit não revela essa decisão.
+| Decisão | Motivo |
+|---------|--------|
+| Repositório **público** | Runners padrão do GitHub, inclusive macOS, são gratuitos e ilimitados em repositório público. Não há segredo no código: a assinatura acontece no seu Windows. Em repositório privado a franquia é 2.000 min/mês e o macOS consome ~10× mais rápido (≈ 200 min macOS/mês). Se preferir privado: não cadastre cartão e crie um budget de US$ 0 para Actions com "Stop usage when budget limit is reached". |
+| Runner `macos-26` com Xcode 26.6 fixado | Imagem atual: macOS 26.6, Xcode 26.6 (Swift 6.3, SDK iOS/watchOS 26.5). O app compilado com SDK 26.5 roda no seu iOS 26.6.2. `macos-latest` muda de versão sem aviso; `-large/-xlarge` são sempre cobrados. |
+| Testes Linux em `container: swift:6.3` | Mesmo Swift do Xcode 26.6; roda em `ubuntu-latest` em segundos. |
+| App do Watch **opcional** | Ver §5. Enquanto o companion não instala, a FC vem do app Exercício nativo do relógio e o app do iPhone lê pelo HealthKit. |
 
-O teste não grava treinos, não tem banco nem backend, não transmite dados de saúde e não implementa
-WatchConnectivity. A FC é consultada independentemente em cada aparelho. Nenhuma regra P/S/D muda.
+## 3. Passo a passo (você)
 
-## Compilar sem Mac pessoal e sem cobranças
+1. Crie um repositório vazio no GitHub chamado `PersonalTrainer` (público; sem README, sem .gitignore).
+2. Conecte e envie o código:
 
-O Windows não compila os targets Apple. O workflow manual `Device probe (manual)` usa um runner
-macOS padrão do GitHub, com Xcode. São máquinas Apple remotas; não há acesso interativo a um Mac.
-
-Antes de executar, conferir **Settings → Billing and licensing → Budgets and alerts** da conta:
-produto **Actions**, orçamento **US$ 0**, **Stop usage = Yes**. Em 2026-09-22 essa configuração
-foi observada na conta do usuário. Não alterar para liberar gasto.
-Conta gratuita privada usa a franquia incluída. Se ela acabar, aguardar renovação; não pagar.
-O workflow não dispara em push, PR ou horário; tem timeout de 20 minutos, sem cache e artefato
-retido por um dia. Não enviar credenciais Apple ao GitHub nem publicar o repositório por conveniência.
-
-No GitHub: **Actions → Device probe (manual) → Run workflow**.
-O artefato `DeviceProbe-for-resigning` inclui IPA, SHA-256, commit-fonte e versão do Xcode.
-O IPA contém uma assinatura ad-hoc local para preservar o entitlement HealthKit; **não é uma
-assinatura Apple de provisionamento e não instala diretamente**. Deve ser reassinado no Windows.
-
-## Instalação: etapa experimental ainda não comprovada
-
-O projeto comunitário [iloader-watch-companion](https://github.com/Rzbck/iloader-watch-companion)
-relata instalação/abertura dos dois apps pelo Windows. A evidência não identifica conta gratuita,
-os modelos/versões destes aparelhos nem leitura real de FC.
-
-A evidência publicada de provisionamento HealthKit pertence ao par histórico:
-- iLoader `70f37e9b4afc659ab44ec1944c034093f4cda416`.
-- isideload `f7b9f3da570edd6824c29680545e710846d07df5`.
-
-Não substituir esse par por qualquer release recente: a contribuição upstream exclui a parte
-específica de HealthKit. Não há instalador estável comprovado para toda a combinação.
-Antes de executar ferramentas comunitárias, revisar a origem, a dependência entre esses commits
-e o processo de build. Instalação e login Apple são uma etapa separada, com participação do usuário.
-
-O iLoader oficial exige iTunes no Windows. O usuário precisará conectar o iPhone, confiar no
-computador e habilitar Modo de Desenvolvedor onde solicitado nos dois aparelhos.
-Login Apple e 2FA ficam no fluxo local do instalador; nunca em chats, commits ou logs publicados.
-Não remover apps existentes para liberar vagas automaticamente.
-
-A conta Apple gratuita tem limites de apps/identificadores e perfis de sete dias. Renovar a
-assinatura usando os mesmos identificadores e a mesma conta; validar também o companion.
-Não considerar custo zero sustentável antes de testar essa renovação.
-
-## Evidências necessárias
-
-| Etapa | Prova exigida |
-|---|---|
-| V0 | Scripts verificam plists, referências, entitlement e estrutura do projeto |
-| V1 | Xcode compila iPhone e Watch em CI |
-| V2 | IPA contém `Payload/DeviceProbe.app/Watch/DeviceProbeWatch.app` e os dois executáveis |
-| V3 | Conta gratuita provisiona, instala e abre os dois apps físicos |
-| V4 | Os dois mostram uma amostra real e sua data após autorização |
-| V5 | Renovação mantém os dois apps instalados e abrindo |
-
-V1/V2 não demonstram V3/V4. V3/V4 não demonstram renovação nem integração completa.
-Após V0–V5, uma tarefa separada valida FC ao vivo com `HKWorkoutSession`, WatchConnectivity,
-gravação de um único treino e comportamento offline. Não tratar este probe como app de treino.
-
-Para V4, usar o app Treino nativo do Watch para obter uma amostra recente e então consultar
-novamente no probe. O HealthKit do iPhone pode demorar a receber amostras do relógio.
-Não precisa compartilhar valores de saúde: basta informar se apareceu uma amostra com data recente.
-
-## Verificação local
-
-```powershell
-cd C:\Users\leona\Developer\PersonalTrainer
-python Validation/DeviceProbe/generate_project.py
-python Scripts/check-device-probe.py
-swift test --package-path Packages/TrainerCore
+```bash
+git -C C:/Users/leona/Developer/PersonalTrainer remote add origin https://github.com/<usuario>/PersonalTrainer.git
 ```
 
-O gerador usa somente a biblioteca padrão de Python; não adiciona dependência de terceiros ao app.
-O projeto gerado também fica versionado. Para compilar no runner, usar
-`bash Scripts/build-device-probe.sh`. Os arquivos locais de build ficam ignorados pelo Git.
+```bash
+git -C C:/Users/leona/Developer/PersonalTrainer push -u origin main
+```
 
-## Fontes e limites consultados em 2026-09-22
+   O Git Credential Manager abre o navegador para você autorizar. Nunca cole tokens ou senhas no chat.
+3. Na aba **Actions** do repositório, confirme que **Core tests** ficou verde (dispara sozinho no push).
+4. Ainda em Actions, abra **Device probe (manual)** → *Run workflow*. Baixe o artefato `DeviceProbe-for-resigning` (IPA + SHA256).
+5. Depois rode **App build (manual)** e baixe `PersonalTrainer-for-resigning`. Se falhar, cole o trecho de erro do log no chat; a correção sai em um branch `fix/ci-*` e você roda de novo (cada rodada ≈ 15–30 min de runner).
 
-- [HealthKit disponível por modalidade de conta iOS](https://developer.apple.com/help/account/reference/supported-capabilities-ios/).
-- [Capacidades watchOS](https://developer.apple.com/help/account/reference/supported-capabilities-watchos/).
-- [Limites da conta Apple gratuita](https://developer.apple.com/help/account/basics/about-your-developer-account).
-- [Franquia e cobrança do GitHub Actions](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
-- [Bloqueio de gastos do GitHub](https://docs.github.com/en/billing/how-tos/set-up-budgets).
-- [Compatibilidade experimental](https://github.com/Rzbck/iloader-watch-companion/blob/main/docs/COMPATIBILITY.md).
-- [Limitações da contribuição upstream](https://github.com/Rzbck/iloader-watch-companion/blob/main/HANDOFF.md).
-- [iLoader oficial](https://iloader.app/).
+## 4. Instalar no iPhone
 
-## Resultado desta execução
+**O problema central não é a Apple, é a ferramenta.** HealthKit está disponível para a conta gratuita em iOS e watchOS (tabela oficial de capabilities). Mas as ferramentas populares assinam o app só com os entitlements do perfil e **não pedem a capability HealthKit** ao criar o App ID; o entitlement `com.apple.developer.healthkit` desaparece e `HKHealthStore` falha em silêncio.
 
-Preencher somente com evidências observadas. Nenhum dispositivo foi validado apenas por um build.
+| Ferramenta (Windows 11, iOS 26) | HealthKit preservado | Instala app do Watch | Renovação 7 dias | Observações |
+|---|---|---|---|---|
+| AltServer/AltStore | **Não** (código do AltSign confirma) | Não (issue #229 aberta desde 2020) | automática com PC ligado | rejeita IPA com pasta `Watch/` |
+| SideStore | **Não** | Não (fork Andris73 em andamento) | automática no aparelho | login no iPhone |
+| iLoader (upstream, nab138) | **Não** | Não | manual (reinstalar) | open source, exige iTunes |
+| Sideloadly | não verificado (código fechado) | não documentado | automática com PC ligado | — |
+| **Impactor** (open source) | **Sim, pelo código** (pede capabilities lendo o entitlement) | Não | automática com PC ligado | só iPhone; não validado no seu aparelho |
+| **iLoader fork Rzbck** (`feat/watch-companion-support-20260909`) | **Sim, pelo código** | **Sim, relato de 1 validação física** | manual | artefato de CI sem release, não assinado, expira 2026-12-09; PRs upstream sem resposta |
+
+Ordem recomendada de teste (probe primeiro, app depois):
+
+1. **Impactor** para iPhone-only: valida a rota HealthKit com a ferramenta de maior confiança pública. Se o probe mostrar uma amostra de FC com data, V3/V4 do iPhone estão provados.
+2. **iLoader fork Rzbck** para iPhone + Watch. Antes de digitar credenciais, leia o diff da PR nab138/isideload#12 (ou compile o branch) — é um binário de CI de um fork com zero estrelas.
+3. AltStore/SideStore/Sideloadly só para apps sem HealthKit; não servem para este projeto.
+
+Pré-requisitos comuns: iTunes baixado **do site da Apple** (não da Microsoft Store); iPhone com Modo de Desenvolvedor ativado (aparece em Ajustes › Privacidade e Segurança após a primeira tentativa de instalação); os bundle IDs recebem sufixo `.TEAMID` na instalação, o que é esperado.
+
+Depois de instalar, confirme: o probe abre, o botão "Autorizar e ler FC" mostra a folha de permissão do Saúde e, após um treino no relógio, exibe uma amostra com data. Se a folha não aparecer, o entitlement foi removido pela ferramenta.
+
+## 5. Apple Watch: riscos concretos
+
+- **Modo de Desenvolvedor no relógio.** A documentação da Apple e vários relatos indicam que o interruptor só aparece após pareamento com Xcode em um Mac. Sem ele o companion não roda. Só o teste no seu Series 7 responde isso.
+- **Ferramenta única e frágil.** Todo o suporte a Watch pelo Windows vive em forks pessoais de setembro de 2026, sem aceite upstream, sem release e sem renovação automática. Uma atualização do iOS/watchOS pode quebrar tudo.
+- **Renovação semanal manual.** Esquecer a reinstalação deixa iPhone e Watch sem o app até reinstalar.
+- **Consequência de produto:** o app do Watch (M3) só começa depois de V3–V5 aprovados. Até lá, inicie "Musculação tradicional" no app Exercício do relógio durante o treino; o app do iPhone lê a FC e vincula esse treino do Saúde (SPEC RF-13/RF-14).
+
+## 6. Limites da conta gratuita
+
+Perfil válido por **7 dias**; **3 apps** sideloaded por aparelho (a própria loja, se houver, ocupa 1); **10 App IDs por 7 dias** (iPhone + Watch = 2 por app; o probe consome outros 2, desinstale-o depois); **3 dispositivos** por conta (iPhone + Watch = 2). Nunca mude os bundle IDs `com.personaltrainer.app` e `com.personaltrainer.app.watchkitapp`. Nada de Push, iCloud, Siri ou Sign in with Apple: indisponíveis para conta gratuita e fazem a assinatura falhar.
+
+Antes de qualquer reinstalação ou de apagar o app para liberar vaga, exporte o backup JSON (M2). Os dados do Saúde permanecem mesmo sem o app.
+
+## 7. Segurança
+
+- Apple ID, senha e código 2FA só dentro da ferramenta de sideload, que fala direto com a Apple. Nunca em chats, issues, commits ou scripts. Senha de app específico não é aceita por essas ferramentas.
+- Considere um Apple ID dedicado ao sideload.
+- Binário de CI de fork sem release manipula suas credenciais: audite o diff ou compile você mesmo antes de usar.
+- O repositório público não contém nem deve conter perfis, certificados ou chaves (`.gitignore` já bloqueia `*.mobileprovision`, `*.p12`, `*.p8`, `*.cer`, `*.key`).
+
+## 8. Evidências
+
+| Etapa | Prova | Estado |
+|---|---|---|
+| V0 | Estrutura, plists, entitlements conferidos por script | ✔ |
+| V1 | Xcode compila iPhone e Watch no CI | aguarda primeiro run |
+| V2 | IPA contém `Payload/…/Watch/…app` e os dois executáveis | aguarda primeiro run |
+| V3 | Conta gratuita instala e abre os dois apps nos aparelhos | exige você |
+| V4 | Os dois apps mostram amostra real de FC com data | exige você |
+| V5 | Renovação após 7 dias mantém os dois apps abrindo | exige você |
+
+## 9. Plano B
+
+1. IPA sem a pasta `Watch/` (o workflow pode gerar uma variante) instalado pelo Impactor ou pelo fork Rzbck: app do iPhone completo, com HealthKit, FC vinda do app Exercício do relógio.
+2. Acompanhar o fork Andris73/SideStore (`fix229`) para instalar o Watch a partir do próprio iPhone.
+3. Apple Developer Program (US$ 99/ano) + TestFlight a partir do GitHub Actions: remove os limites de 7 dias, 3 apps e 10 App IDs e instala o Watch nativamente. É a única rota oficial sem Mac.
+
+## 10. Fontes
+
+- GitHub Actions: <https://github.com/actions/runner-images/blob/main/README.md>, <https://raw.githubusercontent.com/actions/runner-images/main/images/macos/macos-26-Readme.md>, <https://docs.github.com/en/billing/concepts/product-billing/github-actions>, <https://docs.github.com/en/billing/how-tos/set-up-budgets>, <https://docs.github.com/en/actions/reference/runners/github-hosted-runners>.
+- Apple, conta gratuita: <https://developer.apple.com/help/account/reference/supported-capabilities-ios/>, <https://developer.apple.com/help/account/reference/supported-capabilities-watchos/>, <https://developer.apple.com/support/compare-memberships/>, <https://developer.apple.com/documentation/xcode/enabling-developer-mode-on-a-device>, <https://developer.apple.com/forums/thread/718634>.
+- Ferramentas: <https://github.com/rileytestut/AltSign/blob/master/AltSign/Capabilities/ALTCapabilities.m>, <https://github.com/rileytestut/AltStore/issues/229>, <https://github.com/SideStore/SideSign/blob/main/Sources/Models/Feature.swift>, <https://github.com/claration/Impactor>, <https://github.com/nab138/iloader>, <https://github.com/nab138/isideload/pull/12>, <https://github.com/Rzbck/iloader-watch-companion>, <https://github.com/perezjuanj/OpenCircuit/issues/104>, <https://sideloadly.io/faq.html>.
+- XcodeGen: <https://github.com/yonaskolb/XcodeGen>, <https://formulae.brew.sh/formula/xcodegen>.

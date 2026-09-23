@@ -141,7 +141,7 @@ UserSettingsModel (linha única)
 | `ExerciseModel` | `uuid` (`.unique`), `slug` (`.unique`), `name`, `primaryMusclesRaw: String` (CSV de rawValues), `secondaryMusclesRaw`, `equipmentRaw`, `loadUnitRaw`, `loadIncrement`, `isUnilateral`, `machineNotes`, `isArchived` | Nunca é deletado fisicamente (`isArchived`) — o histórico aponta para ele. |
 | `ProgramModel` | `uuid`, `name`, `isActive`, `createdAt` | `days` cascade. |
 | `ProgramDayModel` | `uuid`, `name`, `order` | `exercises` cascade. `program` inverso. |
-| `ProgramExerciseModel` | `uuid`, `order`, `sets`, `repMin`, `repMax`, `targetRIR`, `restSeconds`, `startingLoad?` | `exercise` → `ExerciseModel` (nullify). |
+| `ProgramExerciseModel` | `uuid`, `order`, `sets`, `repMin`, `repMax`, `targetRIR`, `restSeconds`, `startingLoad?` | `exercise` → `ExerciseModel` (nullify, sem inverso); `day` inverso de `ProgramDayModel.exercises`. |
 | `WorkoutSessionModel` | `uuid`, `programDayUUID` (cópia, não relação), `programDayName` (snapshot), `statusRaw`, `startedAt`, `endedAt?`, `notes`, `hkWorkoutUUID?`, `avgHeartRate?`, `maxHeartRate?`, `isDeload`, `sourceRaw` (`iphone`/`watch`) | `exercises` cascade. |
 | `SessionExerciseModel` | `uuid`, `order`, `exerciseUUID` (cópia), `exerciseName` (snapshot), `prescribedLoad?`, `prescribedSets`, `prescribedRepMin`, `prescribedRepMax`, `prescribedRIR`, `restSeconds`, `noteRaw`, `wasSkipped`, `substitutedFromUUID?` | `exercise` → `ExerciseModel` (nullify); `sets` cascade; `session` inverso. |
 | `SetLogModel` | `uuid` (`.unique`), `index`, `load`, `reps`, `rir?`, `isWarmup`, `completedAt`, `sourceRaw`, `updatedAt` | `sessionExercise` inverso. |
@@ -273,7 +273,8 @@ Tipos: escrita `HKWorkoutType`; leitura `heartRate`. Metadados do workout: `HKMe
 ## 11. Dados semente e configuração
 
 - `Resources/Seed/exercises.v1.json` e `Resources/Seed/program-default.v1.json` no bundle do iPhone. Formato = os structs de `TrainerCore/Domain` (mesmo Codable do backup).
-- `SeedLoader` roda no primeiro launch (`UserSettingsModel.schemaSeedVersion < bundle seed version`) e faz upsert por `slug`. Nunca sobrescreve exercícios editados pelo usuário (`isArchived`/notas preservados); só adiciona novos.
+- `SeedLoader` roda no primeiro launch (`UserSettingsModel.schemaSeedVersion < bundle seed version`) e faz upsert por `slug`: busca o `ExerciseModel` existente e copia campo a campo; **nunca** insere um segundo modelo com o mesmo `uuid`/`slug` (os dois são `.unique` e o insert duplicado vira upsert silencioso que zeraria `isArchived`/`machineNotes`). Só adiciona novos.
+- Com o `project.yml` atual, os JSON de `Resources/Seed/` são copiados para a **raiz** do bundle: usar `Bundle.main.url(forResource: "exercises.v1", withExtension: "json")` sem `subdirectory:`.
 - Na M1 o programa é editado **no JSON** e reinstalando o app. É deliberado: elimina uma tela inteira do MVP.
 
 ## 12. Backup (M2)
@@ -316,7 +317,7 @@ Tipos: escrita `HKWorkoutType`; leitura `heartRate`. Metadados do workout: `HKMe
 | `#Predicate` não suporta enum, arrays, `contains` complexo, optionals encadeados. | Enums como `String` raw; CSV para arrays; filtrar em memória quando o volume é pequeno (histórico de um exercício). |
 | `@Model` não é `Sendable`; erros de concorrência em Swift 6. | Tudo `@MainActor`; DTOs cruzam fronteiras, modelos não. |
 | `@Attribute(.unique)` com `insert` de duplicata faz **upsert** silencioso (sobrescreve). | Coordinator checa existência por `uuid` antes de inserir; testes de idempotência. |
-| Relações opcionais/inversas mal declaradas causam crash em runtime, não em compile. | Um único arquivo `SchemaV1.swift`, revisado por checklist (inverso declarado nos dois lados, `deleteRule` explícito). |
+| Relações opcionais/inversas mal declaradas causam crash em runtime, não em compile. | Um único arquivo `SchemaV1.swift`, revisado por checklist (`@Relationship(deleteRule:inverse:)` declarado **só no lado pai**, filho com propriedade opcional simples; `deleteRule` explícito). |
 | `@Query` re-renderiza a tela inteira em cada `save()` durante a sessão. | Sessão ativa lê do ViewModel (estado em memória alimentado pelo coordinator), não de `@Query`. `@Query` só em listas (histórico, catálogo). |
 | Store corrompido = perda total (sem nuvem). | Export JSON (M2) e lembrete semanal opcional; store fica em `Application Support` incluído no backup do iCloud do iPhone. |
 
