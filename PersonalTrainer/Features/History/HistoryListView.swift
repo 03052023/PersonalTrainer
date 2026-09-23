@@ -2,17 +2,33 @@ import SwiftData
 import SwiftUI
 import TrainerCore
 
-/// Lista de sessões do histórico, mais recente primeiro (SPEC F5, RF-09, CA1-7).
+/// Lista de sessões do histórico, mais recente primeiro (SPEC F5, RF-09, CA1-7), com
+/// "Apagar" por deslize (TASKS T2.13, SPEC RF-19).
 ///
 /// Só leitura: `@Query` é o único acesso a dados (ARCHITECTURE §3) e nada aqui escreve (R4).
-/// A view já traz a própria `NavigationStack` (título "Histórico" + navegação para
-/// `SessionDetailView`); quem a embute numa aba não deve aninhá-la em outra `NavigationStack`.
+/// Apagar passa por `onDeleteSession`, que o integrador liga a `SessionCoordinating.deleteSession(id:)`;
+/// o motor recalcula as próximas cargas por derivação do histórico (ADR 003) e o `@Query`
+/// tira a linha sozinho. A view já traz a própria `NavigationStack` (título "Histórico" +
+/// navegação para `SessionDetailView`); quem a embute numa aba não deve aninhá-la em outra.
 @MainActor
 struct HistoryListView: View {
     @Query(sort: \WorkoutSessionModel.startedAt, order: .reverse)
     private var sessions: [WorkoutSessionModel]
 
-    init() {}
+    private let references: ReferenceCatalog
+    private let onDeleteSession: (UUID) throws -> Void
+
+    /// Sessão aguardando confirmação no `confirmationDialog`.
+    @State private var pendingDeletionID: UUID?
+    @State private var isConfirmingDeletion = false
+    /// Mensagem pt-BR do alerta de falha ao apagar.
+    @State private var deletionErrorMessage = ""
+    @State private var isPresentingDeletionError = false
+
+    init(references: ReferenceCatalog, onDeleteSession: @escaping (UUID) throws -> Void) {
+        self.references = references
+        self.onDeleteSession = onDeleteSession
+    }
 
     var body: some View {
         NavigationStack {
@@ -24,21 +40,82 @@ struct HistoryListView: View {
                         description: Text("As sessões finalizadas ou abandonadas aparecem aqui.")
                     )
                 } else {
-                    List(visibleSessions, id: \.uuid) { session in
-                        NavigationLink {
-                            SessionDetailView(session: session)
-                        } label: {
-                            SessionRow(session: session)
+                    List {
+                        ForEach(visibleSessions, id: \.uuid) { session in
+                            NavigationLink {
+                                SessionDetailView(session: session, references: references)
+                            } label: {
+                                SessionRow(session: session)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                // Sem `role: .destructive` de propósito: com esse papel a lista
+                                // anima a remoção da linha antes da confirmação, e a linha
+                                // "volta" se o usuário cancelar.
+                                Button {
+                                    pendingDeletionID = session.uuid
+                                    isConfirmingDeletion = true
+                                } label: {
+                                    Label("Apagar", systemImage: "trash")
+                                }
+                                .tint(.red)
+                            }
                         }
                     }
                 }
             }
             .navigationTitle("Histórico")
+            .confirmationDialog(
+                "Apagar este treino?",
+                isPresented: $isConfirmingDeletion,
+                titleVisibility: .visible,
+                presenting: pendingDeletionID
+            ) { sessionID in
+                Button("Apagar", role: .destructive) {
+                    deleteSession(sessionID)
+                }
+                Button("Cancelar", role: .cancel) {
+                    pendingDeletionID = nil
+                }
+            } message: { _ in
+                Text("As próximas cargas serão recalculadas.")
+            }
+            .alert("Não foi possível apagar", isPresented: $isPresentingDeletionError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(deletionErrorMessage)
+            }
         }
     }
 
     private var visibleSessions: [WorkoutSessionModel] {
         Self.filterVisible(sessions)
+    }
+
+    // MARK: - Apagar (T2.13)
+
+    private func deleteSession(_ sessionID: UUID) {
+        pendingDeletionID = nil
+        do {
+            try onDeleteSession(sessionID)
+        } catch {
+            deletionErrorMessage = Self.deletionMessage(for: error)
+            isPresentingDeletionError = true
+        }
+    }
+
+    /// Mensagem pt-BR para uma falha de `onDeleteSession`.
+    static func deletionMessage(for error: any Error) -> String {
+        if let coordinatorError = error as? SessionCoordinatorError {
+            switch coordinatorError {
+            case .sessionNotFound:
+                return "Este treino já tinha sido apagado."
+            case .unsupported:
+                return "Apagar treinos ainda não está disponível nesta versão."
+            default:
+                break
+            }
+        }
+        return "Não foi possível apagar o treino. Tente de novo."
     }
 
     /// Sessões `inProgress` ficam fora: a sessão ativa pertence à Home ("Retomar", SPEC S3),
@@ -88,6 +165,7 @@ private enum HistoryPreviewData {
             startedAt: base,
             durationSeconds: nil,
             setCount: 2,
+            load: 65,
             exercise: legPress,
             into: context
         )
@@ -97,6 +175,7 @@ private enum HistoryPreviewData {
             startedAt: base.addingTimeInterval(-2 * 86_400),
             durationSeconds: 1_500,
             setCount: 4,
+            load: 62.5,
             exercise: legPress,
             into: context
         )
@@ -106,6 +185,7 @@ private enum HistoryPreviewData {
             startedAt: base.addingTimeInterval(-4 * 86_400),
             durationSeconds: 3_900,
             setCount: 12,
+            load: 60,
             exercise: legPress,
             into: context
         )
@@ -115,6 +195,7 @@ private enum HistoryPreviewData {
             startedAt: base.addingTimeInterval(-6 * 86_400),
             durationSeconds: 2_700,
             setCount: 9,
+            load: 57.5,
             exercise: legPress,
             into: context
         )
@@ -129,6 +210,7 @@ private enum HistoryPreviewData {
         startedAt: Date,
         durationSeconds: TimeInterval?,
         setCount: Int,
+        load: Double,
         exercise: ExerciseModel,
         into context: ModelContext
     ) {
@@ -153,7 +235,7 @@ private enum HistoryPreviewData {
             order: 0,
             exerciseUUID: exercise.uuid,
             exerciseName: exercise.name,
-            prescribedLoad: 60,
+            prescribedLoad: load,
             prescribedSets: 3,
             prescribedRepMin: 8,
             prescribedRepMax: 12,
@@ -172,7 +254,7 @@ private enum HistoryPreviewData {
             let set = SetLogModel(
                 uuid: UUID(),
                 index: index,
-                load: 60,
+                load: load,
                 reps: 10,
                 rir: 2,
                 isWarmup: false,
@@ -188,7 +270,7 @@ private enum HistoryPreviewData {
 
 #Preview("Com sessões") {
     if let container = HistoryPreviewData.makeContainer() {
-        HistoryListView()
+        HistoryListView(references: .empty, onDeleteSession: { _ in })
             .modelContainer(container)
     } else {
         Text("Não foi possível montar os dados de preview")
@@ -197,7 +279,7 @@ private enum HistoryPreviewData {
 
 #Preview("Vazio") {
     if let container = try? ModelContainerFactory.make(.inMemory) {
-        HistoryListView()
+        HistoryListView(references: .empty, onDeleteSession: { _ in })
             .modelContainer(container)
     } else {
         Text("Não foi possível montar os dados de preview")

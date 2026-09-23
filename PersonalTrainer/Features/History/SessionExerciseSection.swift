@@ -2,16 +2,19 @@ import SwiftUI
 import TrainerCore
 
 /// Uma `Section` de `SessionDetailView` por exercício da sessão (SPEC F5, CA1-7):
-/// cabeçalho com nome, prescrição ("3 × 8–12 · 60 kg · RIR 2") e badge "Pulado";
-/// uma linha por série ("1 · 60 kg × 10 · RIR 2"), aquecimento marcado, ordenadas por `index`.
+/// cabeçalho com nome, prescrição ("3 × 8–12 · 60 kg · RIR 2"), nota com "Por quê?" (RF-32)
+/// e badge "Pulado"; uma linha por série ("1 · 60 kg × 10 · RIR 2"), aquecimento marcado,
+/// ordenadas por `index`; e por fim o link para a evolução de carga do exercício (T2.10).
 ///
 /// Só leitura: recebe o snapshot da prescrição e as séries; nada aqui escreve (R4).
 @MainActor
 struct SessionExerciseSection: View {
     let sessionExercise: SessionExerciseModel
+    let references: ReferenceCatalog
 
-    init(sessionExercise: SessionExerciseModel) {
+    init(sessionExercise: SessionExerciseModel, references: ReferenceCatalog) {
         self.sessionExercise = sessionExercise
+        self.references = references
     }
 
     var body: some View {
@@ -23,6 +26,16 @@ struct SessionExerciseSection: View {
                 ForEach(orderedSets, id: \.uuid) { set in
                     setRow(set)
                 }
+            }
+            NavigationLink {
+                // Nome atual do catálogo quando a relação existe (o exercício pode ter sido
+                // renomeado depois); senão, o nome copiado na sessão.
+                ExerciseProgressView(
+                    exerciseUUID: sessionExercise.exerciseUUID,
+                    exerciseName: sessionExercise.exercise?.name ?? sessionExercise.exerciseName
+                )
+            } label: {
+                Label("Evolução de carga", systemImage: "chart.line.uptrend.xyaxis")
             }
         } header: {
             VStack(alignment: .leading, spacing: 2) {
@@ -40,9 +53,13 @@ struct SessionExerciseSection: View {
                 }
                 Text(prescriptionText)
                     .font(.subheadline)
-                if let noteText {
-                    Text(noteText)
-                        .font(.caption)
+                if let note = sessionExercise.note {
+                    HStack(spacing: 8) {
+                        Text(Self.noteText(note))
+                            .font(.caption)
+                        // Esconde-se sozinho quando o catálogo não tem referências para a nota.
+                        WhyButton(topic: ReferenceCatalog.topic(for: note), catalog: references)
+                    }
                 }
             }
             // Cabeçalho de lista vem em caixa alta por padrão; nomes de exercício não.
@@ -88,11 +105,9 @@ struct SessionExerciseSection: View {
         return "\(sessionExercise.prescribedSets) × \(sessionExercise.prescribedRepMin)–\(sessionExercise.prescribedRepMax) · \(loadText) · RIR \(sessionExercise.prescribedRIR)"
     }
 
-    /// Nota da prescrição em pt-BR; `nil` para raw desconhecido (não inventa padrão).
-    private var noteText: String? {
-        guard let note = sessionExercise.note else {
-            return nil
-        }
+    /// Nota da prescrição em pt-BR. Raw desconhecido nem chega aqui (`note == nil` esconde a
+    /// linha: não inventa padrão).
+    static func noteText(_ note: PrescriptionNote) -> String {
         switch note {
         case .calibrate: return "Calibrar"
         case .increase: return "Subir"
