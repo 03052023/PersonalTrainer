@@ -26,17 +26,19 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 | CA | Verificação | Estado |
 |----|-------------|--------|
-| CA0-1 | `Scripts/swift-test.ps1` (Windows) e o job "Core tests" (Linux) passam com ≥ 1 teste por regra P1–P9, P11, P12 e S1–S4. | Windows ✔ (186 testes); Linux aguarda T0.11 |
-| CA0-2 | Job "App build (manual)" verde: `xcodegen generate`, `xcodebuild test` no simulador (PersonalTrainerTests) e build `generic/platform=iOS` sem erros de concorrência. | aguarda T0.11 |
-| CA0-3 | O IPA do job contém `Payload/PersonalTrainer.app/Watch/PersonalTrainerWatch.app` com os dois executáveis; os apps mostram "Personal — em construção". | aguarda T0.11 |
-| CA0-4 | Entitlement HealthKit e strings `NSHealthShareUsageDescription`/`NSHealthUpdateUsageDescription` presentes nos dois targets; `WKBackgroundModes` contém `workout-processing` (verificado por `Scripts/build-app.sh`). | escrito; aguarda T0.11 |
-| CA0-5 | `ModelContainerFactory.make(.inMemory)` abre `SchemaV1` em teste XCTest e insere/lê um `WorkoutSessionModel` com um `SetLogModel`. | escrito; aguarda T0.11 |
+| CA0-1 | `Scripts/swift-test.ps1` (Windows) e o job "Core tests" (Linux) passam com ≥ 1 teste por regra P1–P9, P11, P12 e S1–S4. | ✔ Windows (186 testes) e Linux (run 35868642830, 2026-09-23) |
+| CA0-2 | Job "App build (manual)" verde: `xcodegen generate`, `xcodebuild test` no simulador (PersonalTrainerTests) e build `generic/platform=iOS` sem erros de concorrência. | ✔ run 35868699393 (2026-09-23), primeira tentativa |
+| CA0-3 | O IPA do job contém `Payload/PersonalTrainer.app/Watch/PersonalTrainerWatch.app` com os dois executáveis; os apps mostram "Personal — em construção". | ✔ verificado por `Scripts/build-app.sh` no mesmo run (texto dos placeholders só será visto no aparelho, V3) |
+| CA0-4 | Entitlement HealthKit e strings `NSHealthShareUsageDescription`/`NSHealthUpdateUsageDescription` presentes nos dois targets; `WKBackgroundModes` contém `workout-processing` (verificado por `Scripts/build-app.sh`). | ✔ mesmo run |
+| CA0-5 | `ModelContainerFactory.make(.inMemory)` abre `SchemaV1` em teste XCTest e insere/lê um `WorkoutSessionModel` com um `SetLogModel`. | ✔ PersonalTrainerTests no simulador, mesmo run |
+
+**M0 fechado em 2026-09-23** (exceto T0.0 V3–V5, que dependem do aparelho e seguem como pré-condição de M3).
 | CA0-6 | `Scripts/check-boundaries.sh` passa (R1–R3). | ✔ |
 | CA0-7 | `ActiveSessionSnapshot` e `SessionEvent` fazem round-trip JSON em teste e rejeitam `schemaVersion` maior que o suportado. | ✔ |
 
 ### Tarefas M0
 
-- [~] **T0.0 [PROJ][CI][USER] Validar instalação gratuita Windows → iPhone + Watch** — V0 concluído e mergeado em `main` (2026-09-22); V1–V2 saem do primeiro run de "Device probe (manual)" (T0.11); V3–V5 exigem aparelho. Fatos verificados e roteiro em `WINDOWS_SETUP.md`.
+- [~] **T0.0 [PROJ][CI][USER] Validar instalação gratuita Windows → iPhone + Watch** — V0, V1 e V2 concluídos (run "Device probe (manual)" 35868680081 verde em 2026-09-23, IPA com o Watch embutido); V3–V5 exigem aparelho e ação do usuário. Fatos verificados e roteiro em `WINDOWS_SETUP.md`.
   - Escopo: `Validation/DeviceProbe/**`, `Scripts/build-device-probe.sh`, `Scripts/check-device-probe.py`, `.github/workflows/device-probe.yml`, `WINDOWS_SETUP.md`, `README.md`, `SPEC.md`, `ARCHITECTURE.md`, `.gitignore`, esta tarefa em `TASKS.md`.
   - Fazer: app mínimo nativo com companion, HealthKit sob protocolo + Live + Fake, autorização somente por botão e leitura da última FC com data; compilação e empacotamento não assinados em macOS hospedado, acionados manualmente. Não grava treino, não implementa sessão/WatchConnectivity nem altera o domínio.
   - Ambiente: edição no Windows; `[CI]` exige compilação real com Xcode no runner macOS. Não exige Mac do usuário. O custo deve permanecer zero; não executar Actions privados sem verificar bloqueio de gasto excedente.
@@ -46,12 +48,12 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 
 
-- [~] **T0.1 [PROJ][CI] Projeto via XcodeGen, placeholders e CI** — G1 — escrito e mergeado (`task/T0.1-xcodegen-ci`), aguarda run verde
+- [x] **T0.1 [PROJ][CI] Projeto via XcodeGen, placeholders e CI** — G1 — run "App build (manual)" verde em 2026-09-23
   - Escopo: `project.yml`, `PersonalTrainer/App/{PersonalTrainerApp,RootPlaceholderView}.swift`, `PersonalTrainer/Support/PersonalTrainer.entitlements`, `PersonalTrainerWatch/App/PersonalTrainerWatchApp.swift`, `PersonalTrainerWatch/Support/PersonalTrainerWatch.entitlements`, `PersonalTrainerTests/SmokeTests.swift`, `.github/workflows/{app-build,core-tests}.yml`, `Scripts/{build-app,check-boundaries}.sh`, `.gitignore`.
   - Feito: targets PersonalTrainer (iOS 18, `com.personaltrainer.app`), PersonalTrainerWatch (watchOS 11, `com.personaltrainer.app.watchkitapp`, companion, `workout-processing`) e PersonalTrainerTests, todos com o pacote local `TrainerCore`; Info.plist gerado pelo XcodeGen (fora do Git); Swift 6 + strict concurrency; workflow macOS manual (`macos-26`, Xcode 26.6 fixado) que testa no simulador e empacota IPA sem assinatura com o Watch embutido; workflow Linux (`swift:6.3`) com testes do pacote e check de fronteiras (absorve T0.10).
   - Aceite: CA0-2, CA0-3, CA0-4 no primeiro run verde (T0.11).
 
-- [ ] **T0.11 [USER] Publicar o repositório e obter o primeiro run verde do CI** — G1
+- [x] **T0.11 [USER] Publicar o repositório e obter o primeiro run verde do CI** — G1 — repositório público `03052023/PersonalTrainer`; os três workflows verdes na primeira rodada (2026-09-23). O gatilho automático de "Core tests" não dispara no primeiro push de um repositório novo; a partir do segundo push funciona.
   - Fazer (só o usuário): criar repositório no GitHub (recomendado **público**: runners macOS gratuitos e ilimitados; sem segredos no repo), `git remote add origin …`, `git push -u origin main`; conferir que "Core tests" passou; rodar manualmente "Device probe (manual)" e "App build (manual)" na aba Actions; baixar os artefatos. Roteiro completo em `WINDOWS_SETUP.md`.
   - Se o job macOS falhar: colar o log de erro no chat; o agente corrige em branch `fix/ci-*` e o usuário roda de novo. Cada rodada custa ~15–30 min de runner.
   - Aceite: "Core tests" ✔; "App build (manual)" ✔ com artefato `PersonalTrainer-for-resigning.ipa`; "Device probe (manual)" ✔ com artefato `DeviceProbe-for-resigning.ipa`. Ao fechar, marcar T0.1, T0.5, T0.8, T0.9 e CA0-2…CA0-5 como `[x]`.
@@ -72,7 +74,7 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
   - Feito: S1–S4; `nextDay` devolve `nil` só para programa vazio; `inProgress` ignorado (S3 é do planejador); dia desconhecido → D1; S4 emerge da sessão registrada (sem parâmetro de override).
   - Aceite: CA0-1 (parte S) ✔.
 
-- [~] **T0.5 [SCHEMA][CI] SwiftData SchemaV1 + container factory** — G2 — escrito com T0.9 (`task/T0.5-schema-mappers`), revisado estaticamente, aguarda T0.11
+- [x] **T0.5 [SCHEMA][CI] SwiftData SchemaV1 + container factory** — G2 — testes XCTest verdes no simulador (2026-09-23)
   - Escopo: `PersonalTrainer/Persistence/Schema/SchemaV1.swift`, `Persistence/MigrationPlan.swift`, `Persistence/ModelContainerFactory.swift`, `PersonalTrainerTests/Persistence/SchemaV1Tests.swift`.
   - Fazer: os 8 modelos da ARCHITECTURE §5 exatamente (nomes, campos, inversos, delete rules), `VersionedSchema`, `SchemaMigrationPlan` com um estágio, factory `.persistent`/`.inMemory`.
   - Depende de: T0.1, T0.2 (raw values dos enums).
@@ -88,12 +90,12 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
   - Feito: conforme ARCHITECTURE §7 e §9 (`activeSession` + `nextPlan`, `heartRateSummary(averageBPM:maxBPM:hkWorkoutUUID:)`); `SyncCodec` rejeita `schemaVersion > currentVersion` e mapeia `DecodingError` para `SyncError.corrupted`.
   - Aceite: CA0-7 ✔.
 
-- [~] **T0.8 [CI] Protocolos de serviços externos + Fakes** — G2 — escrito (`task/T0.8-protocols-fakes`), revisado estaticamente, aguarda T0.11
+- [x] **T0.8 [CI] Protocolos de serviços externos + Fakes** — G2 — compilado e testado no simulador (2026-09-23)
   - Escopo: `PersonalTrainer/Services/HealthKit/{HeartRateSummary,HealthKitServicing,HealthKitServiceError,FakeHealthKitService}.swift`, `Services/WatchSync/{WatchSyncServicing,NoopWatchSyncService}.swift`, `Services/Notifications/{NotificationScheduling,FakeNotificationScheduler}.swift`, `PersonalTrainerTests/Services/FakeServicesTests.swift`.
   - Feito: só protocolos, tipos de valor e fakes (estado em `actor` interno; sem `@MainActor`). Nenhum `import HealthKit` real — `LiveHealthKitService` é T2.1.
   - Aceite: compila no CI; fakes usáveis em previews.
 
-- [~] **T0.9 [CI] Mappers SwiftData ↔ TrainerCore** — G3 — entregue junto com T0.5, aguarda T0.11
+- [x] **T0.9 [CI] Mappers SwiftData ↔ TrainerCore** — G3 — testes verdes no simulador (2026-09-23)
   - Escopo: `PersonalTrainer/Persistence/Mappers/{MappingError,ExerciseMapper,ProgramMapper,HistoryMapper,SessionSummaryMapper}.swift`, `PersonalTrainerTests/Persistence/MapperTests.swift`.
   - Feito: `ExerciseModel ⇄ ExerciseDefinition`, `ProgramModel → ProgramTemplate`, `[SessionExerciseModel] → [ExerciseHistoryEntry]`, `WorkoutSessionModel → SessionSummary` (grupo conta só com ≥ 1 série de trabalho). Falta o inverso `ProgramTemplate → ProgramModel`, que T1.10 adiciona.
   - Aceite: testes em container in-memory no CI.

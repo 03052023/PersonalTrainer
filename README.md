@@ -19,8 +19,8 @@ A instalação gratuita dos apps ainda precisa ser comprovada nos aparelhos: rot
 
 - [x] Documentação (SPEC, ARCHITECTURE, TASKS, AGENTS) alinhada com a implementação.
 - [x] `TrainerCore`: domínio, motor de progressão (P1–P12), rotação (S1–S4), resumos, DTOs de sync, seed — **186 testes passando no Windows**.
-- [x] App: esquema SwiftData V1, mappers, protocolos e fakes, projeto `project.yml`, workflows de CI — escritos e revisados, **aguardam o primeiro run do GitHub Actions** (TASKS T0.11).
-- [ ] T0.11 — publicar o repositório e obter o primeiro run verde. Depois: M1 (telas e sessão ativa).
+- [x] App: esquema SwiftData V1, mappers, protocolos e fakes, projeto `project.yml`, workflows de CI — **compilados e testados no GitHub Actions em 2026-09-23** (repositório público `03052023/PersonalTrainer`; os três workflows verdes).
+- [x] **M0 fechado.** Próximo: M1 (Home, sessão ativa, registro de séries, timer, histórico), depois a instalação no iPhone (T0.0 V3–V5, ver WINDOWS_SETUP.md).
 
 ## Requisitos de desenvolvimento
 
