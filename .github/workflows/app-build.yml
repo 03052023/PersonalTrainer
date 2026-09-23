@@ -15,10 +15,17 @@ defaults:
     shell: bash
 jobs:
   build:
+    # macos-26 = arm64, macOS 26.6, Xcode 26.6 default (SDK iOS/watchOS 26.5). Label explícito:
+    # `macos-latest` muda de versão sem aviso. Nunca usar -large/-xlarge (sempre cobrados).
     runs-on: macos-26
     timeout-minutes: 40
+    env:
+      # Fixa o Xcode mesmo quando a imagem trocar o default (actions/runner-images macos-26-Readme).
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
+      - name: Check TrainerCore boundaries
+        run: bash Scripts/check-boundaries.sh
       - name: Install XcodeGen
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"

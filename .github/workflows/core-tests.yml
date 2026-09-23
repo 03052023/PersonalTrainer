@@ -22,7 +22,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     # Package.swift usa swift-tools-version 6.0 e swiftLanguageMode(.v6): qualquer toolchain ≥ 6.0.
-    container: swift:6.1
+    # swift:6.3 (6.3.x sobre Ubuntu 24.04) casa com o Swift 6.3 embutido no Xcode 26.6 usado em
+    # app-build.yml, evitando divergência entre o teste Linux e o build macOS. Não usar `latest`.
+    container: swift:6.3
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
