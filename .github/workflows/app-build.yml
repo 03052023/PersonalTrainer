@@ -23,7 +23,7 @@ jobs:
       # Fixa o Xcode mesmo quando a imagem trocar o default (actions/runner-images macos-26-Readme).
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Check TrainerCore boundaries
         run: bash Scripts/check-boundaries.sh
       - name: Install XcodeGen
@@ -39,6 +39,16 @@ jobs:
           test -d PersonalTrainer.xcodeproj
           test -f PersonalTrainer/Support/Info.plist
           test -f PersonalTrainerWatch/Support/Info.plist
+          # O watch app tem de ser embutido em Watch/ (Scripts/build-app.sh e instalador). O Homebrew
+          # instala sempre o XcodeGen mais novo; se uma versão mudar o destino da fase "Embed Watch
+          # Content" (issue #1613 / PR #1614), falhar aqui em segundos, não depois de 30 min de build.
+          # Mesma checagem estrutural de Scripts/check-device-probe.py.
+          pbxproj=PersonalTrainer.xcodeproj/project.pbxproj
+          if ! grep -q 'dstSubfolderSpec = 16;' "$pbxproj" || ! grep -qF '$(CONTENTS_FOLDER_PATH)/Watch' "$pbxproj"; then
+            echo "::error::XcodeGen $(xcodegen --version) não gerou 'Embed Watch Content' em CONTENTS_FOLDER_PATH/Watch (dstSubfolderSpec 16)"
+            grep -n -A 8 'Embed Watch Content' "$pbxproj" || true
+            exit 1
+          fi
       - name: Select iPhone simulator
         id: simulator
         run: |
@@ -81,20 +91,34 @@ jobs:
           SIMULATOR_UDID: ${{ steps.simulator.outputs.udid }}
         run: |
           xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          mkdir -p build/app
           if command -v xcbeautify >/dev/null 2>&1; then
             pretty=(xcbeautify --renderer github-actions)
           else
             pretty=(cat)
           fi
+          # `tee` guarda o log bruto: em falha, o passo seguinte publica log + .xcresult para diagnóstico.
           xcodebuild test -project PersonalTrainer.xcodeproj -scheme PersonalTrainer -configuration Debug \
             -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
             -derivedDataPath build/app/DerivedData \
             -resultBundlePath build/app/TestResults.xcresult \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO 2>&1 | "${pretty[@]}"
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO 2>&1 | tee build/app/xcodebuild-test.log | "${pretty[@]}"
+      - name: Keep test results for diagnosis
+        # Roda também quando o teste falha (o código é escrito sem compilador local): evita gastar outro
+        # run de macOS só para ler o erro. `!cancelled()` em vez de `always()` respeita o cancel-in-progress.
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: PersonalTrainer-test-results
+          path: |
+            build/app/TestResults.xcresult
+            build/app/xcodebuild-test.log
+          if-no-files-found: ignore
+          retention-days: 3
       - name: Build unsigned device IPA
         run: bash Scripts/build-app.sh
       - name: Keep package for local re-signing
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: PersonalTrainer-for-resigning
           path: |

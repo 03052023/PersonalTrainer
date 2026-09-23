@@ -6,18 +6,25 @@ permissions:
 concurrency:
   group: device-probe
   cancel-in-progress: true
+defaults:
+  run:
+    # `shell: bash` explícito ativa -o pipefail (o padrão implícito é só `bash -e`).
+    shell: bash
 jobs:
   build:
     runs-on: macos-26
     timeout-minutes: 20
+    env:
+      # Mesmo Xcode de app-build.yml: o probe valida no aparelho o layout que o app vai usar.
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Validate and test TrainerCore
         run: swift test --package-path Packages/TrainerCore
       - name: Build iPhone and Watch probe
         run: bash Scripts/build-device-probe.sh
       - name: Keep package for local signing
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: DeviceProbe-for-resigning
           path: |

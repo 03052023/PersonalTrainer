@@ -387,9 +387,11 @@ enum SchemaV1: VersionedSchema {
 
     // MARK: - Configuração
 
-    /// Linha única, criada no primeiro launch (ARCHITECTURE §5, §11).
+    /// Linha única, criada no primeiro launch (ARCHITECTURE §5, §11). Tem `uuid` `.unique`
+    /// como todo modelo (§5, decisão 1): identificador estável para backup/restauração (M2).
     @Model
     final class UserSettingsModel {
+        @Attribute(.unique) var uuid: UUID
         var weekStartsOnMonday: Bool
         /// JSON `{"chest": 2, ...}` com chaves = `MuscleGroup.rawValue` (SPEC §7.4).
         var weeklyTargetsRaw: String
@@ -398,12 +400,14 @@ enum SchemaV1: VersionedSchema {
         var schemaSeedVersion: Int
 
         init(
+            uuid: UUID,
             weekStartsOnMonday: Bool,
             weeklyTargetsRaw: String,
             healthKitEnabled: Bool,
             defaultRestSeconds: Int,
             schemaSeedVersion: Int
         ) {
+            self.uuid = uuid
             self.weekStartsOnMonday = weekStartsOnMonday
             self.weeklyTargetsRaw = weeklyTargetsRaw
             self.healthKitEnabled = healthKitEnabled

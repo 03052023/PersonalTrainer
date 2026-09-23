@@ -208,7 +208,7 @@ final class MapperTests: XCTestCase {
         )
         XCTAssertEqual(sessionExercises.count, 3)
 
-        let history = HistoryMapper.historyEntries(from: sessionExercises, exerciseUUID: legPress.uuid)
+        let history = try HistoryMapper.historyEntries(from: sessionExercises, exerciseUUID: legPress.uuid)
 
         XCTAssertEqual(history.count, 2)
         XCTAssertEqual(history[0].sessionID, session2.uuid)
@@ -232,8 +232,8 @@ final class MapperTests: XCTestCase {
         // Passar a lista inteira (sem filtro no banco) dá o mesmo resultado: o mapper filtra.
         let all = try context.fetch(FetchDescriptor<SessionExerciseModel>())
         XCTAssertEqual(all.count, 4)
-        XCTAssertEqual(HistoryMapper.historyEntries(from: all, exerciseUUID: legPress.uuid), history)
-        XCTAssertEqual(HistoryMapper.historyEntries(from: all, exerciseUUID: UUID()), [])
+        XCTAssertEqual(try HistoryMapper.historyEntries(from: all, exerciseUUID: legPress.uuid), history)
+        XCTAssertEqual(try HistoryMapper.historyEntries(from: all, exerciseUUID: UUID()), [])
     }
 
     func testHistoryMapper_skippedExercise_yieldsEntryWithoutSets() throws {
@@ -246,10 +246,29 @@ final class MapperTests: XCTestCase {
         skipped.wasSkipped = true
         try context.save()
 
-        let history = HistoryMapper.historyEntries(from: [skipped], exerciseUUID: legPress.uuid)
+        let history = try HistoryMapper.historyEntries(from: [skipped], exerciseUUID: legPress.uuid)
 
         // SPEC P7: 0 séries de trabalho → o motor ignora a sessão; o mapper só reporta.
         XCTAssertEqual(history, [ExerciseHistoryEntry(sessionID: session.uuid, date: startedAt, sets: [], wasDeload: false)])
+    }
+
+    func testHistoryMapper_unknownStatusRaw_throws() throws {
+        let container = try ModelContainerFactory.make(.inMemory)
+        let context = container.mainContext
+        let legPress = insertExercise(slug: "leg-press-45", primary: [.quads], into: context)
+        let startedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let session = insertSession(status: .completed, startedAt: startedAt, isDeload: false, into: context)
+        session.statusRaw = "paused"
+        let sessionExercise = insertSessionExercise(order: 0, exercise: legPress, into: context, session: session)
+        try context.save()
+
+        // Mesma política de SessionSummaryMapper: raw desconhecido é erro, não sessão ignorada.
+        XCTAssertThrowsError(try HistoryMapper.historyEntries(from: [sessionExercise], exerciseUUID: legPress.uuid)) { error in
+            XCTAssertEqual(
+                error as? MappingError,
+                .invalidRawValue(model: "WorkoutSessionModel", field: "statusRaw", value: "paused")
+            )
+        }
     }
 
     // MARK: - SessionSummaryMapper

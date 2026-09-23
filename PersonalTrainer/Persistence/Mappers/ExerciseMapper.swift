@@ -35,6 +35,11 @@ enum ExerciseMapper {
 
     /// Para o seed (ARCHITECTURE §11). Devolve um modelo ainda não inserido; quem chama
     /// decide o `ModelContext`. `isArchived` nasce `false`: o seed nunca arquiva.
+    ///
+    /// Só para INSERIR um exercício que ainda não existe. `ExerciseModel` tem `uuid` e `slug`
+    /// `.unique`, e `context.insert` de uma duplicata faz upsert silencioso (ARCHITECTURE §15),
+    /// o que zeraria `isArchived` e sobrescreveria `machineNotes` editados pelo usuário. Para
+    /// atualizar um exercício existente, buscar por `slug` e copiar campo a campo.
     static func model(from definition: ExerciseDefinition) -> ExerciseModel {
         ExerciseModel(
             uuid: definition.id,
