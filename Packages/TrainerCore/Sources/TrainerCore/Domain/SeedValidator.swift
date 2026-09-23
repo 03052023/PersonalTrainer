@@ -34,6 +34,19 @@ public enum SeedValidationError: Error, Equatable, Sendable {
     case duplicateDayOrder(program: String, order: Int)
     /// Two targets of the same day share an `order`.
     case duplicateExerciseOrder(program: String, day: String, order: Int)
+    /// `startingLoad`, when present, must be a finite number ≥ 0 (SPEC P2 prescribes
+    /// it as-is; SPEC P8 would otherwise silently turn a negative value into `inc`).
+    case invalidStartingLoad(exerciseSlug: String, program: String)
+    /// A seed file `version` must be ≥ 1; `SeedLoader` compares it with the installed
+    /// version to decide whether to upsert (ARCHITECTURE §11), so 0 would never install.
+    case invalidVersion(Int)
+    /// Two programs share an id; program ids are stable client identifiers (AGENTS R8).
+    case duplicateProgramID(UUID)
+    /// Two days (in any program) share an id; `SessionSummary.programDayID` and the
+    /// rotation (SPEC S2) resolve a day by id, so a duplicate makes "next day" ambiguous.
+    case duplicateDayID(UUID)
+    /// Two targets (in any day) share an id.
+    case duplicateTargetID(UUID)
 }
 
 /// Structural validation of a decoded `SeedBundle`. Pure and deterministic:
@@ -56,6 +69,8 @@ public enum SeedValidator {
     private static func validateCatalog(
         _ catalog: SeedExerciseCatalog
     ) throws -> [UUID: ExerciseDefinition] {
+        try validateVersion(catalog.version)
+
         var seenSlugs = Set<String>()
         var exercisesByID: [UUID: ExerciseDefinition] = [:]
         exercisesByID.reserveCapacity(catalog.exercises.count)
@@ -79,26 +94,50 @@ public enum SeedValidator {
         return exercisesByID
     }
 
+    /// ARCHITECTURE §11: `SeedLoader` installs a file only when its version is above
+    /// the one recorded on the device, which starts at 0; a version below 1 never installs.
+    private static func validateVersion(_ version: Int) throws {
+        guard version >= 1 else {
+            throw SeedValidationError.invalidVersion(version)
+        }
+    }
+
     // MARK: - Programs
+
+    /// Identifiers seen so far across the whole program file. Ids are global
+    /// (SwiftData `uuid` columns are unique per model), so a day id repeated in two
+    /// programs is as much a defect as one repeated inside a program.
+    private struct SeenIdentifiers {
+        var programs = Set<UUID>()
+        var days = Set<UUID>()
+        var targets = Set<UUID>()
+    }
 
     private static func validatePrograms(
         _ file: SeedProgramFile,
         exercisesByID: [UUID: ExerciseDefinition]
     ) throws {
+        try validateVersion(file.version)
+
         // SPEC S1: the selector rotates over "the active program", so the seed must
         // define exactly one. An empty file has none.
         let activeCount = file.programs.filter(\.isActive).count
         guard activeCount > 0 else { throw SeedValidationError.noActiveProgram }
         guard activeCount == 1 else { throw SeedValidationError.multipleActivePrograms }
 
+        var seen = SeenIdentifiers()
         for program in file.programs {
-            try validateProgram(program, exercisesByID: exercisesByID)
+            guard seen.programs.insert(program.id).inserted else {
+                throw SeedValidationError.duplicateProgramID(program.id)
+            }
+            try validateProgram(program, exercisesByID: exercisesByID, seen: &seen)
         }
     }
 
     private static func validateProgram(
         _ program: ProgramTemplate,
-        exercisesByID: [UUID: ExerciseDefinition]
+        exercisesByID: [UUID: ExerciseDefinition],
+        seen: inout SeenIdentifiers
     ) throws {
         guard !program.days.isEmpty else {
             throw SeedValidationError.emptyProgram(program.name)
@@ -107,17 +146,21 @@ public enum SeedValidator {
         // SPEC S1/S2: days are rotated by `order`; a tie would make "next day" ambiguous.
         var seenDayOrders = Set<Int>()
         for day in program.days {
+            guard seen.days.insert(day.id).inserted else {
+                throw SeedValidationError.duplicateDayID(day.id)
+            }
             guard seenDayOrders.insert(day.order).inserted else {
                 throw SeedValidationError.duplicateDayOrder(program: program.name, order: day.order)
             }
-            try validateDay(day, program: program.name, exercisesByID: exercisesByID)
+            try validateDay(day, program: program.name, exercisesByID: exercisesByID, seen: &seen)
         }
     }
 
     private static func validateDay(
         _ day: ProgramDayTemplate,
         program: String,
-        exercisesByID: [UUID: ExerciseDefinition]
+        exercisesByID: [UUID: ExerciseDefinition],
+        seen: inout SeenIdentifiers
     ) throws {
         guard !day.exercises.isEmpty else {
             throw SeedValidationError.emptyDay(program: program, day: day.name)
@@ -125,6 +168,9 @@ public enum SeedValidator {
 
         var seenExerciseOrders = Set<Int>()
         for target in day.exercises {
+            guard seen.targets.insert(target.id).inserted else {
+                throw SeedValidationError.duplicateTargetID(target.id)
+            }
             guard seenExerciseOrders.insert(target.order).inserted else {
                 throw SeedValidationError.duplicateExerciseOrder(
                     program: program,
@@ -160,6 +206,14 @@ public enum SeedValidator {
         }
         guard target.restSeconds > 0 else {
             throw SeedValidationError.invalidRest(exerciseSlug: exerciseSlug, program: program)
+        }
+        // SPEC P2/P8: the starting load is prescribed as typed (rounded to the grid);
+        // a negative or non-finite value has no meaning as a load. 0 is allowed — it is
+        // the natural start for bodyweight work, and P8 raises it to `inc` elsewhere.
+        if let startingLoad = target.startingLoad {
+            guard startingLoad.isFinite, startingLoad >= 0 else {
+                throw SeedValidationError.invalidStartingLoad(exerciseSlug: exerciseSlug, program: program)
+            }
         }
     }
 }

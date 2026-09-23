@@ -186,6 +186,20 @@ struct RotationSelectorTests {
         }
     }
 
+    @Test("S2 mesmo instante: a sessão de id maior é a referência, em qualquer ordem (P11)")
+    func S2_sameInstant_higherSessionIDIsTheReference() {
+        let a = Fixture.session(day: Fixture.dayA, startedAt: Fixture.t1, id: Fixture.id(0x0A))
+        let b = Fixture.session(day: Fixture.dayB, startedAt: Fixture.t1, id: Fixture.id(0x0B))
+
+        let ab = selector.nextDay(program: Fixture.program, recentSessions: [a, b], now: Fixture.now)
+        let ba = selector.nextDay(program: Fixture.program, recentSessions: [b, a], now: Fixture.now)
+
+        // B (…0B) outranks A (…0A) — the same convention as DoubleProgressionRule —
+        // so the rotation continues after B.
+        #expect(ab == Fixture.dayC)
+        #expect(ba == Fixture.dayC)
+    }
+
     @Test("S2 mesma entrada duas vezes → mesma saída (determinismo)")
     func S2_sameInputTwice_sameOutput() {
         let sessions = [
@@ -254,18 +268,31 @@ private enum Fixture {
         return UUID(uuidString: "00000000-0000-0000-0000-\(suffix)")!
     }
 
+    /// The session id defaults to a value derived from the day and the instant, so a
+    /// fixture never depends on `UUID()` randomness (SPEC P11). Two sessions of the
+    /// same day at the same instant would share it; tie-break tests pass explicit ids.
     static func session(
         day: ProgramDayTemplate,
         startedAt: TimeInterval,
         status: SessionStatus = .completed,
-        workingSets: Int = 9
+        workingSets: Int = 9,
+        id: UUID? = nil
     ) -> SessionSummary {
         SessionSummary(
+            id: id ?? derivedID(day: day, startedAt: startedAt),
             programDayID: day.id,
             startedAt: Date(timeIntervalSince1970: startedAt),
             endedAt: status == .inProgress ? nil : Date(timeIntervalSince1970: startedAt + 3_600),
             status: status,
             workingSetCount: workingSets
         )
+    }
+
+    private static func derivedID(day: ProgramDayTemplate, startedAt: TimeInterval) -> UUID {
+        let stamp = String(UInt64(startedAt), radix: 16).uppercased()
+        let node = String(repeating: "0", count: max(0, 12 - stamp.count)) + stamp
+        let order = String(UInt16(truncatingIfNeeded: day.order), radix: 16).uppercased()
+        let group = String(repeating: "0", count: 4 - order.count) + order
+        return UUID(uuidString: "00000000-0000-0000-\(group)-\(node)")!
     }
 }
