@@ -33,6 +33,16 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 ### Tarefas M0
 
+- [ ] **T0.0 [PROJ][MAC-CI] Validar instalação gratuita Windows → iPhone + Watch**
+  - Escopo: `Validation/DeviceProbe/**`, `Scripts/build-device-probe.sh`, `Scripts/check-device-probe.py`, `.github/workflows/device-probe.yml`, `WINDOWS_SETUP.md`, `README.md`, `SPEC.md`, `ARCHITECTURE.md`, `.gitignore`, esta tarefa em `TASKS.md`.
+  - Fazer: app mínimo nativo com companion, HealthKit sob protocolo + Live + Fake, autorização somente por botão e leitura da última FC com data; compilação e empacotamento não assinados em macOS hospedado, acionados manualmente. Não grava treino, não implementa sessão/WatchConnectivity nem altera o domínio.
+  - Ambiente: edição no Windows; `[MAC-CI]` exige compilação real com Xcode no runner macOS. Não exige Mac do usuário. O custo deve permanecer zero; não executar Actions privados sem verificar bloqueio de gasto excedente.
+  - Aparelhos informados: iPhone 17 / iOS 26.6.2; Apple Watch Series 7 GPS 41 mm / watchOS 26.5. Não registrar números de série.
+  - Aceite: V0 estrutura/plists conferidos; V1 build iOS+watchOS; V2 IPA com companion; V3 instalação/abertura nos dois aparelhos com conta gratuita; V4 leitura real de FC nos dois; V5 renovação da assinatura preservando instalação. V3–V5 exigem aparelho e ação do usuário.
+  - Dependências: nenhuma. Executar antes de avançar o app; não substitui T0.1 nem fecha os CAs de M0. Se funcionar, reutilizar o aprendizado de build/instalação; o probe não é o app de treino.
+
+
+
 - [ ] **T0.1 [PROJ][MAC] Criar projeto Xcode e targets** — G1
   - Escopo: `PersonalTrainer.xcodeproj`, `PersonalTrainer/Support/*`, `PersonalTrainerWatch/Support/*`, `PersonalTrainer/App/PersonalTrainerApp.swift` (só `@main` com `Text`), `PersonalTrainerWatch/App/*App.swift` (idem), `.gitignore`.
   - Fazer: app iOS 18 + companion watchOS 11, synchronized folders, referência local ao pacote `Packages/TrainerCore` nos dois targets, entitlement HealthKit nos dois, plist strings, background mode `workout-processing` no Watch, Swift 6 mode, Team/bundle IDs placeholder documentados no README.
