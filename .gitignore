@@ -26,3 +26,11 @@ desktop.ini
 
 # Segredos locais (T5.3, se existir)
 *.secrets.json
+
+# Device validation and local signing
+__pycache__/
+*.mobileprovision
+*.p12
+*.p8
+*.cer
+*.key

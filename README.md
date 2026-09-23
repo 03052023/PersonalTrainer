@@ -9,6 +9,12 @@ App pessoal de musculação para iPhone + Apple Watch que funciona como personal
 | [TASKS.md](TASKS.md) | Milestones com critérios de aceitação e tarefas pequenas para execução paralela. |
 | [AGENTS.md](AGENTS.md) | Regras para Claude Code, Codex e humanos que editam o repositório. |
 
+## Ambiente atual
+
+Windows, custo zero, iPhone 17 (iOS 26.6.2) e Watch Series 7 (watchOS 26.5).
+A instalação gratuita dos dois apps ainda precisa ser comprovada. Consulte [WINDOWS_SETUP.md](WINDOWS_SETUP.md).
+O probe é separado do futuro app e os builds Apple usam macOS hospedado.
+
 ## Estado
 
 - [x] Documentação inicial (M0 em planejamento).
@@ -25,7 +31,7 @@ cd Packages/TrainerCore && swift test
 
 ## Onde desenvolver
 
-Clone em um caminho ASCII sem espaços no Mac (ex.: `~/Developer/PersonalTrainer`). Não desenvolva dentro de OneDrive/iCloud Drive.
+Cópia de trabalho no Windows: `C:\Users\leona\Developer\PersonalTrainer`. Builds Apple no GitHub Actions, após validar custo zero. Não desenvolva dentro de OneDrive/iCloud Drive.
 
 ## Placeholders a preencher em T0.1
 

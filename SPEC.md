@@ -27,7 +27,7 @@ Depois que cada série é registrada (carga, repetições, RIR), o app recalcula
 | P-4 | iPhone é a fonte da verdade | O Apple Watch é um cliente fino que espelha a sessão ativa e envia eventos. Não há dois bancos de dados a reconciliar. |
 | P-5 | Dados são sagrados | Cada série é persistida no momento em que é concluída. Exportação completa em JSON a partir do M2. |
 | P-6 | Frequência cardíaca é informação, não controle | FC é registrada e exibida, nunca usada para prescrever carga/volume (ver §7.6). |
-| P-7 | Simplicidade adequada a app pessoal | Sem contas, sem sync em nuvem, sem localização, sem App Store. Distribuição via Xcode no próprio aparelho. |
+| P-7 | Simplicidade adequada a app pessoal | Sem contas, sem sync em nuvem, sem localização, sem App Store. Instalação pessoal a validar via compilação hospedada e assinatura local no Windows (T0.0), sem assinatura paga. |
 
 ## 3. Escopo
 
@@ -234,3 +234,11 @@ Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → M2 robustez + Healt
 - Exercícios unilaterais: registrar um lado ou os dois? (Proposta M2: uma série = os dois lados; reps do lado mais fraco.)
 - Peso corporal com carga adicional: `loadIncrement` = 2,5 kg e carga = adicional; peso corporal puro = 0.
 - Regra de "grande salto" (P4, +2·inc) pode ser agressiva em máquinas de 5 kg; revisar após 4 semanas de uso real.
+
+## 13. Restrição de execução confirmada — 2026-09-22
+
+O usuário dispõe apenas de Windows e requer custo zero, HealthKit e companion nativo no Watch.
+Não migrar para PWA nem remover integrações para contornar essa restrição. T0.0 valida primeiro
+compilação macOS hospedada, instalação com conta gratuita e renovação de sete dias. A capacidade
+listada pela Apple não garante compatibilidade do instalador. O teste é de leitura e instalação;
+FC ao vivo, gravação e sincronização continuam nos milestones próprios.

@@ -370,3 +370,28 @@ PersonalTrainer/                        ← raiz do repo (no Mac: ~/Developer/Pe
 │   ├── App/ · Features/ · Services/ · Support/
 └── PersonalTrainerTests/
 ```
+
+## 18. ADR 008 — Windows e validação gratuita em macOS hospedado
+
+Decisão de 2026-09-22, decorrente da restrição explícita do usuário: manter Swift/HealthKit/Watch;
+editar no Windows fora do OneDrive e compilar targets Apple em runner macOS padrão do GitHub.
+A referência ao repositório no Mac em §17 descreve a alternativa anterior; a cópia de trabalho
+atual fica em `C:\Users\leona\Developer\PersonalTrainer`. Não há Mac pessoal disponível.
+
+T0.0 [PROJ][MAC-CI] precede a construção do app: um probe isolado, sem SwiftData, sem gravação
+HealthKit, sem WCSession e sem dependência de TrainerCore. Não substitui as interfaces do produto.
+Adiciona à estrutura de §17: `Validation/DeviceProbe/{Shared,iPhone,Watch,DeviceProbe.xcodeproj}`,
+`.github/workflows/device-probe.yml`, `Scripts/build-device-probe.sh`,
+`Scripts/check-device-probe.py` e `WINDOWS_SETUP.md`. O gerador do projeto usa Python padrão;
+esta exceção de projeto isolado usa referências explícitas, não altera a decisão de pastas
+sincronizadas do futuro projeto principal. Apple SDKs nunca são compilados no Windows.
+
+CI: somente workflow_dispatch, timeout 20 min, sem credenciais Apple, sem dados de saúde e
+artefato de um dia. Executar apenas com gasto excedente bloqueado em US$ 0; manter repo privado.
+IPA recebe assinatura ad-hoc sem identidade Apple para carregar o entitlement HealthKit; exige
+reassinatura/provisionamento local antes da instalação. A assinatura final deve preservar a
+relação dos bundle IDs iPhone/Watch e o entitlement de ambos. Validar em hardware e na renovação
+antes de anunciar suporte gratuito. Ferramenta experimental de instalação não é dependência do app.
+
+As regras de domínio, camadas, idempotência e garantia de uma só gravação de treino permanecem
+como definidas acima; não são implementadas nem substituídas pelo probe.

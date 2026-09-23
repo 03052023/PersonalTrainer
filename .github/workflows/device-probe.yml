@@ -1,0 +1,29 @@
+name: Device probe (manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: device-probe
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate and test TrainerCore
+        run: swift test --package-path Packages/TrainerCore
+      - name: Build iPhone and Watch probe
+        run: bash Scripts/build-device-probe.sh
+      - name: Keep package for local signing
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeviceProbe-for-resigning
+          path: |
+            build/device-probe/DeviceProbe-for-resigning.ipa
+            build/device-probe/SHA256.txt
+            build/device-probe/SOURCE_COMMIT.txt
+            build/device-probe/XCODE_VERSION.txt
+          if-no-files-found: error
+          retention-days: 1

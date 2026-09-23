@@ -1,0 +1,429 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+
+	};
+	objectVersion = 56;
+	objects = {
+		89B1B5B965464D8C99627A88 = {
+			isa = "PBXFileReference";
+			lastKnownFileType = "sourcecode.swift";
+			path = "Shared/FakeHealthProbeService.swift";
+			sourceTree = "<group>";
+		};
+		2571B237D8F3D7BD047D0959 = {
+			isa = "PBXFileReference";
+			lastKnownFileType = "sourcecode.swift";
+			path = "Shared/HealthProbeError.swift";
+			sourceTree = "<group>";
+		};
+		F17BC1487466D97C5BAA7376 = {
+			isa = "PBXFileReference";
+			lastKnownFileType = "sourcecode.swift";
+			path = "Shared/HealthProbeModel.swift";
+			sourceTree = "<group>";
+		};
+		0D7F012B022D9EB9446755E6 = {
+			isa = "PBXFileReference";
+			lastKnownFileType = "sourcecode.swift";
+			path = "Shared/HealthProbeServicing.swift";
+			sourceTree = "<group>";
+		};
+		52F2BF9456A4684D1D66A69C = {
+			isa = "PBXFileReference";
+			lastKnownFileType = "sourcecode.swift";
+			path = "Shared/HealthProbeView.swift";
+			sourceTree = "<group>";
+		};
+		7A921553144CCD18ED472978 = {
+			isa = "PBXFileReference";
+			lastKnownFileType = "sourcecode.swift";
+			path = "Shared/HeartRateReading.swift";
+			sourceTree = "<group>";
+		};
+		6DFE86D202C8164259CCD5FE = {
+			isa = "PBXFileReference";
+			lastKnownFileType = "sourcecode.swift";
+			path = "Shared/LiveHealthProbeService.swift";
+			sourceTree = "<group>";
+		};
+		0ACCF632C3826D33BA19BB5F = {
+			isa = "PBXGroup";
+			children = ("89B1B5B965464D8C99627A88", "2571B237D8F3D7BD047D0959", "F17BC1487466D97C5BAA7376", "0D7F012B022D9EB9446755E6", "52F2BF9456A4684D1D66A69C", "7A921553144CCD18ED472978", "6DFE86D202C8164259CCD5FE",);
+			name = "Shared";
+			sourceTree = "<group>";
+		};
+		C2017929AF1D28FE06FAE9CC = {
+			isa = "PBXFileReference";
+			lastKnownFileType = "sourcecode.swift";
+			path = "iPhone/DeviceProbeApp.swift";
+			sourceTree = "<group>";
+		};
+		8514F638FD7E75F9B81B0176 = {
+			isa = "PBXGroup";
+			children = ("C2017929AF1D28FE06FAE9CC",);
+			name = "iPhone";
+			sourceTree = "<group>";
+		};
+		DF43D46BB6FD9489FE17BD87 = {
+			isa = "PBXFileReference";
+			lastKnownFileType = "sourcecode.swift";
+			path = "Watch/DeviceProbeWatchApp.swift";
+			sourceTree = "<group>";
+		};
+		400F1F277447F7FC2DE1F21F = {
+			isa = "PBXGroup";
+			children = ("DF43D46BB6FD9489FE17BD87",);
+			name = "Watch";
+			sourceTree = "<group>";
+		};
+		0896CB685471AF25A0B2E3A1 = {
+			isa = "PBXFileReference";
+			explicitFileType = "wrapper.application";
+			includeInIndex = 0;
+			path = "DeviceProbe.app";
+			sourceTree = "BUILT_PRODUCTS_DIR";
+		};
+		D8D394FFA155C983DF2C7967 = {
+			isa = "PBXFileReference";
+			explicitFileType = "wrapper.application";
+			includeInIndex = 0;
+			path = "DeviceProbeWatch.app";
+			sourceTree = "BUILT_PRODUCTS_DIR";
+		};
+		0A3E27B8CA818264D75C8D81 = {
+			isa = "PBXGroup";
+			children = ("0896CB685471AF25A0B2E3A1", "D8D394FFA155C983DF2C7967",);
+			name = "Products";
+			sourceTree = "<group>";
+		};
+		0D6E4079E36703EBD37C0072 = {
+			isa = "PBXGroup";
+			children = ("0ACCF632C3826D33BA19BB5F", "8514F638FD7E75F9B81B0176", "400F1F277447F7FC2DE1F21F", "0A3E27B8CA818264D75C8D81",);
+			sourceTree = "<group>";
+		};
+		552663023F5F64661757FE9B = {
+			isa = "PBXBuildFile";
+			fileRef = "89B1B5B965464D8C99627A88";
+		};
+		EA5C9043DA726615E8D6A737 = {
+			isa = "PBXBuildFile";
+			fileRef = "2571B237D8F3D7BD047D0959";
+		};
+		20B61AB07C930CD7BC75D4C9 = {
+			isa = "PBXBuildFile";
+			fileRef = "F17BC1487466D97C5BAA7376";
+		};
+		78A656BA10D0C02AAF86800C = {
+			isa = "PBXBuildFile";
+			fileRef = "0D7F012B022D9EB9446755E6";
+		};
+		3C6C6005D7DD63782D9472D9 = {
+			isa = "PBXBuildFile";
+			fileRef = "52F2BF9456A4684D1D66A69C";
+		};
+		25A833B19FE25B2BC9DF6D56 = {
+			isa = "PBXBuildFile";
+			fileRef = "7A921553144CCD18ED472978";
+		};
+		A544E70A32AFF888C5DB5D56 = {
+			isa = "PBXBuildFile";
+			fileRef = "6DFE86D202C8164259CCD5FE";
+		};
+		05F3630145D57A0F37A85A86 = {
+			isa = "PBXBuildFile";
+			fileRef = "DF43D46BB6FD9489FE17BD87";
+		};
+		64EB077467465117E3973A50 = {
+			isa = "PBXSourcesBuildPhase";
+			buildActionMask = 2147483647;
+			files = ("552663023F5F64661757FE9B", "EA5C9043DA726615E8D6A737", "20B61AB07C930CD7BC75D4C9", "78A656BA10D0C02AAF86800C", "3C6C6005D7DD63782D9472D9", "25A833B19FE25B2BC9DF6D56", "A544E70A32AFF888C5DB5D56", "05F3630145D57A0F37A85A86",);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		258C2B7A4C800A6F1769CA0F = {
+			isa = "PBXFrameworksBuildPhase";
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8069781D117DD5C01B955AF1 = {
+			isa = "PBXResourcesBuildPhase";
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		887E3099D190993F497CBF9B = {
+			isa = "XCBuildConfiguration";
+			buildSettings = {
+				CODE_SIGN_STYLE = "Automatic";
+				CODE_SIGN_ENTITLEMENTS = "Watch/Support/DeviceProbe.entitlements";
+				INFOPLIST_FILE = "Watch/Support/Info.plist";
+				GENERATE_INFOPLIST_FILE = "NO";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.personaltrainer.deviceprobe.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				MARKETING_VERSION = "0.1.0";
+				CURRENT_PROJECT_VERSION = "1";
+				SDKROOT = "watchos";
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				TARGETED_DEVICE_FAMILY = "4";
+				WATCHOS_DEPLOYMENT_TARGET = "11.0";
+				SWIFT_VERSION = "6.0";
+				SWIFT_STRICT_CONCURRENCY = "complete";
+				ENABLE_PREVIEWS = "YES";
+				SKIP_INSTALL = "YES";
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks",);
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG";
+			};
+			name = "Debug";
+		};
+		BEE2D4AE10E68BFF085DF4FC = {
+			isa = "XCBuildConfiguration";
+			buildSettings = {
+				CODE_SIGN_STYLE = "Automatic";
+				CODE_SIGN_ENTITLEMENTS = "Watch/Support/DeviceProbe.entitlements";
+				INFOPLIST_FILE = "Watch/Support/Info.plist";
+				GENERATE_INFOPLIST_FILE = "NO";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.personaltrainer.deviceprobe.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				MARKETING_VERSION = "0.1.0";
+				CURRENT_PROJECT_VERSION = "1";
+				SDKROOT = "watchos";
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				TARGETED_DEVICE_FAMILY = "4";
+				WATCHOS_DEPLOYMENT_TARGET = "11.0";
+				SWIFT_VERSION = "6.0";
+				SWIFT_STRICT_CONCURRENCY = "complete";
+				ENABLE_PREVIEWS = "YES";
+				SKIP_INSTALL = "YES";
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks",);
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+			};
+			name = "Release";
+		};
+		1A69AFA8A2468C6ABBED8D7C = {
+			isa = "XCConfigurationList";
+			buildConfigurations = ("887E3099D190993F497CBF9B", "BEE2D4AE10E68BFF085DF4FC",);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "Release";
+		};
+		D41DAE9EFDEEA083EEF89A62 = {
+			isa = "PBXNativeTarget";
+			buildConfigurationList = "1A69AFA8A2468C6ABBED8D7C";
+			buildPhases = ("64EB077467465117E3973A50", "258C2B7A4C800A6F1769CA0F", "8069781D117DD5C01B955AF1",);
+			buildRules = ();
+			dependencies = ();
+			name = "DeviceProbeWatch";
+			productName = "DeviceProbeWatch";
+			productReference = "D8D394FFA155C983DF2C7967";
+			productType = "com.apple.product-type.application";
+		};
+		9960CF2D88B3F7A0E6FA435D = {
+			isa = "PBXBuildFile";
+			fileRef = "89B1B5B965464D8C99627A88";
+		};
+		7C5525D197C38B811D9EF501 = {
+			isa = "PBXBuildFile";
+			fileRef = "2571B237D8F3D7BD047D0959";
+		};
+		FA5DA92ABBBC9EE4FBE80335 = {
+			isa = "PBXBuildFile";
+			fileRef = "F17BC1487466D97C5BAA7376";
+		};
+		9E65CFFF70CF2EFF11834291 = {
+			isa = "PBXBuildFile";
+			fileRef = "0D7F012B022D9EB9446755E6";
+		};
+		DB1E6AB6B11CF5A6B771BC2C = {
+			isa = "PBXBuildFile";
+			fileRef = "52F2BF9456A4684D1D66A69C";
+		};
+		4273FDD35D4DEB7A57256EE7 = {
+			isa = "PBXBuildFile";
+			fileRef = "7A921553144CCD18ED472978";
+		};
+		D68666377385DDD9B2193218 = {
+			isa = "PBXBuildFile";
+			fileRef = "6DFE86D202C8164259CCD5FE";
+		};
+		08FB9C7DE4B6DBCB96FC60CE = {
+			isa = "PBXBuildFile";
+			fileRef = "C2017929AF1D28FE06FAE9CC";
+		};
+		682E956D239CD4BDAA0405E4 = {
+			isa = "PBXSourcesBuildPhase";
+			buildActionMask = 2147483647;
+			files = ("9960CF2D88B3F7A0E6FA435D", "7C5525D197C38B811D9EF501", "FA5DA92ABBBC9EE4FBE80335", "9E65CFFF70CF2EFF11834291", "DB1E6AB6B11CF5A6B771BC2C", "4273FDD35D4DEB7A57256EE7", "D68666377385DDD9B2193218", "08FB9C7DE4B6DBCB96FC60CE",);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EDC0E09F49FD9868DEE34B4B = {
+			isa = "PBXFrameworksBuildPhase";
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		961DE66486A38A65CAA211FE = {
+			isa = "PBXResourcesBuildPhase";
+			buildActionMask = 2147483647;
+			files = ();
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		86F508C49A1453B0F7ABF0BA = {
+			isa = "PBXBuildFile";
+			fileRef = "D8D394FFA155C983DF2C7967";
+			settings = {
+				ATTRIBUTES = ("RemoveHeadersOnCopy",);
+			};
+		};
+		0CEA60F04830969E4A592BB0 = {
+			isa = "PBXCopyFilesBuildPhase";
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = ("86F508C49A1453B0F7ABF0BA",);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E58B6CEB64A55D12B5B01B27 = {
+			isa = "PBXContainerItemProxy";
+			containerPortal = "244210E48437B6556980A702";
+			proxyType = 1;
+			remoteGlobalIDString = "D41DAE9EFDEEA083EEF89A62";
+			remoteInfo = "DeviceProbeWatch";
+		};
+		F21179846E5C08211227A457 = {
+			isa = "PBXTargetDependency";
+			target = "D41DAE9EFDEEA083EEF89A62";
+			targetProxy = "E58B6CEB64A55D12B5B01B27";
+		};
+		E1A21EAF3D8779A1D7E7E594 = {
+			isa = "XCBuildConfiguration";
+			buildSettings = {
+				CODE_SIGN_STYLE = "Automatic";
+				CODE_SIGN_ENTITLEMENTS = "iPhone/Support/DeviceProbe.entitlements";
+				INFOPLIST_FILE = "iPhone/Support/Info.plist";
+				GENERATE_INFOPLIST_FILE = "NO";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.personaltrainer.deviceprobe";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				MARKETING_VERSION = "0.1.0";
+				CURRENT_PROJECT_VERSION = "1";
+				SDKROOT = "iphoneos";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = "1";
+				IPHONEOS_DEPLOYMENT_TARGET = "18.0";
+				SWIFT_VERSION = "6.0";
+				SWIFT_STRICT_CONCURRENCY = "complete";
+				ENABLE_PREVIEWS = "YES";
+				SKIP_INSTALL = "NO";
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks",);
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG";
+			};
+			name = "Debug";
+		};
+		154C907C7FE56606EC5E8700 = {
+			isa = "XCBuildConfiguration";
+			buildSettings = {
+				CODE_SIGN_STYLE = "Automatic";
+				CODE_SIGN_ENTITLEMENTS = "iPhone/Support/DeviceProbe.entitlements";
+				INFOPLIST_FILE = "iPhone/Support/Info.plist";
+				GENERATE_INFOPLIST_FILE = "NO";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.personaltrainer.deviceprobe";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				MARKETING_VERSION = "0.1.0";
+				CURRENT_PROJECT_VERSION = "1";
+				SDKROOT = "iphoneos";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = "1";
+				IPHONEOS_DEPLOYMENT_TARGET = "18.0";
+				SWIFT_VERSION = "6.0";
+				SWIFT_STRICT_CONCURRENCY = "complete";
+				ENABLE_PREVIEWS = "YES";
+				SKIP_INSTALL = "NO";
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks",);
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+			};
+			name = "Release";
+		};
+		E6CB25C05B416294BF705744 = {
+			isa = "XCConfigurationList";
+			buildConfigurations = ("E1A21EAF3D8779A1D7E7E594", "154C907C7FE56606EC5E8700",);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "Release";
+		};
+		EA26633F5CAB711918E5A805 = {
+			isa = "PBXNativeTarget";
+			buildConfigurationList = "E6CB25C05B416294BF705744";
+			buildPhases = ("682E956D239CD4BDAA0405E4", "EDC0E09F49FD9868DEE34B4B", "961DE66486A38A65CAA211FE", "0CEA60F04830969E4A592BB0",);
+			buildRules = ();
+			dependencies = ("F21179846E5C08211227A457",);
+			name = "DeviceProbe";
+			productName = "DeviceProbe";
+			productReference = "0896CB685471AF25A0B2E3A1";
+			productType = "com.apple.product-type.application";
+		};
+		73EBF6644258C120893E685D = {
+			isa = "XCBuildConfiguration";
+			buildSettings = {
+				CLANG_ENABLE_MODULES = "YES";
+				CLANG_ENABLE_OBJC_ARC = "YES";
+				SWIFT_VERSION = "6.0";
+			};
+			name = "Debug";
+		};
+		0B0C687DF8B6B8DC790B519C = {
+			isa = "XCBuildConfiguration";
+			buildSettings = {
+				CLANG_ENABLE_MODULES = "YES";
+				CLANG_ENABLE_OBJC_ARC = "YES";
+				SWIFT_VERSION = "6.0";
+			};
+			name = "Release";
+		};
+		4AA05EC3301949773ED0AC0A = {
+			isa = "XCConfigurationList";
+			buildConfigurations = ("73EBF6644258C120893E685D", "0B0C687DF8B6B8DC790B519C",);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = "Release";
+		};
+		244210E48437B6556980A702 = {
+			isa = "PBXProject";
+			attributes = {
+				BuildIndependentTargetsInParallel = "YES";
+				LastUpgradeCheck = "2600";
+				TargetAttributes = {
+					EA26633F5CAB711918E5A805 = {
+						CreatedOnToolsVersion = "26.0";
+						SystemCapabilities = {
+							com.apple.HealthKit = {
+								enabled = 1;
+							};
+						};
+					};
+					D41DAE9EFDEEA083EEF89A62 = {
+						CreatedOnToolsVersion = "26.0";
+						SystemCapabilities = {
+							com.apple.HealthKit = {
+								enabled = 1;
+							};
+						};
+					};
+				};
+			};
+			buildConfigurationList = "4AA05EC3301949773ED0AC0A";
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = "pt-BR";
+			hasScannedForEncodings = 0;
+			knownRegions = ("pt-BR", "Base",);
+			mainGroup = "0D6E4079E36703EBD37C0072";
+			productRefGroup = "0A3E27B8CA818264D75C8D81";
+			projectDirPath = "";
+			projectRoot = "";
+			targets = ("EA26633F5CAB711918E5A805", "D41DAE9EFDEEA083EEF89A62",);
+		};
+	};
+	rootObject = "244210E48437B6556980A702";
+}
