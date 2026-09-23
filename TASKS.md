@@ -292,7 +292,7 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 **Entra na versão 2 (2026-09-23), junto com M2 e M5.** Inclui o diálogo do app (SPEC §7.11 C1–C8, RF-37..RF-39). Parte de cálculo (TrainerCore) começa em paralelo; telas e integração na rodada final.
 
-- [~] **T4.8 [CI] Diálogo do app (SPEC §7.11)** — Services/Coach/CoachFeedBuilder.swift (junta revisão, deload, saúde, validade da instalação, retomada, marcos, backup, longevidade), Services/Coach/CoachLogStore.swift (decisões em JSON, cadência/silêncio), Services/Coach/ProvisioningExpiryReader.swift (lê ExpirationDate do embedded.mobileprovision; notificação na véspera), Features/Coach/* (feed na Home, destaque na abertura, ações).
+- [~] **T4.8 [CI] Diálogo do app (SPEC §7.11)** — `Services/Coach/CoachFeedBuilder.swift` (junta revisão, deload, saúde, validade da instalação, retomada, marcos, backup, longevidade), `Services/Coach/CoachLogStore.swift` (decisões em JSON, cadência/silêncio), `Services/Coach/ProvisioningExpiryReader.swift` (lê ExpirationDate do embedded.mobileprovision; notificação na véspera), `Features/Coach/*` (feed na Home, destaque na abertura, ações).
 
 **Objetivo:** seleção por frequência, deload automático, troca de programa ao fim do mesociclo. Tudo em `TrainerCore` com testes; UI mínima.
 
