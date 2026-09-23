@@ -1,11 +1,15 @@
 import Foundation
 import TrainerCore
 
-/// `ProgramModel` → `ProgramTemplate`. Funções puras: não tocam `ModelContext`.
+/// `ProgramModel` ⇄ `ProgramTemplate`. Funções puras: não tocam `ModelContext`.
 ///
 /// As relações to-many do SwiftData não garantem ordem; dias e exercícios saem
 /// sempre ordenados por `order`, que é o que o seletor (SPEC S1) espera.
 enum ProgramMapper {
+    /// `goal` sai de `ProgramModel.goal`: programas migrados de V1 têm `goalRaw ==
+    /// "hypertrophy"` e voltam como `.hypertrophy` (não `nil`). Um `goalRaw` desconhecido
+    /// (gravado por versão futura) vira `nil`, que `effectiveGoal` lê como hipertrofia — não é
+    /// erro, para um objetivo novo nunca impedir o planejamento do treino.
     static func template(from model: ProgramModel) throws -> ProgramTemplate {
         let days = try model.days
             .sorted { $0.order < $1.order }
@@ -15,7 +19,9 @@ enum ProgramMapper {
             id: model.uuid,
             name: model.name,
             days: days,
-            isActive: model.isActive
+            isActive: model.isActive,
+            goal: model.goal,
+            summary: model.summary
         )
     }
 
@@ -54,6 +60,8 @@ enum ProgramMapper {
 
     /// Monta o grafo `ProgramModel` → `ProgramDayModel` → `ProgramExerciseModel` a partir do
     /// template, com os mesmos ids do template e `createdAt` vindo de quem chama (SPEC P11).
+    /// `goalRaw` = `template.goal?.rawValue ?? "hypertrophy"` (SPEC §7.9: hipertrofia é o
+    /// padrão); `summary` é copiado como está.
     ///
     /// O mapper não recebe `ModelContext` e não chama `insert`. Quem chama insere a RAIZ
     /// (`context.insert(program)`) e salva: o SwiftData insere os modelos relacionados junto
@@ -80,7 +88,9 @@ enum ProgramMapper {
             name: template.name,
             isActive: template.isActive,
             createdAt: createdAt,
-            days: days
+            days: days,
+            goalRaw: template.goal?.rawValue ?? CurrentSchema.defaultGoalRaw,
+            summary: template.summary
         )
     }
 

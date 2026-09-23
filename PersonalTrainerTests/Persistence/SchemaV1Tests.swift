@@ -15,9 +15,13 @@ final class SchemaV1Tests: XCTestCase {
         XCTAssertEqual(SchemaV1.models.count, 8)
     }
 
-    func testMigrationPlan_startsAtV1WithoutStages() {
-        XCTAssertEqual(PersonalTrainerMigrationPlan.schemas.count, 1)
-        XCTAssertTrue(PersonalTrainerMigrationPlan.stages.isEmpty)
+    /// Desde T2.11 o plano tem V1 e V2; a lista completa é verificada em `SchemaV2MigrationTests`.
+    /// Aqui ficam só as invariantes que valem para qualquer versão futura.
+    func testMigrationPlan_startsAtV1_endsAtCurrentSchema_oneStagePerStep() {
+        XCTAssertEqual(
+            PersonalTrainerMigrationPlan.stages.count,
+            PersonalTrainerMigrationPlan.schemas.count - 1
+        )
         XCTAssertEqual(
             PersonalTrainerMigrationPlan.schemas.first?.versionIdentifier,
             SchemaV1.versionIdentifier
