@@ -117,6 +117,7 @@ final class ActiveSessionViewModelTests: XCTestCase {
         XCTAssertFalse(draft.isWarmup)
         XCTAssertEqual(draft.setIndex, 0)
         XCTAssertEqual(draft.plannedSets, 3)
+        XCTAssertEqual(draft.prescribedLoad, 100, "carga prescrita do snapshot, só para exibição")
         XCTAssertEqual(draft.loadIncrement, 5, "vem do ExerciseModel relacionado")
         XCTAssertEqual(draft.loadUnit, .kilograms)
         XCTAssertEqual(draft.repMin, 8)
@@ -135,6 +136,7 @@ final class ActiveSessionViewModelTests: XCTestCase {
         XCTAssertEqual(model.selectedExerciseID, fixture.bench.uuid)
         let draft = try XCTUnwrap(model.currentDraft)
         XCTAssertEqual(draft.load, 0, "SPEC P2 sem startingLoad: o usuário digita")
+        XCTAssertNil(draft.prescribedLoad, "a prescrição continua vazia; só o stepper começa em 0")
         XCTAssertEqual(draft.reps, 8)
         XCTAssertEqual(draft.rir, 3)
         XCTAssertEqual(draft.plannedSets, 2)
@@ -161,6 +163,22 @@ final class ActiveSessionViewModelTests: XCTestCase {
         let model = makeViewModel(fixture)
 
         XCTAssertEqual(model.prescriptionSummary(for: fixture.legPress), "3 × 8–12 · 100 kg · RIR 2")
+        // SPEC P2: carga vazia é "—" (mesma convenção da Home e do histórico), nunca "0 kg".
+        XCTAssertEqual(model.prescriptionSummary(for: fixture.bench), "2 × 8–12 · — · RIR 3")
+    }
+
+    func testPrescriptionSummary_doesNotFollowEditedLoad() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        var draft = try XCTUnwrap(model.currentDraft)
+        draft.load = 120
+
+        XCTAssertEqual(draft.prescriptionSummary, "3 × 8–12 · 100 kg · RIR 2", "o texto rotulado de prescrição não muda com o stepper")
+
+        model.select(exerciseID: fixture.bench.uuid)
+        var calibration = try XCTUnwrap(model.currentDraft)
+        calibration.load = 30
+        XCTAssertEqual(calibration.prescriptionSummary, "2 × 8–12 · — · RIR 3")
     }
 
     // MARK: - completeSet (RF-03, RF-04, RF-05, RF-06)
@@ -189,13 +207,15 @@ final class ActiveSessionViewModelTests: XCTestCase {
         XCTAssertFalse(stored.isWarmup)
         XCTAssertEqual(stored.completedAt, clock, "hora vem do relógio injetado")
 
-        // RF-04: a 2ª série copia os valores reais da 1ª.
+        // RF-04: a 2ª série copia os valores reais da 1ª; a prescrição exibida não muda.
         let next = try XCTUnwrap(model.currentDraft)
         XCTAssertEqual(next.setIndex, 1)
         XCTAssertEqual(next.load, 102.5)
         XCTAssertEqual(next.reps, 9)
         XCTAssertEqual(next.rir, 1)
         XCTAssertFalse(next.isWarmup)
+        XCTAssertEqual(next.prescribedLoad, 100)
+        XCTAssertEqual(next.prescriptionSummary, "3 × 8–12 · 100 kg · RIR 2")
         XCTAssertEqual(model.selectedExerciseID, fixture.legPress.uuid, "ainda faltam séries: não avança")
 
         // RF-05: descanso do exercício começa em `now`.

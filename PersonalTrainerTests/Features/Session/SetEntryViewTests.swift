@@ -26,6 +26,7 @@ final class SetEntryViewTests: XCTestCase {
             rir: 2,
             setIndex: 0,
             plannedSets: 3,
+            prescribedLoad: 62.5,
             loadIncrement: 2.5,
             loadUnit: .kilograms,
             repMin: 8,

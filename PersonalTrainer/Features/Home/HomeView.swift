@@ -41,23 +41,25 @@ struct HomeView: View {
         }
     }
 
+    /// A falha de leitura fica visível mesmo depois de o alerta ser fechado (`didFailToLoad`
+    /// não depende de `errorMessage`): "sem programa" e "não carregou" são estados distintos.
     @ViewBuilder
     private var content: some View {
         if let plan = model.plan {
             PlanCard(plan: plan)
-        } else if model.errorMessage == nil {
+        } else if model.didFailToLoad {
             ContentUnavailableView(
-                "Nenhum programa ativo",
-                systemImage: "figure.strengthtraining.traditional",
-                description: Text("Quando houver um programa ativo, o próximo treino aparece aqui.")
+                "Não foi possível carregar o treino",
+                systemImage: "exclamationmark.triangle",
+                description: Text("Puxe para baixo para tentar de novo.")
             )
             .frame(maxWidth: .infinity)
             .padding(.top, 40)
         } else {
             ContentUnavailableView(
-                "Não foi possível carregar o treino",
-                systemImage: "exclamationmark.triangle",
-                description: Text("Puxe para baixo para tentar de novo.")
+                "Nenhum programa ativo",
+                systemImage: "figure.strengthtraining.traditional",
+                description: Text("Quando houver um programa ativo, o próximo treino aparece aqui.")
             )
             .frame(maxWidth: .infinity)
             .padding(.top, 40)

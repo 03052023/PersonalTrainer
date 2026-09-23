@@ -15,6 +15,10 @@ final class HomeViewModel {
     private(set) var activeSessionID: UUID?
     /// Mensagem pt-BR para o `.alert` da view; a view zera ao fechar o alerta.
     var errorMessage: String?
+    /// Verdadeiro enquanto a última leitura (`refresh()`) tiver falhado. Separado de
+    /// `errorMessage` porque fechar o alerta zera a mensagem, e sem isto a tela passaria a
+    /// dizer "Nenhum programa ativo" para uma falha de leitura (o programa pode existir).
+    private(set) var didFailToLoad = false
 
     private let planner: any SessionPlanning
     private let coordinator: any SessionCoordinating
@@ -46,8 +50,10 @@ final class HomeViewModel {
         activeSessionID = coordinator.activeSession?.uuid
         do {
             plan = try planner.nextPlan(now: now())
+            didFailToLoad = false
         } catch {
             plan = nil
+            didFailToLoad = true
             errorMessage = Self.message(for: error, fallback: "Não foi possível carregar o próximo treino.")
         }
     }

@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// Raiz da navegação (T1.1; SPEC F1/F4): abas "Treino" (Home) e "Histórico", com a sessão

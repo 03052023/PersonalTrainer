@@ -76,6 +76,7 @@ private enum SetEntryPreviewData {
         rir: 2,
         setIndex: 0,
         plannedSets: 3,
+        prescribedLoad: 60,
         loadIncrement: 2.5,
         loadUnit: .kilograms,
         repMin: 8,
@@ -91,6 +92,7 @@ private enum SetEntryPreviewData {
         rir: nil,
         setIndex: 1,
         plannedSets: 3,
+        prescribedLoad: 12,
         loadIncrement: 1,
         loadUnit: .plates,
         repMin: 8,
@@ -100,6 +102,8 @@ private enum SetEntryPreviewData {
         note: .hold
     )
 
+    /// Calibração sem `startingLoad` (SPEC P2): a prescrição mostra "—" e o stepper parte de 0;
+    /// aqui o usuário já subiu para 40 kg de aquecimento.
     static let warmup = SetDraft(
         load: 40,
         reps: 12,
@@ -107,6 +111,7 @@ private enum SetEntryPreviewData {
         isWarmup: true,
         setIndex: 0,
         plannedSets: 3,
+        prescribedLoad: nil,
         loadIncrement: 2.5,
         loadUnit: .kilograms,
         repMin: 8,

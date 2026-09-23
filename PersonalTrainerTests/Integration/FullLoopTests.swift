@@ -62,6 +62,75 @@ final class FullLoopTests: XCTestCase {
         XCTAssertEqual(firstAgain.prescription.targetReps, first.prescription.repMin)
     }
 
+    // MARK: - SPEC P5: reps dentro da faixa mantêm a carga e sobem a meta
+
+    func testP5_repsInsideRange_afterFullRotation_dayAHoldsLoadAndRaisesTarget() throws {
+        let harness = try makeHarness()
+        let days = try programDays(in: harness)
+
+        let planA = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
+        XCTAssertEqual(planA.programDayID, days[0].uuid)
+        let first = try XCTUnwrap(planA.exercises.first)
+        let increment = first.exercise.loadIncrement
+        // Acima de repMin e abaixo de repMax em todas as séries: nem sucesso (P4) nem falha (P6).
+        let holdingReps = first.prescription.repMin + 1
+        XCTAssertLessThan(holdingReps, first.prescription.repMax, "a faixa do seed precisa ter ao menos 3 valores")
+
+        try performSession(
+            planA,
+            firstExercise: FirstExerciseScript(sets: 3, reps: holdingReps, load: 40, rir: 2),
+            in: harness
+        )
+        try performSession(try XCTUnwrap(try harness.planner.nextPlan(now: clock)), firstExercise: nil, in: harness)
+        try performSession(try XCTUnwrap(try harness.planner.nextPlan(now: clock)), firstExercise: nil, in: harness)
+
+        let planA2 = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
+        XCTAssertEqual(planA2.programDayID, days[0].uuid)
+        let firstAgain = try XCTUnwrap(planA2.exercises.first)
+        XCTAssertEqual(firstAgain.exercise.id, first.exercise.id)
+        // SPEC P5: carga = L, meta = min(repMax, menor reps da última sessão + 1), nota hold.
+        XCTAssertEqual(firstAgain.prescription.note, .hold)
+        XCTAssertEqual(firstAgain.prescription.load, Load.round(40, toIncrement: increment))
+        XCTAssertEqual(firstAgain.prescription.targetReps, min(first.prescription.repMax, holdingReps + 1))
+    }
+
+    // MARK: - CA1-6: exercício pulado sem séries não altera a prescrição futura
+
+    func testCA16_skippedExerciseWithoutSets_afterFullRotation_dayAStillCalibrates() throws {
+        let harness = try makeHarness()
+        let days = try programDays(in: harness)
+
+        let planA = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
+        let first = try XCTUnwrap(planA.exercises.first)
+        XCTAssertEqual(first.prescription.note, .calibrate)
+        XCTAssertNil(first.prescription.load)
+
+        // Máquina ocupada (SPEC F3, RF-10): o primeiro exercício é pulado sem nenhuma série.
+        let sessionA = try performSession(planA, firstExercise: nil, skippingFirstExercise: true, in: harness)
+        let storedA = try XCTUnwrap(harness.coordinator.session(withID: sessionA))
+        XCTAssertEqual(storedA.status, .completed)
+        let skipped = try XCTUnwrap(storedA.exercises.first { $0.uuid == first.id })
+        XCTAssertTrue(skipped.wasSkipped)
+        XCTAssertTrue(skipped.sets.isEmpty)
+
+        // Os demais exercícios têm série de trabalho, então a rotação segue (SPEC S2) e o
+        // histórico do exercício pulado continua vazio.
+        let planB = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
+        XCTAssertEqual(planB.programDayID, days[1].uuid)
+        try performSession(planB, firstExercise: nil, in: harness)
+        try performSession(try XCTUnwrap(try harness.planner.nextPlan(now: clock)), firstExercise: nil, in: harness)
+
+        let planA2 = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
+        XCTAssertEqual(planA2.programDayID, days[0].uuid)
+        let firstAgain = try XCTUnwrap(planA2.exercises.first)
+        XCTAssertEqual(firstAgain.exercise.id, first.exercise.id)
+        // SPEC P7: sessão com 0 séries de trabalho é ignorada; sem histórico vale P2 de novo.
+        XCTAssertEqual(firstAgain.prescription.note, .calibrate)
+        XCTAssertNil(firstAgain.prescription.load)
+        XCTAssertEqual(firstAgain.prescription.targetReps, first.prescription.targetReps)
+        XCTAssertEqual(firstAgain.prescription.targetRIR, first.prescription.targetRIR)
+    }
+
     // MARK: - SPEC P6: falha repetida na mesma carga
 
     func testP6_twoConsecutiveFailuresAtSameLoad_afterTwoRotations_dayADecreases() throws {
@@ -240,17 +309,24 @@ final class FullLoopTests: XCTestCase {
     /// Executa uma sessão inteira do plano pelo caminho oficial (ARCHITECTURE §7): inicia,
     /// registra as séries (primeiro exercício conforme `script`; os demais 1 série de trabalho a
     /// 20 kg com `repMin` reps, RIR 2), finaliza e avança o relógio um dia — bem dentro dos
-    /// 21 dias de SPEC P9.
+    /// 21 dias de SPEC P9. Com `skippingFirstExercise`, o primeiro exercício é pulado (RF-10)
+    /// sem registrar série alguma e `script` é ignorado.
     @discardableResult
     private func performSession(
         _ plan: SessionPlan,
         firstExercise script: FirstExerciseScript?,
+        skippingFirstExercise: Bool = false,
         in harness: Harness
     ) throws -> UUID {
         let sessionID = try harness.planner.startSession(from: plan, now: clock)
         XCTAssertEqual(harness.coordinator.activeSession?.uuid, sessionID)
 
         for (position, planned) in plan.exercises.enumerated() {
+            if position == 0, skippingFirstExercise {
+                clock = clock.addingTimeInterval(60)
+                try harness.coordinator.skipExercise(sessionID: sessionID, sessionExerciseID: planned.id, now: clock)
+                continue
+            }
             let effective = (position == 0 ? script : nil)
                 ?? FirstExerciseScript(sets: 1, reps: planned.prescription.repMin, load: 20, rir: 2)
             for index in 0..<max(0, effective.sets) {

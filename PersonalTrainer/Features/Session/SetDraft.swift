@@ -16,6 +16,9 @@ struct SetDraft: Sendable, Hashable {
     /// 0-based; a view exibe `setIndex + 1`.
     let setIndex: Int
     let plannedSets: Int
+    /// Carga da prescrição gravada no snapshot; `nil` em calibração sem `startingLoad`
+    /// (SPEC P2). Só para exibição: o stepper edita `load`, que começa em 0 nesse caso.
+    let prescribedLoad: Double?
     let loadIncrement: Double
     let loadUnit: LoadUnit
     let repMin: Int
@@ -31,6 +34,7 @@ struct SetDraft: Sendable, Hashable {
         isWarmup: Bool = false,
         setIndex: Int,
         plannedSets: Int,
+        prescribedLoad: Double?,
         loadIncrement: Double,
         loadUnit: LoadUnit,
         repMin: Int,
@@ -45,6 +49,7 @@ struct SetDraft: Sendable, Hashable {
         self.isWarmup = isWarmup
         self.setIndex = setIndex
         self.plannedSets = plannedSets
+        self.prescribedLoad = prescribedLoad
         self.loadIncrement = loadIncrement
         self.loadUnit = loadUnit
         self.repMin = repMin
@@ -54,13 +59,19 @@ struct SetDraft: Sendable, Hashable {
         self.note = note
     }
 
-    /// Texto curto da prescrição, ex.: "3 × 8–12 · 60 kg · RIR 2".
+    /// Texto curto da prescrição, ex.: "3 × 8–12 · 60 kg · RIR 2". Usa a carga PRESCRITA, não
+    /// a que o usuário está editando: é a mesma convenção da Home (`PrescriptionRow`) e do
+    /// histórico, inclusive o "—" da calibração sem carga (SPEC P2).
     var prescriptionSummary: String {
         let loadText: String
-        switch loadUnit {
-        case .kilograms: loadText = LoadFormatter.kilograms(load)
-        case .plates: loadText = "\(Int(load.rounded())) placas"
-        case .level: loadText = "nível \(Int(load.rounded()))"
+        if let prescribedLoad {
+            switch loadUnit {
+            case .kilograms: loadText = LoadFormatter.kilograms(prescribedLoad)
+            case .plates: loadText = "\(Int(prescribedLoad.rounded())) placas"
+            case .level: loadText = "nível \(Int(prescribedLoad.rounded()))"
+            }
+        } else {
+            loadText = "—"
         }
         return "\(plannedSets) × \(repMin)–\(repMax) · \(loadText) · RIR \(targetRIR)"
     }

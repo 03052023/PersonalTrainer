@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 /// Ponto de entrada do app iPhone (T1.1). Monta o `AppEnvironment` real uma vez por processo

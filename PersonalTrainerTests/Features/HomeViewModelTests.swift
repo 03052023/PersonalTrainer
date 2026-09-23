@@ -26,6 +26,7 @@ final class HomeViewModelTests: XCTestCase {
         XCTAssertNil(model.activeSessionID)
         XCTAssertNil(model.errorMessage)
         XCTAssertFalse(model.isPresentingError)
+        XCTAssertFalse(model.didFailToLoad)
         XCTAssertEqual(planner.nextPlanCalls, [now], "SPEC P11: o relógio injetado vai para o planejador")
     }
 
@@ -66,6 +67,27 @@ final class HomeViewModelTests: XCTestCase {
         XCTAssertNil(model.plan, "Plano antigo não pode sobreviver a uma leitura falha")
         XCTAssertEqual(model.errorMessage, "O programa ativo não tem dias de treino.")
         XCTAssertTrue(model.isPresentingError)
+        XCTAssertTrue(model.didFailToLoad)
+    }
+
+    func testDidFailToLoad_survivesClosingTheAlert_andClearsOnSuccessfulRefresh() {
+        let planner = HomeTestPlanner(planToReturn: makePlan())
+        planner.nextPlanError = HomeTestError.boom
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+
+        model.refresh()
+        XCTAssertTrue(model.didFailToLoad)
+
+        // Fechar o alerta zera a mensagem, mas a tela continua em "não foi possível carregar",
+        // não em "nenhum programa ativo".
+        model.isPresentingError = false
+        XCTAssertNil(model.errorMessage)
+        XCTAssertTrue(model.didFailToLoad)
+
+        planner.nextPlanError = nil
+        model.refresh()
+        XCTAssertFalse(model.didFailToLoad)
+        XCTAssertNotNil(model.plan)
     }
 
     func testRefresh_unknownError_usesFallbackMessage() {

@@ -102,6 +102,7 @@ final class ActiveSessionViewModel {
 
     /// Texto da prescrição do exercício ("3 × 8–12 · 60 kg · RIR 2"), sempre a partir da
     /// prescrição gravada no snapshot, independente do que o usuário editou na série atual.
+    /// Carga prescrita `nil` (SPEC P2) aparece como "—", igual à Home e ao histórico.
     func prescriptionSummary(for exercise: SessionExerciseModel) -> String {
         makeDraft(for: exercise, index: 0, previous: nil).prescriptionSummary
     }
@@ -249,7 +250,8 @@ final class ActiveSessionViewModel {
     /// O snapshot não guarda a meta de reps do motor (`ExercisePrescription.targetReps`), só a
     /// faixa; usa-se `prescribedRepMin` como valor inicial e como `targetReps` — é a meta em
     /// `calibrate`/`increase`/`retry`/`returning` (SPEC P2, P4, P6, P9) e o piso em `hold`.
-    /// Sem `prescribedLoad` (SPEC P2 sem `startingLoad`) a carga começa em 0 e o usuário digita.
+    /// Sem `prescribedLoad` (SPEC P2 sem `startingLoad`) a carga começa em 0 e o usuário digita;
+    /// `prescribedLoad` segue `nil` no rascunho para o texto da prescrição mostrar "—".
     private func makeDraft(for exercise: SessionExerciseModel, index: Int, previous: SetLogModel?) -> SetDraft {
         let load: Double
         let reps: Int
@@ -271,6 +273,7 @@ final class ActiveSessionViewModel {
             isWarmup: false,
             setIndex: index,
             plannedSets: exercise.prescribedSets,
+            prescribedLoad: exercise.prescribedLoad,
             loadIncrement: exercise.exercise?.loadIncrement ?? 2.5,
             loadUnit: exercise.exercise?.loadUnit ?? .kilograms,
             repMin: exercise.prescribedRepMin,
