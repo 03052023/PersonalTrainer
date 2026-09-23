@@ -123,6 +123,7 @@ Backend, contas, sync em nuvem/CloudKit, funções sociais, nutrição, prescri�
 | RF-29 | Recuperação: HRV, FC de repouso e sono (médias 7 vs. 28 dias); sugestão "use o Watch à noite" quando faltam dados noturnos. | M5 |
 | RF-30 | Sugestão de encaixe do aeróbico na semana, evitando interferência com treino pesado de pernas (§7.10 A5). | M5 |
 | RF-31 | Card "Saúde" na Home e tela de detalhe; tudo só leitura do HealthKit, sem gravar. | M5 |
+| RF-32 | Botão "Por quê?" em notas de prescrição, metas e sugestões, mostrando a regra e as referências científicas completas do catálogo `references.v1.json` (§7.9). | M2 (catálogo e notas), cresce a cada milestone |
 
 ## 7. Regras de domínio
 
@@ -218,7 +219,7 @@ Base: autorregulação por RIR/RPE (Zourdos 2016; Helms 2016); dose-resposta de 
 
 ### 7.9 Objetivo do programa (M2)
 
-Cada programa tem um `goal`: `hypertrophy` (padrão), `strength`, `endurance` ou `longevity`. Todo programa gerado por padrão tem **5 exercícios por dia** (decisão do usuário, 2026-09-23); o usuário pode adicionar ou remover na edição. O objetivo define os padrões usados pelo seed, pela edição de programa e pela revisão (§7.8):
+Cada programa tem um `goal`: `hypertrophy` (padrão), `strength`, `endurance`, `longevity` ou `combat`. Todo programa gerado por padrão tem **5 exercícios por dia** (decisão do usuário, 2026-09-23); o usuário pode adicionar ou remover na edição. O objetivo define os padrões usados pelo seed, pela edição de programa e pela revisão (§7.8):
 
 | Objetivo | Faixa de reps | RIR alvo | Volume alvo por grupo/semana (séries de trabalho) | Descanso |
 |----------|---------------|----------|---------------------------------------------------|----------|
@@ -237,6 +238,18 @@ Cada programa tem um `goal`: `hypertrophy` (padrão), `strength`, `endurance` ou
 | Mobilidade/flexibilidade | 2–3×/semana, 5–10 min | ACSM: melhora amplitude de movimento; efeito fraco em prevenção de lesão, por isso sugestão leve |
 | Passos | ≥ 7.000/dia | Menor mortalidade até ~7.000–10.000 passos (Paluch 2022) |
 | Sono | 7–9 h | Consenso AASM/SRS |
+
+**Combate** = preparo físico para autodefesa e luta: força máxima, potência, resistência a esforços curtos e intensos, pegada e tronco resistentes. O app prepara o corpo; não ensina técnica de luta (isso exige aula presencial) e mostra esse aviso uma vez.
+
+| Componente | Padrão | Base |
+|------------|--------|------|
+| Força máxima | Compostos (agachamento, levantamento terra, supino, remada, barra) 3–6 reps, RIR 2–3, 2–3×/semana | Força máxima sustenta potência e desempenho atlético (Suchomel 2016) |
+| Potência | 1–2 exercícios explosivos por treino (arremesso de medicine ball, salto, kettlebell swing), 3–5 séries de 3–5 reps, descanso completo | Treino misto força + potência maximiza potência (Cormie 2011) |
+| Resistência anaeróbica | 1–2×/semana, intervalos de 20–60 s intensos com pausa curta, imitando rounds | Demandas de esportes de combate são intermitentes e de alta intensidade (James 2016; HIIT: Buchheit & Laursen 2013) |
+| Pegada e tronco | Carregadas (farmer's walk), barra isométrica, anti-rotação (pallof) | Pegada e tronco são determinantes em luta agarrada (James 2016) |
+| Pescoço | Isometria leve 2×/semana | Sugestão leve: evidência limitada, plausível para absorver impactos |
+
+**Referências obrigatórias (requisito transversal, RF-32).** Toda regra, meta ou sugestão do app tem um identificador de referência. Um botão "Por quê?" em cada sugestão, meta e nota de prescrição abre a explicação curta, a regra da SPEC e as referências completas (autores, ano, título, revista, DOI). A lista vive num catálogo versionado no app (`references.v1.json`), igual ao seed. Critério de inclusão: preferir diretrizes (OMS, ACSM) e meta-análises/revisões sistemáticas; estudo isolado só quando não há síntese, sinalizado como "evidência limitada". Nenhuma regra entra na SPEC sem referência.
 
 Equilíbrio e mobilidade aparecem como blocos opcionais de 5–10 min no fim do treino ou em dias livres; o app só registra "feito/não feito". Passos, aeróbico, VO2max e sono vêm do HealthKit. Nada disso altera a prescrição de carga (P12).
 
