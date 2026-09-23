@@ -239,7 +239,7 @@ public protocol HealthKitServicing: Sendable {
 }
 ```
 
-Tipos: escrita `HKWorkoutType`; leitura `heartRate`. Metadados do workout: `HKMetadataKeyExternalUUID = sessionUUID` (permite reconciliar e detectar duplicatas). `Info.plist`: `NSHealthShareUsageDescription`, `NSHealthUpdateUsageDescription`. Entitlement HealthKit nos dois targets (definido em T0.1 mesmo sem uso, para não mexer em projeto depois).
+Tipos: escrita `HKWorkoutType`; leitura `heartRate` (M2). M5 acrescenta só leituras: `HKWorkoutType` de outros apps (aeróbico), `vo2Max`, `heartRateVariabilitySDNN`, `restingHeartRate`, `sleepAnalysis`, `dateOfBirth` e `biologicalSex` (opcionais; usados só para FCmáx e faixa de VO2max). Toda leitura é agregada em structs de `TrainerCore/Health` antes de qualquer regra; amostras brutas não saem do serviço. Metadados do workout: `HKMetadataKeyExternalUUID = sessionUUID` (permite reconciliar e detectar duplicatas). `Info.plist`: `NSHealthShareUsageDescription`, `NSHealthUpdateUsageDescription`. Entitlement HealthKit nos dois targets (definido em T0.1 mesmo sem uso, para não mexer em projeto depois).
 
 `FakeHealthKitService` grava em memória e devolve FC sintética: é o que roda no simulador e nos previews.
 
@@ -368,6 +368,8 @@ Tipos: escrita `HKWorkoutType`; leitura `heartRate`. Metadados do workout: `HKMe
 | 009 | Projeto Xcode gerado por XcodeGen (`project.yml`) no CI; `.xcodeproj` fora do Git. | Synchronized folders em `.xcodeproj` versionado; gerador Python próprio (usado só no probe). | Sem Mac não há Xcode para criar/manter o projeto; XcodeGen é maduro, declarativo e regenera do disco. O gerador Python do probe fica restrito a `Validation/`. |
 | 010 | App do Watch opcional; FC em M2 vem do app Exercício nativo via HealthKit, vinculando o `HKWorkout` existente. | Bloquear M1/M2 até o companion instalar. | Instalar o companion pelo Windows depende de um fork sem aceite upstream; o valor central (não pensar na academia) não depende do relógio. |
 | 011 | Motor defensivo: ordena entradas internamente; `nextDay` opcional; enums dos modelos opcionais com erro de mapeamento explícito. | Confiar na ordenação do chamador; `fatalError` em raw desconhecido. | Um crash na academia custa o treino; dado inválido deve virar erro tratável, não trap. |
+| 012 | **Sem IA em nenhuma fase** (2026-09-23). Revisão periódica (SPEC §7.8) e saúde (§7.10) são regras determinísticas em `TrainerCore/Review` e `TrainerCore/Health`. | Pacote de análise + LLM (antigo M5). | O usuário pediu só o necessário; tudo que a revisão precisa é aritmética auditável sobre dados já existentes. Menos dependências, custo zero, explicabilidade total. |
+| 013 | Aeróbico é gravado pelo app Exercício do Watch e apenas lido pelo app; o app dá meta semanal e sugestões de encaixe, não prescreve sessões de cardio. | Timer/tracker de cardio próprio. | O Watch já faz isso melhor (GPS, FC, VO2max) e grava no HealthKit; reimplementar seria duplicação. |
 
 ## 17. Estrutura de pastas prevista
 
@@ -380,7 +382,7 @@ PersonalTrainer/                        ← raiz do repo (Windows: C:\Users\leon
 ├── Packages/
 │   └── TrainerCore/
 │       ├── Package.swift
-│       ├── Sources/TrainerCore/{Domain,Engine,Sync,Summary}/
+│       ├── Sources/TrainerCore/{Domain,Engine,Sync,Summary}/   (M4: Review/ · M5: Health/ — separados de Engine/ por R2)
 │       └── Tests/TrainerCoreTests/
 ├── PersonalTrainer/                     (target iOS — XcodeGen inclui a pasta inteira, exceto Support/)
 │   ├── App/            PersonalTrainerApp.swift · AppEnvironment.swift · AppEnvironment+Factories.swift · RootView.swift

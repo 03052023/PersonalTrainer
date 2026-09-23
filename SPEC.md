@@ -22,7 +22,7 @@ Depois que cada série é registrada (carga, repetições, RIR), o app recalcula
 | # | Princípio | Consequência prática |
 |---|-----------|----------------------|
 | P-1 | Zero decisões na academia | A tela inicial já é o treino do dia com tudo preenchido. Um toque para iniciar, um toque por série. |
-| P-2 | Motor determinístico | Mesma entrada → mesma prescrição. Sem aleatoriedade, sem IA no caminho crítico. IA é opcional e periódica (M5). |
+| P-2 | Tudo determinístico, sem IA | Mesma entrada → mesma prescrição e mesma sugestão. Toda regra é explícita, numerada na SPEC, testada por tabela e auditável na tela ("por que isso apareceu"). Decisão de 2026-09-23: não há LLM em nenhuma fase. |
 | P-3 | Offline-first | Todas as funções principais funcionam sem rede. Nenhum backend, nenhuma API paga. |
 | P-4 | iPhone é a fonte da verdade | O Apple Watch é um cliente fino que espelha a sessão ativa e envia eventos. Não há dois bancos de dados a reconciliar. |
 | P-5 | Dados são sagrados | Cada série é persistida no momento em que é concluída. Exportação completa em JSON a partir do M2. |
@@ -60,11 +60,12 @@ Depois que cada série é registrada (carga, repetições, RIR), o app recalcula
 - Seleção do próximo treino por frequência semanal e recuperação (≥48 h por grupo).
 - Detecção e geração automática de semana de deload.
 - Troca automática de programa ao fim do mesociclo, preservando cargas por exercício.
-- Pacote de análise periódica (JSON/Markdown) para revisão por IA fora do app (M5, opcional).
+- Revisão periódica com sugestões de programa aceitas ou recusadas pelo usuário (§7.8).
+- Saúde aeróbica e recuperação (M5, §7.10): minutos aeróbicos semanais vs. meta, VO2max, HRV, FC de repouso, sono, e sugestões como "use o Watch à noite" e onde encaixar o aeróbico sem prejudicar a musculação.
 
 ### 3.4 Fora do escopo (explicitamente)
 
-Backend, contas, sync em nuvem/CloudKit, funções sociais, nutrição, cardio programado, vídeos de exercícios, planos pagos, Android, layout de iPad, publicação na App Store, localização para outros idiomas (UI em pt-BR fixo), IA em tempo real durante o treino.
+Backend, contas, sync em nuvem/CloudKit, funções sociais, nutrição, prescrição detalhada de sessões de cardio (o aeróbico é feito com o app Exercício do Watch e lido pelo HealthKit), vídeos de exercícios, planos pagos, Android, layout de iPad, publicação na App Store, localização para outros idiomas (UI em pt-BR fixo), **qualquer uso de IA/LLM**.
 
 ## 4. Contexto de uso
 
@@ -116,7 +117,12 @@ Backend, contas, sync em nuvem/CloudKit, funções sociais, nutrição, cardio p
 | RF-23 | Seleção do próximo treino por frequência/recuperação (§7.3 v2). | M4 |
 | RF-24 | Deload automático (§7.5). | M4 |
 | RF-25 | Troca automática de programa ao fim do mesociclo. | M4 |
-| RF-26 | Gerar pacote de análise periódica para revisão externa (IA opcional). | M5 |
+| RF-26 | Revisão periódica (§7.8): relatório determinístico e sugestões com aceitar/recusar na abertura do app. | M4 |
+| RF-27 | Minutos aeróbicos da semana por intensidade (moderado/vigoroso), lidos dos treinos do HealthKit, contra a meta (padrão OMS 150 min moderados-equivalentes). | M5 |
+| RF-28 | VO2max estimado pelo Watch: último valor, tendência de 90 dias, faixa por idade/sexo; sugestão de caminhada/corrida ao ar livre quando não há estimativa recente. | M5 |
+| RF-29 | Recuperação: HRV, FC de repouso e sono (médias 7 vs. 28 dias); sugestão "use o Watch à noite" quando faltam dados noturnos. | M5 |
+| RF-30 | Sugestão de encaixe do aeróbico na semana, evitando interferência com treino pesado de pernas (§7.10 A5). | M5 |
+| RF-31 | Card "Saúde" na Home e tela de detalhe; tudo só leitura do HealthKit, sem gravar. | M5 |
 
 ## 7. Regras de domínio
 
@@ -186,7 +192,7 @@ Conteúdo: durante 1 semana (uma passagem completa da rotação), cada exercíci
 
 ### 7.6 Política de frequência cardíaca
 
-FC **é usada para**: exibir ao vivo no relógio (M3); resumo da sessão (média/máx); pacote de análise periódica (M5); opcionalmente, dica no timer ("FC abaixo de X bpm"), desligada por padrão (M3).
+FC **é usada para**: exibir ao vivo no relógio (M3); resumo da sessão (média/máx); tendências de recuperação na revisão periódica (§7.8 R6) e no painel de saúde (§7.10); intensidade do treino **aeróbico** (§7.10, uso correto da FC); opcionalmente, dica no timer ("FC abaixo de X bpm"), desligada por padrão (M3).
 
 **Fonte da FC antes do app do Watch existir (M2):** o usuário inicia um treino "Musculação tradicional" no app Exercício nativo do Apple Watch; o relógio grava FC contínua no HealthKit e o app do iPhone lê essas amostras no intervalo da sessão (RF-14) e vincula o `HKWorkout` já existente (RF-13). Isso entrega FC por sessão sem depender da instalação do app companion.
 
@@ -206,7 +212,7 @@ Segundo nível de recalibração, além do ajuste por sessão (§7.2): a cada `r
 | **R4 Aderência** | Sessões concluídas por semana vs. dias do programa; se < 70 % em 4 semanas, sugerir programa com menos dias antes de sugerir mais volume. |
 | **R5 Sugestões** | Deload (R2 verdadeiro, ou R1 em ≥ 50 % dos exercícios); troca de exercício ou de faixa de repetições (R1 em um exercício por 2 revisões seguidas); ajuste de volume (R3); mudança de frequência (R4). Cada sugestão traz o motivo em uma frase e os números que a geraram. |
 | **R6 Sinais secundários do HealthKit** | Tendência de HRV e de FC de repouso (média de 7 dias vs. 28 dias) e horas de sono, quando disponíveis. Só **modulam** sugestões já geradas por R1–R4: HRV em queda ≥ 10 % reforça deload; HRV estável ou em alta enfraquece (a sugestão vira "opcional"). Nunca geram sugestão sozinhos, nunca alteram carga de série (P12). |
-| **R7 Determinismo** | Mesmo histórico → mesmo relatório. IA (M5) só redige explicações e alternativas a partir do relatório pronto. |
+| **R7 Determinismo** | Mesmo histórico → mesmo relatório. Cada sugestão exibe a regra (R1–R6) e os números que a geraram; não há geração de texto por IA. |
 
 Base: autorregulação por RIR/RPE (Zourdos 2016; Helms 2016); dose-resposta de volume (Schoenfeld 2017); frequência ≥ 2×/semana por grupo (Schoenfeld 2016; Grgic 2018); HRV como marcador de recuperação com evidência moderada, majoritariamente em endurance, por isso secundário aqui.
 
@@ -222,9 +228,22 @@ Cada programa tem um `goal`: `hypertrophy` (padrão), `strength` ou `endurance`.
 
 Progresso por objetivo é medido por desempenho (1RM estimado, volume) e aderência; composição corporal só entra por registro manual ou peso corporal do HealthKit, como contexto.
 
-### 7.7 Determinismo e IA
+### 7.10 Saúde aeróbica e recuperação (M5)
 
-O motor (progressão + seleção + deload) é código puro em Swift, testado por casos de tabela. IA (M5) só recebe um **pacote de análise** exportado e devolve **sugestões de alteração de programa** que o usuário aplica manualmente ou importa como novo programa. A IA nunca escreve no banco durante uma sessão.
+Só leitura do HealthKit; o aeróbico é feito com o app Exercício do Apple Watch (ou qualquer app que grave no Saúde). Nada aqui altera a prescrição de musculação (P12).
+
+| Regra | Descrição |
+|-------|-----------|
+| **A1 Minutos por intensidade** | Treinos aeróbicos da semana (caminhada, corrida, ciclismo, natação, remo, elíptico, trilha, escada, HIIT, dança) classificados minuto a minuto pela FC: moderado = 64–76 % da FCmáx (ou 40–59 % da FC de reserva quando há FC de repouso), vigoroso ≥ 77 % FCmáx (ACSM). FCmáx = 208 − 0,7 × idade (Tanaka) salvo valor informado. Sem amostras de FC, usa o tipo do treino (caminhada = moderado; corrida/HIIT = vigoroso). |
+| **A2 Meta semanal** | Padrão OMS 2020: 150 min moderados-equivalentes (1 min vigoroso = 2 moderados); teto informativo 300. Configurável. Semana igual à de §7.4. |
+| **A3 VO2max** | Lê `vo2Max` do HealthKit (estimado pelo Watch em caminhada/corrida/trilha ao ar livre). Mostra último valor, tendência de 90 dias e faixa por idade e sexo (tabela de referência ACSM/Cooper, "muito baixo" a "excelente"). Sem estimativa há 60 dias → sugestão "Faça 20 min de caminhada rápida ou corrida ao ar livre com o Watch para atualizar o VO2max". |
+| **A4 Recuperação** | HRV (SDNN), FC de repouso e sono: média dos últimos 7 dias vs. 28 dias. Sem dado noturno em ≥ 5 dos últimos 7 dias → sugestão "Use o Apple Watch para dormir; ele mede HRV, FC de repouso e sono, que o app usa na revisão periódica". Quedas de HRV ≥ 10 % ou alta de FC de repouso ≥ 5 bpm são exibidas como alerta amarelo e alimentam §7.8 R6. |
+| **A5 Encaixe sem interferência** | Ao sugerir aeróbico para completar a meta: preferir dias sem treino de inferior; se no mesmo dia, sugerir ≥ 6 h de intervalo e modalidade de baixo impacto (bicicleta, caminhada) em vez de corrida; nunca sugerir vigoroso nas 24 h antes de um dia de inferior. Base: meta-análises de treino concorrente (Wilson 2012; Schumann 2022) mostram que a interferência na hipertrofia e força é pequena e depende de volume, modalidade e proximidade das sessões. |
+| **A6 Determinismo** | Regras fixas e testadas; sugestões trazem o motivo e os números. |
+
+### 7.7 Determinismo
+
+Motor de prescrição (§7.2, §7.3), políticas de programa (§7.5, §7.8) e saúde (§7.10) são código puro em Swift, testados por casos de tabela, sem aleatoriedade e sem IA. O usuário sempre vê a regra e os números por trás de qualquer número ou sugestão.
 
 ## 8. Requisitos não funcionais
 
@@ -247,7 +266,7 @@ Sem HealthKit, sem Watch, sem edição de programa, sem exportação. Isso já e
 
 ## 10. Fases
 
-Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → M2 robustez + HealthKit + edição + backup → M3 Apple Watch → M4 inteligência de programa → M5 análise por IA (opcional).
+Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → M2 robustez + HealthKit + edição + backup → M3 Apple Watch (opcional, condicionado à instalação) → M4 inteligência de programa (deload, frequência, revisão periódica) → M5 saúde aeróbica e recuperação.
 
 ## 11. Decisões já tomadas
 
@@ -263,6 +282,8 @@ Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → M2 robustez + Healt
 10. Só RIR entra na avaliação; séries com RIR ausente não recebem o bônus de P4.
 11. O app do Watch é **opcional** por desenho: tudo em M1–M2 funciona só com o iPhone, e a FC vem do app Exercício nativo do relógio via HealthKit até o companion existir (ver §7.6 e §13).
 12. Sem Mac: o projeto Xcode é gerado por XcodeGen no GitHub Actions; o motor é testado localmente no Windows (ARCHITECTURE ADR 008/009).
+13. **Sem IA em nenhuma fase** (2026-09-23). Revisão periódica e saúde são regras determinísticas (§7.8, §7.10). Se um dia houver necessidade real, reabre-se a decisão com uma ADR.
+14. Aeróbico é registrado pelo app Exercício do Watch e apenas lido pelo app; o app não prescreve sessões de cardio, só meta semanal e sugestões de encaixe.
 
 ## 12. Questões abertas (não bloqueiam M0–M1)
 

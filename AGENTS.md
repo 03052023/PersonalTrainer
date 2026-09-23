@@ -24,7 +24,7 @@ Se algo na tarefa contradiz a SPEC ou a ARCHITECTURE, **pare e reporte**; não "
 | # | Regra | Como verificar |
 |---|-------|----------------|
 | R1 | `Packages/TrainerCore` só importa `Foundation`. | `Scripts/check-boundaries.sh` (T0.10) ou `grep -rE "import (SwiftData|HealthKit|UIKit|SwiftUI|WatchConnectivity|WatchKit)" Packages/TrainerCore/Sources` deve retornar vazio. |
-| R2 | Nenhuma métrica de frequência cardíaca entra em `ProgressionRule`, `WorkoutSelector`, `DeloadPolicy`. A struct `SetResult` e `ExerciseHistoryEntry` não ganham campo de FC. | Revisão de PR; grep por `heartRate` em `TrainerCore/Engine` deve retornar vazio. |
+| R2 | Nenhuma métrica de frequência cardíaca entra em `TrainerCore/Engine` (`ProgressionRule`, `WorkoutSelector`, `DeloadPolicy`). `SetResult` e `ExerciseHistoryEntry` não ganham campo de FC. Os módulos `TrainerCore/Review` (sugestões de programa, SPEC §7.8 R6) e `TrainerCore/Health` (SPEC §7.10) podem consumir tendências **agregadas** de recuperação e FC de aeróbico, nunca amostras brutas de sessões de musculação. | `Scripts/check-boundaries.sh`: grep por `heartRate|bpm` em `TrainerCore/Engine` retorna vazio. |
 | R3 | O motor não chama `Date()`. `now` é parâmetro. | grep por `Date()` em `TrainerCore/Engine` retorna vazio. |
 | R4 | Views não escrevem no `ModelContext`. Escrita de sessão só via `SessionCoordinator.apply(SessionEvent)`; catálogo/programa só via `*Repository`. | grep por `modelContext.insert\|modelContext.delete\|\.save()` em `PersonalTrainer/Features` retorna vazio. |
 | R5 | `project.yml`, `.github/workflows/*`, `*.entitlements` e `Scripts/build-*.sh` só em tarefas **[PROJ]**. `Persistence/Schema/` só em tarefas **[SCHEMA]**. Uma por vez. `*.xcodeproj` e `Info.plist` são gerados e não entram no Git. | Se sua tarefa não tem a tag, não toque nesses arquivos. Se precisar, pare e reporte. |
@@ -79,7 +79,7 @@ Conflito em TASKS.md é sempre de uma linha de status; resolva mantendo as duas 
 
 ## 7. O que NÃO fazer
 
-- Não adicionar CloudKit, iCloud sync, contas, backend, analytics, pacotes de terceiros.
+- Não adicionar CloudKit, iCloud sync, contas, backend, analytics, pacotes de terceiros, nem qualquer chamada a LLM/IA (SPEC decisão 13).
 - Não colocar SwiftData no target do Watch.
 - Não usar FC para carga, volume, deload ou seleção de treino, nem "só como desempate".
 - Não criar `ExerciseState` ou cache de progressão persistido; a prescrição é derivada do histórico (ADR 003).

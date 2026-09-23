@@ -292,18 +292,31 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 - [ ] **T4.1 FrequencyAwareSelector** — Escopo: `Engine/FrequencyAwareSelector.swift` + testes. Depende de: T0.4, T2.3. Sem Mac.
 - [ ] **T4.2 DeloadPolicy** — Escopo: `Engine/DeloadPolicy.swift`, ajuste em `DoubleProgressionRule` para ignorar entradas `wasDeload` + testes. Depende de: T0.3. Sem Mac.
 - [ ] **T4.3 ProgramRotationPolicy** — Escopo: `Engine/ProgramRotationPolicy.swift` + testes. Depende de: T0.2. Sem Mac.
-- [ ] **T4.5 Revisão periódica em TrainerCore (SPEC §7.8 R1–R5, R7)** — Escopo: `Engine/Review/EstimatedOneRepMax.swift`, `Engine/Review/ReviewReport.swift`, `Engine/Review/ProgramReviewer.swift` + testes de tabela por regra. Entradas: histórico por exercício, `SessionSummary`s, programa, objetivo, `now`. Saída: `ReviewReport` com sinais e `[ProgramSuggestion]` (deload, volume ±, troca de exercício/faixa, frequência), cada uma com motivo e números. Sem Mac.
-- [ ] **T4.6 Sinais secundários do HealthKit (SPEC §7.8 R6)** — Escopo: `Services/HealthKit/LiveHealthKitService+Recovery.swift` (HRV, FC de repouso, sono: médias 7 vs 28 dias), `Engine/Review/RecoveryContext.swift` (struct só com tendências agregadas, sem amostras), modulação das sugestões + testes. Depende de: T4.5, T2.1. Nunca toca `ProgressionRule`.
-- [ ] **T4.7 [CI] Tela de sugestões na abertura** — Escopo: `Features/Review/*`, `Services/Review/ReviewScheduler.swift` (a cada `reviewIntervalWeeks`, ou gatilho de deload), aplicação de sugestões aceitas via `ProgramRepository`. Recusar mantém o programa; cada decisão fica registrada. Depende de: T4.5, T2.6.
+- [ ] **T4.5 Revisão periódica em TrainerCore (SPEC §7.8 R1–R5, R7)** — Escopo: `Sources/TrainerCore/Review/EstimatedOneRepMax.swift`, `Review/ReviewReport.swift`, `Review/ProgramSuggestion.swift`, `Review/ProgramReviewer.swift` + testes de tabela por regra. Entradas: histórico por exercício, `SessionSummary`s, programa, objetivo, `now`. Saída: `ReviewReport` com sinais e `[ProgramSuggestion]` (deload, volume ±, troca de exercício/faixa, frequência), cada uma com regra, motivo e números. `Review/` é módulo separado de `Engine/` (que continua sem qualquer referência a FC, R2). Sem Mac.
+- [ ] **T4.7 [CI] Tela de sugestões na abertura** — Escopo: `Features/Review/*`, `Services/Review/ReviewScheduler.swift` (a cada `reviewIntervalWeeks`, ou gatilho de deload), aplicação de sugestões aceitas via `ProgramRepository`. Recusar mantém o programa; cada decisão fica registrada. Depende de: T4.5, T2.6. A modulação por recuperação (R6) chega em T5.4.
 - [ ] **T4.4 [CI] Integrar políticas no SessionPlanner + configurações** — Escopo: `SessionPlanner.swift`, `Features/Settings/ProgramPolicyView.swift`, `Features/Home/PlannerReasonBanner.swift`. Depende de: T4.1–T4.3. Aceite: CA4-5.
 
 ---
 
-## M5 — Análise periódica por IA (opcional)
+## M5 — Saúde aeróbica e recuperação (SPEC §7.10)
 
-- [ ] **T5.1** Pacote de análise: `BackupService.exportAnalysisPackage()` gera Markdown + JSON com últimas 8 semanas por exercício (cargas, reps, RIR, notas, frequência, FC média) — sem dados pessoais além do treino. Sem Mac para a parte em TrainerCore.
-- [ ] **T5.2** Importar programa sugerido: `program-*.json` no mesmo formato do seed vira novo `ProgramModel` inativo, para o usuário ativar.
-- [ ] **T5.3** (Só se desejado) chamada opcional à API Claude a partir do iPhone, com chave do usuário em Keychain, desligada por padrão. Nunca no caminho da sessão.
+**Objetivo:** o app lê do HealthKit o que o Watch já mede (treinos aeróbicos, FC, VO2max, HRV, FC de repouso, sono) e devolve três coisas: minutos aeróbicos da semana contra a meta, tendência de VO2max e recuperação, e sugestões práticas ("use o Watch à noite", "caminhe 20 min ao ar livre", "faça o aeróbico na quinta, não na véspera de pernas"). Sem IA. Nada aqui grava no HealthKit nem altera a musculação.
+
+**Critérios de aceitação M5**
+
+| CA | Verificação |
+|----|-------------|
+| CA5-1 | Uma caminhada de 30 min registrada pelo Watch com FC em 70 % da FCmáx aparece como 30 min moderados; uma corrida de 20 min a 85 % aparece como 20 vigorosos = 40 moderados-equivalentes (teste de tabela A1/A2). |
+| CA5-2 | Card "Saúde" na Home mostra "Aeróbico: X/150 min" da semana corrente e o último VO2max com a faixa por idade/sexo. |
+| CA5-3 | Sem HRV/sono em 5 dos últimos 7 dias → sugestão "Use o Apple Watch à noite"; com dados → sem sugestão (teste A4). |
+| CA5-4 | Sem `vo2Max` há 60 dias → sugestão de caminhada/corrida ao ar livre (teste A3). |
+| CA5-5 | Sugestão de encaixe nunca cai na véspera ou no dia de um treino de inferior (teste A5). |
+| CA5-6 | Nenhuma referência a FC em `Packages/TrainerCore/Sources/TrainerCore/Engine` (`check-boundaries.sh` continua verde). |
+
+- [ ] **T5.1 Regras de saúde em TrainerCore (A1–A6)** — Escopo: `Sources/TrainerCore/Health/HeartRateZones.swift` (FCmáx Tanaka, limiares ACSM, zonas), `Health/AerobicWeek.swift` (minutos por intensidade a partir de intervalos de FC já agregados por treino), `Health/Vo2MaxTrend.swift` (tendência + tabela de referência por idade/sexo), `Health/RecoveryTrend.swift` (médias 7 vs 28 dias, alertas), `Health/HealthSuggestions.swift` (A3, A4, A5 com o calendário do programa) + testes de tabela. Entradas são structs simples (`AerobicWorkoutSummary`, `DailyRecoverySample`); nada de HealthKit aqui. Sem Mac.
+- [ ] **T5.2 [CI] Leitura de saúde no HealthKit** — Escopo: `Services/HealthKit/LiveHealthKitService+Health.swift` (+ protocolo e fake): treinos aeróbicos dos últimos 28 dias com amostras de FC agregadas por minuto, `vo2Max` (180 dias), `heartRateVariabilitySDNN`, `restingHeartRate`, `sleepAnalysis`, `dateOfBirth`/`biologicalSex` (só para FCmáx e faixa de VO2max; opcional se negado). Depende de: T2.1.
+- [ ] **T5.3 [CI] Card "Saúde" e tela de detalhe** — Escopo: `Features/Health/*` (card na Home, tela com semana aeróbica, VO2max, recuperação, lista de sugestões com "ok, entendi"). Depende de: T5.1, T5.2.
+- [ ] **T5.4 Modulação da revisão por recuperação (SPEC §7.8 R6)** — Escopo: `Sources/TrainerCore/Review/RecoveryContext.swift` (só tendências agregadas), ajuste em `ProgramReviewer` + testes. Depende de: T4.5, T5.1. Nunca toca `Engine/`.
 
 ---
 
