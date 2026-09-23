@@ -13,8 +13,11 @@ struct SetDraft: Sendable, Hashable {
     var isWarmup: Bool
 
     // Contexto imutável para a view formatar e limitar os steppers.
-    /// 0-based; a view exibe `setIndex + 1`.
+    /// 0-based, gravado em `SetLogModel.index`. Único dentro do exercício: depois de apagar uma
+    /// série (RF-19) pode haver lacunas, então não serve para exibição.
     let setIndex: Int
+    /// 1-based, só para o título "Série 2 de 3": posição da próxima série entre as registradas.
+    let setNumber: Int
     let plannedSets: Int
     /// Carga da prescrição gravada no snapshot; `nil` em calibração sem `startingLoad`
     /// (SPEC P2). Só para exibição: o stepper edita `load`, que começa em 0 nesse caso.
@@ -33,6 +36,7 @@ struct SetDraft: Sendable, Hashable {
         rir: Int?,
         isWarmup: Bool = false,
         setIndex: Int,
+        setNumber: Int? = nil,
         plannedSets: Int,
         prescribedLoad: Double?,
         loadIncrement: Double,
@@ -48,6 +52,8 @@ struct SetDraft: Sendable, Hashable {
         self.rir = rir
         self.isWarmup = isWarmup
         self.setIndex = setIndex
+        // Sem lacunas (nenhuma série apagada), a posição coincide com o índice.
+        self.setNumber = setNumber ?? setIndex + 1
         self.plannedSets = plannedSets
         self.prescribedLoad = prescribedLoad
         self.loadIncrement = loadIncrement

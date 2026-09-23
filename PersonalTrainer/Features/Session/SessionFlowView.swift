@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import TrainerCore
 
 /// Fluxo modal da sessão (T1.8): `ActiveSessionView` enquanto o treino está em andamento e
 /// `SessionSummaryView` depois de Finalizar/Abandonar (SPEC F4). Apresentado pelo `RootView`
@@ -11,7 +12,8 @@ import SwiftUI
 ///
 /// O cover não tem gesto de dispensa, então todo estado precisa de uma saída: sem sessão
 /// carregável há um botão "Voltar"; sessão já encerrada ao abrir (id obsoleto) vai direto ao
-/// resumo, onde "Fechar" chama `onClose`.
+/// resumo, onde "Fechar" chama `onClose`; durante o treino, "Voltar" (minimizar) também chama
+/// `onClose`, sem encerrar nada: a sessão segue `inProgress` e a Home oferece "Retomar" (S3).
 struct SessionFlowView: View {
     @State private var model: ActiveSessionViewModel
     /// Sessão encerrada, relida pelo coordinator ao finalizar; `nil` enquanto o treino corre.
@@ -19,15 +21,19 @@ struct SessionFlowView: View {
 
     private let sessionID: UUID
     private let coordinator: any SessionCoordinating
+    private let references: ReferenceCatalog
     private let onClose: () -> Void
 
     init(sessionID: UUID, environment: AppEnvironment, onClose: @escaping () -> Void) {
         self.sessionID = sessionID
         self.coordinator = environment.coordinator
+        self.references = environment.references
         self.onClose = onClose
         self._model = State(initialValue: ActiveSessionViewModel(
             sessionID: sessionID,
             coordinator: environment.coordinator,
+            planner: environment.planner,
+            catalog: environment.catalog,
             restTimer: environment.restTimer,
             notifications: environment.notifications,
             now: environment.now
@@ -43,7 +49,12 @@ struct SessionFlowView: View {
                 // falharia com `sessionNotInProgress`; o resumo é a única tela que faz sentido.
                 SessionSummaryView(session: session, onClose: onClose)
             } else {
-                ActiveSessionView(model: model, onFinished: { showSummary() })
+                ActiveSessionView(
+                    model: model,
+                    references: references,
+                    onFinished: { showSummary() },
+                    onMinimize: onClose
+                )
             }
         } else {
             missingSession
