@@ -322,6 +322,8 @@ final class ActiveSessionViewModel {
             return "A série não foi encontrada."
         case .exerciseNotFound:
             return "O exercício não existe no catálogo."
+        case .unsupported:
+            return "Esta ação não está disponível agora."
         }
     }
 }

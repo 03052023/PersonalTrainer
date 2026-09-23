@@ -30,6 +30,11 @@ protocol SessionCoordinating: AnyObject {
 
     /// Eventos efetivamente aplicados, na ordem, para observadores (HealthKit em M2, Watch em M3).
     var eventsApplied: AsyncStream<SessionEvent> { get }
+
+    // M2 — declarados aqui para despacho dinâmico; implementação padrão (lança `.unsupported`)
+    // na extensão abaixo, para doubles antigos continuarem compilando.
+    func deleteSession(id: UUID) throws
+    func substituteExercise(sessionID: UUID, sessionExerciseID: UUID, with planned: PlannedExercise, now: Date) throws
 }
 
 enum SessionCoordinatorError: Error, Equatable {
@@ -39,6 +44,29 @@ enum SessionCoordinatorError: Error, Equatable {
     case sessionExerciseNotFound(UUID)
     case setNotFound(UUID)
     case exerciseNotFound(UUID)
+    /// A implementação não suporta a operação (doubles de preview/teste antigos).
+    case unsupported
+}
+
+// MARK: - Operações do M2 (contrato; implementadas por `SessionCoordinator` em T2.9/T2.13)
+
+/// Requisitos adicionados no M2. Ficam num protocolo separado com implementação padrão
+/// para que os doubles de preview/teste existentes continuem compilando sem mudanças.
+extension SessionCoordinating {
+    /// Apaga uma sessão e todas as suas séries (T2.13, SPEC RF-19). Permitido em qualquer status.
+    /// O motor recalcula as prescrições por derivação do histórico (ADR 003).
+    func deleteSession(id: UUID) throws {
+        throw SessionCoordinatorError.unsupported
+    }
+
+    /// Troca um exercício da sessão em andamento por outro (RF-34): emite `exerciseSubstituted`
+    /// (guarda `substitutedFromUUID`) e substitui o snapshot de prescrição pelo de `planned`
+    /// (carga, séries, faixa, RIR, descanso, nota, `prescribedTargetReps`). Séries já registradas
+    /// no exercício antigo são mantidas no mesmo `SessionExerciseModel` só se ainda não houver
+    /// nenhuma; se houver, lança `SessionCoordinatorError.unsupported` (troque antes de começar).
+    func substituteExercise(sessionID: UUID, sessionExerciseID: UUID, with planned: PlannedExercise, now: Date) throws {
+        throw SessionCoordinatorError.unsupported
+    }
 }
 
 // MARK: - Atalhos para a UI (constroem o evento e chamam `apply`)

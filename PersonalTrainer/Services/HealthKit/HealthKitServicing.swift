@@ -25,4 +25,16 @@ protocol HealthKitServicing: Sendable {
     /// Resume as amostras de FC em `[start, end]`. Devolve `nil` quando não há amostras
     /// ou quando a leitura foi negada: o sistema não distingue os dois casos.
     func heartRateSummary(start: Date, end: Date) async throws -> HeartRateSummary?
+
+    // M2 — requisito para despacho dinâmico; padrão (nil) na extensão abaixo.
+    func findOverlappingStrengthWorkout(start: Date, end: Date) async throws -> UUID?
+}
+
+// MARK: - M2 (contrato; T2.1)
+
+extension HealthKitServicing {
+    /// UUID de um treino de força gravado por OUTRO app (ex.: app Exercício do Watch) que cobre
+    /// ≥ 50 % de `[start, end]` (SPEC RF-13). O gravador vincula esse treino em vez de criar outro.
+    /// `nil` se não houver. Implementação padrão devolve `nil` (fakes antigos).
+    func findOverlappingStrengthWorkout(start: Date, end: Date) async throws -> UUID? { nil }
 }
