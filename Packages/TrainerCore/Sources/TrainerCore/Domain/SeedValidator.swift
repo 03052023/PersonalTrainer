@@ -47,6 +47,10 @@ public enum SeedValidationError: Error, Equatable, Sendable {
     case duplicateDayID(UUID)
     /// Two targets (in any day) share an id.
     case duplicateTargetID(UUID)
+    /// From catalog version 2 on, every exercise needs a `movementPattern`: the "Trocar"
+    /// button (SPEC RF-34) offers substitutes with the same pattern and primary group, so an
+    /// exercise without one would never get substitutes nor be offered as one.
+    case missingMovementPattern(slug: String)
 }
 
 /// Structural validation of a decoded `SeedBundle`. Pure and deterministic:
@@ -57,6 +61,10 @@ public enum SeedValidator {
     /// Inclusive range accepted for `ExerciseTarget.targetRIR`. SPEC §7.5 uses 4 for
     /// deload and P2 adds 1 to the target, so 5 is the practical ceiling.
     public static let allowedRepsInReserve: ClosedRange<Int> = 0...5
+
+    /// First catalog version whose exercises must all carry a `movementPattern` (SPEC RF-34).
+    /// Version 1 predates the field, and its files still decode (the field is optional).
+    public static let movementPatternRequiredFromCatalogVersion = 2
 
     public static func validate(_ bundle: SeedBundle) throws {
         let exercisesByID = try validateCatalog(bundle.catalog)
@@ -70,6 +78,7 @@ public enum SeedValidator {
         _ catalog: SeedExerciseCatalog
     ) throws -> [UUID: ExerciseDefinition] {
         try validateVersion(catalog.version)
+        let requiresMovementPattern = catalog.version >= movementPatternRequiredFromCatalogVersion
 
         var seenSlugs = Set<String>()
         var exercisesByID: [UUID: ExerciseDefinition] = [:]
@@ -87,6 +96,9 @@ public enum SeedValidator {
             // the step for added load (vest, belt) — otherwise P4 could never progress.
             guard exercise.loadIncrement.isFinite, exercise.loadIncrement > 0 else {
                 throw SeedValidationError.invalidIncrement(slug: exercise.slug)
+            }
+            if requiresMovementPattern, exercise.movementPattern == nil {
+                throw SeedValidationError.missingMovementPattern(slug: exercise.slug)
             }
             exercisesByID[exercise.id] = exercise
         }
@@ -120,7 +132,8 @@ public enum SeedValidator {
         try validateVersion(file.version)
 
         // SPEC S1: the selector rotates over "the active program", so the seed must
-        // define exactly one. An empty file has none.
+        // define exactly one; any number of inactive ones may ship beside it (the v2
+        // file offers one program per goal and format). An empty file has none.
         let activeCount = file.programs.filter(\.isActive).count
         guard activeCount > 0 else { throw SeedValidationError.noActiveProgram }
         guard activeCount == 1 else { throw SeedValidationError.multipleActivePrograms }
