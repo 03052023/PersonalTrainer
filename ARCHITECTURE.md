@@ -59,7 +59,9 @@ Três ideias sustentam tudo:
 
 **Decisões de toolchain**
 
-- Xcode 16 ou superior. Projeto único `PersonalTrainer.xcodeproj` com **synchronized folders** (pastas sincronizadas): arquivos adicionados no disco entram no target automaticamente, sem editar `project.pbxproj`. Isso é o que permite vários agentes criarem arquivos em paralelo sem conflito de merge no projeto.
+- **Não há Mac.** O projeto Xcode não é versionado: `project.yml` (XcodeGen) é a fonte única e `xcodegen generate` recria `PersonalTrainer.xcodeproj` no runner macOS do GitHub Actions a cada build (ADR 009). Como o projeto é regenerado a partir do disco, arquivos novos em `PersonalTrainer/`, `PersonalTrainerWatch/` e `PersonalTrainerTests/` entram no target certo sem editar `project.pbxproj`; é isso que permite vários agentes criarem arquivos em paralelo sem conflito.
+- Runner `macos-26` (arm64, Xcode 26.6 fixado por `DEVELOPER_DIR`, SDK iOS/watchOS 26.5). Testes do pacote em Linux com `container: swift:6.3` (mesmo Swift 6.3 do Xcode 26.6). Detalhes operacionais e fontes em [WINDOWS_SETUP.md](WINDOWS_SETUP.md).
+- Localmente, no Windows, só `Packages/TrainerCore` compila: `Scripts/swift-test.ps1` carrega o ambiente do Visual Studio 2022 e o SDK do Swift 6.4. Código de app é escrito às cegas e validado no CI; por isso ele deve ser conservador (AGENTS R11).
 - Deployment: iOS 18.0 / watchOS 11.0. Motivo: SwiftData amadureceu bastante no 18; abaixo disso há bugs conhecidos de relacionamento e migração. Ajustar para cima se os aparelhos permitirem; nunca para baixo de 17.
 - Swift 6 language mode em `TrainerCore` (obrigatório: tudo é value type `Sendable`, custo zero). Swift 6 mode nos apps também, com SwiftData confinado a `@MainActor` (§10). Se isso travar um agente, o fallback permitido é Swift 5 mode **apenas no target do app**, registrado como ADR.
 - Nenhuma dependência de terceiros. Nem pacotes SwiftPM externos, nem CocoaPods.
@@ -143,7 +145,9 @@ UserSettingsModel (linha única)
 | `WorkoutSessionModel` | `uuid`, `programDayUUID` (cópia, não relação), `programDayName` (snapshot), `statusRaw`, `startedAt`, `endedAt?`, `notes`, `hkWorkoutUUID?`, `avgHeartRate?`, `maxHeartRate?`, `isDeload`, `sourceRaw` (`iphone`/`watch`) | `exercises` cascade. |
 | `SessionExerciseModel` | `uuid`, `order`, `exerciseUUID` (cópia), `exerciseName` (snapshot), `prescribedLoad?`, `prescribedSets`, `prescribedRepMin`, `prescribedRepMax`, `prescribedRIR`, `restSeconds`, `noteRaw`, `wasSkipped`, `substitutedFromUUID?` | `exercise` → `ExerciseModel` (nullify); `sets` cascade; `session` inverso. |
 | `SetLogModel` | `uuid` (`.unique`), `index`, `load`, `reps`, `rir?`, `isWarmup`, `completedAt`, `sourceRaw`, `updatedAt` | `sessionExercise` inverso. |
-| `UserSettingsModel` | `weekStartsOnMonday`, `weeklyTargetsRaw` (JSON string), `healthKitEnabled`, `defaultRestSeconds`, `schemaSeedVersion` | Linha única, criada no primeiro launch. |
+| `UserSettingsModel` | `uuid` (`.unique`), `weekStartsOnMonday`, `weeklyTargetsRaw` (JSON string), `healthKitEnabled`, `defaultRestSeconds`, `schemaSeedVersion` | Linha única, criada no primeiro launch. |
+
+Notas de implementação (T0.5/T0.9): os enums expostos pelos modelos são computados **opcionais** (`status: SessionStatus?` etc.), devolvendo `nil` para raw desconhecido; os mappers lançam `MappingError.invalidRawValue` em vez de inventar um padrão. `ProgramMapper` lança `MappingError.missingExercise` se a relação `exercise` for `nil` (store corrompido, já que o catálogo nunca é apagado). `ExerciseModel` não tem arrays inversos; as relações `exercise` em `ProgramExerciseModel`/`SessionExerciseModel` são to-one com `deleteRule: .nullify` e sem inverso.
 
 **Decisões de esquema (e porquê)**
 
@@ -167,14 +171,17 @@ public protocol ProgressionRule: Sendable {
 public struct DoubleProgressionRule: ProgressionRule { /* P1–P12 da SPEC */ }
 
 public protocol WorkoutSelector: Sendable {
-  func nextDay(program: ProgramTemplate, recentSessions: [SessionSummary], now: Date) -> ProgramDayTemplate
+  // nil apenas quando program.days está vazio. Ignora sessões inProgress (S3 é do planejador).
+  func nextDay(program: ProgramTemplate, recentSessions: [SessionSummary], now: Date) -> ProgramDayTemplate?
 }
 public struct RotationSelector: WorkoutSelector { /* S1–S4 */ }
 // M4: FrequencyAwareSelector: WorkoutSelector { /* S5–S7 */ }, DeloadPolicy
 ```
 
 - Funções puras; `now` é sempre parâmetro. Sem `Date()` dentro do motor.
-- O motor recebe **histórico já filtrado por exercício** (o app faz a query); ele não sabe o que é banco.
+- O motor recebe **histórico já filtrado por exercício** (o app faz a query); ele não sabe o que é banco. Ele é defensivo: ordena `history` e `recentSessions` internamente (data desc, desempate por id) e aceita qualquer ordem de entrada.
+- `ExerciseHistoryEntry.date` é o `startedAt` da sessão. Entradas `wasDeload` não entram em P3–P6, mas contam para a pausa de P9.
+- Resumos (`Summary/`): `SessionStats.compute` (duração, séries de trabalho/aquecimento, tonelagem, exercícios realizados) e `WeeklyFrequency.report` (SPEC §7.4) recebem `Calendar` e `now` como parâmetros; nunca usam `Calendar.current`.
 - Testes são **casos de tabela**: cada regra da SPEC vira ao menos um caso nomeado (`P4_allSetsAtRepMax_increasesOneIncrement`). A SPEC é a fonte; se o teste e a SPEC divergem, corrige-se a SPEC ou o código, nunca só o teste.
 - `SessionPlanner` (app) orquestra: seleciona o dia → para cada `ExerciseTarget`, busca histórico → `prescribe` → cria `WorkoutSessionModel` com snapshots. Só ele chama o motor.
 
@@ -197,10 +204,12 @@ public struct SessionEvent: Codable, Sendable, Identifiable {
     case exerciseSubstituted(sessionExerciseID: UUID, newExerciseID: UUID)
     case sessionFinished(endedAt: Date)
     case sessionAbandoned(endedAt: Date)
-    case heartRateSummary(avg: Double, max: Double, hkWorkoutUUID: UUID?)
+    case heartRateSummary(averageBPM: Double, maxBPM: Double, hkWorkoutUUID: UUID?) // só transporte para exibição; nunca entra no motor
   }
 }
 ```
+
+Formato de fio (`SyncCodec`): JSON com `dateEncodingStrategy = .iso8601` (precisão de 1 s) e `sortedKeys` (bytes determinísticos); `Kind` codificado à mão com discriminador `type` = nome do case e campos nomeados; um teste "golden" trava o formato. Qualquer mudança de case ou chave exige `SyncSchema.currentVersion += 1`. `decodeSnapshot` lê a versão antes do resto e lança `SyncError.unsupportedSchemaVersion`; qualquer `DecodingError` vira `SyncError.corrupted`.
 
 `SessionCoordinator` (`@MainActor`, app iOS):
 
@@ -218,6 +227,8 @@ Regra de conflito (M3): `SetLogModel` identificado por `setID` gerado por quem r
 | M3 (com Watch) | Watch, `HKWorkoutSession` + `HKLiveWorkoutBuilder` | Watch | Ao vivo no relógio; resumo enviado ao iPhone via `heartRateSummary`. |
 
 **Invariante: exatamente um `HKWorkout` por sessão.** `WorkoutSessionModel.hkWorkoutUUID` é a trava. O `HealthKitService` do iPhone só grava se `hkWorkoutUUID == nil` **e** a sessão não tem `source == .watch` com sessão de treino ativa. Ao receber `heartRateSummary` com `hkWorkoutUUID`, o iPhone só armazena.
+
+**Treino gravado por outro app (RF-13, M2).** Antes de gravar, o iPhone consulta treinos de força no HealthKit que sobreponham ≥ 50 % de `[startedAt, endedAt]`. Se existir um (tipicamente do app Exercício nativo do Watch, que é a fonte de FC recomendada enquanto o companion não existe), o iPhone armazena o `uuid` dele em `hkWorkoutUUID` e não cria outro. A `HealthKitServicing` ganha `findOverlappingStrengthWorkout(start:end:) async throws -> UUID?` em T2.1.
 
 ```swift
 public protocol HealthKitServicing: Sendable {
@@ -242,7 +253,7 @@ Tipos: escrita `HKWorkoutType`; leitura `heartRate`. Metadados do workout: `HKMe
 | `transferUserInfo` | Watch → iPhone | `SessionEvent` (um por chamada) | Fila FIFO garantida, sobrevive a desconexão e a reboot. É por isso que o relógio funciona com o iPhone no armário. |
 | `sendMessage` | ambos | Atalhos quando `isReachable` (ex.: "iniciou pelo relógio, mande o snapshot") | Best effort; sempre com fallback nos dois canais acima. |
 
-**Snapshot** (`TrainerCore/Sync/ActiveSessionSnapshot.swift`): `schemaVersion`, `session` (ids, nome do dia, exercícios com prescrição e séries já registradas), `generatedAt`. Um campo `schemaVersion: Int` desde M0; o receptor rejeita versão maior que a conhecida e mostra "Atualize o app do iPhone".
+**Snapshot** (`TrainerCore/Sync/ActiveSessionSnapshot.swift`): `schemaVersion`, `generatedAt`, `activeSession: SessionSnapshot?` (id, dia, `startedAt`, status, exercícios com prescrição e séries já registradas) e `nextPlan: PlanSnapshot?` (o próximo treino calculado pela Home, para o relógio conseguir iniciar sozinho). O receptor rejeita versão maior que a conhecida e mostra "Atualize o app do iPhone". Eventos Watch → iPhone não carregam versão própria; o envelope de WCSession (T3.1) deve carregar `SyncSchema.currentVersion` para o iPhone rejeitar eventos de um relógio mais novo.
 
 **Persistência no relógio:** `ActiveSessionStore` grava o snapshot e a fila de eventos pendentes em JSON no `Application Support` do relógio. Sem SwiftData: evita um segundo esquema, uma segunda migração e um segundo conjunto de bugs num aparelho onde depurar é lento.
 
@@ -292,6 +303,8 @@ Tipos: escrita `HKWorkoutType`; leitura `heartRate`. Metadados do workout: `HKMe
 | AR-8 | `WatchSyncServicing` protocolo com `NoopWatchSync` em M0; o coordinator já publica `eventsApplied`. | Encaixar sync no coordinator depois de ele estar cheio de UI acoplada. |
 | AR-9 | Motor recebe `now` e histórico como parâmetros. | Motor que lê o banco ou o relógio do sistema não roda no Watch nem em teste. |
 | AR-10 | Snapshot de prescrição na sessão (não referência ao programa). | Edição de programa (M2) e troca automática (M4) corrompendo histórico. |
+| AR-11 | `project.yml` como fonte única do projeto; `.xcodeproj` e `Info.plist` gerados e fora do Git. | Conflitos de `project.pbxproj` entre agentes; dependência de Xcode local que não existe. |
+| AR-12 | App do Watch opcional por desenho; FC vem do HealthKit (app Exercício do relógio) em M2, com vínculo ao `HKWorkout` existente. | Ficar sem FC e sem treino no Saúde caso o companion nunca instale pelo Windows. |
 
 ## 15. Riscos e mitigações
 
@@ -333,7 +346,10 @@ Tipos: escrita `HKWorkoutType`; leitura `heartRate`. Metadados do workout: `HKMe
 | Risco | Mitigação |
 |-------|-----------|
 | Repositório dentro de OneDrive com acento e espaço no caminho. | Desenvolver no Mac em caminho ASCII sem espaços (ex.: `~/Developer/PersonalTrainer`); usar git, não OneDrive, para sincronizar. OneDrive corrompe `.git` com sincronizações parciais. |
-| Conflito de `project.pbxproj` entre agentes paralelos. | Synchronized folders; `.pbxproj` só é editado em tarefas marcadas `[PROJ]` em TASKS.md, uma por vez. |
+| Conflito de `project.pbxproj` entre agentes paralelos. | Projeto gerado por XcodeGen a partir do disco; `project.yml`, workflows e entitlements só são editados em tarefas marcadas `[PROJ]` em TASKS.md, uma por vez. |
+| Código de app escrito sem compilador (Windows). | Auto-revisão obrigatória com lista de incertezas (AGENTS R11); revisão estática adversarial antes do merge; primeiro run do CI trata os erros residuais. Manter APIs conservadoras. |
+| Ferramenta de sideload remove o entitlement HealthKit ou não instala o companion. | Probe T0.0 valida antes de investir em M3; app do Watch opcional (AR-12); FC via app Exercício nativo. Ver [WINDOWS_SETUP.md](WINDOWS_SETUP.md). |
+| Renovação semanal do perfil gratuito esquecida = app não abre. | Dados ficam no store do app e no HealthKit; backup JSON (M2); lembrete no README/WINDOWS_SETUP; nunca apagar o app para "liberar vaga" sem exportar. |
 | Motor "esperto demais" cedo. | Regras P1–P8 fixas por 4 semanas de uso real antes de qualquer ajuste; mudanças só via SPEC + teste de tabela. |
 
 ## 16. ADRs (registro de decisões)
@@ -347,28 +363,35 @@ Tipos: escrita `HKWorkoutType`; leitura `heartRate`. Metadados do workout: `HKMe
 | 005 | Strings pt-BR fixas. | String Catalog. | Um usuário, um idioma; `.xcstrings` é JSON que conflita em merge paralelo. |
 | 006 | Programa editado em JSON na M1. | Tela de edição na M1. | Corta ~30 % do MVP sem afetar o objetivo (não pensar na academia). |
 | 007 | `HKWorkoutBuilder` no iPhone em M2, migrando para o Watch em M3. | Esperar o Watch para gravar no HealthKit. | Entrega valor cedo; a migração é troca de quem chama `saveStrengthWorkout`, controlada pelo invariante `hkWorkoutUUID`. |
+| 008 | Ver §18: Windows + macOS hospedado + sideload com conta gratuita. | PWA; Developer Program pago. | Restrição explícita do usuário (custo zero, HealthKit, Watch). |
+| 009 | Projeto Xcode gerado por XcodeGen (`project.yml`) no CI; `.xcodeproj` fora do Git. | Synchronized folders em `.xcodeproj` versionado; gerador Python próprio (usado só no probe). | Sem Mac não há Xcode para criar/manter o projeto; XcodeGen é maduro, declarativo e regenera do disco. O gerador Python do probe fica restrito a `Validation/`. |
+| 010 | App do Watch opcional; FC em M2 vem do app Exercício nativo via HealthKit, vinculando o `HKWorkout` existente. | Bloquear M1/M2 até o companion instalar. | Instalar o companion pelo Windows depende de um fork sem aceite upstream; o valor central (não pensar na academia) não depende do relógio. |
+| 011 | Motor defensivo: ordena entradas internamente; `nextDay` opcional; enums dos modelos opcionais com erro de mapeamento explícito. | Confiar na ordenação do chamador; `fatalError` em raw desconhecido. | Um crash na academia custa o treino; dado inválido deve virar erro tratável, não trap. |
 
 ## 17. Estrutura de pastas prevista
 
 ```
-PersonalTrainer/                        ← raiz do repo (no Mac: ~/Developer/PersonalTrainer)
-├── SPEC.md · ARCHITECTURE.md · TASKS.md · AGENTS.md · README.md
-├── PersonalTrainer.xcodeproj            [PROJ] criado em T0.1
+PersonalTrainer/                        ← raiz do repo (Windows: C:\Users\leona\Developer\PersonalTrainer)
+├── SPEC.md · ARCHITECTURE.md · TASKS.md · AGENTS.md · README.md · WINDOWS_SETUP.md
+├── project.yml                          [PROJ] fonte do PersonalTrainer.xcodeproj (gerado no CI, fora do Git)
+├── .github/workflows/                   [PROJ] core-tests.yml (Linux) · app-build.yml (macOS, manual) · device-probe.yml
+├── Scripts/                             swift-test.ps1 (Windows) · check-boundaries.sh · build-app.sh · build-device-probe.sh · check-device-probe.py
 ├── Packages/
 │   └── TrainerCore/
 │       ├── Package.swift
 │       ├── Sources/TrainerCore/{Domain,Engine,Sync,Summary}/
 │       └── Tests/TrainerCoreTests/
-├── PersonalTrainer/                     (target iOS — synchronized folder)
-│   ├── App/            PersonalTrainerApp.swift · AppEnvironment.swift · RootView.swift
+├── PersonalTrainer/                     (target iOS — XcodeGen inclui a pasta inteira, exceto Support/)
+│   ├── App/            PersonalTrainerApp.swift · RootPlaceholderView.swift · (T1.1) AppEnvironment.swift · RootView.swift
 │   ├── Features/       Home/ · Session/ · History/ · Catalog/ · Program/ · Settings/
-│   ├── Services/       SessionPlanner · SessionCoordinator · HealthKit/ · WatchSync/ · RestTimer/ · Seed/ · Backup/
-│   ├── Persistence/    Schema/SchemaV1.swift · MigrationPlan.swift · ModelContainerFactory.swift · Mappers/ · Repositories/
-│   ├── Resources/      Seed/*.json · Assets.xcassets
-│   └── Support/        Info.plist · PersonalTrainer.entitlements
-├── PersonalTrainerWatch/                (target watchOS — synchronized folder; vazio até M3)
-│   ├── App/ · Features/ · Services/ · Support/
-└── PersonalTrainerTests/
+│   ├── Services/       HealthKit/ · WatchSync/ · Notifications/ · (T1.x) Planning/ · Session/ · RestTimer/ · Seed/ · Backup/
+│   ├── Persistence/    Schema/{SchemaV1,CurrentSchema}.swift · MigrationPlan.swift · ModelContainerFactory.swift · Mappers/ · Repositories/
+│   ├── Resources/      Seed/exercises.v1.json · Seed/program-default.v1.json · (Assets.xcassets)
+│   └── Support/        PersonalTrainer.entitlements · Info.plist (gerado, fora do Git)
+├── PersonalTrainerWatch/                (target watchOS — placeholder até M3)
+│   ├── App/ · Features/ · Services/ · Support/PersonalTrainerWatch.entitlements
+├── PersonalTrainerTests/                (XCTest, hospedado no app; compila só no CI)
+└── Validation/DeviceProbe/              (T0.0: probe isolado com gerador Python próprio; não é o app)
 ```
 
 ## 18. ADR 008 — Windows e validação gratuita em macOS hospedado

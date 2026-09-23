@@ -102,8 +102,8 @@ Backend, contas, sync em nuvem/CloudKit, funções sociais, nutrição, cardio p
 | RF-09 | Histórico: lista de sessões e detalhe com séries. | M1 |
 | RF-10 | Pular exercício na sessão. | M1 |
 | RF-11 | Substituir exercício por outro do catálogo (mesmo grupo primário), apenas para a sessão. | M2 |
-| RF-12 | Exibir duração da sessão, total de séries de trabalho e tonelagem (Σ carga × reps). | M2 |
-| RF-13 | Gravar `HKWorkout` do tipo treino de força ao finalizar, com início/fim reais. Exatamente um `HKWorkout` por sessão. | M2 |
+| RF-12 | Exibir duração da sessão, total de séries de trabalho, exercícios realizados (≥ 1 série de trabalho) e tonelagem (Σ carga × reps das séries de trabalho). | M2 |
+| RF-13 | Gravar `HKWorkout` do tipo treino de força ao finalizar, com início/fim reais. Exatamente um `HKWorkout` por sessão. Se já existe no HealthKit um treino de força de outro app (ex.: app Exercício do Watch) sobrepondo ≥ 50 % do intervalo da sessão, **vincular** esse treino em vez de criar outro. | M2 |
 | RF-14 | Ler amostras de FC do HealthKit no intervalo da sessão e exibir média e máxima no detalhe. | M2 |
 | RF-15 | Editar catálogo de exercícios: nome, grupos musculares, equipamento, incremento, anotações de máquina. | M2 |
 | RF-16 | Editar programa: trocar exercício, ajustar séries/faixa/RIR/descanso/carga inicial. | M2 |
@@ -137,13 +137,13 @@ Aplicado por exercício, independentemente dos demais.
 |-------|-----------|
 | **P1 Séries de trabalho** | Só séries com `isWarmup = false` entram na avaliação. |
 | **P2 Sem histórico** | Se `startingLoad` definido → carga = `startingLoad`, meta = `repMin`, nota `calibrate`. Senão → carga vazia; o usuário digita na 1ª série; RIR alvo = T + 1. |
-| **P3 Referência** | Avalia-se a **última sessão concluída ou abandonada** em que o exercício teve ≥ 1 série de trabalho. Carga de referência **L** = moda das cargas das séries de trabalho dessa sessão (empate → maior). |
+| **P3 Referência** | Avalia-se a **última sessão concluída ou abandonada** em que o exercício teve ≥ 1 série de trabalho e que **não** foi deload (§7.5). Carga de referência **L** = moda das cargas das séries de trabalho dessa sessão (empate → maior). Se L não é múltiplo de inc (override P10), a base para P4–P6 é arredondar↓(L, inc); a comparação "mesma carga" de P6 usa L bruto. O motor ordena o histórico por data (desempate por id da sessão) e aceita entradas em qualquer ordem. |
 | **P4 Sucesso → subir** | Se nº de séries de trabalho ≥ S **e** todas com reps ≥ `repMax` → nova carga = L + inc, meta = `repMin`, nota `increase`. Se além disso min(RIR) ≥ T + 2 → L + 2·inc. |
 | **P5 Manter → mais reps** | Se todas as séries com reps ≥ `repMin` mas P4 não vale → carga = L, meta = min(`repMax`, menor reps da última sessão + 1), nota `hold`. |
-| **P6 Falha** | Se alguma série de trabalho com reps < `repMin`: primeira ocorrência → carga = L, meta = `repMin`, nota `retry`. Se a sessão anterior a essa (mesmo exercício) também foi falha **na mesma carga L** → nova carga = arredondar↓(L × 0,9, inc), no mínimo L − inc, nota `decrease`. |
+| **P6 Falha** | Se alguma série de trabalho com reps < `repMin`: primeira ocorrência → carga = L, meta = `repMin`, nota `retry`. Se a sessão anterior a essa (mesmo exercício) também foi falha **na mesma carga L** → nova carga = **min**(arredondar↓(L × 0,9, inc), L − inc), respeitando P8, nota `decrease`. Ou seja: corte de 10 % arredondado para baixo e **pelo menos um incremento** de queda (ex.: L = 60, inc = 2,5 → 52,5; L = 10 → 7,5; L = 5 → 2,5 pelo piso). |
 | **P7 Séries incompletas** | Se séries de trabalho < S, não há sucesso (P4). Avalia-se P5/P6 sobre as realizadas. Se 0 séries de trabalho, a sessão é ignorada e usa-se a anterior. |
-| **P8 Arredondamento** | Toda carga prescrita é múltiplo de inc. Mínimo = inc (0 para peso corporal). |
-| **P9 Retorno após pausa (M2)** | Se a última sessão do exercício tem > 21 dias → carga = arredondar↓(L × 0,9, inc), nota `returning`. Prevalece sobre P4–P6. |
+| **P8 Arredondamento** | Toda carga prescrita é múltiplo de inc. Mínimo = inc; para `equipment = bodyweight` o mínimo é 0 (peso corporal puro) e inc vale para a carga adicional (colete, cinto). Todo exercício do catálogo tem inc > 0. |
+| **P9 Retorno após pausa** | Se a última sessão em que o exercício teve ≥ 1 série de trabalho (**incluindo** sessões de deload) tem > 21 dias em relação a `now` → carga = arredondar↓(L × 0,9, inc) respeitando P8, meta = `repMin`, nota `returning`. Prevalece sobre P4–P6. L continua vindo da última sessão não-deload (P3). |
 | **P10 Override** | O usuário pode alterar carga/reps na hora. Vale o registro real. Nada é corrigido retroativamente. |
 | **P11 Determinismo** | Mesma entrada → mesma saída. `now` é parâmetro explícito. Sem aleatoriedade. |
 | **P12 FC** | Nenhuma métrica de frequência cardíaca é entrada do motor. Garantido por tipo: a struct de entrada não tem campo de FC. |
@@ -157,9 +157,9 @@ Parâmetros padrão: S = 3, faixa 8–12, T = 2, descanso 120 s. Séries retas (
 | Regra | Descrição |
 |-------|-----------|
 | **S1** | O programa ativo tem dias ordenados D1…Dn. |
-| **S2** | Próximo = dia seguinte ao da última sessão `completed` ou `abandoned` com ≥ 1 série de trabalho. Se não há nenhuma → D1. Após Dn → D1. |
-| **S3** | Se existe sessão `inProgress`, o "próximo treino" é retomá-la. |
-| **S4** | O usuário pode escolher outro dia manualmente; a rotação segue a partir do dia escolhido. |
+| **S2** | Próximo = dia seguinte (na ordem de `order`) ao da última sessão `completed` ou `abandoned` com ≥ 1 série de trabalho. Se não há nenhuma, ou se o dia dessa sessão não existe mais no programa (programa editado) → D1. Após Dn → D1. `order` é único dentro do programa (invariante validado no seed). Empates de data são desfeitos pelo id da sessão (P11). |
+| **S3** | Se existe sessão `inProgress`, o "próximo treino" é retomá-la. Essa regra é do planejador, não do seletor: o seletor ignora sessões `inProgress`. |
+| **S4** | O usuário pode escolher outro dia manualmente; a rotação segue a partir do dia escolhido (a sessão registrada nesse dia passa a ser a referência de S2). |
 
 **v2 — frequência e recuperação (M4)**
 
@@ -173,7 +173,8 @@ Parâmetros padrão: S = 3, faixa 8–12, T = 2, descanso 120 s. Séries retas (
 
 - Grupos: peito, costas, ombros, bíceps, tríceps, quadríceps, posteriores, glúteos, panturrilhas, core.
 - Semana começa na segunda-feira (configurável).
-- Um grupo conta **1** em uma sessão concluída se houve ≥ 1 exercício com esse grupo como **primário** e ≥ 1 série de trabalho registrada. Secundário não conta (v1).
+- Um grupo conta **1** em uma sessão concluída se houve ≥ 1 exercício com esse grupo como **primário** e ≥ 1 série de trabalho registrada **nesse exercício**. Secundário não conta (v1). (Na implementação, `SessionSummary.primaryMusclesTrained` já é construído com essa regra; o relatório semanal conta cada sessão uma vez.)
+- A semana é o intervalo semiaberto [segunda 00:00, próxima segunda 00:00) no fuso do usuário; uma sessão pertence à semana de `startedAt`.
 - Meta padrão: 2×/semana por grupo; configurável por grupo.
 - v1 (M2) só **exibe** realizado/meta. v2 (M4) usa isso na seleção (S5–S7).
 
@@ -186,6 +187,8 @@ Conteúdo: durante 1 semana (uma passagem completa da rotação), cada exercíci
 ### 7.6 Política de frequência cardíaca
 
 FC **é usada para**: exibir ao vivo no relógio (M3); resumo da sessão (média/máx); pacote de análise periódica (M5); opcionalmente, dica no timer ("FC abaixo de X bpm"), desligada por padrão (M3).
+
+**Fonte da FC antes do app do Watch existir (M2):** o usuário inicia um treino "Musculação tradicional" no app Exercício nativo do Apple Watch; o relógio grava FC contínua no HealthKit e o app do iPhone lê essas amostras no intervalo da sessão (RF-14) e vincula o `HKWorkout` já existente (RF-13). Isso entrega FC por sessão sem depender da instalação do app companion.
 
 FC **nunca é usada para**: prescrever carga, séries ou repetições; decidir deload; alterar seleção de treino.
 
@@ -228,12 +231,16 @@ Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → M2 robustez + Healt
 6. UI em pt-BR com strings fixas no código; sem localização.
 7. Sem CloudKit. Backup manual em JSON.
 8. Programa inicial padrão: 3 dias (A: Superior empurrar, B: Inferior, C: Superior puxar) — ajustável no JSON semente.
+9. Peso corporal: `loadIncrement` = 2,5 kg (carga adicional), carga 0 permitida só para `bodyweight`. Todo exercício do catálogo tem `loadIncrement` > 0 (validado no seed).
+10. Só RIR entra na avaliação; séries com RIR ausente não recebem o bônus de P4.
+11. O app do Watch é **opcional** por desenho: tudo em M1–M2 funciona só com o iPhone, e a FC vem do app Exercício nativo do relógio via HealthKit até o companion existir (ver §7.6 e §13).
+12. Sem Mac: o projeto Xcode é gerado por XcodeGen no GitHub Actions; o motor é testado localmente no Windows (ARCHITECTURE ADR 008/009).
 
 ## 12. Questões abertas (não bloqueiam M0–M1)
 
 - Exercícios unilaterais: registrar um lado ou os dois? (Proposta M2: uma série = os dois lados; reps do lado mais fraco.)
-- Peso corporal com carga adicional: `loadIncrement` = 2,5 kg e carga = adicional; peso corporal puro = 0.
 - Regra de "grande salto" (P4, +2·inc) pode ser agressiva em máquinas de 5 kg; revisar após 4 semanas de uso real.
+- Precisão de 1 s nas datas dos eventos de sync (ISO 8601 sem fração); só importa para "último que escreve vence" em `setUpdated` (M3).
 
 ## 13. Restrição de execução confirmada — 2026-09-22
 
@@ -242,3 +249,9 @@ Não migrar para PWA nem remover integrações para contornar essa restrição. 
 compilação macOS hospedada, instalação com conta gratuita e renovação de sete dias. A capacidade
 listada pela Apple não garante compatibilidade do instalador. O teste é de leitura e instalação;
 FC ao vivo, gravação e sincronização continuam nos milestones próprios.
+
+Fatos verificados em 2026-09-22 (fontes em [WINDOWS_SETUP.md](WINDOWS_SETUP.md)):
+
+- HealthKit **está** disponível para a conta Apple gratuita em iOS e watchOS. O risco não é a Apple, é a ferramenta de sideload: AltStore, SideStore e iLoader (upstream) não pedem a capability HealthKit e removem o entitlement na assinatura. Só um fork comunitário recente (Rzbck/iLoader) e, para iPhone apenas, o Impactor têm código que preserva o entitlement. Nada disso foi validado nos aparelhos do usuário.
+- Instalar o companion no Watch a partir do Windows depende exclusivamente desse fork, sem aceite upstream e sem renovação automática; o Developer Mode do relógio pode exigir pareamento com Xcode. Consequência de produto: **o app do Watch é opcional** (decisão 11) e M3 só começa depois de V3–V5 aprovados.
+- Builds Apple no GitHub Actions são gratuitos e ilimitados em repositório público; em privado, a franquia estimada é de ~200 min macOS/mês.
