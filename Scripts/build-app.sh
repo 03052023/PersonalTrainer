@@ -133,8 +133,33 @@ if printf '%s\n' "$entries" | grep -q '\.mobileprovision$'; then
   exit 1
 fi
 
-(cd "$output" && shasum -a 256 "$ipa_name" > SHA256.txt)
+# --- Variante só iPhone (sem Watch/) ----------------------------------------------------------
+# Ferramentas de sideload sem suporte a companion (ex.: Impactor, AltStore) rejeitam ou tratam mal
+# um IPA com Watch/ (WINDOWS_SETUP.md §4, plano B). Mesmo app, sem o relógio, reassinado ad-hoc
+# com os mesmos entitlements HealthKit para a reassinatura local.
+iphone_ipa="PersonalTrainer-iphone-only-for-resigning.ipa"
+echo "==> Empacotando variante só iPhone"
+stage="$(mktemp -d "$output/package.XXXXXX")"
+mkdir -p "$stage/Payload"
+ditto "$app" "$stage/Payload/$app_name.app"
+rm -rf "$stage/Payload/$app_name.app/Watch"
+sign_adhoc "$stage/Payload/$app_name.app" "$app_entitlements"
+codesign --verify --deep --strict "$stage/Payload/$app_name.app"
+rm -f "$output/$iphone_ipa"
+ditto -c -k --keepParent "$stage/Payload" "$output/$iphone_ipa"
+rm -rf "$stage"
+iphone_entries="$(unzip -Z1 "$output/$iphone_ipa")"
+if printf '%s\n' "$iphone_entries" | grep -q "^Payload/$app_name.app/Watch/"; then
+  echo "Variante só iPhone ainda contém Watch/"
+  exit 1
+fi
+if ! printf '%s\n' "$iphone_entries" | grep -qxF "Payload/$app_name.app/$app_name"; then
+  echo "Variante só iPhone sem o executável do app"
+  exit 1
+fi
+
+(cd "$output" && shasum -a 256 "$ipa_name" "$iphone_ipa" > SHA256.txt)
 git rev-parse HEAD > "$output/SOURCE_COMMIT.txt"
 xcodebuild -version > "$output/XCODE_VERSION.txt"
-echo "==> Pronto: $output/$ipa_name"
+echo "==> Pronto: $output/$ipa_name e $output/$iphone_ipa"
 cat "$output/SHA256.txt"

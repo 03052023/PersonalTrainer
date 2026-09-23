@@ -123,6 +123,7 @@ jobs:
           name: PersonalTrainer-for-resigning
           path: |
             build/app/PersonalTrainer-for-resigning.ipa
+            build/app/PersonalTrainer-iphone-only-for-resigning.ipa
             build/app/SHA256.txt
             build/app/SOURCE_COMMIT.txt
             build/app/XCODE_VERSION.txt
