@@ -4,7 +4,8 @@ import TrainerCore
 /// Registro de uma série (SPEC F2, RF-03, RF-04): edita o `SetDraft` pré-preenchido pelo
 /// `ActiveSessionViewModel` e avisa por `onComplete` quando o usuário toca "Concluir série".
 /// View pura: não conhece coordinator nem `ModelContext` (AGENTS R4); quem persiste é o dono do
-/// binding. Controles ≥ 56 pt e Dynamic Type sem quebra (RNF-06).
+/// binding, que também decide se pede confirmação (0 kg na calibração). Controles ≥ 56 pt e
+/// Dynamic Type sem quebra (RNF-06).
 struct SetEntryView: View {
     @Binding var draft: SetDraft
     let onComplete: () -> Void
@@ -34,14 +35,11 @@ struct SetEntryView: View {
         }
     }
 
+    /// Só a posição da série: a prescrição já está no `CurrentExercisePanel`, logo acima
+    /// (repeti-la aqui era a linha duplicada apontada na revisão do M1).
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Série \(draft.setIndex + 1) de \(draft.plannedSets)")
-                .font(.title2.weight(.bold))
-            Text(draft.prescriptionSummary)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
+        Text("Série \(draft.setNumber) de \(draft.plannedSets)")
+            .font(.title2.weight(.bold))
     }
 
     private var completeButton: some View {
@@ -102,7 +100,7 @@ private enum SetEntryPreviewData {
         note: .hold
     )
 
-    /// Calibração sem `startingLoad` (SPEC P2): a prescrição mostra "—" e o stepper parte de 0;
+    /// Calibração sem `startingLoad` (SPEC P2): sem carga prescrita, o stepper parte de 0;
     /// aqui o usuário já subiu para 40 kg de aquecimento.
     static let warmup = SetDraft(
         load: 40,

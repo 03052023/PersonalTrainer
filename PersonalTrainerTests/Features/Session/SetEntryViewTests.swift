@@ -40,8 +40,53 @@ final class SetEntryViewTests: XCTestCase {
 
         XCTAssertTrue(
             draft.prescriptionSummary.contains(loadText),
-            "Stepper e cabeçalho devem mostrar a carga com o mesmo texto: \(draft.prescriptionSummary)"
+            "Stepper e prescrição do painel devem mostrar a carga com o mesmo texto: \(draft.prescriptionSummary)"
         )
+    }
+
+    // MARK: - SetDraft
+
+    func testSetDraft_setNumber_defaultsToIndexPlusOne() {
+        let draft = SetDraft(
+            load: 60,
+            reps: 8,
+            rir: 2,
+            setIndex: 2,
+            plannedSets: 3,
+            prescribedLoad: 60,
+            loadIncrement: 2.5,
+            loadUnit: .kilograms,
+            repMin: 8,
+            repMax: 12,
+            targetReps: 8,
+            targetRIR: 2,
+            note: .hold
+        )
+
+        XCTAssertEqual(draft.setNumber, 3, "sem séries apagadas, posição = índice + 1")
+    }
+
+    func testSetDraft_setNumber_explicitAfterDeletion() {
+        // RF-19: apagada a série de índice 0, a próxima grava índice 2 mas é a 2ª da lista.
+        let draft = SetDraft(
+            load: 60,
+            reps: 8,
+            rir: 2,
+            setIndex: 2,
+            setNumber: 2,
+            plannedSets: 3,
+            prescribedLoad: 60,
+            loadIncrement: 2.5,
+            loadUnit: .kilograms,
+            repMin: 8,
+            repMax: 12,
+            targetReps: 8,
+            targetRIR: 2,
+            note: .hold
+        )
+
+        XCTAssertEqual(draft.setIndex, 2)
+        XCTAssertEqual(draft.setNumber, 2)
     }
 
     func testLoadStepper_stepped_addsIncrement() {

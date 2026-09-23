@@ -1,15 +1,24 @@
 import SwiftUI
 import TrainerCore
 
-/// Painel do exercício selecionado: nome, prescrição, notas da máquina, séries já feitas e o
-/// registro da próxima série (`SetEntryView`, T1.6). Sem `draft` (exercício pulado) mostra só
-/// o aviso; não há série a registrar.
+/// Painel do exercício selecionado: nome (com "Trocar", RF-34), prescrição com "Por quê?"
+/// (RF-32), notas da máquina, séries já feitas (toque corrige ou apaga, RF-19) e o registro da
+/// próxima série (`SetEntryView`, T1.6). Sem `draft` (exercício pulado) mostra só o aviso; não
+/// há série a registrar.
+///
+/// A prescrição aparece só aqui; o `SetEntryView` mostra apenas "Série X de N".
 struct CurrentExercisePanel: View {
     let exercise: SessionExerciseModel
     let prescriptionSummary: String
     /// `nil` quando não há próxima série (exercício pulado).
     let draft: Binding<SetDraft>?
+    let references: ReferenceCatalog
+    /// "Trocar" só aparece antes da 1ª série do exercício (decidido pelo ViewModel).
+    let canSubstitute: Bool
     let onComplete: () -> Void
+    let onSubstitute: () -> Void
+    /// Recebe o `uuid` da `SetLogModel` tocada.
+    let onEditSet: (UUID) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -22,7 +31,19 @@ struct CurrentExercisePanel: View {
                         .textCase(.uppercase)
                         .foregroundStyle(.secondary)
                     ForEach(sortedSets, id: \.uuid) { setLog in
-                        CompletedSetRow(setLog: setLog, loadUnit: loadUnit)
+                        Button {
+                            onEditSet(setLog.uuid)
+                        } label: {
+                            CompletedSetRow(
+                                setLog: setLog,
+                                number: number(of: setLog),
+                                loadUnit: loadUnit,
+                                isEditable: true
+                            )
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Toque para corrigir ou apagar a série.")
                     }
                 }
             }
@@ -41,32 +62,79 @@ struct CurrentExercisePanel: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(exercise.exerciseName)
-                .font(.title2.weight(.semibold))
-                .strikethrough(exercise.wasSkipped)
-            HStack(spacing: 8) {
-                Text(prescriptionSummary)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                if let note = exercise.note {
-                    Text(note.portugueseLabel)
-                        .font(.caption.weight(.medium))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.accentColor.opacity(0.15), in: Capsule())
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(exercise.exerciseName)
+                    .font(.title2.weight(.semibold))
+                    .strikethrough(exercise.wasSkipped)
+                Spacer(minLength: 0)
+                if canSubstitute {
+                    Button {
+                        onSubstitute()
+                    } label: {
+                        Label("Trocar", systemImage: "arrow.triangle.2.circlepath")
+                            .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityHint("Escolhe outro exercício só para este treino.")
                 }
             }
+
+            if exercise.substitutedFromUUID != nil {
+                Label("Trocado neste treino", systemImage: "arrow.triangle.2.circlepath")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            // Nota e "Por quê?" numa linha própria: com Dynamic Type grande a prescrição usa a
+            // largura toda em vez de disputar espaço com o botão.
+            prescriptionText
+            HStack(spacing: 8) {
+                noteBadge
+                whyButton
+            }
+
             if let notes = exercise.exercise?.machineNotes, !notes.isEmpty {
                 Label(notes, systemImage: "gearshape")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }
-        .accessibilityElement(children: .combine)
+    }
+
+    private var prescriptionText: some View {
+        Text(prescriptionSummary)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .accessibilityLabel("Prescrição: \(prescriptionSummary)")
+    }
+
+    @ViewBuilder
+    private var noteBadge: some View {
+        if let note = exercise.note {
+            Text(note.portugueseLabel)
+                .font(.caption.weight(.medium))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.accentColor.opacity(0.15), in: Capsule())
+        }
+    }
+
+    /// RF-32: a regra por trás da nota. O `WhyButton` se esconde se o tópico não tem referências.
+    @ViewBuilder
+    private var whyButton: some View {
+        if let note = exercise.note {
+            WhyButton(topic: ReferenceCatalog.topic(for: note), catalog: references)
+        }
     }
 
     private var sortedSets: [SetLogModel] {
         exercise.sets.sorted { $0.index < $1.index }
+    }
+
+    /// Posição 1-based na lista, não `index + 1`: depois de apagar uma série (RF-19) os
+    /// índices gravados podem ter lacunas e a lista leria "1, 3".
+    private func number(of setLog: SetLogModel) -> Int {
+        (sortedSets.firstIndex { $0.uuid == setLog.uuid } ?? 0) + 1
     }
 
     private var loadUnit: LoadUnit {
@@ -106,7 +174,31 @@ private extension PrescriptionNote {
                 exercise: exercise,
                 prescriptionSummary: fixture.viewModel.prescriptionSummary(for: exercise),
                 draft: Binding.constant(draft),
-                onComplete: {}
+                references: .empty,
+                canSubstitute: false,
+                onComplete: {},
+                onSubstitute: {},
+                onEditSet: { _ in }
+            )
+        }
+    } else {
+        Text("Preview indisponível")
+    }
+}
+
+#Preview("Antes da 1ª série (Trocar)") {
+    if let fixture = SessionPreviewSupport.makeFixture(),
+       let exercise = fixture.untouchedExercise {
+        ScrollView {
+            CurrentExercisePanel(
+                exercise: exercise,
+                prescriptionSummary: fixture.viewModel.prescriptionSummary(for: exercise),
+                draft: nil,
+                references: .empty,
+                canSubstitute: true,
+                onComplete: {},
+                onSubstitute: {},
+                onEditSet: { _ in }
             )
         }
     } else {
@@ -120,7 +212,11 @@ private extension PrescriptionNote {
             exercise: exercise,
             prescriptionSummary: fixture.viewModel.prescriptionSummary(for: exercise),
             draft: nil,
-            onComplete: {}
+            references: .empty,
+            canSubstitute: false,
+            onComplete: {},
+            onSubstitute: {},
+            onEditSet: { _ in }
         )
     } else {
         Text("Preview indisponível")

@@ -4,10 +4,11 @@ import TrainerCore
 import XCTest
 @testable import PersonalTrainer
 
-/// T1.5: seleção, rascunho da série (RF-04), avanço, pular (RF-10), finalizar (RF-02) e
-/// totais. Usa um coordinator em memória próprio (`SessionTestCoordinator`) sobre um
-/// container in-memory: o `SessionCoordinator` real (T1.3) é escrito em paralelo e tem
-/// testes próprios. Tudo em `@MainActor` (ARCHITECTURE §10).
+/// T1.5 + T2.9: seleção, rascunho da série (RF-04, P5), avanço, pular (RF-10), finalizar
+/// (RF-02), totais, confirmação de 0 kg na calibração (P2/P8), troca de exercício (RF-34) e
+/// correção/remoção de série (RF-19). Usa doubles próprios (`SessionTestCoordinator`,
+/// `SessionTestPlanner`, `SessionTestCatalog`) sobre um container in-memory: o coordinator e o
+/// planner reais têm testes próprios. Tudo em `@MainActor` (ARCHITECTURE §10).
 @MainActor
 final class ActiveSessionViewModelTests: XCTestCase {
     private let start = Date(timeIntervalSince1970: 1_700_000_000)
@@ -27,6 +28,9 @@ final class ActiveSessionViewModelTests: XCTestCase {
         XCTAssertFalse(model.isFinished)
         XCTAssertNil(model.errorMessage)
         XCTAssertEqual(model.session?.uuid, fixture.session.uuid)
+        XCTAssertFalse(model.needsZeroLoadConfirmation)
+        XCTAssertFalse(model.isShowingSubstituteSheet)
+        XCTAssertNil(model.editingSet)
     }
 
     func testInitialSelection_skipsCompletedExercise() throws {
@@ -54,6 +58,7 @@ final class ActiveSessionViewModelTests: XCTestCase {
 
         XCTAssertEqual(model.selectedExerciseID, fixture.legPress.uuid)
         XCTAssertEqual(model.currentDraft?.setIndex, 3, "o índice conta todas as séries, aquecimento incluído")
+        XCTAssertEqual(model.currentDraft?.setNumber, 4)
     }
 
     func testInitialSelection_nothingPending_selectsLastExercise() throws {
@@ -76,6 +81,8 @@ final class ActiveSessionViewModelTests: XCTestCase {
         let model = ActiveSessionViewModel(
             sessionID: UUID(),
             coordinator: fixture.coordinator,
+            planner: fixture.planner,
+            catalog: fixture.catalog,
             restTimer: fixture.timer,
             notifications: FakeNotificationScheduler(),
             now: { self.clock }
@@ -89,6 +96,7 @@ final class ActiveSessionViewModelTests: XCTestCase {
         XCTAssertNil(model.currentDraft)
         XCTAssertEqual(model.stats.workingSetCount, 0)
         XCTAssertFalse(model.isFinished)
+        XCTAssertFalse(model.canSubstituteSelectedExercise)
     }
 
     func testInit_finishedSession_isFinished() throws {
@@ -101,6 +109,7 @@ final class ActiveSessionViewModelTests: XCTestCase {
 
         XCTAssertTrue(model.isFinished)
         XCTAssertEqual(model.stats.duration, 3_600)
+        XCTAssertFalse(model.canSubstituteSelectedExercise, "sessão encerrada não troca exercício")
     }
 
     // MARK: - Rascunho inicial (RF-04, 1ª série = prescrição)
@@ -112,10 +121,11 @@ final class ActiveSessionViewModelTests: XCTestCase {
 
         let draft = try XCTUnwrap(model.currentDraft)
         XCTAssertEqual(draft.load, 100)
-        XCTAssertEqual(draft.reps, 8, "meta inicial = repMin")
+        XCTAssertEqual(draft.reps, 8, "sem meta gravada (prescribedTargetReps = 0), começa em repMin")
         XCTAssertEqual(draft.rir, 2)
         XCTAssertFalse(draft.isWarmup)
         XCTAssertEqual(draft.setIndex, 0)
+        XCTAssertEqual(draft.setNumber, 1)
         XCTAssertEqual(draft.plannedSets, 3)
         XCTAssertEqual(draft.prescribedLoad, 100, "carga prescrita do snapshot, só para exibição")
         XCTAssertEqual(draft.loadIncrement, 5, "vem do ExerciseModel relacionado")
@@ -125,6 +135,37 @@ final class ActiveSessionViewModelTests: XCTestCase {
         XCTAssertEqual(draft.targetReps, 8)
         XCTAssertEqual(draft.targetRIR, 2)
         XCTAssertEqual(draft.note, .increase)
+    }
+
+    func testP5_initialDraft_usesPrescribedTargetRepsWhenKnown() throws {
+        let fixture = try makeFixture()
+        // SPEC P5 (hold): meta = min(repMax, menor reps da última sessão + 1), gravada no snapshot.
+        fixture.legPress.noteRaw = PrescriptionNote.hold.rawValue
+        fixture.legPress.prescribedTargetReps = 10
+        try fixture.coordinator.context.save()
+
+        let model = makeViewModel(fixture)
+
+        let draft = try XCTUnwrap(model.currentDraft)
+        XCTAssertEqual(draft.reps, 10, "a 1ª série parte da meta do motor, não de repMin")
+        XCTAssertEqual(draft.targetReps, 10)
+        XCTAssertEqual(draft.repMin, 8, "a faixa exibida continua 8–12")
+        XCTAssertEqual(model.prescriptionSummary(for: fixture.legPress), "3 × 8–12 · 100 kg · RIR 2")
+    }
+
+    func testP5_laterSets_copyPreviousRepsNotTarget() throws {
+        let fixture = try makeFixture()
+        fixture.legPress.prescribedTargetReps = 10
+        try fixture.coordinator.context.save()
+        let model = makeViewModel(fixture)
+        var draft = try XCTUnwrap(model.currentDraft)
+        draft.reps = 11
+        model.currentDraft = draft
+
+        model.completeSet()
+
+        XCTAssertEqual(model.currentDraft?.reps, 11, "RF-04: a 2ª série copia o registro real")
+        XCTAssertEqual(model.currentDraft?.targetReps, 10)
     }
 
     func testInitialDraft_withoutPrescribedLoad_startsAtZero() throws {
@@ -210,6 +251,7 @@ final class ActiveSessionViewModelTests: XCTestCase {
         // RF-04: a 2ª série copia os valores reais da 1ª; a prescrição exibida não muda.
         let next = try XCTUnwrap(model.currentDraft)
         XCTAssertEqual(next.setIndex, 1)
+        XCTAssertEqual(next.setNumber, 2)
         XCTAssertEqual(next.load, 102.5)
         XCTAssertEqual(next.reps, 9)
         XCTAssertEqual(next.rir, 1)
@@ -269,12 +311,15 @@ final class ActiveSessionViewModelTests: XCTestCase {
     func testCompleteSet_wrapsAroundToEarlierPendingExercise() throws {
         let fixture = try makeFixture()
         let model = makeViewModel(fixture)
-        // Máquina do leg press ocupada: o usuário vai direto ao supino.
+        // Máquina do leg press ocupada: o usuário vai direto ao supino e digita a carga
+        // (calibração sem carga prescrita, SPEC P2).
         model.select(exerciseID: fixture.bench.uuid)
+        model.currentDraft?.load = 40
 
         model.completeSet()
         model.completeSet()
 
+        XCTAssertFalse(model.needsZeroLoadConfirmation)
         XCTAssertEqual(model.workingSetCount(of: fixture.bench), 2)
         XCTAssertEqual(model.selectedExerciseID, fixture.legPress.uuid, "volta ao que ficou para trás")
         XCTAssertEqual(model.currentDraft?.setIndex, 0)
@@ -322,6 +367,84 @@ final class ActiveSessionViewModelTests: XCTestCase {
 
         XCTAssertTrue(fixture.coordinator.appliedEvents.isEmpty)
         XCTAssertNil(model.errorMessage)
+        XCTAssertFalse(model.needsZeroLoadConfirmation)
+    }
+
+    // MARK: - Confirmação de 0 kg (SPEC P2, P8)
+
+    func testP2_calibrationAtZeroLoad_asksBeforeLogging() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.select(exerciseID: fixture.bench.uuid)
+        XCTAssertEqual(model.currentDraft?.load, 0)
+
+        model.completeSet()
+
+        XCTAssertTrue(model.needsZeroLoadConfirmation, "sem carga prescrita e sem carga digitada: pergunta")
+        XCTAssertTrue(fixture.coordinator.appliedEvents.isEmpty, "nada gravado antes da confirmação")
+        XCTAssertTrue(fixture.bench.sets.isEmpty)
+        XCTAssertFalse(fixture.timer.isRunning)
+
+        // "Corrigir carga": fecha sem gravar e mantém o rascunho.
+        model.cancelZeroLoadSet()
+
+        XCTAssertFalse(model.needsZeroLoadConfirmation)
+        XCTAssertTrue(fixture.coordinator.appliedEvents.isEmpty)
+        XCTAssertEqual(model.currentDraft?.setIndex, 0)
+        XCTAssertEqual(model.selectedExerciseID, fixture.bench.uuid)
+    }
+
+    func testP2_calibrationAtZeroLoad_confirmedLogsZero() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.select(exerciseID: fixture.bench.uuid)
+        model.completeSet()
+        XCTAssertTrue(model.needsZeroLoadConfirmation)
+
+        model.confirmZeroLoadSet()
+
+        XCTAssertFalse(model.needsZeroLoadConfirmation)
+        XCTAssertEqual(fixture.bench.sets.count, 1)
+        XCTAssertEqual(fixture.bench.sets.first?.load, 0)
+        XCTAssertEqual(fixture.coordinator.appliedEvents.count, 1)
+        XCTAssertEqual(model.currentDraft?.setIndex, 1)
+    }
+
+    func testP2_calibrationWithTypedLoad_logsWithoutAsking() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.select(exerciseID: fixture.bench.uuid)
+        model.currentDraft?.load = 40
+
+        model.completeSet()
+
+        XCTAssertFalse(model.needsZeroLoadConfirmation)
+        XCTAssertEqual(fixture.bench.sets.first?.load, 40)
+    }
+
+    func testP8_bodyweightAtZeroLoad_logsWithoutAsking() throws {
+        let fixture = try makeFixture()
+        fixture.benchCatalog.equipmentRaw = Equipment.bodyweight.rawValue
+        try fixture.coordinator.context.save()
+        let model = makeViewModel(fixture)
+        model.select(exerciseID: fixture.bench.uuid)
+
+        model.completeSet()
+
+        XCTAssertFalse(model.needsZeroLoadConfirmation, "SPEC P8: 0 é peso corporal puro")
+        XCTAssertEqual(fixture.bench.sets.count, 1)
+        XCTAssertEqual(fixture.bench.sets.first?.load, 0)
+    }
+
+    func testZeroLoad_withPrescribedLoad_logsWithoutAsking() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.currentDraft?.load = 0
+
+        model.completeSet()
+
+        XCTAssertFalse(model.needsZeroLoadConfirmation, "só a calibração sem carga pergunta")
+        XCTAssertEqual(fixture.legPress.sets.first?.load, 0)
     }
 
     // MARK: - Pular (RF-10)
@@ -382,6 +505,317 @@ final class ActiveSessionViewModelTests: XCTestCase {
 
         XCTAssertEqual(model.selectedExerciseID, fixture.legPress.uuid)
         XCTAssertNotNil(model.currentDraft)
+    }
+
+    // MARK: - Trocar exercício (RF-34)
+
+    func testRF34_substitution_allowedOnlyBeforeFirstSet() throws {
+        let fixture = try makeFixture()
+        fixture.planner.substitutesResult = [fixture.hackDefinition]
+        let model = makeViewModel(fixture)
+        XCTAssertTrue(model.canSubstituteSelectedExercise, "sem séries: pode trocar")
+
+        model.completeSet()
+
+        XCTAssertFalse(model.canSubstituteSelectedExercise, "com série registrada: não troca")
+        model.beginSubstitution()
+        XCTAssertFalse(model.isShowingSubstituteSheet)
+        XCTAssertTrue(fixture.planner.substitutesCalls.isEmpty)
+        model.substituteSelectedExercise(with: fixture.hackDefinition)
+        XCTAssertTrue(fixture.planner.substitutionPlanCalls.isEmpty, "o planner nem é consultado")
+        XCTAssertTrue(fixture.coordinator.substituteCalls.isEmpty, "o coordinator nem é chamado")
+        XCTAssertEqual(fixture.legPress.exerciseUUID, fixture.legPressCatalog.uuid)
+
+        // Apagar a única série libera a troca de novo.
+        let setID = try XCTUnwrap(fixture.legPress.sets.first?.uuid)
+        model.deleteSet(id: setID)
+
+        XCTAssertTrue(model.canSubstituteSelectedExercise)
+    }
+
+    func testRF34_skippedExercise_cannotBeSubstituted() throws {
+        let fixture = try makeFixture()
+        fixture.bench.wasSkipped = true
+        try fixture.coordinator.context.save()
+        let model = makeViewModel(fixture)
+        model.select(exerciseID: fixture.bench.uuid)
+
+        XCTAssertFalse(model.canSubstituteSelectedExercise)
+        model.beginSubstitution()
+        XCTAssertFalse(model.isShowingSubstituteSheet)
+        XCTAssertTrue(fixture.planner.substitutesCalls.isEmpty)
+    }
+
+    func testRF34_beginSubstitution_loadsSuggestionsAndCatalog() throws {
+        let fixture = try makeFixture()
+        // O supino já está na sessão: não é sugerido de novo.
+        fixture.planner.substitutesResult = [fixture.benchDefinition, fixture.hackDefinition]
+        let model = makeViewModel(fixture)
+
+        model.beginSubstitution()
+
+        XCTAssertTrue(model.isShowingSubstituteSheet)
+        XCTAssertEqual(
+            fixture.planner.substitutesCalls,
+            [SessionTestPlanner.SubstitutesCall(exerciseID: fixture.legPressCatalog.uuid, limit: 5)]
+        )
+        XCTAssertEqual(model.substituteSuggestions.map(\.id), [fixture.hackDefinition.id])
+        XCTAssertEqual(
+            Set(model.substitutionCatalog.map(\.id)),
+            Set([fixture.benchDefinition.id, fixture.hackDefinition.id]),
+            "\"Ver todos\" traz o catálogo sem o exercício atual"
+        )
+
+        model.cancelSubstitution()
+
+        XCTAssertFalse(model.isShowingSubstituteSheet)
+        XCTAssertTrue(model.substituteSuggestions.isEmpty)
+        XCTAssertTrue(model.substitutionCatalog.isEmpty)
+        XCTAssertTrue(fixture.coordinator.substituteCalls.isEmpty)
+    }
+
+    func testRF34_beginSubstitution_listFailures_leaveEmptyListsButOpenSheet() throws {
+        let fixture = try makeFixture()
+        fixture.planner.substitutesError = .noActiveProgram
+        fixture.catalog.error = .invalidDraft
+        let model = makeViewModel(fixture)
+
+        model.beginSubstitution()
+
+        XCTAssertTrue(model.isShowingSubstituteSheet)
+        XCTAssertTrue(model.substituteSuggestions.isEmpty)
+        XCTAssertTrue(model.substitutionCatalog.isEmpty)
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func testRF34_substitute_buildsTargetFromSnapshotAndReplacesExercise() throws {
+        let fixture = try makeFixture()
+        fixture.planner.substitutesResult = [fixture.hackDefinition]
+        let model = makeViewModel(fixture)
+        clock = start.addingTimeInterval(120)
+        model.beginSubstitution()
+
+        model.substituteSelectedExercise(with: fixture.hackDefinition)
+
+        XCTAssertNil(model.errorMessage)
+        XCTAssertEqual(fixture.planner.substitutionPlanCalls.count, 1)
+        let call = try XCTUnwrap(fixture.planner.substitutionPlanCalls.first)
+        XCTAssertEqual(call.sessionExerciseID, fixture.legPress.uuid)
+        XCTAssertEqual(call.newExerciseID, fixture.hackDefinition.id)
+        XCTAssertEqual(call.now, clock)
+        // Alvo do original (RF-34), a partir do snapshot: 3 × 8–12, RIR 2, 120 s, sem carga inicial.
+        XCTAssertEqual(call.target.exerciseID, fixture.hackDefinition.id)
+        XCTAssertEqual(call.target.order, 0)
+        XCTAssertEqual(call.target.sets, 3)
+        XCTAssertEqual(call.target.repMin, 8)
+        XCTAssertEqual(call.target.repMax, 12)
+        XCTAssertEqual(call.target.targetRIR, 2)
+        XCTAssertEqual(call.target.restSeconds, 120)
+        XCTAssertNil(call.target.startingLoad)
+
+        XCTAssertEqual(fixture.coordinator.substituteCalls.count, 1)
+        let substitution = try XCTUnwrap(fixture.coordinator.substituteCalls.first)
+        XCTAssertEqual(substitution.sessionID, fixture.session.uuid)
+        XCTAssertEqual(substitution.sessionExerciseID, fixture.legPress.uuid)
+        XCTAssertEqual(substitution.planned.id, fixture.legPress.uuid, "mesmo snapshot, exercício novo")
+        XCTAssertEqual(substitution.planned.exercise.id, fixture.hackDefinition.id)
+        XCTAssertEqual(substitution.now, clock)
+
+        XCTAssertFalse(model.isShowingSubstituteSheet)
+        XCTAssertEqual(model.selectedExerciseID, fixture.legPress.uuid)
+        XCTAssertEqual(fixture.legPress.exerciseUUID, fixture.hackCatalog.uuid)
+        XCTAssertEqual(fixture.legPress.exerciseName, "Agachamento hack")
+        XCTAssertEqual(fixture.legPress.substitutedFromUUID, fixture.legPressCatalog.uuid)
+
+        // Rascunho refeito com a prescrição do novo (sem histórico: calibração, SPEC P2).
+        let draft = try XCTUnwrap(model.currentDraft)
+        XCTAssertNil(draft.prescribedLoad)
+        XCTAssertEqual(draft.load, 0)
+        XCTAssertEqual(draft.note, .calibrate)
+        XCTAssertEqual(draft.targetRIR, 3)
+        XCTAssertEqual(draft.loadIncrement, 10, "incremento do exercício novo")
+        XCTAssertEqual(draft.setIndex, 0)
+    }
+
+    func testRF34_substituteCalibrationWithoutLoad_passesBaseRIR() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        // Supino: calibração sem carga, RIR gravado 3 = T + 1 (SPEC P2) com T = 2.
+        model.select(exerciseID: fixture.bench.uuid)
+
+        model.substituteSelectedExercise(with: fixture.hackDefinition)
+
+        let call = try XCTUnwrap(fixture.planner.substitutionPlanCalls.first)
+        XCTAssertEqual(call.target.targetRIR, 2, "sem desfazer o +1 o substituto calibraria com T + 2")
+        XCTAssertEqual(call.target.sets, 2)
+        XCTAssertEqual(call.target.restSeconds, 90)
+        XCTAssertEqual(call.target.order, 1)
+    }
+
+    func testRF34_substitute_plannerError_showsMessageAfterSheetCloses() throws {
+        let fixture = try makeFixture()
+        fixture.planner.substitutionError = .exerciseNotFound(fixture.hackDefinition.id)
+        let model = makeViewModel(fixture)
+        model.beginSubstitution()
+
+        model.substituteSelectedExercise(with: fixture.hackDefinition)
+
+        XCTAssertFalse(model.isShowingSubstituteSheet)
+        XCTAssertNil(model.errorMessage, "o alerta espera a folha terminar de fechar")
+        XCTAssertTrue(fixture.coordinator.substituteCalls.isEmpty)
+        XCTAssertEqual(fixture.legPress.exerciseUUID, fixture.legPressCatalog.uuid)
+
+        model.sheetDidDismiss()
+
+        XCTAssertEqual(model.errorMessage, "Não foi possível trocar o exercício.")
+
+        // A mensagem só é entregue uma vez.
+        model.isShowingError = false
+        model.sheetDidDismiss()
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func testRF34_substitute_coordinatorRefuses_showsCoordinatorMessage() throws {
+        let fixture = try makeFixture()
+        fixture.coordinator.errorToThrow = .unsupported
+        let model = makeViewModel(fixture)
+
+        model.substituteSelectedExercise(with: fixture.hackDefinition)
+        model.sheetDidDismiss()
+
+        XCTAssertEqual(fixture.coordinator.substituteCalls.count, 1)
+        XCTAssertEqual(model.errorMessage, "Esta ação não está disponível agora.")
+        XCTAssertEqual(fixture.legPress.exerciseUUID, fixture.legPressCatalog.uuid)
+    }
+
+    // MARK: - Corrigir / apagar série (RF-19)
+
+    func testRF19_beginEditingSet_copiesStoredValues() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.completeSet()
+        let setID = try XCTUnwrap(fixture.legPress.sets.first?.uuid)
+
+        model.beginEditingSet(id: setID)
+
+        let edit = try XCTUnwrap(model.editingSet)
+        XCTAssertEqual(edit.setID, setID)
+        XCTAssertEqual(edit.id, setID)
+        XCTAssertEqual(edit.number, 1)
+        XCTAssertEqual(edit.load, 100)
+        XCTAssertEqual(edit.reps, 8)
+        XCTAssertEqual(edit.rir, 2)
+        XCTAssertFalse(edit.isWarmup)
+        XCTAssertEqual(edit.loadIncrement, 5)
+        XCTAssertEqual(edit.loadUnit, .kilograms)
+        XCTAssertEqual(edit.repMin, 8)
+        XCTAssertEqual(edit.repMax, 12)
+
+        model.cancelEditingSet()
+        XCTAssertNil(model.editingSet)
+        XCTAssertEqual(fixture.coordinator.appliedEvents.count, 1, "cancelar não grava nada")
+    }
+
+    func testRF19_beginEditingSet_unknownID_keepsSheetClosed() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+
+        model.beginEditingSet(id: UUID())
+
+        XCTAssertNil(model.editingSet)
+    }
+
+    func testRF19_saveEditedSet_updatesStoredSetAndNextDraft() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.completeSet()
+        let setID = try XCTUnwrap(fixture.legPress.sets.first?.uuid)
+        model.beginEditingSet(id: setID)
+        var edit = try XCTUnwrap(model.editingSet)
+        edit.load = 105
+        edit.reps = 7
+        edit.rir = nil
+        clock = start.addingTimeInterval(400)
+
+        model.saveEditedSet(edit)
+
+        XCTAssertNil(model.editingSet)
+        XCTAssertNil(model.errorMessage)
+        let stored = try XCTUnwrap(fixture.legPress.sets.first)
+        XCTAssertEqual(stored.load, 105)
+        XCTAssertEqual(stored.reps, 7)
+        XCTAssertNil(stored.rir)
+        XCTAssertEqual(stored.updatedAt, clock)
+        XCTAssertEqual(fixture.coordinator.appliedEvents.count, 2)
+        XCTAssertEqual(
+            fixture.coordinator.appliedEvents.last?.kind,
+            .setUpdated(setID: setID, load: 105, reps: 7, rir: nil)
+        )
+        // RF-04: a próxima série copia a anterior já corrigida.
+        let next = try XCTUnwrap(model.currentDraft)
+        XCTAssertEqual(next.load, 105)
+        XCTAssertEqual(next.reps, 7)
+        XCTAssertNil(next.rir)
+        XCTAssertEqual(next.setIndex, 1)
+    }
+
+    func testRF19_saveEditedSet_coordinatorError_showsMessageAfterSheetCloses() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.completeSet()
+        let setID = try XCTUnwrap(fixture.legPress.sets.first?.uuid)
+        model.beginEditingSet(id: setID)
+        let edit = try XCTUnwrap(model.editingSet)
+        fixture.coordinator.errorToThrow = .setNotFound(setID)
+
+        model.saveEditedSet(edit)
+
+        XCTAssertNil(model.editingSet)
+        XCTAssertNil(model.errorMessage)
+        model.sheetDidDismiss()
+        XCTAssertEqual(model.errorMessage, "A série não foi encontrada.")
+    }
+
+    func testRF19_deleteSet_removesItAndKeepsNextIndexUnique() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.completeSet()
+        model.completeSet()
+        let sorted = fixture.legPress.sets.sorted { $0.index < $1.index }
+        XCTAssertEqual(sorted.map(\.index), [0, 1])
+        let firstID = sorted[0].uuid
+        let secondID = sorted[1].uuid
+        model.beginEditingSet(id: firstID)
+        XCTAssertEqual(model.editingSet?.number, 1)
+
+        model.deleteSet(id: firstID)
+
+        XCTAssertNil(model.editingSet)
+        XCTAssertNil(model.errorMessage)
+        XCTAssertEqual(fixture.legPress.sets.map(\.uuid), [secondID])
+        XCTAssertEqual(fixture.coordinator.appliedEvents.last?.kind, .setDeleted(setID: firstID))
+        XCTAssertEqual(model.workingSetCount(of: fixture.legPress), 1)
+        let next = try XCTUnwrap(model.currentDraft)
+        XCTAssertEqual(next.setIndex, 2, "maior índice + 1: não colide com a série de índice 1 que ficou")
+        XCTAssertEqual(next.setNumber, 2, "o título conta as séries que existem")
+        XCTAssertEqual(model.selectedExerciseID, fixture.legPress.uuid)
+
+        model.beginEditingSet(id: secondID)
+        XCTAssertEqual(model.editingSet?.number, 1, "posição na lista, não índice + 1")
+    }
+
+    func testRF19_deleteSet_coordinatorError_keepsSetAndDefersMessage() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.completeSet()
+        let setID = try XCTUnwrap(fixture.legPress.sets.first?.uuid)
+        fixture.coordinator.errorToThrow = .sessionNotInProgress(fixture.session.uuid)
+
+        model.deleteSet(id: setID)
+
+        XCTAssertEqual(fixture.legPress.sets.count, 1)
+        model.sheetDidDismiss()
+        XCTAssertEqual(model.errorMessage, "Esta sessão já foi encerrada.")
     }
 
     // MARK: - Finalizar / abandonar (RF-02)
@@ -455,13 +889,21 @@ final class ActiveSessionViewModelTests: XCTestCase {
 
     private struct Fixture {
         let coordinator: SessionTestCoordinator
+        let planner: SessionTestPlanner
+        let catalog: SessionTestCatalog
         let session: WorkoutSessionModel
         /// `order` 0, carga prescrita 100 kg, 3 × 8–12, RIR 2, descanso 120 s, nota `increase`,
         /// catálogo com incremento 5 kg.
         let legPress: SessionExerciseModel
         /// `order` 1, sem carga prescrita (calibrar), 2 × 8–12, RIR 3, descanso 90 s,
-        /// catálogo com incremento 2,5 kg.
+        /// catálogo (barra) com incremento 2,5 kg.
         let bench: SessionExerciseModel
+        let legPressCatalog: ExerciseModel
+        let benchCatalog: ExerciseModel
+        /// Fora da sessão: o substituto dos testes de troca (incremento 10 kg).
+        let hackCatalog: ExerciseModel
+        let benchDefinition: ExerciseDefinition
+        let hackDefinition: ExerciseDefinition
         let timer: RestTimer
     }
 
@@ -469,6 +911,8 @@ final class ActiveSessionViewModelTests: XCTestCase {
         ActiveSessionViewModel(
             sessionID: fixture.session.uuid,
             coordinator: fixture.coordinator,
+            planner: fixture.planner,
+            catalog: fixture.catalog,
             restTimer: fixture.timer,
             notifications: FakeNotificationScheduler(),
             now: { self.clock }
@@ -507,6 +951,20 @@ final class ActiveSessionViewModelTests: XCTestCase {
             isArchived: false
         )
         context.insert(benchCatalog)
+        let hackCatalog = ExerciseModel(
+            uuid: UUID(),
+            slug: "agachamento-hack",
+            name: "Agachamento hack",
+            primaryMusclesRaw: SchemaV1.encodeMuscleGroups([.quads, .glutes]),
+            secondaryMusclesRaw: "",
+            equipmentRaw: Equipment.machine.rawValue,
+            loadUnitRaw: LoadUnit.kilograms.rawValue,
+            loadIncrement: 10,
+            isUnilateral: false,
+            machineNotes: nil,
+            isArchived: false
+        )
+        context.insert(hackCatalog)
 
         let session = WorkoutSessionModel(
             uuid: UUID(),
@@ -565,11 +1023,23 @@ final class ActiveSessionViewModelTests: XCTestCase {
 
         try context.save()
 
+        let legPressDefinition = try ExerciseMapper.definition(from: legPressCatalog)
+        let benchDefinition = try ExerciseMapper.definition(from: benchCatalog)
+        let hackDefinition = try ExerciseMapper.definition(from: hackCatalog)
+        let catalogDefinitions = [legPressDefinition, benchDefinition, hackDefinition]
+
         return Fixture(
             coordinator: coordinator,
+            planner: SessionTestPlanner(catalog: catalogDefinitions),
+            catalog: SessionTestCatalog(exercises: catalogDefinitions),
             session: session,
             legPress: legPress,
             bench: bench,
+            legPressCatalog: legPressCatalog,
+            benchCatalog: benchCatalog,
+            hackCatalog: hackCatalog,
+            benchDefinition: benchDefinition,
+            hackDefinition: hackDefinition,
             timer: RestTimer(notifications: FakeNotificationScheduler())
         )
     }
@@ -605,13 +1075,22 @@ final class ActiveSessionViewModelTests: XCTestCase {
 
 // MARK: - Double do coordinator
 
-/// `SessionCoordinating` em memória sobre modelos reais: aplica `setLogged`,
-/// `exerciseSkipped`, `sessionFinished` e `sessionAbandoned` num container in-memory e
-/// registra os eventos aplicados. `errorToThrow` simula falha do caminho de escrita.
+/// `SessionCoordinating` em memória sobre modelos reais: aplica `setLogged`, `setUpdated`,
+/// `setDeleted`, `exerciseSkipped`, `sessionFinished` e `sessionAbandoned` num container
+/// in-memory e registra os eventos aplicados; `substituteExercise` registra a chamada e troca o
+/// snapshot como o contrato do M2 descreve. `errorToThrow` simula falha do caminho de escrita.
 @MainActor
 private final class SessionTestCoordinator: SessionCoordinating {
+    struct SubstituteCall {
+        let sessionID: UUID
+        let sessionExerciseID: UUID
+        let planned: PlannedExercise
+        let now: Date
+    }
+
     let container: ModelContainer
     private(set) var appliedEvents: [SessionEvent] = []
+    private(set) var substituteCalls: [SubstituteCall] = []
     var errorToThrow: SessionCoordinatorError?
 
     var context: ModelContext {
@@ -672,6 +1151,7 @@ private final class SessionTestCoordinator: SessionCoordinating {
                 wasSkipped: false,
                 substitutedFromUUID: nil
             )
+            exercise.prescribedTargetReps = planned.prescription.targetReps
             context.insert(exercise)
             session.exercises.append(exercise)
         }
@@ -688,9 +1168,7 @@ private final class SessionTestCoordinator: SessionCoordinating {
         }
         switch event.kind {
         case let .setLogged(sessionExerciseID, setID, index, load, reps, rir, isWarmup):
-            guard let exercise = session.exercises.first(where: { $0.uuid == sessionExerciseID }) else {
-                throw SessionCoordinatorError.sessionExerciseNotFound(sessionExerciseID)
-            }
+            let exercise = try sessionExercise(sessionExerciseID, in: session)
             let setLog = SetLogModel(
                 uuid: setID,
                 index: index,
@@ -704,10 +1182,19 @@ private final class SessionTestCoordinator: SessionCoordinating {
             )
             context.insert(setLog)
             exercise.sets.append(setLog)
+        case let .setUpdated(setID, load, reps, rir):
+            let (_, setLog) = try findSet(setID, in: session)
+            setLog.load = load
+            setLog.reps = reps
+            setLog.rir = rir
+            setLog.updatedAt = event.occurredAt
+        case .setDeleted(let setID):
+            let (exercise, setLog) = try findSet(setID, in: session)
+            // Tira da relação antes de apagar, para o array em memória refletir já a remoção.
+            exercise.sets.removeAll { $0.uuid == setID }
+            context.delete(setLog)
         case .exerciseSkipped(let sessionExerciseID):
-            guard let exercise = session.exercises.first(where: { $0.uuid == sessionExerciseID }) else {
-                throw SessionCoordinatorError.sessionExerciseNotFound(sessionExerciseID)
-            }
+            let exercise = try sessionExercise(sessionExerciseID, in: session)
             exercise.wasSkipped = true
         case .sessionFinished(let endedAt):
             session.statusRaw = SessionStatus.completed.rawValue
@@ -715,12 +1202,52 @@ private final class SessionTestCoordinator: SessionCoordinating {
         case .sessionAbandoned(let endedAt):
             session.statusRaw = SessionStatus.abandoned.rawValue
             session.endedAt = endedAt
-        case .sessionStarted, .setUpdated, .setDeleted, .exerciseSubstituted, .heartRateSummary:
-            // Não são disparados pela tela de sessão em M1.
+        case .sessionStarted, .exerciseSubstituted, .heartRateSummary:
+            // A troca chega por `substituteExercise`; o resto não é disparado pela tela.
             break
         }
         try context.save()
         appliedEvents.append(event)
+    }
+
+    /// Contrato do M2 (RF-34): só sem séries; troca exercício e prescrição do snapshot inteiro.
+    func substituteExercise(sessionID: UUID, sessionExerciseID: UUID, with planned: PlannedExercise, now: Date) throws {
+        substituteCalls.append(SubstituteCall(
+            sessionID: sessionID,
+            sessionExerciseID: sessionExerciseID,
+            planned: planned,
+            now: now
+        ))
+        if let errorToThrow {
+            throw errorToThrow
+        }
+        guard let session = session(withID: sessionID) else {
+            throw SessionCoordinatorError.sessionNotFound(sessionID)
+        }
+        let exercise = try sessionExercise(sessionExerciseID, in: session)
+        guard exercise.sets.isEmpty else {
+            throw SessionCoordinatorError.unsupported
+        }
+        let newID = planned.exercise.id
+        let descriptor = FetchDescriptor<ExerciseModel>(
+            predicate: #Predicate<ExerciseModel> { $0.uuid == newID }
+        )
+        guard let catalogItem = try context.fetch(descriptor).first else {
+            throw SessionCoordinatorError.exerciseNotFound(newID)
+        }
+        exercise.substitutedFromUUID = exercise.exerciseUUID
+        exercise.exerciseUUID = catalogItem.uuid
+        exercise.exerciseName = catalogItem.name
+        exercise.exercise = catalogItem
+        exercise.prescribedLoad = planned.prescription.load
+        exercise.prescribedSets = planned.prescription.sets
+        exercise.prescribedRepMin = planned.prescription.repMin
+        exercise.prescribedRepMax = planned.prescription.repMax
+        exercise.prescribedRIR = planned.prescription.targetRIR
+        exercise.prescribedTargetReps = planned.prescription.targetReps
+        exercise.restSeconds = planned.prescription.restSeconds
+        exercise.noteRaw = planned.prescription.note.rawValue
+        try context.save()
     }
 
     /// Ninguém observa eventos nestes testes: o stream nasce encerrado.
@@ -728,5 +1255,142 @@ private final class SessionTestCoordinator: SessionCoordinating {
         AsyncStream { continuation in
             continuation.finish()
         }
+    }
+
+    private func sessionExercise(_ id: UUID, in session: WorkoutSessionModel) throws -> SessionExerciseModel {
+        guard let exercise = session.exercises.first(where: { $0.uuid == id }) else {
+            throw SessionCoordinatorError.sessionExerciseNotFound(id)
+        }
+        return exercise
+    }
+
+    private func findSet(_ setID: UUID, in session: WorkoutSessionModel) throws -> (SessionExerciseModel, SetLogModel) {
+        for exercise in session.exercises {
+            if let setLog = exercise.sets.first(where: { $0.uuid == setID }) {
+                return (exercise, setLog)
+            }
+        }
+        throw SessionCoordinatorError.setNotFound(setID)
+    }
+}
+
+// MARK: - Double do planner
+
+/// Só a parte de troca (RF-34) importa aqui. Registra as chamadas; a prescrição devolvida é a
+/// calibração sem carga de um exercício nunca feito (SPEC P2: RIR alvo + 1).
+@MainActor
+private final class SessionTestPlanner: SessionPlanning {
+    struct SubstitutesCall: Equatable {
+        let exerciseID: UUID
+        let limit: Int
+    }
+
+    struct SubstitutionPlanCall {
+        let sessionExerciseID: UUID
+        let target: ExerciseTarget
+        let newExerciseID: UUID
+        let now: Date
+    }
+
+    var substitutesResult: [ExerciseDefinition] = []
+    var substitutesError: PlanningError?
+    var substitutionError: PlanningError?
+    private(set) var substitutesCalls: [SubstitutesCall] = []
+    private(set) var substitutionPlanCalls: [SubstitutionPlanCall] = []
+    private let catalog: [ExerciseDefinition]
+
+    init(catalog: [ExerciseDefinition]) {
+        self.catalog = catalog
+    }
+
+    func nextPlan(now: Date) throws -> SessionPlan? {
+        nil
+    }
+
+    func plan(forDayID dayID: UUID, now: Date) throws -> SessionPlan? {
+        nil
+    }
+
+    func startSession(from plan: SessionPlan, now: Date) throws -> UUID {
+        throw PlanningError.noActiveProgram
+    }
+
+    func substitutes(for exerciseID: UUID, limit: Int) throws -> [ExerciseDefinition] {
+        substitutesCalls.append(SubstitutesCall(exerciseID: exerciseID, limit: limit))
+        if let substitutesError {
+            throw substitutesError
+        }
+        return substitutesResult
+    }
+
+    func substitutionPlan(
+        replacing sessionExerciseID: UUID,
+        target: ExerciseTarget,
+        newExerciseID: UUID,
+        now: Date
+    ) throws -> PlannedExercise {
+        substitutionPlanCalls.append(SubstitutionPlanCall(
+            sessionExerciseID: sessionExerciseID,
+            target: target,
+            newExerciseID: newExerciseID,
+            now: now
+        ))
+        if let substitutionError {
+            throw substitutionError
+        }
+        guard let exercise = catalog.first(where: { $0.id == newExerciseID }) else {
+            throw PlanningError.exerciseNotFound(newExerciseID)
+        }
+        let prescription = ExercisePrescription(
+            exerciseID: newExerciseID,
+            load: nil,
+            sets: target.sets,
+            repMin: target.repMin,
+            repMax: target.repMax,
+            targetReps: target.repMin,
+            targetRIR: target.targetRIR + 1,
+            restSeconds: target.restSeconds,
+            note: .calibrate
+        )
+        return PlannedExercise(id: sessionExerciseID, exercise: exercise, target: target, prescription: prescription)
+    }
+}
+
+// MARK: - Double do catálogo
+
+/// Catálogo fixo em memória; `error` simula falha de leitura. A sessão não escreve no catálogo.
+@MainActor
+private final class SessionTestCatalog: CatalogRepositoring {
+    var error: CatalogRepositoryError?
+    private let exercises: [ExerciseDefinition]
+
+    init(exercises: [ExerciseDefinition]) {
+        self.exercises = exercises
+    }
+
+    func allExercises(includeArchived: Bool) throws -> [ExerciseDefinition] {
+        if let error {
+            throw error
+        }
+        return exercises
+    }
+
+    func exercise(id: UUID) throws -> ExerciseDefinition? {
+        if let error {
+            throw error
+        }
+        return exercises.first { $0.id == id }
+    }
+
+    func createExercise(_ draft: ExerciseDraft) throws -> UUID {
+        throw CatalogRepositoryError.invalidDraft
+    }
+
+    func updateExercise(id: UUID, with draft: ExerciseDraft) throws {
+        throw CatalogRepositoryError.exerciseNotFound(id)
+    }
+
+    func setArchived(id: UUID, _ archived: Bool) throws {
+        throw CatalogRepositoryError.exerciseNotFound(id)
     }
 }
