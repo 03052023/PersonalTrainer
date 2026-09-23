@@ -28,7 +28,7 @@ Redeclara os 8 modelos de V1 (mesmos nomes, mesmos campos) e acrescenta, todos c
 | `ProgramModel` | `goalRaw` | `String = "hypertrophy"` | `goal: ProgramGoal?` |
 | `ProgramModel` | `summary` | `String? = nil` | — |
 | `SessionExerciseModel` | `prescribedTargetReps` | `Int = 0` (0 = desconhecido → usar `prescribedRepMin`) | — |
-| `UserSettingsModel` | `hasCompletedOnboarding` | `Bool = false` | — |
+| ~~`UserSettingsModel`~~ | ~~`hasCompletedOnboarding`~~ | removido: onboarding usa `@AppStorage("hasCompletedOnboarding")` | — |
 
 - `MigrationPlan`: `schemas = [SchemaV1.self, SchemaV2.self]`, `stages = [.lightweight(fromVersion: SchemaV1.self, toVersion: SchemaV2.self)]`.
 - `CurrentSchema.swift`: typealiases passam a apontar para `SchemaV2.*`; `typealias CurrentSchema = SchemaV2`.
@@ -69,4 +69,4 @@ Ganha: `programs: any ProgramRepositoring`, `catalog: any CatalogRepositoring`, 
 
 ## 7. Navegação (integrador)
 
-`TabView`: **Treino** (Home), **Histórico**, **Programa** (lista de programas + editor + catálogo), **Ajustes** (backup, sobre/referências). Primeiro launch com `hasCompletedOnboarding == false`: sheet de onboarding para escolher objetivo e formato (Features/Program/OnboardingView.swift).
+`TabView`: **Treino** (Home), **Histórico**, **Programa** (lista de programas + editor + catálogo), **Ajustes** (backup, sobre/referências). Primeiro launch com `@AppStorage("hasCompletedOnboarding") == false`: sheet de onboarding para escolher objetivo e formato (Features/Program/OnboardingView.swift).
