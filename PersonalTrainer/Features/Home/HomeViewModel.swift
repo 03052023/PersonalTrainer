@@ -15,7 +15,7 @@ final class HomeViewModel {
     /// Treino exibido: o próximo da rotação (S1–S2) ou o dia escolhido à mão (S4). `nil` quando
     /// não há programa ativo ou a última leitura falhou.
     private(set) var plan: SessionPlan?
-    /// `uuid` da sessão `inProgress`, se houver (SPEC S3): o botão vira "Retomar treino".
+    /// `uuid` da sessão `inProgress`, se houver (SPEC S3): o botão vira "Retomar".
     private(set) var activeSessionID: UUID?
     /// Dias do programa ativo, ordenados por `order`, para o menu do nome do dia (T2.14).
     private(set) var days: [ProgramDayTemplate] = []
@@ -88,7 +88,7 @@ final class HomeViewModel {
     /// referência de S2; nada é gravado aqui. Em falha, o plano atual é mantido.
     func selectDay(_ dayID: UUID) {
         guard activeSessionID == nil else {
-            errorMessage = "Já existe um treino em andamento. Toque em Retomar treino."
+            errorMessage = "Já existe uma sessão em andamento. Toque em Retomar."
             return
         }
         do {
@@ -108,6 +108,18 @@ final class HomeViewModel {
     func selectAutomaticDay() {
         selectedDayID = nil
         refresh()
+    }
+
+    /// Chamar depois de cada resposta ao diálogo (SPEC §7.11). "Aplicar" (C2) muda o programa ou
+    /// pede a semana leve, e "Seguir normal" (C1) a desfaz: nos dois casos o plano na tela ficou
+    /// velho e é relido. As outras respostas não mudam o plano.
+    func didHandleCoachAction(_ action: CoachAction) {
+        switch action {
+        case .apply, .keepNormal:
+            refresh()
+        default:
+            break
+        }
     }
 
     /// Retoma a sessão ativa (RF-02: só existe uma) ou inicia uma nova a partir do plano.
@@ -180,7 +192,7 @@ final class HomeViewModel {
             case .programHasNoDays:
                 return "O programa ativo não tem dias de treino."
             case .sessionAlreadyInProgress:
-                return "Já existe um treino em andamento. Toque em Retomar treino."
+                return "Já existe uma sessão em andamento. Toque em Retomar."
             case .exerciseNotFound:
                 return "Um exercício do programa não foi encontrado no catálogo."
             }
@@ -188,7 +200,7 @@ final class HomeViewModel {
         if let coordinatorError = error as? SessionCoordinatorError {
             switch coordinatorError {
             case .sessionAlreadyInProgress:
-                return "Já existe um treino em andamento. Toque em Retomar treino."
+                return "Já existe uma sessão em andamento. Toque em Retomar."
             default:
                 return fallback
             }

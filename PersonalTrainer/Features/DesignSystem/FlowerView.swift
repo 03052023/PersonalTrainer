@@ -12,6 +12,13 @@ struct FlowerView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// Init explícito (integração onda 3): com a propriedade `private` acima, o init sintetizado
+    /// poderia ficar privado e a Home, em outro arquivo, não conseguiria criar a flor.
+    init(activeGoal: ProgramGoal?, size: CGFloat) {
+        self.activeGoal = activeGoal
+        self.size = size
+    }
+
     private static let outlineWidth: CGFloat = 1.5
     /// 2 × 52 px de raio do miolo, sobre 676 px (2 × os 338 px de raio externo) no ícone de 1024 px.
     private static let centerDiameterRatio: CGFloat = 104.0 / 676.0

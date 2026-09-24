@@ -4,25 +4,36 @@ import TrainerCore
 
 // Doubles e fixtures só para os #Preview da feature Ajustes (AGENTS R9: previews usam fakes).
 // Tudo privado ao arquivo e prefixado por "Settings" para não colidir com doubles de outras
-// features.
+// features. Planner e diálogo vêm do `AppEnvironment.preview()` (store em memória, fakes);
+// os ajustes do planejamento ficam numa suite própria de `UserDefaults`.
 
 // MARK: - Previews
 
 #Preview("Ajustes") {
-    SettingsView(
+    let environment = AppEnvironment.preview()
+    return SettingsView(
         backup: SettingsPreviewBackup(),
+        planner: environment.planner,
+        coach: environment.coach,
+        health: SettingsPreviewFixture.makeHealth(),
         references: SettingsPreviewFixture.references,
         onDataChanged: {},
-        now: { SettingsPreviewFixture.referenceDate }
+        now: { SettingsPreviewFixture.referenceDate },
+        defaults: SettingsPreviewFixture.defaults()
     )
 }
 
 #Preview("Ajustes — sem referências") {
-    SettingsView(
+    let environment = AppEnvironment.preview()
+    return SettingsView(
         backup: SettingsPreviewBackup(),
+        planner: environment.planner,
+        coach: environment.coach,
+        health: SettingsPreviewFixture.makeHealth(),
         references: .empty,
         onDataChanged: {},
-        now: { SettingsPreviewFixture.referenceDate }
+        now: { SettingsPreviewFixture.referenceDate },
+        defaults: SettingsPreviewFixture.defaults()
     )
 }
 
@@ -49,6 +60,23 @@ private enum SettingsPreviewFixture {
         topics: ["topic.volume": ["schoenfeld-2017-volume"]],
         explanations: ["topic.volume": "Volume semanal é o principal ajuste de hipertrofia."]
     )
+
+    /// Suite isolada: mexer nos ajustes do preview não muda o que o app real guardou.
+    static func defaults() -> UserDefaults {
+        UserDefaults(suiteName: "SettingsPreview") ?? .standard
+    }
+
+    /// Saúde de mentira para o link do perfil.
+    @MainActor
+    static func makeHealth() -> HealthViewModel {
+        let fixedNow = referenceDate
+        return HealthViewModel(
+            reader: FakeHealthDataReader(),
+            sessionsProvider: { [] },
+            now: { fixedNow },
+            defaults: UserDefaults(suiteName: "SettingsPreview.health") ?? .standard
+        )
+    }
 }
 
 // MARK: - Doubles

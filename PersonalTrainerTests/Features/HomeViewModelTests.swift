@@ -6,7 +6,8 @@ import XCTest
 
 /// T1.4 / T2.14 / T2.7: `HomeViewModel` sobre doubles de `SessionPlanning`/`SessionCoordinating`
 /// (plano, dias, objetivo, escolha manual do dia — SPEC S4), a formatação pt-BR de
-/// `PrescriptionRow` (CA1-1) e o painel semanal `WeeklyFrequencyCard` (SPEC §7.4, CA2-6).
+/// `PrescriptionRow` (CA1-1), o painel semanal `WeeklyFrequencyCard` (SPEC §7.4, CA2-6), a faixa
+/// do motivo do plano (`PlanBanner`, CA4-5) e a releitura depois de uma resposta ao diálogo.
 /// Tudo em `@MainActor` (ARCHITECTURE §10); dados SwiftData vivem em containers in-memory.
 @MainActor
 final class HomeViewModelTests: XCTestCase {
@@ -157,7 +158,7 @@ final class HomeViewModelTests: XCTestCase {
 
         XCTAssertNil(returned)
         XCTAssertEqual(model.activeSessionID, inProgressID, "Depois do alerta a Home oferece Retomar")
-        XCTAssertEqual(model.errorMessage, "Já existe um treino em andamento. Toque em Retomar treino.")
+        XCTAssertEqual(model.errorMessage, "Já existe uma sessão em andamento. Toque em Retomar.")
     }
 
     func testStartSession_coordinatorErrorSurfacesAsSessionInProgress() {
@@ -169,7 +170,7 @@ final class HomeViewModelTests: XCTestCase {
 
         XCTAssertNil(model.startSession())
         XCTAssertEqual(model.activeSessionID, inProgressID)
-        XCTAssertEqual(model.errorMessage, "Já existe um treino em andamento. Toque em Retomar treino.")
+        XCTAssertEqual(model.errorMessage, "Já existe uma sessão em andamento. Toque em Retomar.")
     }
 
     func testStartSession_unknownError_usesFallbackMessage() {
@@ -377,7 +378,7 @@ final class HomeViewModelTests: XCTestCase {
 
         XCTAssertNil(model.selectedDayID)
         XCTAssertTrue(planner.planForDayCalls.isEmpty, "RF-02: com treino em andamento só existe Retomar")
-        XCTAssertEqual(model.errorMessage, "Já existe um treino em andamento. Toque em Retomar treino.")
+        XCTAssertEqual(model.errorMessage, "Já existe uma sessão em andamento. Toque em Retomar.")
         withExtendedLifetime(container) {}
     }
 
@@ -534,7 +535,89 @@ final class HomeViewModelTests: XCTestCase {
         XCTAssertEqual(PrescriptionRow.noteText(.retry), "Repetir")
         XCTAssertEqual(PrescriptionRow.noteText(.decrease), "Reduzir")
         XCTAssertEqual(PrescriptionRow.noteText(.returning), "Retorno")
-        XCTAssertEqual(PrescriptionRow.noteText(.deload), "Deload")
+        XCTAssertEqual(PrescriptionRow.noteText(.deload), "Semana leve", "DESIGN §6: semana leve, nunca deload")
+    }
+
+    func testPlanCard_exerciseCountText() {
+        XCTAssertEqual(PlanCard.exerciseCountText(1), "1 exercício")
+        XCTAssertEqual(PlanCard.exerciseCountText(5), "5 exercícios")
+    }
+
+    // MARK: - PlanBanner (CA4-5)
+
+    func testCA4_5_frequencyReason_namesGroupAndWeeklyCount() {
+        let banner = PlanBanner.make(reason: .frequency(muscle: .quads, done: 0, target: 2), isDeload: false)
+
+        XCTAssertEqual(banner?.text, "Quadríceps: abaixo da meta semanal (0 de 2)")
+        XCTAssertEqual(
+            PlanBanner.make(reason: .frequency(muscle: .chest, done: 1, target: 3), isDeload: false)?.text,
+            "Peito: abaixo da meta semanal (1 de 3)"
+        )
+    }
+
+    func testCA4_5_deloadReasonOrDeloadPlan_showsLightWeek() {
+        XCTAssertEqual(PlanBanner.make(reason: .deload(.manyDecreases), isDeload: true)?.text, "Semana leve")
+        XCTAssertEqual(PlanBanner.make(reason: .deload(nil), isDeload: true)?.text, "Semana leve", "Passagem em andamento: sem gatilho")
+        XCTAssertEqual(
+            PlanBanner.make(reason: .manual, isDeload: true)?.text,
+            "Semana leve",
+            "Dia escolhido à mão em semana leve: `plan(forDayID:)` devolve .manual com isDeload"
+        )
+        XCTAssertEqual(PlanBanner.make(reason: .deload(.scheduled), isDeload: false), PlanBanner.deload)
+    }
+
+    func testCA4_5_rotationManualAndMissingReason_haveNoBanner() {
+        XCTAssertNil(PlanBanner.make(reason: .rotation, isDeload: false))
+        XCTAssertNil(PlanBanner.make(reason: .manual, isDeload: false))
+        XCTAssertNil(PlanBanner.make(reason: nil, isDeload: false))
+    }
+
+    func testCA4_5_bannerReadsThePlan() {
+        let base = makePlan()
+        let plan = SessionPlan(
+            programID: base.programID,
+            programName: base.programName,
+            programDayID: base.programDayID,
+            programDayName: base.programDayName,
+            exercises: base.exercises,
+            generatedAt: base.generatedAt,
+            isDeload: false,
+            reason: .frequency(muscle: .back, done: 0, target: 2)
+        )
+
+        XCTAssertEqual(PlanBanner.make(for: plan)?.text, "Costas: abaixo da meta semanal (0 de 2)")
+        XCTAssertNil(PlanBanner.make(for: base), "Plano montado fora do planejador (reason nil): sem faixa")
+    }
+
+    // MARK: - Respostas ao diálogo (SPEC §7.11)
+
+    func testDidHandleCoachAction_applyAndKeepNormal_reloadThePlan() {
+        let planner = HomeTestPlanner(planToReturn: makePlan())
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+        model.refresh()
+        XCTAssertEqual(planner.nextPlanCalls.count, 1)
+
+        let deloadPlan = makePlan(dayName: "Dia B")
+        planner.planToReturn = deloadPlan
+        model.didHandleCoachAction(.apply)
+        XCTAssertEqual(planner.nextPlanCalls.count, 2, "C2 Aplicar muda o programa: o plano é relido")
+        XCTAssertEqual(model.plan, deloadPlan)
+
+        model.didHandleCoachAction(.keepNormal)
+        XCTAssertEqual(planner.nextPlanCalls.count, 3, "C1 Seguir normal desfaz a semana leve: o plano é relido")
+    }
+
+    func testDidHandleCoachAction_otherAnswers_keepThePlanAsIs() {
+        let planner = HomeTestPlanner(planToReturn: makePlan())
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+        model.refresh()
+
+        let untouched: [CoachAction] = [.ok, .notNow, .neverAgain, .understood, .remindTomorrow, .howToRenew, .start, .seeProgress, .backupNow, .later, .done, .skip]
+        for action in untouched {
+            model.didHandleCoachAction(action)
+        }
+
+        XCTAssertEqual(planner.nextPlanCalls.count, 1, "Só Aplicar e Seguir normal mudam o plano")
     }
 
     // MARK: - Fixtures
