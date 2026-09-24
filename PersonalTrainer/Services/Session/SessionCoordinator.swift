@@ -55,7 +55,9 @@ final class SessionCoordinator: SessionCoordinating {
             hkWorkoutUUID: nil,
             avgHeartRate: nil,
             maxHeartRate: nil,
-            isDeload: false,
+            // SPEC §7.5: a sessão de semana leve fica marcada para a progressão ignorá-la (P3) e
+            // para o `DeloadScheduler` contar a passagem. Quem decide é o planejador.
+            isDeload: plan.isDeload,
             sourceRaw: source.rawValue
         )
         // Inserir antes de ligar relações é o caminho mais previsível do SwiftData (SchemaV1Tests).
