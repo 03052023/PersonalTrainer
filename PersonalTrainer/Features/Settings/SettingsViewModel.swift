@@ -3,13 +3,17 @@ import Observation
 import os
 import TrainerCore
 
-/// Estado da tela de Ajustes (T2.4, SPEC RF-18, RF-39, §7.5; contrato V2-FINAL §2.6): backup
-/// JSON e planejamento.
+/// Estado da tela de Ajustes (T2.4, SPEC RF-18, RF-39, RF-42, §7.5; contrato V2-FINAL §2.6 e
+/// V21 B1): backup JSON, modo casa e planejamento.
 ///
 /// Fluxo de exportação: `prepareExport()` gera o arquivo na memória e abre o `fileExporter`; ao
-/// salvar, grava `lastBackupAt` (lembrete de backup do diálogo, SPEC §7.11 C7).
+/// salvar, grava `lastBackupAt` (lembrete de backup do diálogo, SPEC §7.11 C7). O "Fazer backup"
+/// do diálogo (C7) chama o mesmo `prepareExport()` (B10); por isso, no app, o `RootView` guarda
+/// esta instância e apresenta o `fileExporter` e os alertas na raiz, visíveis em qualquer aba.
 /// Fluxo de importação: `fileImporter` → `handleImportSelection` lê o arquivo → confirmação
-/// destrutiva → `confirmImport()` chama o serviço, mostra as contagens e avisa `onDataChanged`.
+/// destrutiva → `confirmImport()` chama o serviço, zera o que foi decidido sobre os dados antigos
+/// (`BackupImportCleanup`, A5), mostra as contagens e avisa `onDataChanged`.
+/// Modo casa: a chave `PlannerSettings.homeModeKey`, a mesma do interruptor da Home.
 /// Planejamento: seletor por frequência e semanas entre semanas leves em `UserDefaults` (chaves de
 /// `PlannerSettings`, lidas pelo planner a cada plano) e "Fazer semana leve agora" pelo
 /// `SessionPlanning.requestDeload`, com confirmação.
@@ -45,6 +49,8 @@ final class SettingsViewModel {
     private(set) var frequencySelector: PlannerSettings.FrequencySelectorMode
     /// Semanas entre semanas leves (SPEC §7.5 b), dentro de `deloadWeeksRange`; 0 desliga.
     private(set) var deloadWeeks: Int
+    /// "Treinar em casa" (SPEC RF-42). A Home grava a mesma chave: `reloadHomeMode()` ao abrir.
+    private(set) var homeModeEnabled: Bool
     /// Ligado ao `confirmationDialog` de "Fazer semana leve agora".
     var isConfirmingDeload = false
 
@@ -59,6 +65,7 @@ final class SettingsViewModel {
     private let planner: any SessionPlanning
     private let now: () -> Date
     private let defaults: UserDefaults
+    private let importCleanup: BackupImportCleanup
     private let onDataChanged: () -> Void
     @ObservationIgnored private var pendingImportData: Data?
     private let logger = Logger(
@@ -67,16 +74,19 @@ final class SettingsViewModel {
     )
 
     /// - Parameters:
-    ///   - defaults: onde ficam os ajustes do planejamento e `lastBackupAt` (contrato V2-FINAL §2:
-    ///     chaves compartilhadas). Testes passam uma suite isolada.
-    ///   - onDataChanged: depois de importar um backup ou programar uma semana leve, para quem
-    ///     guarda o plano em cache (Home) reler.
+    ///   - defaults: onde ficam os ajustes do planejamento, o modo casa e `lastBackupAt` (contratos
+    ///     V2-FINAL §2 e V21 B1: chaves compartilhadas). Testes passam uma suite isolada.
+    ///   - importCleanup: o que a importação zera (A5); `nil` usa os arquivos e as chaves do app
+    ///     (`BackupImportCleanup.live(defaults:)`). Testes passam arquivos temporários.
+    ///   - onDataChanged: depois de importar um backup, programar uma semana leve ou mudar o modo
+    ///     casa, para quem guarda o plano em cache (Home) reler.
     init(
         backup: any BackupServicing,
         planner: any SessionPlanning,
         now: @escaping () -> Date,
         appVersion: String,
         defaults: UserDefaults = .standard,
+        importCleanup: BackupImportCleanup? = nil,
         onDataChanged: @escaping () -> Void
     ) {
         self.backup = backup
@@ -84,10 +94,16 @@ final class SettingsViewModel {
         self.now = now
         self.appVersion = appVersion
         self.defaults = defaults
+        if let importCleanup {
+            self.importCleanup = importCleanup
+        } else {
+            self.importCleanup = BackupImportCleanup.live(defaults: defaults)
+        }
         self.onDataChanged = onDataChanged
         let settings = PlannerSettings.load(from: defaults)
         self.frequencySelector = settings.frequencySelector
         self.deloadWeeks = SettingsViewModel.clampedDeloadWeeks(settings.deloadWeeks)
+        self.homeModeEnabled = settings.homeModeEnabled
     }
 
     // MARK: - Exportar
@@ -178,6 +194,10 @@ final class SettingsViewModel {
         pendingImportData = nil
         do {
             let report = try backup.importBackup(data)
+            // A5: semana leve pedida ou dispensada e a última revisão valiam para os dados
+            // antigos. O log do diálogo fica. Uma falha aqui só vai para o log: o banco já é o
+            // do backup.
+            importCleanup.run()
             present(title: "Backup importado", message: Self.summary(of: report))
             onDataChanged()
         } catch {
@@ -189,6 +209,20 @@ final class SettingsViewModel {
     func cancelImport() {
         pendingImportData = nil
         pendingImportFileName = ""
+    }
+
+    // MARK: - Modo casa (SPEC RF-42)
+
+    /// Grava a chave que o planner e a Home leem. O programa não muda; a Home relê o plano.
+    func setHomeModeEnabled(_ enabled: Bool) {
+        homeModeEnabled = enabled
+        defaults.set(enabled, forKey: PlannerSettings.homeModeKey)
+        onDataChanged()
+    }
+
+    /// O interruptor da Home grava a mesma chave: relida sempre que o Ajustes aparece.
+    func reloadHomeMode() {
+        homeModeEnabled = PlannerSettings.load(from: defaults).homeModeEnabled
     }
 
     // MARK: - Planejamento

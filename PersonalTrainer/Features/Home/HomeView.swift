@@ -3,7 +3,8 @@ import TrainerCore
 
 /// Aba "Hoje" (SPEC F1, RF-01, RF-02, S4, RF-17, RF-32, §7.11; DESIGN §9), de cima para baixo:
 /// 1. o objetivo ativo (flor, nome em New York e subtítulo);
-/// 2. a sessão de hoje, com a faixa que diz por que este dia (CA4-5) e o menu para escolher outro;
+/// 2. a sessão de hoje, com a faixa que diz por que este dia (CA4-5), o menu para escolher outro,
+///    a duração estimada e o interruptor "Em casa" (SPEC RF-42);
 /// 3. o botão principal "Começar" / "Retomar", o único proeminente da tela;
 /// 4. as mensagens do diálogo (SPEC §7.11), ligadas a `CoachService.handle`;
 /// 5. o cartão de Saúde, sem as sugestões (elas já aparecem no diálogo, C3);
@@ -98,6 +99,10 @@ struct HomeView: View {
                 goal: model.goal,
                 references: references,
                 canChooseDay: model.activeSessionID == nil,
+                isHomeModeOn: model.isHomeMode,
+                onToggleHomeMode: { enabled in
+                    model.setHomeMode(enabled)
+                },
                 onSelectDay: { dayID in
                     model.selectDay(dayID)
                 },

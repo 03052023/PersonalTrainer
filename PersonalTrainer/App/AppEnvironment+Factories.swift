@@ -49,10 +49,14 @@ extension AppEnvironment {
         // A mesma instância vai ao planner e ao ambiente: com o padrão em memória do planner,
         // "Fazer semana leve agora" e "Seguir normal" se perderiam ao relançar (contrato §2.2).
         let deloadDecisions = LiveDeloadDecisionsStore()
+        // Lido uma vez: o planner (modo casa, duração estimada) e as telas (`\.exerciseTraits`)
+        // usam o mesmo catálogo de medidas (SPEC RF-42, RF-43).
+        let traits = ExerciseTraitsLibrary.load(bundle: .main)
         let planner = SessionPlanner(
             modelContext: context,
             coordinator: coordinator,
-            deloadDecisions: deloadDecisions
+            deloadDecisions: deloadDecisions,
+            traits: traits
         )
         let programs = ProgramRepository(modelContext: context)
         let notifications = LiveNotificationScheduler()
@@ -120,7 +124,7 @@ extension AppEnvironment {
             watchSync: NoopWatchSyncService(),
             now: { Date() },
             storeLoadError: storeLoadError,
-            traits: ExerciseTraitsLibrary.load(bundle: .main)
+            traits: traits
         )
     }
 
@@ -143,11 +147,13 @@ extension AppEnvironment {
         )
         // Decisões em memória e ajustes fixos: nenhuma preview lê nem grava o que o app real guardou.
         let deloadDecisions = FakeDeloadDecisionsStore()
+        let traits = ExerciseTraitsLibrary.load(bundle: .main)
         let planner = SessionPlanner(
             modelContext: context,
             coordinator: coordinator,
             deloadDecisions: deloadDecisions,
-            settings: { PlannerSettings() }
+            settings: { PlannerSettings() },
+            traits: traits
         )
         let programs = ProgramRepository(modelContext: context)
         let notifications = FakeNotificationScheduler()
@@ -179,7 +185,7 @@ extension AppEnvironment {
             healthRecorder: nil,
             watchSync: NoopWatchSyncService(),
             now: { fixedNow },
-            traits: ExerciseTraitsLibrary.load(bundle: .main)
+            traits: traits
         )
     }
 }

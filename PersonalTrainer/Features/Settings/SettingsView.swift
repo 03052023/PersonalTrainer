@@ -2,16 +2,24 @@ import SwiftUI
 import TrainerCore
 import UniformTypeIdentifiers
 
-/// Aba Ajustes (T2.4, SPEC RF-18, RF-32, RF-39, §7.5, §7.10, §7.11; contrato V2-FINAL §2.6):
-/// planejamento (seletor por frequência, semanas entre semanas leves, "Fazer semana leve agora"),
-/// avisos (véspera da validade da instalação), perfil de saúde, backup, referências científicas e
-/// versão do app.
+/// Aba Ajustes (T2.4, SPEC RF-18, RF-32, RF-39, RF-42, §7.5, §7.10, §7.11; contratos V2-FINAL
+/// §2.6 e V21 B1): modo casa ("Treinar em casa"), planejamento (seletor por frequência, semanas
+/// entre semanas leves, "Fazer semana leve agora"), avisos (véspera da validade da instalação),
+/// perfil de saúde, backup, referências científicas e versão do app.
 ///
 /// Traz a própria `NavigationStack`; quem a coloca numa aba não deve aninhá-la em outra.
 /// Nenhuma escrita no `ModelContext` (AGENTS R4): backup por `BackupServicing` e semana leve por
 /// `SessionPlanning`, via `SettingsViewModel`; o aviso de validade pelo `CoachService`, que pede a
-/// permissão de notificação só quando a pessoa liga o interruptor (AGENTS §7). Depois de importar
-/// ou de programar uma semana leve, `onDataChanged` avisa o integrador para reler a Home.
+/// permissão de notificação só quando a pessoa liga o interruptor (AGENTS §7). Depois de importar,
+/// de programar uma semana leve ou de mudar o modo casa, `onDataChanged` avisa o integrador para
+/// reler a Home.
+///
+/// Duas formas de montar:
+/// - `init(backup:planner:…)`: a tela é dona do `SettingsViewModel` e apresenta a exportação e os
+///   alertas (previews);
+/// - `init(model:…)`: o `RootView` é dono do modelo e apresenta a exportação e os alertas na raiz,
+///   para o "Fazer backup" do diálogo (C7) abrir a exportação direto de qualquer aba (B10). Aqui
+///   ficam só a importação e as confirmações, que nascem nesta tela.
 ///
 /// `fileExporter` e `fileImporter` ficam em níveis diferentes da hierarquia: dois seletores de
 /// arquivo no mesmo view já deixaram um deles mudo em versões anteriores do SwiftUI. Pelo mesmo
@@ -24,6 +32,8 @@ struct SettingsView: View {
     private let coach: CoachService
     private let health: HealthViewModel
     private let references: ReferenceCatalog
+    /// Falso quando quem monta a tela apresenta o `fileExporter` e o alerta do modelo (`RootView`).
+    private let presentsExportAndAlerts: Bool
 
     /// - Parameter now: relógio da exportação (data do arquivo e `exportedAt`) e do pedido de
     ///   semana leve. O padrão é o relógio do sistema; o integrador passa `environment.now`.
@@ -40,6 +50,7 @@ struct SettingsView: View {
         self.coach = coach
         self.health = health
         self.references = references
+        self.presentsExportAndAlerts = true
         self._model = State(initialValue: SettingsViewModel(
             backup: backup,
             planner: planner,
@@ -50,9 +61,25 @@ struct SettingsView: View {
         ))
     }
 
+    /// Modelo de quem monta a tela, que também apresenta o `fileExporter` e o alerta dele
+    /// (`model.isExporterPresented`, `model.isAlertPresented`).
+    init(
+        model: SettingsViewModel,
+        coach: CoachService,
+        health: HealthViewModel,
+        references: ReferenceCatalog
+    ) {
+        self.coach = coach
+        self.health = health
+        self.references = references
+        self.presentsExportAndAlerts = false
+        self._model = State(initialValue: model)
+    }
+
     var body: some View {
         NavigationStack {
             Form {
+                homeSection
                 planningSection
                 remindersSection
                 healthSection
@@ -61,10 +88,14 @@ struct SettingsView: View {
                 aboutSection
             }
             .navigationTitle("Ajustes")
+            // O interruptor "Em casa" da Home grava a mesma chave.
+            .onAppear {
+                model.reloadHomeMode()
+            }
             // Rótulo `onCompletion:` explícito: o iOS 17 acrescentou sobrecargas com
             // `onCancellation:` e o fechamento final poderia ficar ambíguo.
             .fileExporter(
-                isPresented: $model.isExporterPresented,
+                isPresented: exporterBinding,
                 document: model.exportDocument,
                 contentType: .json,
                 defaultFilename: model.exportFileName,
@@ -84,7 +115,7 @@ struct SettingsView: View {
                     model.cancelImport()
                 }
             } message: {
-                Text("Isso substitui todas as sessões atuais, os programas, o catálogo e os ajustes pelo conteúdo de \(model.pendingImportFileName). Não dá para desfazer.")
+                Text("Isso substitui todas as sessões atuais, os programas, o catálogo e os ajustes pelo conteúdo de \(model.pendingImportFileName). A semana leve pedida e a última revisão também recomeçam. Não dá para desfazer.")
             }
         }
         .fileImporter(
@@ -96,7 +127,7 @@ struct SettingsView: View {
         )
         .alert(
             Text(model.alert?.title ?? ""),
-            isPresented: $model.isAlertPresented,
+            isPresented: alertBinding,
             presenting: model.alert
         ) { _ in
             Button("OK", role: .cancel) {}
@@ -115,7 +146,40 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Apresentações
+
+    /// Uma exportação só tem um `fileExporter` ligado: o desta tela ou o do `RootView`.
+    private var exporterBinding: Binding<Bool> {
+        presentsExportAndAlerts ? $model.isExporterPresented : .constant(false)
+    }
+
+    /// Idem para o alerta de resultado.
+    private var alertBinding: Binding<Bool> {
+        presentsExportAndAlerts ? $model.isAlertPresented : .constant(false)
+    }
+
     // MARK: - Seções
+
+    /// SPEC RF-42: "chave 'Treinar em casa' em Ajustes e na tela Hoje", a mesma
+    /// `PlannerSettings.homeModeKey`.
+    private var homeSection: some View {
+        let isOn = model.homeModeEnabled
+        return Section {
+            Toggle(
+                "Treinar em casa",
+                isOn: Binding<Bool>(
+                    get: { isOn },
+                    set: { enabled in
+                        model.setHomeModeEnabled(enabled)
+                    }
+                )
+            )
+        } header: {
+            Text("Onde treinar")
+        } footer: {
+            Text("Ligado, cada exercício da sessão vira um equivalente que dá para fazer em casa, com o peso do corpo ou objetos como mochila, garrafas de água e uma cadeira firme. O programa não muda: desligue para voltar aos exercícios dele.")
+        }
+    }
 
     /// SPEC RF-39 (seletor por frequência, chave `plannerFrequencySelector`) e §7.5 (semanas
     /// entre semanas leves, `plannerDeloadWeeks`; pedido manual).
