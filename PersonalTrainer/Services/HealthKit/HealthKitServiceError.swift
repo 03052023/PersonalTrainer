@@ -12,4 +12,6 @@ enum HealthKitServiceError: Error, Sendable, Equatable {
     case saveFailed(underlying: String)
     /// A consulta de amostras falhou.
     case queryFailed(underlying: String)
+    /// `HKHealthStore.deleteObjects` falhou (ex.: escrita negada depois de gravar).
+    case deleteFailed(underlying: String)
 }

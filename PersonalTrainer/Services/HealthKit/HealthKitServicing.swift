@@ -26,8 +26,9 @@ protocol HealthKitServicing: Sendable {
     /// ou quando a leitura foi negada: o sistema não distingue os dois casos.
     func heartRateSummary(start: Date, end: Date) async throws -> HeartRateSummary?
 
-    // M2 — requisito para despacho dinâmico; padrão (nil) na extensão abaixo.
+    // M2 — requisitos para despacho dinâmico; padrões na extensão abaixo.
     func findOverlappingStrengthWorkout(start: Date, end: Date) async throws -> UUID?
+    func removeOwnStrengthWorkout(sessionUUID: UUID) async throws
 }
 
 // MARK: - M2 (contrato; T2.1)
@@ -37,4 +38,14 @@ extension HealthKitServicing {
     /// ≥ 50 % de `[start, end]` (SPEC RF-13). O gravador vincula esse treino em vez de criar outro.
     /// `nil` se não houver. Implementação padrão devolve `nil` (fakes antigos).
     func findOverlappingStrengthWorkout(start: Date, end: Date) async throws -> UUID? { nil }
+
+    /// Apaga o treino que ESTE app gravou para a sessão (achado pela `HKMetadataKeyExternalUUID`).
+    /// Termina sem erro quando não há treino deste app para a sessão: na volta, nenhum treino deste
+    /// app sobrou para ela. Usado só na reconciliação, quando o treino do app Exercício chegou depois
+    /// e o do iPhone virou duplicata (RF-13: um treino por sessão). O HealthKit nunca deixa apagar
+    /// dados de outros apps. Implementação padrão lança `.unavailable`: sem apagar, o gravador mantém
+    /// o vínculo que já tinha.
+    func removeOwnStrengthWorkout(sessionUUID: UUID) async throws {
+        throw HealthKitServiceError.unavailable
+    }
 }

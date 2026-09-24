@@ -10,16 +10,35 @@ extension AppEnvironment {
     /// Ambiente do app de verdade: store persistente, seed do bundle, notificações reais e
     /// HealthKit real quando o aparelho tem o app Saúde.
     ///
-    /// Nunca derruba o launch por causa do store, do seed ou das referências: sem store
-    /// persistente o app abre em memória (perde-se o histórico daquela execução, não o app); sem
-    /// seed a Home mostra o estado vazio ("Nenhum programa ativo"); sem referências os botões
-    /// "Por quê?" somem. Os três casos vão para o `os.Logger`.
+    /// Nunca derruba o launch por causa do store, do seed ou das referências, e nunca esconde os
+    /// dados do usuário:
+    /// - store persistente que não abre (migração, disco cheio, arquivo protegido): o ambiente sai
+    ///   com `storeLoadError` preenchido e um container em memória só para as dependências
+    ///   existirem. Nada de seed, gravador do Saúde ou recuperação de importação nesse modo, e o
+    ///   `RootView` mostra só a tela de erro (tentar de novo / exportar os arquivos). O arquivo em
+    ///   disco não é tocado;
+    /// - sem seed, a Home mostra o estado vazio ("Nenhum programa ativo");
+    /// - sem referências, os botões "Por quê?" somem.
+    /// Os casos vão para o `os.Logger`.
     @MainActor
     static func live() -> AppEnvironment {
-        let modelContainer = makeContainer(.persistent, logger: makeLogger(category: "Persistence"))
+        let persistenceLogger = makeLogger(category: "Persistence")
+        let opened = openPersistentContainer(logger: persistenceLogger)
+        let modelContainer = opened.container
+        let storeLoadError = opened.errorMessage
         let context = modelContainer.mainContext
-        // ARCHITECTURE §11: antes de construir o planner, que precisa do programa ativo.
-        loadSeed(into: context, now: Date(), logger: makeLogger(category: "Seed"))
+
+        let backup: BackupService
+        if storeLoadError == nil {
+            backup = BackupService(modelContext: context, pendingRestoreURL: BackupService.defaultPendingRestoreURL())
+            // Antes do seed: uma importação interrompida deixa o store vazio, e o seed instalaria o
+            // catálogo padrão por cima dos dados que o retrato da importação ainda guarda.
+            backup.recoverInterruptedImportIfNeeded()
+            // ARCHITECTURE §11: antes de construir o planner, que precisa do programa ativo.
+            loadSeed(into: context, now: Date(), logger: makeLogger(category: "Seed"))
+        } else {
+            backup = BackupService(modelContext: context)
+        }
 
         let coordinator = SessionCoordinator(
             modelContext: context,
@@ -38,9 +57,16 @@ extension AppEnvironment {
             healthKit = FakeHealthKitService(isAvailable: false)
         }
         // Assina `eventsApplied` já: a autorização do HealthKit só é pedida ao finalizar a
-        // primeira sessão, nunca no launch (AGENTS §7).
-        let healthRecorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: coordinator)
-        healthRecorder.start()
+        // primeira sessão, nunca no launch (AGENTS §7). Sem store real, nenhum treino vai ao Saúde:
+        // as sessões de um container em memória não existiriam no próximo launch.
+        let healthRecorder: HealthKitWorkoutRecorder?
+        if storeLoadError == nil {
+            let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: coordinator)
+            recorder.start()
+            healthRecorder = recorder
+        } else {
+            healthRecorder = nil
+        }
 
         return AppEnvironment(
             modelContainer: modelContainer,
@@ -48,14 +74,15 @@ extension AppEnvironment {
             planner: planner,
             programs: ProgramRepository(modelContext: context),
             catalog: CatalogRepository(modelContext: context),
-            backup: BackupService(modelContext: context),
+            backup: backup,
             references: ReferenceLibrary.load(bundle: .main),
             restTimer: RestTimer(notifications: notifications),
             notifications: notifications,
             healthKit: healthKit,
             healthRecorder: healthRecorder,
             watchSync: NoopWatchSyncService(),
-            now: { Date() }
+            now: { Date() },
+            storeLoadError: storeLoadError
         )
     }
 
@@ -67,7 +94,7 @@ extension AppEnvironment {
     static func preview(now: Date = Date(timeIntervalSince1970: 1_758_600_000)) -> AppEnvironment {
         let fixedNow = now
         let logger = makeLogger(category: "Preview")
-        let modelContainer = makeContainer(.inMemory, logger: logger)
+        let modelContainer = makeInMemoryContainer(logger: logger)
         let context = modelContainer.mainContext
         loadSeed(into: context, now: fixedNow, logger: logger)
 
@@ -104,16 +131,23 @@ private extension AppEnvironment {
         Logger(subsystem: Bundle.main.bundleIdentifier ?? "PersonalTrainer", category: category)
     }
 
-    /// Abre o container pedido; se falhar, cai para memória (o app abre sem histórico em vez
-    /// de não abrir). Não conseguir nem o container em memória significa que o esquema
-    /// compilado não carrega: é precondição de programação (AGENTS §4), não erro de runtime,
-    /// e nesse caso não há `ModelContainer` possível para devolver.
-    static func makeContainer(_ mode: ModelContainerFactory.Mode, logger: Logger) -> ModelContainer {
+    /// Abre o store persistente. Em falha devolve um container em memória, que só existe para as
+    /// dependências poderem ser montadas, e a descrição do erro, que faz o `RootView` bloquear o
+    /// app na tela de erro. O store em disco nunca é apagado nem recriado aqui.
+    static func openPersistentContainer(logger: Logger) -> (container: ModelContainer, errorMessage: String?) {
         do {
-            return try ModelContainerFactory.make(mode)
+            return (try ModelContainerFactory.make(.persistent), nil)
         } catch {
-            logger.error("Não foi possível abrir o store (\(String(describing: mode), privacy: .public)): \(String(describing: error), privacy: .public). Usando store em memória.")
+            let message = String(describing: error)
+            logger.error("Não foi possível abrir o store persistente: \(message, privacy: .public). O app mostra a tela de erro; nada foi apagado.")
+            return (makeInMemoryContainer(logger: logger), message)
         }
+    }
+
+    /// Não conseguir nem o container em memória significa que o esquema compilado não carrega: é
+    /// precondição de programação (AGENTS §4), não erro de runtime, e nesse caso não há
+    /// `ModelContainer` possível para devolver.
+    static func makeInMemoryContainer(logger: Logger) -> ModelContainer {
         do {
             return try ModelContainerFactory.make(.inMemory)
         } catch {

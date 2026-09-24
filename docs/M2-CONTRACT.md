@@ -37,9 +37,9 @@ Redeclara os 8 modelos de V1 (mesmos nomes, mesmos campos) e acrescenta, todos c
 
 ## 3. Protocolos do app (já em `main`)
 
-- `SessionCoordinating`: novos requisitos `deleteSession(id:)`, `substituteExercise(sessionID:sessionExerciseID:with:now:)` (padrão lança `.unsupported`). `SessionCoordinatorError.unsupported`.
+- `SessionCoordinating`: novos requisitos `deleteSession(id:)`, `substituteExercise(sessionID:sessionExerciseID:with:now:)` (padrão lança `.unsupported`). `SessionCoordinatorError.unsupported`. Correção do M2: `completedSessions(startedSince:)` (só leitura, padrão `[]`), usado pela reconciliação do HealthKit.
 - `SessionPlanning`: `activeProgramDays()`, `activeProgramGoal()`, `substitutionPlan(replacing:target:newExerciseID:now:)`, `substitutes(for:limit:)`.
-- `HealthKitServicing`: `findOverlappingStrengthWorkout(start:end:)`.
+- `HealthKitServicing`: `findOverlappingStrengthWorkout(start:end:)`. Correção do M2: `removeOwnStrengthWorkout(sessionUUID:)` (apaga só o treino deste app para a sessão; padrão lança `.unavailable`) e `HealthKitServiceError.deleteFailed`. `HealthKitWorkoutRecorder.reconcileRecentSessions(now:)` roda quando o app volta ao primeiro plano.
 - `ProgramRepositoring` + `ProgramRepositoryError` + `ProgramLimits` (Persistence/Repositories).
 - `CatalogRepositoring` + `ExerciseDraft` + `CatalogRepositoryError`.
 - `BackupServicing` + `BackupImportReport` + `BackupError` (Services/Backup).
@@ -66,6 +66,8 @@ Redeclara os 8 modelos de V1 (mesmos nomes, mesmos campos) e acrescenta, todos c
 ## 6. AppEnvironment (integrador)
 
 Ganha: `programs: any ProgramRepositoring`, `catalog: any CatalogRepositoring`, `backup: any BackupServicing`, `references: ReferenceCatalog`, `healthRecorder: HealthKitWorkoutRecorder?`. `live()` usa `LiveHealthKitService()` quando `isAvailable`, senão `FakeHealthKitService()`.
+
+Correção do M2: `storeLoadError: String?` (padrão `nil`). Se o store persistente não abre, `live()` não semeia, não liga o gravador do Saúde e o `RootView` mostra só a tela de erro (tentar de novo / exportar os arquivos de dados), nunca um app vazio em memória. `ModelContainerFactory` copia o store para `PersonalTrainer.before-schema-v2.store` antes da primeira abertura com o esquema atual. `BackupService` guarda o retrato da importação em `pre-import-backup.json` e `recoverInterruptedImportIfNeeded()` roda no launch, antes do seed.
 
 ## 7. Navegação (integrador)
 

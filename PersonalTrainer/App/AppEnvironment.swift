@@ -30,6 +30,12 @@ final class AppEnvironment {
     let watchSync: any WatchSyncServicing
     /// Relógio injetável: `{ Date() }` no app, data fixa em previews e testes (SPEC P11).
     let now: () -> Date
+    /// Descrição do erro quando o store persistente não abriu (migração, disco cheio, arquivo
+    /// protegido). Com valor, `RootView` mostra só a tela de erro (tentar de novo / exportar os
+    /// arquivos de dados) em vez das abas: o app nunca abre vazio em memória fingindo ser uma
+    /// instalação nova, e nada é gravado, semeado ou exportado por cima dos dados reais, que
+    /// continuam intactos no disco.
+    let storeLoadError: String?
 
     init(
         modelContainer: ModelContainer,
@@ -44,7 +50,8 @@ final class AppEnvironment {
         healthKit: any HealthKitServicing,
         healthRecorder: HealthKitWorkoutRecorder?,
         watchSync: any WatchSyncServicing,
-        now: @escaping () -> Date = { Date() }
+        now: @escaping () -> Date = { Date() },
+        storeLoadError: String? = nil
     ) {
         self.modelContainer = modelContainer
         self.coordinator = coordinator
@@ -59,5 +66,6 @@ final class AppEnvironment {
         self.healthRecorder = healthRecorder
         self.watchSync = watchSync
         self.now = now
+        self.storeLoadError = storeLoadError
     }
 }

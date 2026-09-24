@@ -123,9 +123,19 @@ final class SessionCoordinator: SessionCoordinating {
         case let .heartRateSummary(averageBPM, maxBPM, hkWorkoutUUID):
             // Permitido após finalizar: o resumo do relógio chega depois do `sessionFinished`.
             // Só exibição; nunca entra no motor (SPEC P12, AGENTS R2).
-            session.avgHeartRate = averageBPM
-            session.maxHeartRate = maxBPM
-            session.hkWorkoutUUID = hkWorkoutUUID
+            // O evento só preenche, nunca apaga. Ele não tem opcionais: FC 0 significa "sem FC" e
+            // fica `nil` na sessão (não "FC 0", que iria para o backup e para a revisão como leitura
+            // real). Um UUID `nil` não desfaz o vínculo que outro escritor já gravou (ex.: o resumo
+            // do relógio chegando enquanto o gravador do iPhone espera o HealthKit).
+            if averageBPM.isFinite, averageBPM > 0 {
+                session.avgHeartRate = averageBPM
+            }
+            if maxBPM.isFinite, maxBPM > 0 {
+                session.maxHeartRate = maxBPM
+            }
+            if let hkWorkoutUUID {
+                session.hkWorkoutUUID = hkWorkoutUUID
+            }
 
         case let .setLogged(sessionExerciseID, setID, index, load, reps, rir, isWarmup):
             try requireInProgress(session)
@@ -223,9 +233,12 @@ final class SessionCoordinator: SessionCoordinating {
     /// `SessionPlanning.substitutionPlan`, calculado com o histórico do NOVO exercício, P3).
     ///
     /// A troca em si passa por `apply(.exerciseSubstituted)`, para que o evento seja o mesmo que
-    /// o relógio emite (M3) e chegue aos observadores; depois os campos de prescrição são
-    /// reescritos e salvos. Validações feitas antes do `apply`, para que uma recusa não deixe
-    /// nada pela metade:
+    /// o relógio emite (M3) e chegue aos observadores. A prescrição nova é escrita no contexto
+    /// antes do `apply`, e o único `save()` (o do `apply`) grava troca e prescrição juntas: nunca
+    /// fica no store o exercício novo com a prescrição do antigo. Se o `apply` lançar (exercício
+    /// fora do catálogo ou falha no `save`), `rollback()` descarta a prescrição escrita.
+    /// Validações feitas antes de escrever qualquer coisa, para que uma recusa não deixe nada
+    /// pela metade:
     /// - sessão inexistente → `sessionNotFound`; fora de `inProgress` → `sessionNotInProgress`;
     /// - exercício da sessão inexistente → `sessionExerciseNotFound`;
     /// - exercício que já tem séries (inclusive aquecimento) → `unsupported`: as séries
@@ -246,15 +259,6 @@ final class SessionCoordinator: SessionCoordinating {
             return
         }
 
-        // Troca `exerciseUUID`, nome e relação e guarda `substitutedFromUUID`; lança
-        // `exerciseNotFound` (sem alterar nada) se o novo exercício não está no catálogo.
-        try apply(SessionEvent(
-            sessionID: sessionID,
-            occurredAt: now,
-            source: .iphone,
-            kind: .exerciseSubstituted(sessionExerciseID: sessionExerciseID, newExerciseID: planned.exercise.id)
-        ))
-
         // O `apply` mantém a prescrição do original (correto para o evento cru do relógio);
         // aqui ela passa a ser a do substituto, que começa em calibração se nunca foi feito.
         let prescription = planned.prescription
@@ -266,7 +270,33 @@ final class SessionCoordinator: SessionCoordinating {
         sessionExercise.restSeconds = prescription.restSeconds
         sessionExercise.noteRaw = prescription.note.rawValue
         sessionExercise.prescribedTargetReps = prescription.targetReps
-        try modelContext.save()
+
+        // Troca `exerciseUUID`, nome e relação, guarda `substitutedFromUUID` e salva tudo num só
+        // `save()`. Lança `exerciseNotFound` antes do `save` se o novo exercício não está no
+        // catálogo.
+        do {
+            try apply(SessionEvent(
+                sessionID: sessionID,
+                occurredAt: now,
+                source: .iphone,
+                kind: .exerciseSubstituted(sessionExerciseID: sessionExerciseID, newExerciseID: planned.exercise.id)
+            ))
+        } catch {
+            modelContext.rollback()
+            throw error
+        }
+    }
+
+    /// Só leitura, para o gravador do Saúde revisitar sessões recentes (reconciliação, RF-13/RF-14).
+    /// Uma falha de fetch vira lista vazia: reconciliar é melhor esforço e roda de novo depois.
+    func completedSessions(startedSince date: Date) -> [WorkoutSessionModel] {
+        // `#Predicate` só compara com valores capturados; o `rawValue` vai para um `let`.
+        let completed = SessionStatus.completed.rawValue
+        let descriptor = FetchDescriptor<WorkoutSessionModel>(
+            predicate: #Predicate<WorkoutSessionModel> { $0.statusRaw == completed && $0.startedAt >= date },
+            sortBy: [SortDescriptor(\WorkoutSessionModel.startedAt, order: .reverse)]
+        )
+        return (try? modelContext.fetch(descriptor)) ?? []
     }
 
     /// Cada leitura cria um stream novo (fan-out): HealthKit e Watch consomem independentes.

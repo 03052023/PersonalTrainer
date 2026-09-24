@@ -188,6 +188,40 @@ final class LiveHealthKitService: HealthKitServicing, @unchecked Sendable {
         return Self.bestOverlappingWorkout(among: candidates, start: start, end: end)
     }
 
+    /// Apaga o treino que este app gravou para a sessão (reconciliação, RF-13). O predicado exige a
+    /// `HKMetadataKeyExternalUUID` da sessão E a origem deste app (`HKSource.default()`); o HealthKit
+    /// também só apaga objetos gravados pelo próprio app. Nenhum objeto sai daqui: a exclusão é feita
+    /// por predicado, e só `Bool`/`Int` voltam no callback.
+    func removeOwnStrengthWorkout(sessionUUID: UUID) async throws {
+        guard isAvailable else {
+            throw HealthKitServiceError.unavailable
+        }
+        guard store.authorizationStatus(for: HKObjectType.workoutType()) == .sharingAuthorized else {
+            throw HealthKitServiceError.notAuthorized
+        }
+        let predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            HKQuery.predicateForObjects(
+                withMetadataKey: HKMetadataKeyExternalUUID,
+                allowedValues: [sessionUUID.uuidString]
+            ),
+            HKQuery.predicateForObjects(from: HKSource.default()),
+        ])
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            store.deleteObjects(of: HKObjectType.workoutType(), predicate: predicate) { success, _, error in
+                if success {
+                    continuation.resume()
+                } else if let healthKitError = error as? HKError, healthKitError.code == .errorNoData {
+                    // Nada deste app para a sessão: o resultado já é o pedido.
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: HealthKitServiceError.deleteFailed(
+                        underlying: error.map { String(describing: $0) } ?? "deleteObjects reported failure without an error"
+                    ))
+                }
+            }
+        }
+    }
+
     // MARK: - Regra de vínculo (pura, testável sem HealthKit)
 
     /// UUID do candidato com maior sobreposição com `[start, end]`, desde que ela seja pelo menos

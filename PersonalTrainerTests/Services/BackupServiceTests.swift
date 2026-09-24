@@ -314,6 +314,90 @@ final class BackupServiceTests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<WorkoutSessionModel>()), 1)
     }
 
+    // MARK: - Retrato no disco (importação interrompida)
+
+    func testRF18_successfulImport_leavesNoPendingRestoreFile() throws {
+        let other = try makeContext()
+        _ = try insertFixture(into: other)
+        let data = try makeService(other).exportBackup(now: now)
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let restoreURL = pendingRestoreURL(in: directory)
+
+        let context = try makeContext()
+        _ = try makeService(context, pendingRestoreURL: restoreURL).importBackup(data)
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: restoreURL.path(percentEncoded: false)))
+    }
+
+    func testRF18_interruptedImport_emptyStoreIsRestoredFromPendingFileBeforeSeed() throws {
+        // Retrato dos dados do usuário gravado pela importação antes de apagar o store.
+        let original = try makeContext()
+        _ = try insertFixture(into: original)
+        let snapshot = try makeService(original).exportBackup(now: now)
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let restoreURL = pendingRestoreURL(in: directory)
+        try snapshot.write(to: restoreURL, options: .atomic)
+
+        // O processo morreu depois da fase 1: store vazio no próximo launch.
+        let relaunched = try makeContext()
+        let service = makeService(relaunched, pendingRestoreURL: restoreURL)
+
+        XCTAssertTrue(service.recoverInterruptedImportIfNeeded())
+
+        XCTAssertEqual(try counts(in: relaunched), Counts(
+            exercises: 3, programs: 2, days: 3, targets: 4,
+            sessions: 2, sessionExercises: 3, sets: 4, settings: 1
+        ))
+        XCTAssertEqual(try service.exportBackup(now: now), snapshot, "Nada se perdeu")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: restoreURL.path(percentEncoded: false)))
+        XCTAssertFalse(service.recoverInterruptedImportIfNeeded(), "Sem arquivo, nada a fazer")
+    }
+
+    func testRF18_pendingFileWithFilledStore_changesNothingAndKeepsFile() throws {
+        let other = try makeContext()
+        _ = try insertFixture(into: other)
+        let snapshot = try makeService(other).exportBackup(now: now)
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let restoreURL = pendingRestoreURL(in: directory)
+        try snapshot.write(to: restoreURL, options: .atomic)
+
+        // Store com dados (a troca terminou ou nem começou): o retrato não sobrescreve nada.
+        let context = try makeContext()
+        context.insert(makeExercise(slug: "crucifixo", name: "Crucifixo"))
+        try context.save()
+        let service = makeService(context, pendingRestoreURL: restoreURL)
+        let baseline = try service.exportBackup(now: now)
+
+        XCTAssertFalse(service.recoverInterruptedImportIfNeeded())
+
+        XCTAssertEqual(try service.exportBackup(now: now), baseline)
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: restoreURL.path(percentEncoded: false)),
+            "Um retrato dos dados do usuário nunca é apagado automaticamente"
+        )
+    }
+
+    func testRF18_storeThatCannotBeSnapshotted_refusesImportAndChangesNothing() throws {
+        let other = try makeContext()
+        _ = try insertFixture(into: other)
+        let data = try makeService(other).exportBackup(now: now)
+
+        // Equipamento desconhecido: o store atual não exporta, então não haveria como desfazer.
+        let context = try makeContext()
+        let broken = makeExercise(slug: "maquina-nova", name: "Máquina nova")
+        broken.equipmentRaw = "hoverboard"
+        context.insert(broken)
+        try context.save()
+
+        XCTAssertThrowsError(try makeService(context).importBackup(data))
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ExerciseModel>()), 1)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<ExerciseModel>()).first?.slug, "maquina-nova")
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramModel>()), 0)
+    }
+
     // MARK: - Formato
 
     func testRF18_exportFormat_isVersionedSortedISO8601() throws {
@@ -413,8 +497,25 @@ final class BackupServiceTests: XCTestCase {
         return container.mainContext
     }
 
-    private func makeService(_ context: ModelContext) -> BackupService {
-        BackupService(modelContext: context, appVersion: "9.9.9 (99)", timeZone: TimeZone(secondsFromGMT: 0) ?? .current)
+    private func makeService(_ context: ModelContext, pendingRestoreURL: URL? = nil) -> BackupService {
+        BackupService(
+            modelContext: context,
+            appVersion: "9.9.9 (99)",
+            timeZone: TimeZone(secondsFromGMT: 0) ?? .current,
+            pendingRestoreURL: pendingRestoreURL
+        )
+    }
+
+    /// Pasta temporária própria do teste; quem chama a apaga com `defer`.
+    private func makeTemporaryDirectory() throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("BackupServiceTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    private func pendingRestoreURL(in directory: URL) -> URL {
+        directory.appendingPathComponent("pre-import-backup.json", isDirectory: false)
     }
 
     private func counts(in context: ModelContext) throws -> Counts {

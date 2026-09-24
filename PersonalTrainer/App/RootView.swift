@@ -9,11 +9,64 @@ import SwiftUI
 /// O `AppEnvironment` chega pelo ambiente (`PersonalTrainerApp` injeta com `.environment`).
 /// Como `@Environment` só é legível depois do `init`, quem guarda o `HomeViewModel` em
 /// `@State` é a view interna `RootTabs`, que recebe o ambiente por parâmetro.
+///
+/// Se o store persistente não abriu (`AppEnvironment.storeLoadError`), nenhuma aba aparece: só a
+/// tela de erro, com "Tentar de novo" (`onRetryStoreLoad`, que monta o ambiente outra vez) e a
+/// exportação dos arquivos de dados. Assim o app nunca parece uma instalação nova com o histórico
+/// sumido, e nada é gravado sobre um store em memória que se perderia ao fechar.
 struct RootView: View {
     @Environment(AppEnvironment.self) private var environment
+    private let onRetryStoreLoad: (() -> Void)?
+
+    init(onRetryStoreLoad: (() -> Void)? = nil) {
+        self.onRetryStoreLoad = onRetryStoreLoad
+    }
 
     var body: some View {
-        RootTabs(environment: environment)
+        if let storeLoadError = environment.storeLoadError {
+            StoreLoadErrorView(
+                message: storeLoadError,
+                dataFiles: ModelContainerFactory.existingPersistentStoreFiles(),
+                onRetry: onRetryStoreLoad
+            )
+        } else {
+            RootTabs(environment: environment)
+        }
+    }
+}
+
+/// Tela bloqueante quando os dados não abriram (B1). Diz que nada foi apagado, pede para não
+/// desinstalar, oferece tentar de novo e exportar os arquivos do store (o SQLite e a cópia feita
+/// antes da migração) pelo compartilhamento do sistema, para guardar em Arquivos ou num computador.
+private struct StoreLoadErrorView: View {
+    let message: String
+    let dataFiles: [URL]
+    let onRetry: (() -> Void)?
+
+    var body: some View {
+        ContentUnavailableView {
+            Label("Não foi possível abrir seus dados", systemImage: "exclamationmark.triangle")
+        } description: {
+            VStack(spacing: 12) {
+                Text("Nada foi apagado: seus treinos continuam guardados neste iPhone. Não desinstale o app. Tente abrir de novo ou exporte os arquivos de dados para guardar uma cópia.")
+                Text(verbatim: message)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+        } actions: {
+            if let onRetry {
+                Button("Tentar de novo") {
+                    onRetry()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+            if !dataFiles.isEmpty {
+                ShareLink(items: dataFiles) {
+                    Label("Exportar arquivos de dados", systemImage: "square.and.arrow.up")
+                }
+            }
+        }
     }
 }
 
@@ -36,6 +89,7 @@ private struct RootTabs: View {
     @State private var homeModel: HomeViewModel
     @State private var presentedSession: PresentedSession? = nil
     @State private var selectedTab: RootTab = .training
+    @Environment(\.scenePhase) private var scenePhase
 
     /// Marca gravada pelo `OnboardingView` ao tocar "Começar" ou "Pular" (UserDefaults, sem
     /// SwiftData: M2-CONTRACT §2).
@@ -127,6 +181,18 @@ private struct RootTabs: View {
         .onAppear {
             if !hasCompletedOnboarding {
                 isShowingOnboarding = true
+            }
+        }
+        // RF-13/RF-14 (CA2-1, CA2-2): ao abrir e a cada volta ao primeiro plano, o gravador revisita
+        // as sessões recentes: o treino do app Exercício e as amostras de FC do relógio costumam
+        // chegar ao Saúde depois do "Finalizar". Nunca pede autorização (AGENTS §7).
+        .onChange(of: scenePhase, initial: true) { _, newPhase in
+            guard newPhase == .active, let recorder = environment.healthRecorder else {
+                return
+            }
+            let now = environment.now()
+            Task {
+                await recorder.reconcileRecentSessions(now: now)
             }
         }
     }

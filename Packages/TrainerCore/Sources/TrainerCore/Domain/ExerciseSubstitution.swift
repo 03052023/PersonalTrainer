@@ -1,8 +1,12 @@
 import Foundation
 
-/// Substitutos de um exercício para o botão "Trocar" (SPEC RF-34): mesmo padrão de movimento,
-/// ordenados por semelhança. Função pura e determinística: o mesmo catálogo (em qualquer ordem)
-/// produz a mesma lista.
+/// Substitutos de um exercício para o botão "Trocar" (SPEC RF-11, RF-34): mesmo padrão de movimento
+/// e ao menos um grupo primário em comum, ordenados por semelhança. Função pura e determinística: o
+/// mesmo catálogo (em qualquer ordem) produz a mesma lista.
+///
+/// O grupo primário é filtro, não só pontuação: o padrão sozinho não basta. No padrão `explosive`,
+/// por exemplo, um arremesso de medicine ball no peito teria como "substitutos" um salto na caixa
+/// (pernas) ou um arremesso rotacional (core).
 ///
 /// Ordenação, da chave mais forte para a mais fraca:
 /// 1. Pontuação (`score`), decrescente:
@@ -26,20 +30,25 @@ public enum ExerciseSubstitution {
     ///
     /// - Exclui o próprio exercício (pelo `id`) e os ids em `excluding` (ex.: exercícios já presentes
     ///   no dia). `ExerciseDefinition` não tem flag de arquivado: quem chama filtra arquivados antes.
-    /// - Exige o mesmo `movementPattern`; exercício sem padrão não tem substitutos (`[]`).
-    /// - `limit <= 0` devolve `[]`. Ids repetidos no catálogo contam uma vez (vale a primeira ocorrência).
+    /// - Exige o mesmo `movementPattern` e ao menos um grupo primário em comum (SPEC RF-11, RF-34).
+    ///   Exercício sem padrão ou sem grupo primário não tem substitutos (`[]`).
+    /// - `limit <= 0` devolve `[]`. Ids repetidos no catálogo contam uma vez (vale a primeira
+    ///   ocorrência que passa nos filtros).
     public static func candidates(
         for exercise: ExerciseDefinition,
         in catalog: [ExerciseDefinition],
         excluding: Set<UUID> = [],
         limit: Int = 5
     ) -> [ExerciseDefinition] {
-        guard limit > 0, let pattern = exercise.movementPattern else { return [] }
+        guard limit > 0, let pattern = exercise.movementPattern, !exercise.primaryMuscles.isEmpty else { return [] }
 
+        let primaryGroups = Set(exercise.primaryMuscles)
         var seen: Set<UUID> = [exercise.id]
         seen.formUnion(excluding)
         var ranked: [RankedCandidate] = []
         for candidate in catalog where candidate.movementPattern == pattern {
+            // SPEC RF-11/RF-34: "mesmo grupo primário".
+            guard !primaryGroups.isDisjoint(with: candidate.primaryMuscles) else { continue }
             guard seen.insert(candidate.id).inserted else { continue }
             ranked.append(
                 RankedCandidate(

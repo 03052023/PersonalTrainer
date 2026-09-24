@@ -87,6 +87,12 @@ final class FakeHealthKitService: HealthKitServicing {
         get async { await state.overlapQueries }
     }
 
+    /// Sessões cujo treino deste app foi apagado por `removeOwnStrengthWorkout`, na ordem das
+    /// chamadas bem-sucedidas. `savedWorkouts` continua sendo o registro das gravações.
+    var removedWorkoutSessions: [UUID] {
+        get async { await state.removedWorkoutSessions }
+    }
+
     func setShouldFailAuthorization(_ shouldFail: Bool) async {
         await state.setShouldFailAuthorization(shouldFail)
     }
@@ -140,6 +146,13 @@ final class FakeHealthKitService: HealthKitServicing {
         return try await state.findOverlappingStrengthWorkout(start: start, end: end)
     }
 
+    func removeOwnStrengthWorkout(sessionUUID: UUID) async throws {
+        guard isAvailable else {
+            throw HealthKitServiceError.unavailable
+        }
+        try await state.removeOwnStrengthWorkout(sessionUUID: sessionUUID)
+    }
+
     // MARK: Estado protegido
 
     private actor State {
@@ -153,6 +166,7 @@ final class FakeHealthKitService: HealthKitServicing {
         private(set) var savedWorkouts: [SavedWorkout] = []
         private(set) var heartRateQueries: [HeartRateQuery] = []
         private(set) var overlapQueries: [OverlapQuery] = []
+        private(set) var removedWorkoutSessions: [UUID] = []
 
         init(shouldFailAuthorization: Bool, summaryToReturn: HeartRateSummary?, overlappingWorkoutToReturn: UUID?) {
             self.shouldFailAuthorization = shouldFailAuthorization
@@ -222,6 +236,14 @@ final class FakeHealthKitService: HealthKitServicing {
                 throw HealthKitServiceError.queryFailed(underlying: "fake overlap query failure")
             }
             return overlappingWorkoutToReturn
+        }
+
+        /// Escrita, como no HealthKit real: exige autorização prévia.
+        func removeOwnStrengthWorkout(sessionUUID: UUID) throws {
+            guard isAuthorized else {
+                throw HealthKitServiceError.notAuthorized
+            }
+            removedWorkoutSessions.append(sessionUUID)
         }
     }
 }

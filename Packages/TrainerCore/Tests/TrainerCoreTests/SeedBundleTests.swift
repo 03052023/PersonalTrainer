@@ -103,6 +103,23 @@ func seedCatalogExercisesHaveSubstitutes() throws {
     }
 }
 
+@Test("RF-11/RF-34 no catálogo real, todo substituto sugerido compartilha um grupo primário e há ao menos 2")
+func seedCatalogSubstitutesShareAPrimaryGroup() throws {
+    let catalog = try loadSeedBundle().catalog.exercises
+
+    for exercise in catalog {
+        let candidates = ExerciseSubstitution.candidates(for: exercise, in: catalog)
+        #expect(candidates.count >= 2, "\(exercise.slug): \(candidates.count) substitutos")
+        for candidate in candidates {
+            #expect(candidate.movementPattern == exercise.movementPattern, "\(exercise.slug) → \(candidate.slug)")
+            #expect(
+                !Set(candidate.primaryMuscles).isDisjoint(with: exercise.primaryMuscles),
+                "\(exercise.slug) → \(candidate.slug) sem grupo primário em comum"
+            )
+        }
+    }
+}
+
 @Test("RF-34 todo padrão usado nos programas tem ≥ 3 exercícios que compartilham um grupo primário")
 func seedProgramPatternsHaveThreeOptions() throws {
     let bundle = try loadSeedBundle()

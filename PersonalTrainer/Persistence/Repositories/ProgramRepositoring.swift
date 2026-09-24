@@ -15,6 +15,7 @@ protocol ProgramRepositoring: AnyObject {
     func rename(programID: UUID, to name: String) throws
     /// Troca o objetivo. Com `applyDefaults`, reescreve faixa de reps, RIR e descanso de todos os
     /// exercícios conforme `ProgramGoal.defaults` (composto vs. isolado pelo padrão de movimento).
+    /// Carregadas e isometrias de pescoço (passos/segundos no campo de reps) só recebem o RIR.
     func setGoal(programID: UUID, goal: ProgramGoal, applyDefaults: Bool) throws
     /// Cópia editável com novos UUIDs (programa, dias, alvos); devolve o id da cópia (inativa).
     func duplicate(programID: UUID, name: String, now: Date) throws -> UUID
@@ -22,6 +23,7 @@ protocol ProgramRepositoring: AnyObject {
     func delete(programID: UUID) throws
 
     /// Adiciona um exercício ao fim do dia com os padrões do objetivo; devolve o id do alvo.
+    /// Carregadas começam em 20–40 passos e isometrias de pescoço em 10–20 s.
     /// Lança `ProgramRepositoryError.tooManyExercises` acima de `maxExercisesPerDay` (RF-33).
     func addExercise(exerciseID: UUID, toDay dayID: UUID) throws -> UUID
     /// Remove um alvo. Lança `ProgramRepositoryError.tooFewExercises` abaixo de `minExercisesPerDay`.

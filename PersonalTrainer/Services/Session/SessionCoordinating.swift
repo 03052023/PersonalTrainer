@@ -35,6 +35,7 @@ protocol SessionCoordinating: AnyObject {
     // na extensão abaixo, para doubles antigos continuarem compilando.
     func deleteSession(id: UUID) throws
     func substituteExercise(sessionID: UUID, sessionExerciseID: UUID, with planned: PlannedExercise, now: Date) throws
+    func completedSessions(startedSince date: Date) -> [WorkoutSessionModel]
 }
 
 enum SessionCoordinatorError: Error, Equatable {
@@ -66,6 +67,13 @@ extension SessionCoordinating {
     /// nenhuma; se houver, lança `SessionCoordinatorError.unsupported` (troque antes de começar).
     func substituteExercise(sessionID: UUID, sessionExerciseID: UUID, with planned: PlannedExercise, now: Date) throws {
         throw SessionCoordinatorError.unsupported
+    }
+
+    /// Sessões `completed` com `startedAt >= date`, da mais recente para a mais antiga. Só leitura:
+    /// o gravador do Saúde revisita as sessões recentes (RF-13/RF-14, reconciliação). Implementação
+    /// padrão devolve `[]` (doubles antigos: nada a reconciliar).
+    func completedSessions(startedSince date: Date) -> [WorkoutSessionModel] {
+        []
     }
 }
 

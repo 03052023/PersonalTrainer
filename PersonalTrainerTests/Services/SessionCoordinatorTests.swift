@@ -601,6 +601,96 @@ final class SessionCoordinatorTests: XCTestCase {
         XCTAssertEqual(session.status, .inProgress)
     }
 
+    func testHeartRateSummary_withoutHeartRate_storesNilInsteadOfZero() throws {
+        let fixture = try makeFixture()
+        let sessionID = try startSession(fixture)
+        try fixture.coordinator.finishSession(sessionID: sessionID, now: now.addingTimeInterval(3_600))
+        let hkWorkoutUUID = UUID()
+
+        // 0 no evento significa "sem FC" (o evento não tem opcionais): a sessão guarda `nil`.
+        try fixture.coordinator.apply(SessionEvent(
+            sessionID: sessionID,
+            occurredAt: now.addingTimeInterval(3_650),
+            source: .iphone,
+            kind: .heartRateSummary(averageBPM: 0, maxBPM: 0, hkWorkoutUUID: hkWorkoutUUID)
+        ))
+
+        let session = try fetchSession(sessionID, in: fixture.context)
+        XCTAssertNil(session.avgHeartRate)
+        XCTAssertNil(session.maxHeartRate)
+        XCTAssertEqual(session.hkWorkoutUUID, hkWorkoutUUID, "A trava é gravada mesmo sem FC")
+    }
+
+    func testHeartRateSummary_laterEventWithoutValues_neverErasesStoredData() throws {
+        let fixture = try makeFixture()
+        let sessionID = try startSession(fixture)
+        try fixture.coordinator.finishSession(sessionID: sessionID, now: now.addingTimeInterval(3_600))
+        let watchWorkout = UUID()
+        try fixture.coordinator.apply(SessionEvent(
+            sessionID: sessionID,
+            occurredAt: now.addingTimeInterval(3_650),
+            source: .watch,
+            kind: .heartRateSummary(averageBPM: 125, maxBPM: 160, hkWorkoutUUID: watchWorkout)
+        ))
+
+        // Um segundo escritor sem FC e sem treino (ex.: o gravador do iPhone que perdeu a corrida)
+        // não apaga o vínculo nem a FC já gravados.
+        try fixture.coordinator.apply(SessionEvent(
+            sessionID: sessionID,
+            occurredAt: now.addingTimeInterval(3_700),
+            source: .iphone,
+            kind: .heartRateSummary(averageBPM: 0, maxBPM: 0, hkWorkoutUUID: nil)
+        ))
+
+        let session = try fetchSession(sessionID, in: fixture.context)
+        XCTAssertEqual(session.hkWorkoutUUID, watchWorkout)
+        XCTAssertEqual(session.avgHeartRate, 125)
+        XCTAssertEqual(session.maxHeartRate, 160)
+
+        // Um vínculo novo e uma FC nova (reconciliação) substituem os anteriores.
+        let relinked = UUID()
+        try fixture.coordinator.apply(SessionEvent(
+            sessionID: sessionID,
+            occurredAt: now.addingTimeInterval(3_800),
+            source: .iphone,
+            kind: .heartRateSummary(averageBPM: 118, maxBPM: 150, hkWorkoutUUID: relinked)
+        ))
+        let updated = try fetchSession(sessionID, in: fixture.context)
+        XCTAssertEqual(updated.hkWorkoutUUID, relinked)
+        XCTAssertEqual(updated.avgHeartRate, 118)
+        XCTAssertEqual(updated.maxHeartRate, 150)
+    }
+
+    func testCompletedSessions_startedSince_returnsOnlyRecentCompletedNewestFirst() throws {
+        let fixture = try makeFixture()
+        let oldID = try startSession(fixture)
+        try fixture.coordinator.finishSession(sessionID: oldID, now: now.addingTimeInterval(3_600))
+        let later = now.addingTimeInterval(86_400)
+        let recentID = try fixture.coordinator.startSession(
+            plan: makePlan(legPress: fixture.legPress, squat: fixture.squat),
+            now: later,
+            source: .iphone
+        )
+        try fixture.coordinator.finishSession(sessionID: recentID, now: later.addingTimeInterval(3_600))
+        let abandonedAt = now.addingTimeInterval(2 * 86_400)
+        let abandonedID = try fixture.coordinator.startSession(
+            plan: makePlan(legPress: fixture.legPress, squat: fixture.squat),
+            now: abandonedAt,
+            source: .iphone
+        )
+        try fixture.coordinator.abandonSession(sessionID: abandonedID, now: abandonedAt.addingTimeInterval(600))
+        let inProgressAt = now.addingTimeInterval(3 * 86_400)
+        _ = try fixture.coordinator.startSession(
+            plan: makePlan(legPress: fixture.legPress, squat: fixture.squat),
+            now: inProgressAt,
+            source: .iphone
+        )
+
+        XCTAssertEqual(fixture.coordinator.completedSessions(startedSince: now).map(\.uuid), [recentID, oldID])
+        XCTAssertEqual(fixture.coordinator.completedSessions(startedSince: later).map(\.uuid), [recentID])
+        XCTAssertTrue(fixture.coordinator.completedSessions(startedSince: later.addingTimeInterval(1)).isEmpty)
+    }
+
     // MARK: - sessionStarted e sessão inexistente
 
     func testApply_sessionStartedForExistingSession_isNoOp() throws {
@@ -1107,8 +1197,17 @@ final class SessionCoordinatorTests: XCTestCase {
         XCTAssertEqual(untouched.prescribedLoad, 100)
         XCTAssertEqual(untouched.prescribedTargetReps, 6)
         XCTAssertNil(untouched.substitutedFromUUID)
+        // A prescrição do fantasma foi escrita antes do `apply` e desfeita pelo `rollback`: nada
+        // sujo sobra no contexto principal para o próximo `save` (o do `finishSession` abaixo).
+        let inMainContext = try fetchSessionExercise(exerciseID, in: fixture.context)
+        XCTAssertEqual(inMainContext.prescribedLoad, 100)
+        XCTAssertEqual(inMainContext.prescribedTargetReps, 6)
+        XCTAssertEqual(inMainContext.exerciseUUID, fixture.legPress.uuid)
 
         try fixture.coordinator.finishSession(sessionID: sessionID, now: now.addingTimeInterval(3_600))
+        let afterFinishContext = ModelContext(fixture.container)
+        let afterFinish = try fetchSessionExercise(exerciseID, in: afterFinishContext)
+        XCTAssertEqual(afterFinish.prescribedLoad, 100)
         assertThrows(.sessionNotInProgress(sessionID)) {
             try fixture.coordinator.substituteExercise(
                 sessionID: sessionID,

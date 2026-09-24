@@ -438,6 +438,38 @@ final class HomeViewModelTests: XCTestCase {
         withExtendedLifetime(container) {}
     }
 
+    func testWeeklyFrequency_usesConfiguredTargetsAndWeekStart() throws {
+        let container = try ModelContainerFactory.make(.inMemory)
+        let context = container.mainContext
+        let bench = insertExercise(slug: "supino-reto", name: "Supino reto", primary: [.chest], secondary: [.triceps], into: context)
+        // Domingo 2023-11-12 12:00 UTC: na semana que começa no domingo (12/11), mas não na que
+        // começa na segunda (13/11).
+        insertSession(status: .completed, startedAt: Date(timeIntervalSince1970: 1_699_790_400), exercise: bench, isWarmup: false, into: context)
+        try context.save()
+        let sessions = try context.fetch(FetchDescriptor<WorkoutSessionModel>())
+
+        // Metas gravadas em `UserSettingsModel.weeklyTargets`: peito 3, panturrilhas 0 (escondido);
+        // os outros grupos ficam no padrão 2 (SPEC §7.4).
+        let report = WeeklyFrequencyCard.report(
+            sessions: sessions,
+            now: now,
+            calendar: utcCalendar(),
+            targets: [.chest: 3, .calves: 0],
+            weekStartsOnMonday: false
+        )
+        let entries = WeeklyFrequencyCard.visibleEntries(report)
+
+        XCTAssertEqual(report.weekStart, Date(timeIntervalSince1970: 1_699_747_200), "Semana começa domingo 00:00")
+        let chest = try XCTUnwrap(entries.first { $0.muscle == .chest })
+        XCTAssertEqual(WeeklyFrequencyCard.chipText(chest), "Peito 1/3")
+        XCTAssertNil(entries.first { $0.muscle == .calves }, "Meta 0 esconde o grupo")
+        XCTAssertEqual(entries.first { $0.muscle == .back }?.target, WeeklyFrequency.defaultTarget)
+
+        let mondayReport = WeeklyFrequencyCard.report(sessions: sessions, now: now, calendar: utcCalendar())
+        XCTAssertEqual(mondayReport.entries.first { $0.muscle == .chest }?.completed, 0, "Domingo fica na semana anterior")
+        withExtendedLifetime(container) {}
+    }
+
     func testWeeklyFrequency_visibleEntries_hideGroupsWithoutTarget() {
         let report = WeeklyFrequencyReport(
             weekStart: now,

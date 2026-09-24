@@ -269,6 +269,124 @@ final class HealthKitWorkoutRecorderTests: XCTestCase {
         XCTAssertEqual(session.maxHeartRate ?? 0, 0)
     }
 
+    // MARK: - Reconciliação (RF-13, RF-14; CA2-1, CA2-2)
+
+    func testReconcile_watchWorkoutArrivesAfterFinish_removesOwnWorkoutAndLinksWatch() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (sessionID, finished) = try startAndFinishSession(fixture)
+        // Finalizar no iPhone antes de encerrar o treino no relógio: o iPhone grava o próprio.
+        await recorder.process(finished)
+        let ownWorkout = await healthKit.savedWorkouts.first?.returnedUUID
+        XCTAssertEqual(try XCTUnwrap(fixture.coordinator.session(withID: sessionID)).hkWorkoutUUID, ownWorkout)
+
+        // O treino do app Exercício chega depois.
+        let watchWorkout = UUID()
+        await healthKit.setOverlappingWorkoutToReturn(watchWorkout)
+        await recorder.reconcileRecentSessions(now: endedAt.addingTimeInterval(600))
+
+        let removed = await healthKit.removedWorkoutSessions
+        XCTAssertEqual(removed, [sessionID], "O treino do iPhone virou duplicata e é apagado")
+        let saved = await healthKit.savedWorkouts
+        XCTAssertEqual(saved.count, 1, "Nada é gravado de novo")
+        let session = try XCTUnwrap(fixture.coordinator.session(withID: sessionID))
+        XCTAssertEqual(session.hkWorkoutUUID, watchWorkout)
+        XCTAssertEqual(session.avgHeartRate, FakeHealthKitService.syntheticSummary.averageBPM)
+    }
+
+    func testReconcile_heartRateArrivesLater_isStoredWithoutTouchingTheWorkout() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService(summaryToReturn: nil)
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (sessionID, finished) = try startAndFinishSession(fixture)
+        await recorder.process(finished)
+        let ownWorkout = await healthKit.savedWorkouts.first?.returnedUUID
+        XCTAssertNil(try XCTUnwrap(fixture.coordinator.session(withID: sessionID)).avgHeartRate)
+
+        // As amostras do relógio sincronizam com o iPhone depois do fim da sessão.
+        await healthKit.setSummaryToReturn(HeartRateSummary(averageBPM: 121, maxBPM: 158, sampleCount: 40))
+        await recorder.reconcileRecentSessions(now: endedAt.addingTimeInterval(600))
+
+        let session = try XCTUnwrap(fixture.coordinator.session(withID: sessionID))
+        XCTAssertEqual(session.avgHeartRate, 121)
+        XCTAssertEqual(session.maxHeartRate, 158)
+        XCTAssertEqual(session.hkWorkoutUUID, ownWorkout)
+        let removed = await healthKit.removedWorkoutSessions
+        XCTAssertTrue(removed.isEmpty)
+    }
+
+    func testReconcile_nothingNew_appliesNoEventAndNeverAsksAuthorization() async throws {
+        let fixture = try makeFixture()
+        let watchWorkout = UUID()
+        let healthKit = FakeHealthKitService(overlappingWorkoutToReturn: watchWorkout)
+        let (sessionID, finished) = try startAndFinishSession(fixture)
+        await HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator).process(finished)
+
+        // Processo novo (relançamento): nada mudou no Saúde desde o fim da sessão.
+        let relaunched = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let observed = fixture.coordinator.eventsApplied
+        await relaunched.reconcileRecentSessions(now: endedAt.addingTimeInterval(3_600))
+        // Marcador: o próximo evento publicado depois da reconciliação.
+        let markerSessionID = try startSession(fixture)
+
+        // Se a reconciliação tivesse aplicado um resumo repetido, ele viria antes do marcador.
+        var iterator = observed.makeAsyncIterator()
+        let nextEvent = await iterator.next()
+        guard let firstEvent = nextEvent, case .sessionStarted = firstEvent.kind, firstEvent.sessionID == markerSessionID else {
+            return XCTFail("Esperava só o início do marcador, veio \(String(describing: nextEvent?.kind))")
+        }
+        let requestCount = await healthKit.authorizationRequestCount
+        XCTAssertEqual(requestCount, 1, "Só o fim da sessão pediu autorização")
+        let removed = await healthKit.removedWorkoutSessions
+        XCTAssertTrue(removed.isEmpty)
+        XCTAssertEqual(try XCTUnwrap(fixture.coordinator.session(withID: sessionID)).hkWorkoutUUID, watchWorkout)
+    }
+
+    func testReconcile_sessionFinishedBeforeRecorderExisted_linksAndReadsWithoutAskingAuthorization() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        // Ex.: o app foi encerrado logo depois de finalizar, antes de o gravador processar o evento.
+        let (sessionID, _) = try startAndFinishSession(fixture)
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+
+        await recorder.reconcileRecentSessions(now: endedAt.addingTimeInterval(600))
+
+        var session = try XCTUnwrap(fixture.coordinator.session(withID: sessionID))
+        XCTAssertNil(session.hkWorkoutUUID, "Sem autorização neste processo, não grava treino")
+        XCTAssertEqual(session.avgHeartRate, FakeHealthKitService.syntheticSummary.averageBPM)
+        var requestCount = await healthKit.authorizationRequestCount
+        XCTAssertEqual(requestCount, 0, "Reconciliar nunca abre o diálogo de autorização (AGENTS §7)")
+
+        let watchWorkout = UUID()
+        await healthKit.setOverlappingWorkoutToReturn(watchWorkout)
+        await recorder.reconcileRecentSessions(now: endedAt.addingTimeInterval(1_200))
+
+        session = try XCTUnwrap(fixture.coordinator.session(withID: sessionID))
+        XCTAssertEqual(session.hkWorkoutUUID, watchWorkout)
+        requestCount = await healthKit.authorizationRequestCount
+        XCTAssertEqual(requestCount, 0)
+        let saved = await healthKit.savedWorkouts
+        XCTAssertTrue(saved.isEmpty)
+    }
+
+    func testReconcile_sessionOutsideWindow_isIgnored() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (sessionID, finished) = try startAndFinishSession(fixture)
+        await recorder.process(finished)
+        let ownWorkout = await healthKit.savedWorkouts.first?.returnedUUID
+        await healthKit.setOverlappingWorkoutToReturn(UUID())
+
+        let lateNow = startedAt.addingTimeInterval(HealthKitWorkoutRecorder.reconciliationWindow + 1)
+        await recorder.reconcileRecentSessions(now: lateNow)
+
+        let overlapQueries = await healthKit.overlapQueries
+        XCTAssertEqual(overlapQueries.count, 1, "Só a consulta do fim da sessão")
+        XCTAssertEqual(try XCTUnwrap(fixture.coordinator.session(withID: sessionID)).hkWorkoutUUID, ownWorkout)
+    }
+
     // MARK: - start()/stop()
 
     func testStart_recordsFinishedSessionFromEventStream() async throws {

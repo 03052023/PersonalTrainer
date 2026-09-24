@@ -12,6 +12,9 @@ import TrainerCore
 struct WeeklyFrequencyCard: View {
     @Query(sort: \WorkoutSessionModel.startedAt, order: .reverse)
     private var sessions: [WorkoutSessionModel]
+    /// Metas por grupo e início da semana gravados pelo usuário (SPEC §7.4: "configurável").
+    /// Linha única (ARCHITECTURE §5); se houver mais de uma, a escolha é determinística.
+    @Query private var settingsRows: [UserSettingsModel]
 
     private let references: ReferenceCatalog
 
@@ -23,7 +26,14 @@ struct WeeklyFrequencyCard: View {
         // `Date()` e `Calendar.current` aqui são aceitáveis: é só exibição, e "esta semana" é a
         // do relógio e do fuso do aparelho (SPEC §7.4). As regras de determinismo (SPEC P11,
         // AGENTS R3) valem para o motor e os serviços, que continuam recebendo `now`.
-        let report = Self.report(sessions: sessions, now: Date(), calendar: Calendar.current)
+        let settings = settingsRows.min { $0.uuid.uuidString < $1.uuid.uuidString }
+        let report = Self.report(
+            sessions: sessions,
+            now: Date(),
+            calendar: Calendar.current,
+            targets: settings?.weeklyTargets ?? [:],
+            weekStartsOnMonday: settings?.weekStartsOnMonday ?? true
+        )
         let entries = Self.visibleEntries(report)
 
         VStack(alignment: .leading, spacing: 12) {
@@ -90,23 +100,26 @@ struct WeeklyFrequencyCard: View {
     /// Relatório da semana que contém `now`. Só as sessões da semana passam pelo mapper, para
     /// não percorrer as séries do histórico inteiro a cada redesenho; a regra (concluída, ≥ 1
     /// série de trabalho, grupo primário, uma vez por sessão) continua em `WeeklyFrequency`.
-    /// Metas: padrão 2×/semana por grupo (SPEC §7.4); ainda não há tela para configurá-las.
+    /// Metas: as de `UserSettingsModel.weeklyTargets` (meta 0 esconde o grupo) e, para os grupos
+    /// sem meta gravada, o padrão 2×/semana (SPEC §7.4). A semana começa na segunda por padrão.
     static func report(
         sessions: [WorkoutSessionModel],
         now: Date,
-        calendar: Calendar
+        calendar: Calendar,
+        targets: [MuscleGroup: Int] = [:],
+        weekStartsOnMonday: Bool = true
     ) -> WeeklyFrequencyReport {
-        let week = WeeklyFrequency.weekInterval(containing: now, weekStartsOnMonday: true, calendar: calendar)
+        let week = WeeklyFrequency.weekInterval(containing: now, weekStartsOnMonday: weekStartsOnMonday, calendar: calendar)
         let summaries = sessions
             .filter { $0.startedAt >= week.start && $0.startedAt < week.end }
             // `statusRaw` desconhecido (store corrompido) só deixa de contar; o painel é exibição.
             .compactMap { try? SessionSummaryMapper.summary(from: $0) }
         return WeeklyFrequency.report(
             sessions: summaries,
-            targets: [:],
+            targets: targets,
             defaultTarget: WeeklyFrequency.defaultTarget,
             now: now,
-            weekStartsOnMonday: true,
+            weekStartsOnMonday: weekStartsOnMonday,
             calendar: calendar
         )
     }

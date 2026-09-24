@@ -81,16 +81,21 @@ final class ProgramRepository: ProgramRepositoring {
         program.goalRaw = goal.rawValue
 
         // SPEC §7.9: o objetivo define faixa de reps, RIR e descanso. Séries e carga inicial ficam
-        // como estão: o contrato de `setGoal` só reescreve esses três parâmetros.
+        // como estão: o contrato de `setGoal` só reescreve esses três parâmetros. Carregadas e
+        // isometrias de pescoço contam passos/segundos no campo de reps: faixa e descanso delas
+        // ficam como estão, só o RIR segue o objetivo.
         if applyDefaults {
             let defaults = goal.defaults
             for day in program.days {
                 for target in day.exercises {
+                    target.targetRIR = defaults.targetRIR
+                    guard Self.stepsOrSecondsRange(target.exercise) == nil else {
+                        continue
+                    }
                     let isCompound = Self.isCompound(target.exercise)
                     let repRange = isCompound ? defaults.compoundRepRange : defaults.isolationRepRange
                     target.repMin = repRange.lowerBound
                     target.repMax = repRange.upperBound
-                    target.targetRIR = defaults.targetRIR
                     target.restSeconds = isCompound ? defaults.compoundRestSeconds : defaults.isolationRestSeconds
                 }
             }
@@ -171,7 +176,17 @@ final class ProgramRepository: ProgramRepositoring {
         let goal = day.program.flatMap { ProgramGoal(rawValue: $0.goalRaw) } ?? .hypertrophy
         let defaults = goal.defaults
         let isCompound = Self.isCompound(exercise)
-        let repRange = isCompound ? defaults.compoundRepRange : defaults.isolationRepRange
+        // Carregadas e isometrias de pescoço contam passos/segundos, com descanso curto de acessório;
+        // os demais usam a faixa do objetivo para compostos ou isolados.
+        let repRange: ClosedRange<Int>
+        let restSeconds: Int
+        if let stepsOrSeconds = Self.stepsOrSecondsRange(exercise) {
+            repRange = stepsOrSeconds
+            restSeconds = defaults.isolationRestSeconds
+        } else {
+            repRange = isCompound ? defaults.compoundRepRange : defaults.isolationRepRange
+            restSeconds = isCompound ? defaults.compoundRestSeconds : defaults.isolationRestSeconds
+        }
         // Depois do maior `order` existente: mantém `order` único no dia sem renumerar os outros.
         let nextOrder = (day.exercises.map { $0.order }.max() ?? -1) + 1
 
@@ -182,7 +197,7 @@ final class ProgramRepository: ProgramRepositoring {
             repMin: repRange.lowerBound,
             repMax: repRange.upperBound,
             targetRIR: defaults.targetRIR,
-            restSeconds: isCompound ? defaults.compoundRestSeconds : defaults.isolationRestSeconds,
+            restSeconds: restSeconds,
             // Sem carga inicial: o motor calibra na 1ª sessão (SPEC P2).
             startingLoad: nil
         )
@@ -366,6 +381,26 @@ final class ProgramRepository: ProgramRepositoring {
             return false
         }
         return pattern.isCompound
+    }
+
+    /// Faixa padrão de exercícios que contam passos (carregadas, 20–40) ou segundos (isometria de
+    /// pescoço, 10–20) no campo de repetições, como no seed v2. `nil` para os demais, que usam a
+    /// faixa de reps do objetivo (SPEC §7.9).
+    private static func stepsOrSecondsRange(_ exercise: ExerciseModel?) -> ClosedRange<Int>? {
+        guard
+            let raw = exercise?.movementPatternRaw,
+            let pattern = MovementPattern(rawValue: raw)
+        else {
+            return nil
+        }
+        switch pattern {
+        case .carry:
+            return 20...40
+        case .neck:
+            return 10...20
+        default:
+            return nil
+        }
     }
 
     private static func validatedName(_ name: String) throws -> String {

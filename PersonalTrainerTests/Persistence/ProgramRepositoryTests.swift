@@ -158,6 +158,38 @@ final class ProgramRepositoryTests: XCTestCase {
         XCTAssertEqual(fixture.program.goalRaw, ProgramGoal.strength.rawValue)
     }
 
+    func testSetGoal_withDefaults_keepsStepsAndSecondsOfCarriesAndNeckButUpdatesRIR() throws {
+        let fixture = try makeFixture()
+        let carry = insertExercise(slug: "caminhada-fazendeiro", name: "Caminhada do fazendeiro", pattern: .carry, increment: 2.5, into: fixture.context)
+        let neck = insertExercise(slug: "isometria-pescoco", name: "Isometria de pescoço", pattern: .neck, increment: 1, into: fixture.context)
+        let carryTarget = insertTarget(order: 3, exercise: carry, into: fixture.context, day: fixture.dayA)
+        carryTarget.repMin = 20
+        carryTarget.repMax = 40
+        carryTarget.restSeconds = 120
+        let neckTarget = insertTarget(order: 4, exercise: neck, into: fixture.context, day: fixture.dayA)
+        neckTarget.repMin = 10
+        neckTarget.repMax = 20
+        neckTarget.restSeconds = 60
+        try fixture.context.save()
+        let defaults = ProgramGoal.strength.defaults
+
+        try fixture.repository.setGoal(programID: fixture.program.uuid, goal: .strength, applyDefaults: true)
+
+        let targets = try targetsOfDayA(fixture)
+        let storedCarry = try XCTUnwrap(targets.first { $0.id == carryTarget.uuid })
+        XCTAssertEqual(storedCarry.repMin, 20, "Passos, não repetições de força")
+        XCTAssertEqual(storedCarry.repMax, 40)
+        XCTAssertEqual(storedCarry.restSeconds, 120)
+        XCTAssertEqual(storedCarry.targetRIR, defaults.targetRIR)
+        let storedNeck = try XCTUnwrap(targets.first { $0.id == neckTarget.uuid })
+        XCTAssertEqual(storedNeck.repMin, 10, "Segundos de isometria")
+        XCTAssertEqual(storedNeck.repMax, 20)
+        XCTAssertEqual(storedNeck.restSeconds, 60)
+        XCTAssertEqual(storedNeck.targetRIR, defaults.targetRIR)
+        // Os demais seguem a tabela do objetivo.
+        XCTAssertEqual(targets.first?.repMin, defaults.compoundRepRange.lowerBound)
+    }
+
     func testSetGoal_unknownProgram_throwsProgramNotFound() throws {
         let fixture = try makeFixture()
         let unknown = UUID()
@@ -313,6 +345,30 @@ final class ProgramRepositoryTests: XCTestCase {
             XCTAssertEqual(added.targetRIR, defaults.targetRIR)
             XCTAssertEqual(added.restSeconds, defaults.isolationRestSeconds)
         }
+    }
+
+    func testAddExercise_carryAndNeck_startInStepsAndSeconds() throws {
+        let fixture = try makeFixture()
+        fixture.program.goalRaw = ProgramGoal.combat.rawValue
+        let carry = insertExercise(slug: "caminhada-fazendeiro", name: "Caminhada do fazendeiro", pattern: .carry, increment: 2.5, into: fixture.context)
+        let neck = insertExercise(slug: "isometria-pescoco", name: "Isometria de pescoço", pattern: .neck, increment: 1, into: fixture.context)
+        try fixture.context.save()
+        let defaults = ProgramGoal.combat.defaults
+
+        let carryID = try fixture.repository.addExercise(exerciseID: carry.uuid, toDay: fixture.dayB.uuid)
+        let neckID = try fixture.repository.addExercise(exerciseID: neck.uuid, toDay: fixture.dayB.uuid)
+
+        let dayB = try XCTUnwrap(fixture.repository.program(id: fixture.program.uuid)?.days.last)
+        let addedCarry = try XCTUnwrap(dayB.exercises.first { $0.id == carryID })
+        XCTAssertEqual(addedCarry.repMin, 20)
+        XCTAssertEqual(addedCarry.repMax, 40)
+        XCTAssertEqual(addedCarry.restSeconds, defaults.isolationRestSeconds)
+        XCTAssertEqual(addedCarry.targetRIR, defaults.targetRIR)
+        XCTAssertEqual(addedCarry.sets, defaults.setsPerExercise)
+        let addedNeck = try XCTUnwrap(dayB.exercises.first { $0.id == neckID })
+        XCTAssertEqual(addedNeck.repMin, 10)
+        XCTAssertEqual(addedNeck.repMax, 20)
+        XCTAssertEqual(addedNeck.restSeconds, defaults.isolationRestSeconds)
     }
 
     func testAddExercise_dayAtMaximum_throwsTooManyExercises() throws {

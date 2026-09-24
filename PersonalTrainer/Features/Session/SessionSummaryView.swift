@@ -2,13 +2,15 @@ import SwiftData
 import SwiftUI
 import TrainerCore
 
-/// Resumo exibido ao encerrar o treino (SPEC F4, RF-12; T1.8): situação, dia do programa,
-/// duração, séries de trabalho, exercícios realizados e pulados, tonelagem, e o aviso de que o
-/// próximo treino já foi recalculado — a Home relê o plano quando o fluxo fecha.
+/// Resumo exibido ao encerrar o treino (SPEC F4, RF-12; T1.8, T2.10): situação, dia do programa,
+/// duração, séries de trabalho, exercícios realizados e pulados, tonelagem, FC média/máx quando
+/// disponível, e o aviso de que o próximo treino já foi recalculado — a Home relê o plano quando o
+/// fluxo fecha.
 ///
 /// Só leitura: recebe a `WorkoutSessionModel` já `completed`/`abandoned` e formata; nada aqui
-/// escreve no `ModelContext` (AGENTS R4). FC (média/máx) fica para o detalhe do histórico e
-/// depende do HealthKit (M2).
+/// escreve no `ModelContext` (AGENTS R4). A FC chega do HealthKit pelo gravador logo depois de
+/// finalizar; como o modelo é observável, a linha aparece sozinha quando o resumo é aplicado, e
+/// sem FC ela simplesmente não aparece (SPEC F4: "se disponível").
 struct SessionSummaryView: View {
     private let session: WorkoutSessionModel
     private let onClose: () -> Void
@@ -62,6 +64,13 @@ struct SessionSummaryView: View {
             summaryRow("Exercícios pulados", value: "\(skippedCount)")
             Divider()
             summaryRow("Tonelagem", value: tonnageText)
+            if hasHeartRate {
+                Divider()
+                summaryRow(
+                    "FC média / máx",
+                    value: SessionDetailView.heartRateText(average: session.avgHeartRate, maximum: session.maxHeartRate)
+                )
+            }
         }
         .padding(.horizontal, 16)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -106,6 +115,14 @@ struct SessionSummaryView: View {
 
     private var skippedCount: Int {
         orderedExercises.filter { $0.wasSkipped }.count
+    }
+
+    /// Mesmo critério de `SessionDetailView.heartRateText`: só leitura real (> 0) conta.
+    private var hasHeartRate: Bool {
+        guard let average = session.avgHeartRate else {
+            return false
+        }
+        return average.isFinite && average > 0
     }
 
     /// Duração, séries de trabalho, exercícios realizados (≥ 1 série de trabalho) e tonelagem

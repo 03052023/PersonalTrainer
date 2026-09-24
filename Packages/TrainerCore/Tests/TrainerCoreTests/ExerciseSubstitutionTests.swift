@@ -30,6 +30,49 @@ struct ExerciseSubstitutionTests {
         #expect(!result.contains(SubstitutionFixture.benchWithoutPattern))
     }
 
+    @Test("RF-11/RF-34 mesmo padrão sem grupo primário em comum não é substituto")
+    func samePatternWithoutSharedPrimaryGroupIsExcluded() {
+        // Explosive pattern mixes chest throws, jumps and core throws (seed v2, Combate).
+        let chestThrow = SubstitutionFixture.exercise(60, "Arremesso de medicine ball no peito", pattern: .explosive)
+        let explosivePushUp = SubstitutionFixture.exercise(
+            61, "Flexão explosiva", equipment: .bodyweight, pattern: .explosive
+        )
+        let slam = SubstitutionFixture.exercise(62, "Slam com medicine ball", primary: [.core, .back], pattern: .explosive)
+        let overheadThrow = SubstitutionFixture.exercise(
+            63, "Arremesso acima da cabeça", primary: [.core, .shoulders], pattern: .explosive
+        )
+        let boxJump = SubstitutionFixture.exercise(
+            64, "Salto na caixa", primary: [.quads, .glutes], equipment: .bodyweight, pattern: .explosive
+        )
+        let broadJump = SubstitutionFixture.exercise(
+            65, "Salto horizontal", primary: [.glutes, .quads], equipment: .bodyweight, pattern: .explosive
+        )
+        let rotationalThrow = SubstitutionFixture.exercise(66, "Arremesso rotacional", primary: [.core], pattern: .explosive)
+        let catalog = [chestThrow, explosivePushUp, slam, overheadThrow, boxJump, broadJump, rotationalThrow]
+
+        let rows: [(label: String, exercise: ExerciseDefinition, expected: [ExerciseDefinition])] = [
+            ("peito", chestThrow, [explosivePushUp]),
+            ("pernas", boxJump, [broadJump]),
+            ("core", rotationalThrow, [overheadThrow, slam]),
+            ("core + costas", slam, [overheadThrow, rotationalThrow]),
+        ]
+        for row in rows {
+            let result = ExerciseSubstitution.candidates(for: row.exercise, in: catalog, limit: 20)
+            #expect(result == row.expected, "\(row.label)")
+            #expect(
+                result.allSatisfy { !Set($0.primaryMuscles).isDisjoint(with: row.exercise.primaryMuscles) },
+                "\(row.label)"
+            )
+        }
+    }
+
+    @Test("RF-11/RF-34 exercício sem grupo primário não tem substitutos")
+    func exerciseWithoutPrimaryGroupHasNoCandidates() {
+        let noGroup = SubstitutionFixture.exercise(70, "Supino sem grupo", primary: [])
+
+        #expect(ExerciseSubstitution.candidates(for: noGroup, in: SubstitutionFixture.chestCatalog).isEmpty)
+    }
+
     @Test("RF-34 exercício nunca é substituto de si mesmo")
     func exerciseIsNotItsOwnSubstitute() {
         let bench = SubstitutionFixture.barbellBench

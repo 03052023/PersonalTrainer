@@ -9,8 +9,12 @@ import os
 /// do arquivo, nesta ordem:
 /// 1. decodifica e valida o arquivo inteiro (`BackupDocument.decode` + `validate`);
 /// 2. recusa se há sessão em andamento (`BackupError.inProgressSession`);
-/// 3. tira um retrato do store atual em memória, para restaurar se a escrita falhar;
-/// 4. apaga todos os modelos e salva; depois insere o conteúdo e salva; confere as contagens.
+/// 3. tira um retrato do store atual, para restaurar se a escrita falhar. Sem retrato (store que
+///    não exporta), a importação é recusada: seguir sem ter como desfazer arriscaria deixar o store
+///    vazio;
+/// 4. grava o retrato em `pendingRestoreURL` (escrita atômica) antes de apagar qualquer coisa;
+/// 5. apaga todos os modelos e salva; depois insere o conteúdo e salva; confere as contagens;
+/// 6. só então apaga o arquivo do retrato.
 ///
 /// Por que dois `save()` e não um: `ExerciseModel.uuid/slug` e `SetLogModel.uuid` são `.unique`,
 /// e o SwiftData transforma o insert de um valor já presente em upsert silencioso (ARCHITECTURE
@@ -18,6 +22,10 @@ import os
 /// fundir o modelo novo com a linha que está sendo apagada. Com o delete já gravado, o insert
 /// encontra o store vazio. Se a segunda fase falhar, `rollback()` descarta o que ficou pendente e
 /// o retrato do passo 3 é reinserido.
+///
+/// Entre os dois `save()` o store fica vazio no disco. Se o processo morrer ali (crash, jetsam,
+/// o usuário fecha o app), o retrato do passo 4 continua no disco e
+/// `recoverInterruptedImportIfNeeded()`, chamado no launch antes do seed, restaura os dados.
 ///
 /// Escreve direto no `ModelContext`, e não por `SessionCoordinating.apply`: a importação é uma
 /// restauração do store, não um evento de sessão (não há observadores a notificar, e o
@@ -27,6 +35,7 @@ final class BackupService: BackupServicing {
     private let modelContext: ModelContext
     private let appVersion: String
     private let timeZone: TimeZone
+    private let pendingRestoreURL: URL?
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "PersonalTrainer",
         category: "BackupService"
@@ -35,10 +44,40 @@ final class BackupService: BackupServicing {
     /// - Parameters:
     ///   - appVersion: gravado em `BackupDocument.appVersion`; `nil` lê do `Bundle.main`.
     ///   - timeZone: fuso do dia no nome sugerido do arquivo (o dia que o usuário vê).
-    init(modelContext: ModelContext, appVersion: String? = nil, timeZone: TimeZone = .current) {
+    ///   - pendingRestoreURL: onde guardar o retrato do store durante uma importação, para
+    ///     sobreviver a uma morte do processo no meio dela. `nil` (previews, testes) mantém o
+    ///     retrato só em memória. O app passa `defaultPendingRestoreURL()`.
+    init(
+        modelContext: ModelContext,
+        appVersion: String? = nil,
+        timeZone: TimeZone = .current,
+        pendingRestoreURL: URL? = nil
+    ) {
         self.modelContext = modelContext
         self.appVersion = appVersion ?? Self.bundleAppVersion(.main)
         self.timeZone = timeZone
+        self.pendingRestoreURL = pendingRestoreURL
+    }
+
+    /// `Application Support/PersonalTrainer/pre-import-backup.json`, ao lado do store. `nil` se a
+    /// pasta não puder ser criada (aí a importação segue com o retrato só em memória).
+    static func defaultPendingRestoreURL() -> URL? {
+        let fileManager = FileManager.default
+        guard let applicationSupport = try? fileManager.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        ) else {
+            return nil
+        }
+        let directory = applicationSupport.appendingPathComponent("PersonalTrainer", isDirectory: true)
+        do {
+            try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        } catch {
+            return nil
+        }
+        return directory.appendingPathComponent("pre-import-backup.json", isDirectory: false)
     }
 
     // MARK: - BackupServicing
@@ -55,15 +94,18 @@ final class BackupService: BackupServicing {
             throw BackupError.inProgressSession
         }
 
-        // Melhor esforço: um store com dado inválido (que não exporta) não pode impedir justamente
-        // a restauração que o conserta. Sem retrato, só não há como desfazer uma falha de escrita.
-        let previous: BackupDocument?
+        // Sem retrato não há como desfazer uma falha no meio da troca: recusar mantém os dados
+        // atuais intactos (nada foi alterado até aqui).
+        let previous: BackupDocument
         do {
             previous = try makeDocument(exportedAt: document.exportedAt)
         } catch {
-            logger.error("Sem retrato do store antes de importar: \(String(describing: error), privacy: .public)")
-            previous = nil
+            logger.error("Importação recusada: sem retrato do store atual para desfazer uma falha: \(String(describing: error), privacy: .public)")
+            throw error
         }
+        // O retrato vai para o disco antes de apagar qualquer coisa. Se não der para gravá-lo, a
+        // importação é recusada pelo mesmo motivo.
+        try writePendingRestore(previous)
 
         // Fase 1: apagar. Em erro nada foi gravado; o rollback devolve o contexto ao estado salvo.
         do {
@@ -72,10 +114,12 @@ final class BackupService: BackupServicing {
         } catch {
             modelContext.rollback()
             logger.error("Importação abortada ao apagar o store: \(String(describing: error), privacy: .public)")
+            discardPendingRestore()
             throw error
         }
 
-        // Fase 2: inserir, salvar, conferir. Em erro, volta ao retrato.
+        // Fase 2: inserir, salvar, conferir. Em erro, volta ao retrato; se nem isso der certo, o
+        // arquivo do retrato fica no disco para a recuperação do próximo launch.
         do {
             try insert(document)
             try modelContext.save()
@@ -83,10 +127,13 @@ final class BackupService: BackupServicing {
         } catch {
             modelContext.rollback()
             logger.error("Importação falhou ao gravar: \(String(describing: error), privacy: .public)")
-            restore(previous)
+            if restore(previous) {
+                discardPendingRestore()
+            }
             throw error
         }
 
+        discardPendingRestore()
         logger.info("Backup importado: \(document.exercises.count) exercícios, \(document.programs.count) programas, \(document.sessions.count) sessões, \(document.setCount) séries.")
         return BackupImportReport(
             exercises: document.exercises.count,
@@ -501,22 +548,88 @@ final class BackupService: BackupServicing {
     }
 
     /// Volta ao retrato tirado antes da importação. Apaga primeiro porque a falha pode ter
-    /// acontecido depois do `save()` da fase 2 (contagem divergente).
-    private func restore(_ previous: BackupDocument?) {
-        guard let previous else {
-            logger.fault("Importação falhou sem retrato para restaurar; o store pode ter ficado vazio.")
-            return
-        }
+    /// acontecido depois do `save()` da fase 2 (contagem divergente). `true` se restaurou.
+    @discardableResult
+    private func restore(_ previous: BackupDocument) -> Bool {
         do {
             try deleteAllModels()
             try modelContext.save()
             try insert(previous)
             try modelContext.save()
             logger.info("Store restaurado ao estado anterior à importação.")
+            return true
         } catch {
             modelContext.rollback()
             logger.fault("Falha ao restaurar o store após importação: \(String(describing: error), privacy: .public)")
+            return false
         }
+    }
+
+    // MARK: - Retrato no disco (importação interrompida)
+
+    /// Chamado no launch, antes do seed. Se o retrato de uma importação ficou no disco, a
+    /// importação não terminou:
+    /// - store vazio (o processo morreu entre apagar e inserir): restaura o retrato e apaga o
+    ///   arquivo. Devolve `true`;
+    /// - store com dados (a troca nem começou, ou terminou e só faltou apagar o arquivo): não mexe
+    ///   em nada. O arquivo fica: nunca se apaga automaticamente um retrato dos dados do usuário, e
+    ///   a próxima importação o sobrescreve;
+    /// - falha ao restaurar: desfaz o que ficou pendente, mantém o arquivo e loga.
+    @discardableResult
+    func recoverInterruptedImportIfNeeded() -> Bool {
+        guard let pendingRestoreURL, FileManager.default.fileExists(atPath: pendingRestoreURL.path(percentEncoded: false)) else {
+            return false
+        }
+        do {
+            guard try isStoreEmpty() else {
+                logger.notice("Retrato de importação encontrado com o store preenchido; nada foi alterado.")
+                return false
+            }
+            let document = try BackupDocument.decode(from: Data(contentsOf: pendingRestoreURL))
+            try insert(document)
+            try modelContext.save()
+            try verifyCounts(matching: document)
+            discardPendingRestore()
+            logger.notice("Importação interrompida desfeita: store restaurado ao estado anterior a ela.")
+            return true
+        } catch {
+            modelContext.rollback()
+            logger.fault("Falha ao restaurar o retrato de uma importação interrompida; o arquivo foi mantido: \(String(describing: error), privacy: .public)")
+            return false
+        }
+    }
+
+    /// Escrita atômica: ou o arquivo inteiro, ou nenhum. Sem `pendingRestoreURL`, nada a fazer.
+    private func writePendingRestore(_ document: BackupDocument) throws {
+        guard let pendingRestoreURL else {
+            return
+        }
+        do {
+            try document.encoded().write(to: pendingRestoreURL, options: .atomic)
+        } catch {
+            logger.error("Importação recusada: não foi possível guardar o retrato do store: \(String(describing: error), privacy: .public)")
+            throw error
+        }
+    }
+
+    private func discardPendingRestore() {
+        guard let pendingRestoreURL, FileManager.default.fileExists(atPath: pendingRestoreURL.path(percentEncoded: false)) else {
+            return
+        }
+        do {
+            try FileManager.default.removeItem(at: pendingRestoreURL)
+        } catch {
+            logger.error("Não foi possível apagar o retrato da importação: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    /// Vazio = o estado logo depois da fase 1 da importação (tudo apagado, inclusive os ajustes).
+    private func isStoreEmpty() throws -> Bool {
+        let exercises = try modelContext.fetchCount(FetchDescriptor<ExerciseModel>())
+        let programs = try modelContext.fetchCount(FetchDescriptor<ProgramModel>())
+        let sessions = try modelContext.fetchCount(FetchDescriptor<WorkoutSessionModel>())
+        let settings = try modelContext.fetchCount(FetchDescriptor<UserSettingsModel>())
+        return exercises == 0 && programs == 0 && sessions == 0 && settings == 0
     }
 
     // MARK: - Utilitários
