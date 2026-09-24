@@ -1,6 +1,6 @@
 # Guia de design: Magister
 
-Versão 1.1 · 2026-09-23. Vale para iPhone e Apple Watch. Decisões do dono registradas na SPEC (decisões 15 e 16): nome **Magister**, ícone de cinco pétalas creme sobre **azul profundo**, nada de cultura de academia.
+Versão 1.2 · 2026-09-23. Vale para iPhone e Apple Watch. Decisões do dono registradas na SPEC (decisões 15 e 16): nome **Magister**, ícone de cinco pétalas creme separadas com miolo areia sobre **azul-marinho**, nada de cultura de academia.
 
 ## 0. O nome
 
@@ -16,27 +16,28 @@ Versão 1.1 · 2026-09-23. Vale para iPhone e Apple Watch. Decisões do dono reg
 
 ## 2. O ícone: cinco pétalas, um centro
 
-Arquivos: `AppIcon.png` (1024 px, opaco), `AppIcon-dark.png`, `AppIcon-tinted.png` e `Scripts/design/render-icon.ps1`, que reproduz tudo.
+Arquivos: `PersonalTrainer/Resources/Assets.xcassets/AppIcon.appiconset/` com `AppIcon.png` (1024 px, opaco), `AppIcon-dark.png` e `AppIcon-tinted.png`, gerados por `docs/design/render-app-icon.ps1`, que também desenha a folha de conferência `docs/design/candidates/AppIcon-checks.png`.
 
-**O que significa.** Uma flor de cinco pétalas vista de cima, em creme sobre azul profundo, como esmalte claro sobre faiança azul (a mesma família de cores do azulejo luso-brasileiro). O azul profundo lembra água funda e céu ao anoitecer: calma, profundidade, constância.
+**O que significa.** Uma flor de cinco pétalas vista de cima, em creme sobre azul-marinho, como papel de linho sobre tinta de caderno. O marinho lembra água funda e céu à noite: calma, profundidade, constância.
 - **As 5 pétalas são os 5 objetivos**, todas iguais: equilíbrio sem hierarquia. A flor inteira é a pessoa inteira. Treinar é o meio, e o fim é florescer, isto é, viver bem, capaz e por muito tempo (eudaimonia, "florescimento humano") [1][2].
-- **As lentes**, onde duas pétalas vizinhas se sobrepõem e a camada fica mais densa, dizem que os objetivos dividem território: ganhos de um ajudam o outro.
-- **O miolo vazado é você.** O azul aparece no centro: os objetivos cercam a pessoa, mas não a preenchem.
-- **Leitura de índice (Peirce)** [3]: a flor e a faiança pedem tempo, repetição, estresse (o fogo) e repouso (o resfriamento), a mesma lógica de estímulo, recuperação e adaptação. É o contrário do metal cromado.
+- **As pétalas não se tocam.** Cada objetivo tem espaço próprio, e a pessoa escolhe qual cultivar agora; todos saem do mesmo centro.
+- **As pétalas têm forma de gota:** estreitas junto ao miolo e abertas para fora, a direção do crescimento.
+- **O miolo areia é você:** o ponto quente e firme de onde os objetivos partem. É o único tom diferente da flor.
+- **Leitura de índice (Peirce)** [3]: uma flor pede tempo, cuidado, estímulo e repouso, a mesma lógica de estímulo, recuperação e adaptação. É o contrário do metal cromado.
 - **Cinco** é o número das flores pentâmeras mais comuns (a simetria radial é o estado ancestral das flores) [4] e ecoa o corpo inteiro (cabeça e quatro membros), sem desenhar figura nem estrela.
-- **O que foi evitado de propósito:** pontas, linhas cruzadas e estrela central (pentagrama); círculos em 6 direções (Flor da Vida); lótus de perfil (ioga); entalhe na ponta (sakura); tons rosa e dourado (spa). As pétalas são levemente alongadas (1,10 : 1), o que dá direção "para fora" e afasta o ícone do brasão japonês de círculos perfeitos (umebachi).
+- **O que foi evitado de propósito:** pontas, linhas cruzadas e estrela central (pentagrama); círculos em 6 direções (Flor da Vida); lótus de perfil (ioga); entalhe na ponta (sakura); tons rosa e dourado (spa). As pétalas separadas e em gota também afastam o ícone do brasão japonês de círculos que se tocam (umebachi).
 
-**Geometria** (1024 px): centro da flor em (512; 526,5). Cada pétala é uma elipse de 136 × 124 px de semi-eixos, a 181 px do centro, e o miolo tem raio de 68 px. O símbolo mede 614 × 596 px (60% do lado): cabe na área segura de 72% e no recorte circular do Watch (raio externo de 317 px, contra 512 px do recorte). Não há texto, cantos arredondados, sombra ou brilho pintados; o Liquid Glass fica por conta do sistema (HIG) [5].
+**Geometria** (1024 px): centro da flor em (512; 534,4), escolhido para centralizar a caixa envolvente da flor. Cada pétala é uma gota que vai de 68 px a 338 px do centro, com largura máxima de 196 px a 66% do comprimento. O miolo tem raio de 52 px. O símbolo mede 653 × 631 px (64% × 62% do lado) e cabe no recorte circular do Watch (raio externo de 338 px, contra 512 px do recorte). Não há texto, cantos arredondados nem sombra pintada. Na aparência padrão há só um halo muito leve atrás da flor; o Liquid Glass fica por conta do sistema (HIG) [5].
 
-**Cores do ícone:** azul profundo `#3E5F7E` → `#2C4763` (degradê vertical); pétalas `#EEEBE2` no centro → `#F8F7F2` nas pontas; lente `#A8B8C6`.
-- Contrastes medidos em pixel: ponta de cima contra o fundo, 6,62:1; lente contra a pétala, 1,81:1 (continua visível a 60 px).
-- O bloco do ícone contra o papel de parede claro `#F2F2F7` dá 6,09 a 7,16:1, e contra o escuro `#1C1C1E`, 2,13 a 2,50:1 (a flor creme mantém a leitura; é o mesmo comportamento de ícones escuros do sistema).
-- Variante escura (pétalas `#D8D7CF` sobre `#17202B`): 11,38:1. A variante tingida é uma silhueta limpa em tons de cinza.
-- Alternativas testadas e descartadas pelo dono: barro bege (versão 1.0), três musgos, azul claro invertido, azul médio, azul-marinho e azul-ardósia.
+**Cores do ícone:** azul-marinho `#2B3F58` → `#1C2B40` (degradê vertical); pétalas `#F1EDE4`, com a base levemente sombreada e as pontas clareando para o branco; miolo `#E9DCC6` (areia).
+- Contrastes: pétala contra o fundo, de 9,20:1 (topo) a 12,24:1 (base); miolo contra o fundo, 7,94:1.
+- O bloco do ícone contra o papel de parede claro `#F2F2F7` dá 9,63:1. Contra o escuro `#1C1C1E` dá só 1,19:1: o quadrado quase some e quem faz a leitura é a flor creme, o mesmo comportamento dos ícones escuros do sistema.
+- Aparência escura: pétalas `#E3DED3` e miolo `#D3C4AB` sobre `#18222F` → `#101822`, com 11,96:1. Aparência tingida: tons de cinza puros (R = G = B) sobre preto, com miolo cinza médio; o iOS aplica a cor escolhida pela pessoa.
+- Alternativas testadas e descartadas pelo dono: barro bege (versão 1.0), três musgos, rosácea de pétalas sobrepostas (conceito B) em seis tons de azul, pétalas de cores vivas ou discretas sobre azul profundo e pétalas claras de cores diferentes sobre marinho. Os candidatos estão em `docs/design/candidates/`.
 
 ## 3. Paleta
 
-Superfícies claras e quentes (bege-linho); o azul profundo do ícone é a cor de ação; tons terrosos identificam os objetivos. Contraste WCAG de cada cor contra o fundo e contra a superfície (vale o menor valor); AA exige 4,5:1 para texto e 3:1 para gráficos.
+Superfícies claras e quentes (bege-linho); um azul da família do ícone é a cor de ação; tons terrosos identificam os objetivos. O acento fica um tom acima do marinho do ícone (`#355A7C`, não `#2B3F58`). O marinho puro ficaria escuro demais e se confundiria com o texto marrom-escuro, e o botão deixaria de parecer tocável. Contraste WCAG de cada cor contra o fundo e contra a superfície (vale o menor valor); AA exige 4,5:1 para texto e 3:1 para gráficos.
 
 | Token | Uso | Claro | Escuro | Contraste mínimo (claro / escuro) |
 |---|---|---|---|---|
@@ -73,7 +74,7 @@ A mesma flor do ícone é o sistema de identidade. No app, a pétala do objetivo
 | 4 | Combate | Saber se defender | `shield` |
 | 5 | Resistência muscular | Aguentar mais | `repeat` |
 
-Com essa ordem, cada lente é uma interseção real: Longevidade∩Hipertrofia (massa muscular contra sarcopenia), Hipertrofia∩Força, Força∩Combate (potência), Combate∩Resistência (condicionamento) e Resistência∩Longevidade. **A ordem é decisão do dono.** \*Confirmar nomes e disponibilidade no app SF Symbols (iOS 18 / watchOS 11).
+Com essa ordem, cada par de pétalas vizinhas é uma afinidade real: Longevidade e Hipertrofia (massa muscular contra sarcopenia), Hipertrofia e Força, Força e Combate (potência), Combate e Resistência (condicionamento), Resistência e Longevidade. **A ordem é decisão do dono.** No ícone as pétalas são todas creme; no app, cada uma ganha a cor do seu objetivo (§3). \*Confirmar nomes e disponibilidade no app SF Symbols (iOS 18 / watchOS 11).
 
 ## 5. Tipografia (só fontes do sistema, sempre com Dynamic Type)
 
@@ -154,8 +155,8 @@ Termos técnicos úteis ficam, com explicação no primeiro uso ou no "Por quê?
 
 ## 11. Incertezas e decisões do dono
 
-- **Ícone sem Mac:** o caminho é o catálogo de imagens com PNG de 1024 px mais as variantes escura e tingida (suportadas desde o iOS 18). Para a variante escura, a Apple sugere fundo transparente; a entregue é opaca e só o CI e o aparelho confirmam como fica. Cores não foram testadas em tela P3 com True Tone. Não foi feita busca por ícones parecidos na App Store.
-- **Decisões do dono ainda abertas:** a ordem das pétalas (§4); manter "Combate" ou trocar por "Autodefesa" (exige registro na SPEC). Nome (Magister) e cor (azul profundo) já decididos.
+- **Ícone sem Mac:** o caminho é o catálogo de imagens com PNG de 1024 px mais as aparências escura e tingida (suportadas desde o iOS 18; `appearances` → `luminosity` `dark`/`tinted` no `Contents.json`). Para a aparência escura, a Apple sugere fundo transparente; a entregue é opaca, e só o CI (`actool`) e o aparelho confirmam como fica. Cores não foram testadas em tela P3 com True Tone. Não foi feita busca por ícones parecidos na App Store.
+- **Decisões do dono ainda abertas:** a ordem das pétalas (§4); manter "Combate" ou trocar por "Autodefesa" (exige registro na SPEC). Nome (Magister) e ícone (pétalas creme sobre azul-marinho, 2026-09-23) já decididos.
 
 ## Fontes
 

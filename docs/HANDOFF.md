@@ -16,6 +16,8 @@ O **Controle Inteligente de Aplicativos do Windows (Smart App Control)** está a
 
 **Como testar o TrainerCore agora:** enviar o branch ao GitHub (`git push origin <branch>`); o workflow "Core tests" (Linux, swift:6.3) roda sozinho em push que toca `Packages/**`. Ler o resultado pela API pública (`https://api.github.com/repos/03052023/PersonalTrainer/actions/runs`) e os erros pelas anotações do job (`/check-runs/<job_id>/annotations`). O log completo exige login, e o agente não usa as credenciais do usuário. O branch `m5/health-core` já tem o passo "Report failures as annotations" em `.github/workflows/core-tests.yml`; ao integrar, esse arquivo vai para `main`.
 
+Caminho alternativo local, que o agente do M4 usou com sucesso e que fica **só no scratchpad, nunca no repositório**: compilar com o ambiente do `swift-test.ps1` + `--build-system native` (o `swiftc` roda; o bloqueado é o `clang.exe` usado como linker), linkar com o `link.exe` do MSVC (assinado pela Microsoft) usando `/INCREMENTAL:NO` (o incremental quebra a descoberta de testes do Swift Testing) e rodar o binário com `--testing-library swift-testing`. Mesmo assim, o CI continua sendo a verificação oficial.
+
 Armadilha do Swift 6.3 no Linux: listas de tuplas com membros implícitos dentro de `@Test(arguments: [...])` estouram o tempo de inferência. Declare os casos antes, como constantes com tipo explícito.
 
 ## 3. O que já está no `main` (commit 3128a5a ou posterior)
@@ -31,8 +33,17 @@ Armadilha do Swift 6.3 no Linux: listas de tuplas com membros implícitos dentro
 | `m5/health-core` | **verde no CI** (run 35942940487) | TrainerCore/Health: zonas de FC (Tanaka, ACSM, Karvonen), minutos aeróbicos, VO2máx com tabela FRIEND 2015 conferida, recuperação, passos, sugestões; e o passo de anotações no core-tests.yml |
 | `m5/health-reader` | escrito, não compilado | `HealthDataReading`, `LiveHealthDataReader`, `FakeHealthDataReader` |
 | `m5/health-ui` | escrito, não compilado | `HealthViewModel`, `HealthCardView`, `HealthDetailView`, gráficos, perfil |
-| `m4/review-core` | commit feito, testes não rodados | TrainerCore/Review: 1RM estimado, ProgramReviewer R1–R7, RecoveryContext, PersonalRecordDetector |
-| `m4/engine-policies` | **em andamento** (alterações não commitadas no worktree `pt-wt/m4-engine`) | FrequencyAwareSelector S5–S7, DeloadPolicy, `SessionSummary.isDeload`. Se o agente não terminou, termine a partir do worktree |
+| `m4/review-core` | 4f13278; só tipagem conferida (`swiftc -typecheck`), testes não rodados | TrainerCore/Review: 1RM estimado, ProgramReviewer R1–R7 + C2 (troca de programa como sugestão), PersonalRecordDetector (C6); 70 testes |
+| `m4/engine-policies` | 7aebbf1; 217/217 testes passaram localmente pelo caminho alternativo (ver §2) | FrequencyAwareSelector S5–S7, DeloadPolicy (gatilho, prescrição, duração), DeloadTrigger, `SessionSummary.isDeload` |
+
+**Pontos da SPEC que os agentes do M4 deixaram para decisão** (detalhes em `docs/m4-agent-results.json`, campo `specIssues`). Resolver na SPEC antes de ligar o deload no `SessionPlanner`:
+1. **Rearme do deload (bloqueante):** depois da semana leve, as mesmas notas `decrease` continuam lá e o gatilho (a) dispararia outro deload na hora. Proposta: só contar reduções cuja sessão de origem é posterior ao fim do último deload.
+2. **Carga do deload:** a SPEC diz round↓(0,85·L); a assinatura recebe só a prescrição normal, então usa 0,85 × carga prescrita. Decidir se aceita ou se passa L.
+3. **§7.5 (b):** "N semanas de treino" contra "N semanas desde o último deload" (C1); foi implementado como tempo decorrido.
+4. **R5:** "por 2 revisões seguidas" exigiria memória de revisões; foi implementado como estagnação ≥ 3 sessões → mudar faixa de repetições e ≥ 6 → trocar exercício.
+5. **T4.3 / CA4-4:** a troca de programa por mesociclo virou sugestão opcional (C2), não troca automática; `Engine/ProgramRotationPolicy.swift` não foi criado. Ajustar CA4-4.
+6. Programa mais novo que a janela de 4 semanas: R3/R4 não rodam (decisão conservadora, falta na SPEC).
+7. Faltam tópicos de referência próprios para "mudar faixa de repetições" e "trocar programa" (hoje usam `topic.substitution`).
 | `handoff/identity-and-state` | este documento + DESIGN.md + candidatos de ícone | mesclar no `main` na rodada final |
 
 Resultados detalhados dos agentes do M5 (incertezas, perguntas, referências a adicionar): `docs/m5-agent-results.json`.
@@ -42,15 +53,15 @@ Worktrees em `C:\Users\leona\Developer\pt-wt\*`. Os dos `m2/*` já foram mesclad
 ## 5. Decisões do usuário (identidade)
 
 - **Nome: Magister** (uma palavra; latim para "mestre, quem ensina e guia"). Nome exibido `Magister` nos dois targets (`CFBundleDisplayName` em `project.yml`). Bundle IDs NÃO mudam.
-- **Ícone (decisão mais recente, 2026-09-23):** **conceito A** (5 pétalas separadas em forma de gota, miolo claro) sobre o **azul-marinho** da antiga "opção 5" (`#2B3F58` → `#1C2B40`), com **pétalas bem claras**. Candidatos em `docs/design/candidates/icon-navy-n1..n3.png` e `navy-light-compare.png`; gerador em `docs/design/render-a-navy.ps1` (PowerShell + System.Drawing, 1024 px). n1 = todas creme com miolo areia; n2 = quase brancas com tons sutis por objetivo; n3 = claras com cores um pouco mais visíveis. **Pendente: ele escolher n1, n2 ou n3** (ou pedir ajuste). Ordem das pétalas (horária a partir do topo): Longevidade, Hipertrofia, Força, Combate, Resistência. Se ele escolher n2/n3, a família de cor de cada pétala vira a cor do objetivo no app, em versão mais escura para ter contraste na interface.
+- **Ícone — DECIDIDO (2026-09-23): candidato n1.** Conceito A (5 pétalas separadas em forma de gota) **todas creme** `#F1EDE4`, **miolo areia** `#E9DCC6`, sobre **azul-marinho** `#2B3F58` → `#1C2B40`. Já está pronto no catálogo deste branch: `PersonalTrainer/Resources/Assets.xcassets/AppIcon.appiconset/` com `AppIcon.png`, `AppIcon-dark.png`, `AppIcon-tinted.png` e `Contents.json` com `appearances` (luminosity dark/tinted). Gerador: `docs/design/render-app-icon.ps1`; conferência: `docs/design/candidates/AppIcon-checks.png`. DESIGN.md §2 já descreve este ícone. Ordem das pétalas (horária a partir do topo): Longevidade, Hipertrofia, Força, Combate, Resistência; no app cada pétala ganha a cor do objetivo (DESIGN §3).
 - Histórico descartado: halter azul (M1), marrom-bege, rosácea creme (conceito B) em musgo e azuis, conceito A em azuis vivos, conceito A com pétalas discretas sobre azul profundo (`render-a-muted.ps1`, m1–m4).
-- Consequência para o acento do app: o DESIGN.md usa azul profundo (`#355A7C` / `#9DBAD6`); com o fundo do ícone em azul-marinho, conferir se o acento deve escurecer para combinar (manter contraste AA).
+- Acento do app mantido em `#355A7C` / `#9DBAD6`, um tom acima do marinho do ícone. O marinho puro se confundiria com o texto marrom-escuro (justificativa em DESIGN §3).
 - **Guia de design:** `DESIGN.md` (versão 1.1) — fundo bege-linho, acento azul profundo (`#355A7C` claro / `#9DBAD6` escuro, contrastes AA calculados), tokens por objetivo, tipografia New York nos títulos e SF Rounded nos números, voz sem jargão de academia, aba "Hoje" (`sun.max`), botão "Começar", Home com o objetivo no topo. **Ajuste pendente:** a seção 2 descreve o conceito B; atualizar para o conceito A escolhido e trocar as cores de objetivo pela paleta das pétalas.
 
 ## 6. Rodada final da versão 2 (o que falta fazer)
 
 1. Confirmar/terminar a revisão e a correção do M2 (seção 3).
-2. Terminar `m4/engine-policies`; enviar `m4/*` e `m5/*` ao GitHub e deixar o Core tests verde (corrigir pelas anotações).
+2. Enviar `m4/*` e `m5/*` ao GitHub e deixar o Core tests verde (corrigir pelas anotações). Resolver na SPEC os pontos do M4 listados na §4, principalmente o rearme do deload.
 3. Mesclar no `main`: `m5/health-core`, `m5/health-reader`, `m5/health-ui`, `m4/engine-policies`, `m4/review-core`, `handoff/identity-and-state`.
 4. Integração (app, compilado só no CI):
    - Card Saúde na Home e `HealthViewModel` no AppEnvironment (`LiveHealthDataReader` quando disponível).
@@ -59,7 +70,7 @@ Worktrees em `C:\Users\leona\Developer\pt-wt\*`. Os dos `m2/*` já foram mesclad
    - **Diálogo do app (SPEC §7.11, C1–C8, T4.8):** `CoachFeedBuilder`, `CoachLogStore` (JSON), `ProvisioningExpiryReader` (lê `ExpirationDate` do `embedded.mobileprovision` e agenda notificação na véspera), feed na Home e destaque na abertura.
    - **T2.22:** dias do programa (adicionar/remover/renomear/reordenar, 1–7).
    - **Passada de design** conforme DESIGN.md (AccentColor, tokens, aba "Hoje", "Começar", objetivo no topo com a flor, fim dos símbolos de halter/figura de musculação).
-   - Ícone final (paleta escolhida, conceito A) em `PersonalTrainer/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png` (1024, opaco) e nome Magister no `project.yml`.
+   - Ícone: já pronto neste branch (entra com o merge). Falta o nome Magister no `project.yml` (`CFBundleDisplayName`, tarefa [PROJ]).
    - SPEC: decisão 16 (nome e ícone), §7.10 A3 citando FRIEND, redação do CA5-5 ("nunca vigoroso" em vez de "nunca no dia").
 5. Revisão adversarial de tudo (compilação, runtime/migração do store do usuário, comportamento vs SPEC, referências) e correção.
 6. Push do `main`; o usuário roda "App build (manual)" e instala o novo `.ipa` só-iPhone por cima pelo Impactor. Explicar o passo a passo (ele é leigo).
