@@ -60,7 +60,7 @@ struct ActiveSessionView: View {
                     } else {
                         ContentUnavailableView(
                             "Nenhum exercício",
-                            systemImage: "figure.strengthtraining.traditional",
+                            systemImage: "list.bullet",
                             description: Text("Esta sessão não tem exercícios. Finalize ou abandone o treino.")
                         )
                     }
