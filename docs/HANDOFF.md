@@ -22,7 +22,7 @@ Armadilha do Swift 6.3 no Linux: listas de tuplas com membros implícitos dentro
 
 ## 3. Estado: versão 2 pronta (`main` a0fdb68, 2026-09-24)
 
-- **Versão 2 (Magister) completa e verde:** M2 + M4 + M5 + identidade. App build final verde no **run 35997614062** (branch `ci/swap-only`, commit a79c558: versão 2 + troca só de substitutos (RF-34)). O artefato `PersonalTrainer-for-resigning` (IPA só-iPhone para o Impactor) expira em 2026-09-27 ou pouco depois; depois disso, empurrar o `main` para qualquer `ci/<nome>` gera outro.
+- **Versão 2 (Magister) completa e verde:** M2 + M4 + M5 + identidade. App build final verde no **run 35997614062** (branch `ci/swap-only`, commit a79c558: versão 2 + troca só de substitutos (RF-34)). O artefato `PersonalTrainer-for-resigning` (IPA só-iPhone para o Impactor) expira em 2026-09-27; depois disso, empurrar o `main` para qualquer `ci/<nome>` gera outro.
 - Caminho: onda 2 (TrainerCore: DeloadScheduler, Coach C1–C8, Completo corpo todo, referências), onda 3 (app: saúde, planejador, diálogo, dias D/E, design), integrador, 2 revisores adversariais (17 achados, 5 major, todos corrigidos) e um polimento (fundo linho, "Semana leve", título Magister nas notificações).
 - **Falta só a verificação no aparelho:** migração do store da M1, HealthKit real (leitura e gravação), aviso de expiração, aparência do ícone e das telas. Pedir ao usuário prints de qualquer problema.
 - Pendências da versão 2.1: lista em TASKS.md, seção M4 ("Pendências para a versão 2.1").
