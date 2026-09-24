@@ -20,36 +20,29 @@ Caminho alternativo local, que o agente do M4 usou com sucesso e que fica **só 
 
 Armadilha do Swift 6.3 no Linux: listas de tuplas com membros implícitos dentro de `@Test(arguments: [...])` estouram o tempo de inferência. Declare os casos antes, como constantes com tipo explícito.
 
-## 3. O que já está no `main` (commit 3128a5a ou posterior)
+## 3. O que já está no `main` (1f82b66 ou posterior)
 
-- M0 e M1 completos e verdes no CI; o app M1 roda no iPhone do usuário.
-- M2 mesclado (12 branches `m2/*`) e ligado pelo integrador: SchemaV2 com migração, seed v2 (7 programas de 5 exercícios, mais de 70 exercícios com padrão de movimento), repositórios de programa e catálogo, abas Programa e Ajustes, onboarding de objetivo, botão Trocar, editar/apagar série, minimizar sessão, apagar treino, escolher dia A/B/C, gráfico por exercício, frequência semanal, backup JSON, HealthKit (gravar ou vincular treino e FC da sessão), catálogo de referências e botão "Por quê?".
-- **Verificar ao começar:** a revisão do M2 (4 revisores: compilação, runtime/migração, comportamento, referências) e o corretor estavam rodando quando este documento foi escrito (workflow `personaltrainer-m2`, run `wf_ae35ef39-540`, só visível na sessão antiga). Se `git log main` **não** tiver um commit "fix(M2): apply review findings", rode de novo a revisão e a correção sobre `main` (o roteiro está no transcript antigo; refaça com 4 revisores somente leitura + 1 corretor).
+- M0 e M1 completos; o app M1 roda no iPhone do usuário.
+- **M2 completo e verde:** 12 partes mescladas, revisadas por 4 lentes e corrigidas (eab3e3b). Core tests verde (run 35945595815) e **App build verde na primeira tentativa** (run 35945596092, branch `ci/app-check`): compila, passa nos testes do simulador e gera o IPA. Falta só a verificação no aparelho (HealthKit real, migração do store da M1).
+- **Cálculo do M4 e do M5 mesclado** (via `v2/core-integration`): saúde (zonas, minutos aeróbicos, VO2máx FRIEND, recuperação, passos, sugestões), semana leve (DeloadPolicy), seletor por frequência (S5–S7), revisão periódica (R1–R7, C2) e melhores marcas (C6).
+- **Identidade:** ícone final no catálogo com as aparências escura e tingida; nome **Magister** no `project.yml` (T2.23 [PROJ]).
+- **CI de app por push:** um push em `ci/<nome>` roda o App build, e as falhas aparecem como anotações públicas. Não é preciso pedir ao usuário para clicar.
+- **SPEC com as pendências resolvidas** (818d007): rearme do deload, carga e duração do deload, R3–R5, tabela de objetivos igual ao `GoalDefaults`, **Completo = corpo todo** (decisão do usuário), pescoço conta como costas, FRIEND no A3, A5 atualizado e decisão 16 (nome e ícone). CA4-3, CA4-4 e CA5-5 ajustados; T4.3 fechada como sugestão.
+- **Contrato da rodada final:** `docs/V2-FINAL-CONTRACT.md` (onda 2 = TrainerCore; onda 3 = app + integrador).
 
-## 4. Branches fora do `main`
+## 4. Em andamento e fora do `main`
 
-| Branch | Estado | Observação |
-|--------|--------|-----------|
-| `m5/health-core` | **verde no CI** (run 35942940487) | TrainerCore/Health: zonas de FC (Tanaka, ACSM, Karvonen), minutos aeróbicos, VO2máx com tabela FRIEND 2015 conferida, recuperação, passos, sugestões; e o passo de anotações no core-tests.yml |
-| `m5/health-reader` | escrito, não compilado | `HealthDataReading`, `LiveHealthDataReader`, `FakeHealthDataReader` |
-| `m5/health-ui` | escrito, não compilado | `HealthViewModel`, `HealthCardView`, `HealthDetailView`, gráficos, perfil |
-| `m4/review-core` | 4f13278; só tipagem conferida (`swiftc -typecheck`), testes não rodados | TrainerCore/Review: 1RM estimado, ProgramReviewer R1–R7 + C2 (troca de programa como sugestão), PersonalRecordDetector (C6); 70 testes |
-| `m4/engine-policies` | 7aebbf1; 217/217 testes passaram localmente pelo caminho alternativo (ver §2) | FrequencyAwareSelector S5–S7, DeloadPolicy (gatilho, prescrição, duração), DeloadTrigger, `SessionSummary.isDeload` |
+| Branch | Estado | Conteúdo |
+|--------|--------|----------|
+| `v2/deload-scheduler` | onda 2 (workflow `wf_72a80f9b-76b`) | `DeloadScheduler`, `DeloadStatus`, `DeloadDecisions` (contrato §1.1) |
+| `v2/coach-core` | onda 2 | `TrainerCore/Coach`: `CoachFeedBuilder` C1–C8, `CoachLog`, `ReviewSchedule`, `ProvisioningProfileParser` (§1.2) |
+| `v2/seed-fullbody` | onda 2 | Completo corpo todo no `programs.v2.json` (§1.3) |
+| `v2/references` | onda 2 | `topic.sleep`, `topic.steps`, `topic.e1rm`, FRIEND, Tanaka, ACSM, OMS (§1.4) |
+| `m5/health-reader`, `m5/health-ui` | escritos, não compilados | entram na onda 3 (tarefa Saúde) |
 
-**Pontos da SPEC que os agentes do M4 deixaram para decisão** (detalhes em `docs/m4-agent-results.json`, campo `specIssues`). Resolver na SPEC antes de ligar o deload no `SessionPlanner`:
-1. **Rearme do deload (bloqueante):** depois da semana leve, as mesmas notas `decrease` continuam lá e o gatilho (a) dispararia outro deload na hora. Proposta: só contar reduções cuja sessão de origem é posterior ao fim do último deload.
-2. **Carga do deload:** a SPEC diz round↓(0,85·L); a assinatura recebe só a prescrição normal, então usa 0,85 × carga prescrita. Decidir se aceita ou se passa L.
-3. **§7.5 (b):** "N semanas de treino" contra "N semanas desde o último deload" (C1); foi implementado como tempo decorrido.
-4. **R5:** "por 2 revisões seguidas" exigiria memória de revisões; foi implementado como estagnação ≥ 3 sessões → mudar faixa de repetições e ≥ 6 → trocar exercício.
-5. **T4.3 / CA4-4:** a troca de programa por mesociclo virou sugestão opcional (C2), não troca automática; `Engine/ProgramRotationPolicy.swift` não foi criado. Ajustar CA4-4.
-6. Programa mais novo que a janela de 4 semanas: R3/R4 não rodam (decisão conservadora, falta na SPEC).
-7. Faltam tópicos de referência próprios para "mudar faixa de repetições" e "trocar programa" (hoje usam `topic.substitution`).
-| `v2/core-integration` | **verde no CI** (run 35944194119, commit 6c16ab3) | `main` 3128a5a + `m5/health-core` + `m4/engine-policies` + `m4/review-core` mesclados sem conflito; todo o TrainerCore (incluindo os 70 testes da revisão, que nunca tinham rodado) passa no Linux. Mesclar este branch no `main` em vez dos três separados |
-| `handoff/identity-and-state` | este documento + DESIGN.md + ícone final no catálogo | mesclar no `main` na rodada final |
+**Ao retomar:** para cada branch da onda 2, veja se o último commit tem Core tests verde (API pública, §2). Mescle os verdes no `main`, na ordem references → seed → deload → coach. Depois rode a onda 3 (contrato §2) e o App build em `ci/<nome>`.
 
-Resultados detalhados dos agentes do M5 (incertezas, perguntas, referências a adicionar): `docs/m5-agent-results.json`.
-
-Worktrees em `C:\Users\leona\Developer\pt-wt\*`. Os dos `m2/*` já foram mesclados e podem ser removidos (`git worktree remove --force`; se o caminho for longo demais, `Remove-Item -LiteralPath "\\?\<caminho>" -Recurse -Force`).
+Pendências registradas pelo corretor do M2 que não bloqueiam: C10 (blocos de intervalos do Combate e de equilíbrio/mobilidade da Longevidade viram lembretes do diálogo, C8, e não registro detalhado) e C11 (marcar exercício do seed editado pelo usuário exige um SchemaV3 antes de qualquer seed v3).
 
 ## 5. Decisões do usuário (identidade)
 
@@ -61,20 +54,13 @@ Worktrees em `C:\Users\leona\Developer\pt-wt\*`. Os dos `m2/*` já foram mesclad
 
 ## 6. Rodada final da versão 2 (o que falta fazer)
 
-1. Confirmar/terminar a revisão e a correção do M2 (seção 3).
-2. ~~Core tests verde para M4 + M5~~ (feito em `v2/core-integration`). Resolver na SPEC os pontos do M4 listados na §4, principalmente o rearme do deload.
-3. Mesclar no `main`: `v2/core-integration`, `m5/health-reader`, `m5/health-ui`, `handoff/identity-and-state`.
-4. Integração (app, compilado só no CI):
-   - Card Saúde na Home e `HealthViewModel` no AppEnvironment (`LiveHealthDataReader` quando disponível).
-   - Referências novas no `references.v1.json`: `topic.sleep`, `topic.steps`, FRIEND 2015 (doi 10.1016/j.mayocp.2015.07.026), Tanaka 2001 (10.1016/S0735-1097(00)01054-8), ACSM 2011 (10.1249/MSS.0b013e318213fefb), OMS 2020 (10.1136/bjsports-2020-102955) — verificar no Crossref.
-   - Deload no `SessionPlanner` (sessões `isDeload`, prescrição reduzida, desfazer), `FrequencyAwareSelector` com chave em Ajustes (padrão ligado com ≥ 4 dias), revisão periódica a cada 4 semanas.
-   - **Diálogo do app (SPEC §7.11, C1–C8, T4.8):** `CoachFeedBuilder`, `CoachLogStore` (JSON), `ProvisioningExpiryReader` (lê `ExpirationDate` do `embedded.mobileprovision` e agenda notificação na véspera), feed na Home e destaque na abertura.
-   - **T2.22:** dias do programa (adicionar/remover/renomear/reordenar, 1–7).
-   - **Passada de design** conforme DESIGN.md (AccentColor, tokens, aba "Hoje", "Começar", objetivo no topo com a flor, fim dos símbolos de halter/figura de musculação).
-   - Ícone: já pronto neste branch (entra com o merge). Falta o nome Magister no `project.yml` (`CFBundleDisplayName`, tarefa [PROJ]).
-   - SPEC: decisão 16 (nome e ícone), §7.10 A3 citando FRIEND, redação do CA5-5 ("nunca vigoroso" em vez de "nunca no dia").
-5. Revisão adversarial de tudo (compilação, runtime/migração do store do usuário, comportamento vs SPEC, referências) e correção.
-6. Push do `main`; o usuário roda "App build (manual)" e instala o novo `.ipa` só-iPhone por cima pelo Impactor. Explicar o passo a passo (ele é leigo).
+1. ~~Revisão e correção do M2~~; ~~M4/M5 core verdes~~; ~~SPEC resolvida~~; ~~ícone e nome~~ (tudo no `main`).
+2. **Onda 2 (TrainerCore)**: conferir e mesclar os 4 branches `v2/*` (§4).
+3. **Onda 3 (app)**, conforme `docs/V2-FINAL-CONTRACT.md` §2: Saúde (mescla `m5/health-reader` e `m5/health-ui`), Planejador (semana leve, seletor por frequência, decisões em JSON), Diálogo (feed C1–C8, expiração dos 7 dias com notificação, revisão periódica aplicável, melhores marcas), Dias D/E (T2.22) e Design (tokens, flor, aba Hoje, Começar). Implementadores em pastas disjuntas e um integrador único em `App/`, `Features/Home` e `Features/Settings`.
+4. App build em `ci/<nome>` até ficar verde; revisão adversarial (compilação, migração do store real, comportamento vs SPEC) e correção.
+5. Push do `main` e de `ci/release`. O usuário baixa o artefato `PersonalTrainer-for-resigning` do run verde e instala o `PersonalTrainer-iphone-only-for-resigning.ipa` por cima, pelo Impactor. Explicar o passo a passo (ele é leigo).
+
+Opcional antes disso: o IPA do run 35945596092 (M2 + ícone + nome) já pode ser instalado para testar no aparelho a migração da M1 e o HealthKit.
 
 ## 7. Como os agentes trabalharam bem neste projeto
 
