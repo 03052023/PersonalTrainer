@@ -7,20 +7,19 @@ import TrainerCore
 // Tudo privado ao arquivo e prefixado por "Home" para não colidir com doubles de outras
 // features; por isso os previews da Home vivem aqui, e não em cada arquivo de view.
 // O `WeeklyFrequencyCard` usa `@Query`: os previews da Home recebem um container in-memory
-// vazio (painel zerado); nada aqui insere modelos no app real (R4).
+// vazio (painel zerado); nada aqui insere modelos no app real (R4). Diálogo e Saúde usam os
+// fakes (`FakeCoachLogStore`, `FakeNotificationScheduler`, `FakeHealthDataReader`) e suites
+// próprias de `UserDefaults`.
 
 // MARK: - Previews
 
 #Preview("Home — próximo treino") {
     if let container = HomePreviewFixture.makeContainer() {
-        HomeView(
-            model: HomeViewModel(
-                planner: HomePreviewPlanner(fixedPlan: HomePreviewFixture.plan),
-                coordinator: HomePreviewCoordinator(),
-                now: { HomePreviewFixture.referenceDate }
-            ),
+        HomePreviewFixture.makeHome(
+            planner: HomePreviewPlanner(fixedPlan: HomePreviewFixture.plan),
+            coordinator: HomePreviewCoordinator(),
             references: HomePreviewFixture.references,
-            onOpenSession: { _ in }
+            container: container
         )
         .modelContainer(container)
     } else {
@@ -30,14 +29,11 @@ import TrainerCore
 
 #Preview("Home — retomar") {
     if let container = HomePreviewFixture.makeContainer() {
-        HomeView(
-            model: HomeViewModel(
-                planner: HomePreviewPlanner(fixedPlan: HomePreviewFixture.plan),
-                coordinator: HomePreviewCoordinator(activeSession: HomePreviewFixture.makeInProgressSession()),
-                now: { HomePreviewFixture.referenceDate }
-            ),
+        HomePreviewFixture.makeHome(
+            planner: HomePreviewPlanner(fixedPlan: HomePreviewFixture.plan),
+            coordinator: HomePreviewCoordinator(activeSession: HomePreviewFixture.makeInProgressSession()),
             references: HomePreviewFixture.references,
-            onOpenSession: { _ in }
+            container: container
         )
         .modelContainer(container)
     } else {
@@ -47,14 +43,11 @@ import TrainerCore
 
 #Preview("Home — sem programa") {
     if let container = HomePreviewFixture.makeContainer() {
-        HomeView(
-            model: HomeViewModel(
-                planner: HomePreviewPlanner(fixedPlan: nil),
-                coordinator: HomePreviewCoordinator(),
-                now: { HomePreviewFixture.referenceDate }
-            ),
+        HomePreviewFixture.makeHome(
+            planner: HomePreviewPlanner(fixedPlan: nil),
+            coordinator: HomePreviewCoordinator(),
             references: .empty,
-            onOpenSession: { _ in }
+            container: container
         )
         .modelContainer(container)
     } else {
@@ -75,6 +68,44 @@ import TrainerCore
         )
         .padding()
     }
+}
+
+#Preview("PlanCard — frequência") {
+    ScrollView {
+        PlanCard(
+            plan: HomePreviewFixture.makePlan(reason: .frequency(muscle: .quads, done: 0, target: 2)),
+            days: HomePreviewFixture.days,
+            selectedDayID: nil,
+            goal: .strength,
+            references: HomePreviewFixture.references,
+            onSelectDay: { _ in },
+            onSelectAutomatic: {}
+        )
+        .padding()
+    }
+}
+
+#Preview("PlanCard — semana leve") {
+    ScrollView {
+        PlanCard(
+            plan: HomePreviewFixture.makePlan(isDeload: true, reason: .deload(.scheduled)),
+            days: HomePreviewFixture.days,
+            selectedDayID: nil,
+            goal: .longevity,
+            references: HomePreviewFixture.references,
+            onSelectDay: { _ in },
+            onSelectAutomatic: {}
+        )
+        .padding()
+    }
+}
+
+#Preview("Topo — objetivo") {
+    VStack(alignment: .leading, spacing: 24) {
+        GoalHeaderView(goal: .strength)
+        GoalHeaderView(goal: nil)
+    }
+    .padding()
 }
 
 #Preview("PrescriptionRow") {
@@ -168,6 +199,63 @@ private enum HomePreviewFixture {
     @MainActor
     static func makeContainer() -> ModelContainer? {
         try? ModelContainerFactory.make(.inMemory)
+    }
+
+    /// Home completa com diálogo e Saúde de mentira: o diálogo sobre o planner do preview e um
+    /// repositório real do container em memória (vazio), o Saúde com os dados de exemplo do
+    /// `FakeHealthDataReader` e a conexão já marcada numa suite própria.
+    @MainActor
+    static func makeHome(
+        planner: any SessionPlanning,
+        coordinator: any SessionCoordinating,
+        references: ReferenceCatalog,
+        container: ModelContainer
+    ) -> HomeView {
+        let fixedNow = referenceDate
+        let coach = CoachService(
+            planner: planner,
+            programs: ProgramRepository(modelContext: container.mainContext),
+            log: FakeCoachLogStore(),
+            expiry: .unavailable,
+            notifications: FakeNotificationScheduler(),
+            now: { fixedNow },
+            calendar: .current,
+            defaults: UserDefaults(suiteName: "HomePreview.coach") ?? .standard
+        )
+        let healthDefaults = UserDefaults(suiteName: "HomePreview.health") ?? .standard
+        healthDefaults.set(true, forKey: HealthViewModel.Keys.readAuthorized)
+        let health = HealthViewModel(
+            reader: FakeHealthDataReader(),
+            sessionsProvider: { [] },
+            now: { fixedNow },
+            defaults: healthDefaults
+        )
+        return HomeView(
+            model: HomeViewModel(planner: planner, coordinator: coordinator, now: { fixedNow }),
+            coach: coach,
+            health: health,
+            references: references,
+            onOpenSession: { _ in }
+        )
+    }
+
+    /// Mesmo Dia A com outro motivo, para ver a faixa do cartão (CA4-5).
+    static func makePlan(isDeload: Bool, reason: PlanReason?) -> SessionPlan {
+        let base = plan
+        return SessionPlan(
+            programID: base.programID,
+            programName: base.programName,
+            programDayID: base.programDayID,
+            programDayName: base.programDayName,
+            exercises: base.exercises,
+            generatedAt: base.generatedAt,
+            isDeload: isDeload,
+            reason: reason
+        )
+    }
+
+    static func makePlan(reason: PlanReason?) -> SessionPlan {
+        makePlan(isDeload: false, reason: reason)
     }
 
     private static func makePlan() -> SessionPlan {

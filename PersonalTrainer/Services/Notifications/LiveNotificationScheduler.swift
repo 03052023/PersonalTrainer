@@ -14,7 +14,7 @@ import UserNotifications
 /// `RestTimerView`. Em segundo plano, o sistema entrega alerta + som em `fireDate` (CA1-3).
 final class LiveNotificationScheduler: NotificationScheduling {
     /// Título fixo das notificações do app (nome de exibição, `CFBundleDisplayName`).
-    static let title = "Personal"
+    static let title = "Magister"
 
     init() {}
 
@@ -53,5 +53,34 @@ final class LiveNotificationScheduler: NotificationScheduling {
 
     func cancel(identifier: String) async {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
+    }
+
+    /// Lembrete de data marcada (SPEC §7.11 C4): gatilho de calendário, não de intervalo, porque o
+    /// instante é um horário do relógio (10h da véspera) e pode estar dias à frente. Um instante
+    /// que já passou só remove o pendente: o gatilho de calendário nunca dispararia.
+    func scheduleReminder(at fireDate: Date, identifier: String, title: String, body: String) async {
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        guard fireDate.timeIntervalSinceNow > 0 else {
+            return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+
+        let components = Calendar.current.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second],
+            from: fireDate
+        )
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+
+        do {
+            try await center.add(request)
+        } catch {
+            // Falha ao agendar não interrompe nada: a mensagem C4 continua no feed (AGENTS §4).
+        }
     }
 }

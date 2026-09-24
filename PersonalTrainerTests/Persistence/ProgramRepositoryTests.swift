@@ -619,6 +619,175 @@ final class ProgramRepositoryTests: XCTestCase {
         )
     }
 
+    // MARK: - addDay (T2.22, RF-36)
+
+    func testAddDay_defaultName_usesNextFreeLetterAndAppendsAtEnd() throws {
+        let fixture = try makeFixture()
+
+        let newID = try fixture.repository.addDay(programID: fixture.program.uuid, name: nil)
+
+        let days = try XCTUnwrap(fixture.repository.program(id: fixture.program.uuid)).days
+        XCTAssertEqual(days.map { $0.name }, ["Dia A", "Dia B", "Dia C"])
+        XCTAssertEqual(days.map { $0.order }, [0, 1, 2])
+        XCTAssertEqual(days.last?.id, newID)
+        XCTAssertEqual(days.last?.exercises.count, 0)
+    }
+
+    func testAddDay_defaultName_skipsLettersOfDescriptiveDayNames() throws {
+        let fixture = try makeFixture()
+        // Como no seed: "Dia A — Corpo todo" também ocupa a letra A (RF-36).
+        try fixture.repository.renameDay(id: fixture.dayA.uuid, to: "Dia A — Corpo todo")
+        try fixture.repository.renameDay(id: fixture.dayB.uuid, to: "Dia B — Corpo todo")
+
+        let newID = try fixture.repository.addDay(programID: fixture.program.uuid, name: nil)
+
+        let days = try XCTUnwrap(fixture.repository.program(id: fixture.program.uuid)).days
+        XCTAssertEqual(days.first { $0.id == newID }?.name, "Dia C")
+    }
+
+    func testAddDay_explicitName_trimsAndUsesIt() throws {
+        let fixture = try makeFixture()
+
+        let newID = try fixture.repository.addDay(programID: fixture.program.uuid, name: "  Cardio leve  ")
+
+        let days = try XCTUnwrap(fixture.repository.program(id: fixture.program.uuid)).days
+        let added = try XCTUnwrap(days.first { $0.id == newID })
+        XCTAssertEqual(added.name, "Cardio leve")
+    }
+
+    func testAddDay_blankExplicitName_throwsInvalidParameters() throws {
+        let fixture = try makeFixture()
+
+        assertInvalidParameters(try fixture.repository.addDay(programID: fixture.program.uuid, name: "   "))
+        XCTAssertEqual(try fixture.repository.program(id: fixture.program.uuid)?.days.count, 2)
+    }
+
+    func testAddDay_atMaximum_throwsTooManyDays() throws {
+        let fixture = try makeFixture()
+        for _ in 2..<ProgramLimits.maxDays {
+            _ = try fixture.repository.addDay(programID: fixture.program.uuid, name: nil)
+        }
+        XCTAssertEqual(try fixture.repository.program(id: fixture.program.uuid)?.days.count, ProgramLimits.maxDays)
+
+        assertThrows(try fixture.repository.addDay(programID: fixture.program.uuid, name: nil), .tooManyDays)
+        XCTAssertEqual(try fixture.repository.program(id: fixture.program.uuid)?.days.count, ProgramLimits.maxDays)
+    }
+
+    func testAddDay_unknownProgram_throwsProgramNotFound() throws {
+        let fixture = try makeFixture()
+        let unknown = UUID()
+
+        assertThrows(try fixture.repository.addDay(programID: unknown, name: nil), .programNotFound(unknown))
+    }
+
+    // MARK: - removeDay (T2.22, RF-36)
+
+    func testRemoveDay_deletesCascadesAndRenumbersRemaining() throws {
+        let fixture = try makeFixture()
+
+        try fixture.repository.removeDay(id: fixture.dayA.uuid)
+
+        let days = try XCTUnwrap(fixture.repository.program(id: fixture.program.uuid)).days
+        XCTAssertEqual(days.map { $0.id }, [fixture.dayB.uuid])
+        XCTAssertEqual(days.map { $0.order }, [0])
+        // Dia A tinha 3 alvos; só sobram os 2 dias restantes do fixture (Dia B e o da Força).
+        XCTAssertEqual(try fixture.context.fetchCount(FetchDescriptor<ProgramDayModel>()), 2)
+        XCTAssertEqual(try fixture.context.fetchCount(FetchDescriptor<ProgramExerciseModel>()), 2)
+        // O catálogo nunca sai junto (ARCHITECTURE §5).
+        XCTAssertEqual(try fixture.context.fetchCount(FetchDescriptor<ExerciseModel>()), 3)
+    }
+
+    func testRemoveDay_keepsSessionHistoryUntouched() throws {
+        let fixture = try makeFixture()
+        _ = insertSessionSnapshot(for: fixture.squat, into: fixture.context)
+        try fixture.context.save()
+
+        try fixture.repository.removeDay(id: fixture.dayA.uuid)
+
+        // O histórico é por sessão/exercício, sem relação com `ProgramDayModel` (ARCHITECTURE §5,
+        // decisão 3): a sessão antiga continua intacta, com o nome do dia gravado na hora.
+        let sessions = try fixture.context.fetch(FetchDescriptor<WorkoutSessionModel>())
+        XCTAssertEqual(sessions.map { $0.programDayName }, ["Dia A"])
+    }
+
+    func testRemoveDay_lastDayOfProgram_throwsTooFewDays() throws {
+        let fixture = try makeFixture()
+        let onlyDay = try XCTUnwrap(fixture.strengthProgram.days.first)
+
+        assertThrows(try fixture.repository.removeDay(id: onlyDay.uuid), .tooFewDays)
+        XCTAssertEqual(try fixture.repository.program(id: fixture.strengthProgram.uuid)?.days.count, 1)
+    }
+
+    func testRemoveDay_unknownDay_throwsDayNotFound() throws {
+        let fixture = try makeFixture()
+        let unknown = UUID()
+
+        assertThrows(try fixture.repository.removeDay(id: unknown), .dayNotFound(unknown))
+    }
+
+    // MARK: - renameDay (T2.22, RF-36)
+
+    func testRenameDay_trimsAndPersists() throws {
+        let fixture = try makeFixture()
+
+        try fixture.repository.renameDay(id: fixture.dayA.uuid, to: "  Dia A — Superior  ")
+
+        let day = try XCTUnwrap(fixture.repository.program(id: fixture.program.uuid)?.days.first)
+        XCTAssertEqual(day.name, "Dia A — Superior")
+    }
+
+    func testRenameDay_blankName_throwsInvalidParameters() throws {
+        let fixture = try makeFixture()
+
+        assertInvalidParameters(try fixture.repository.renameDay(id: fixture.dayA.uuid, to: "   "))
+        XCTAssertEqual(fixture.dayA.name, "Dia A")
+    }
+
+    func testRenameDay_unknownDay_throwsDayNotFound() throws {
+        let fixture = try makeFixture()
+        let unknown = UUID()
+
+        assertThrows(try fixture.repository.renameDay(id: unknown, to: "X"), .dayNotFound(unknown))
+    }
+
+    // MARK: - moveDay (T2.22, RF-36)
+
+    func testMoveDay_firstToLast_renumbers() throws {
+        let fixture = try makeFixture()
+        let dayCID = try fixture.repository.addDay(programID: fixture.program.uuid, name: nil)
+
+        try fixture.repository.moveDay(id: fixture.dayA.uuid, toIndex: 2)
+
+        let days = try XCTUnwrap(fixture.repository.program(id: fixture.program.uuid)).days
+        XCTAssertEqual(days.map { $0.id }, [fixture.dayB.uuid, dayCID, fixture.dayA.uuid])
+        XCTAssertEqual(days.map { $0.order }, [0, 1, 2])
+    }
+
+    func testMoveDay_lastToFirst_renumbers() throws {
+        let fixture = try makeFixture()
+
+        try fixture.repository.moveDay(id: fixture.dayB.uuid, toIndex: 0)
+
+        let days = try XCTUnwrap(fixture.repository.program(id: fixture.program.uuid)).days
+        XCTAssertEqual(days.map { $0.id }, [fixture.dayB.uuid, fixture.dayA.uuid])
+        XCTAssertEqual(days.map { $0.order }, [0, 1])
+    }
+
+    func testMoveDay_indexOutOfRange_throwsInvalidParameters() throws {
+        let fixture = try makeFixture()
+
+        assertInvalidParameters(try fixture.repository.moveDay(id: fixture.dayA.uuid, toIndex: -1))
+        assertInvalidParameters(try fixture.repository.moveDay(id: fixture.dayA.uuid, toIndex: 2))
+        XCTAssertEqual(try fixture.repository.program(id: fixture.program.uuid)?.days.first?.id, fixture.dayA.uuid)
+    }
+
+    func testMoveDay_unknownDay_throwsDayNotFound() throws {
+        let fixture = try makeFixture()
+        let unknown = UUID()
+
+        assertThrows(try fixture.repository.moveDay(id: unknown, toIndex: 0), .dayNotFound(unknown))
+    }
+
     // MARK: - Fixture
 
     private struct Fixture {

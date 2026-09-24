@@ -31,7 +31,7 @@ struct EditSetSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     if edit.isWarmup {
-                        Label("Série de aquecimento", systemImage: "flame")
+                        Label("Série de aquecimento", systemImage: "thermometer.medium")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }

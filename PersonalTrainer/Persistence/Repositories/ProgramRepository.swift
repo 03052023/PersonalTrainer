@@ -320,6 +320,89 @@ final class ProgramRepository: ProgramRepositoring {
         try save()
     }
 
+    // MARK: - Dias do programa (T2.22, RF-36)
+
+    func addDay(programID: UUID, name: String?) throws -> UUID {
+        guard let program = try fetchProgram(uuid: programID) else {
+            throw ProgramRepositoryError.programNotFound(programID)
+        }
+        guard program.days.count < ProgramLimits.maxDays else {
+            throw ProgramRepositoryError.tooManyDays
+        }
+
+        let dayName: String
+        if let name {
+            dayName = try Self.validatedName(name)
+        } else {
+            // RF-36: "Dia " + a próxima letra livre, olhando os nomes já usados no programa.
+            dayName = Self.nextDayLabel(existingNames: program.days.map { $0.name })
+        }
+        // Depois do maior `order` existente, como `addExercise`: mantém `order` único sem
+        // renumerar os outros dias.
+        let nextOrder = (program.days.map { $0.order }.max() ?? -1) + 1
+
+        let day = ProgramDayModel(uuid: UUID(), name: dayName, order: nextOrder)
+        modelContext.insert(day)
+        program.days.append(day)
+
+        try save()
+        return day.uuid
+    }
+
+    func removeDay(id: UUID) throws {
+        guard let day = try fetchDay(uuid: id) else {
+            throw ProgramRepositoryError.dayNotFound(id)
+        }
+
+        if let program = day.program {
+            let remaining = program.days.filter { $0.uuid != id }
+            guard remaining.count >= ProgramLimits.minDays else {
+                throw ProgramRepositoryError.tooFewDays
+            }
+            // Mesmo padrão de `removeTarget`: tira da relação antes de apagar, depois fecha o
+            // buraco em `order` (0…n-1). Sessões já gravadas guardam `programDayName` em
+            // snapshot (ARCHITECTURE §5, decisão 3): nada aqui as altera; se o dia removido era o
+            // da última sessão, S2 recomeça em D1 sozinho.
+            program.days.removeAll { $0.uuid == id }
+            Self.renumberDays(remaining)
+        }
+
+        modelContext.delete(day)
+        try save()
+    }
+
+    func renameDay(id: UUID, to name: String) throws {
+        guard let day = try fetchDay(uuid: id) else {
+            throw ProgramRepositoryError.dayNotFound(id)
+        }
+        day.name = try Self.validatedName(name)
+        try save()
+    }
+
+    func moveDay(id: UUID, toIndex newIndex: Int) throws {
+        guard let day = try fetchDay(uuid: id) else {
+            throw ProgramRepositoryError.dayNotFound(id)
+        }
+        guard let program = day.program else {
+            throw ProgramRepositoryError.invalidParameters("Dia sem programa.")
+        }
+
+        var ordered = program.days.sorted { Self.dayOrder($0, $1) }
+        guard newIndex >= 0, newIndex < ordered.count else {
+            throw ProgramRepositoryError.invalidParameters("Posição fora da lista de dias.")
+        }
+        guard let currentIndex = ordered.firstIndex(where: { $0.uuid == id }) else {
+            throw ProgramRepositoryError.dayNotFound(id)
+        }
+
+        let moving = ordered.remove(at: currentIndex)
+        ordered.insert(moving, at: newIndex)
+        for (index, item) in ordered.enumerated() where item.order != index {
+            item.order = index
+        }
+        try save()
+    }
+
     // MARK: - Mapeamento
 
     /// `ProgramMapper` monta dias e alvos ordenados. Objetivo e resumo são lidos aqui direto do
@@ -369,6 +452,32 @@ final class ProgramRepository: ProgramRepositoring {
         for (index, target) in targets.sorted(by: { targetOrder($0, $1) }).enumerated() where target.order != index {
             target.order = index
         }
+    }
+
+    /// Reatribui `order` 0…n-1 dos dias restantes na ordem atual, sem buracos (RF-36, mesmo
+    /// papel de `renumber` para alvos).
+    private static func renumberDays(_ days: [ProgramDayModel]) {
+        for (index, day) in days.sorted(by: { dayOrder($0, $1) }).enumerated() where day.order != index {
+            day.order = index
+        }
+    }
+
+    /// "Dia " + a primeira letra de A a Z que nenhum dia existente usa (RF-36). Uma letra está em
+    /// uso quando o nome é "Dia X" ou começa por "Dia X " (os dias do seed se chamam "Dia A —
+    /// Corpo todo"). Com `ProgramLimits.maxDays` = 7, as 26 letras nunca se esgotam; o fallback
+    /// numérico só existe para um programa com nomes fora do padrão "Dia X" chegar a esse ponto
+    /// sem travar.
+    private static func nextDayLabel(existingNames: [String]) -> String {
+        for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" {
+            let candidate = "Dia \(letter)"
+            let isUsed = existingNames.contains { name in
+                name == candidate || name.hasPrefix(candidate + " ")
+            }
+            if !isUsed {
+                return candidate
+            }
+        }
+        return "Dia \(existingNames.count + 1)"
     }
 
     /// Composto vs. isolado pelo padrão de movimento (SPEC §7.9). Sem padrão (catálogo antigo ou

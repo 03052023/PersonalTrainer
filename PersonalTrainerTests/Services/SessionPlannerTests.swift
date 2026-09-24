@@ -195,6 +195,38 @@ final class SessionPlannerTests: XCTestCase {
         XCTAssertEqual(bench.prescription.note, .calibrate)
     }
 
+    func testS2_dayWithoutExercises_isSkippedByRotation() throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        let abc = try insertABCProgram(into: context)
+        // RF-36: um dia acrescentado no editor nasce vazio; até ganhar um exercício (RF-33) ele
+        // fica fora da escolha automática.
+        let emptyDay = insertDay(name: "Dia C", order: 2, program: abc.program, into: context)
+
+        // Dia B concluído ontem com uma série de trabalho: o seguinte seria o Dia C, que está vazio.
+        let startedAt = now.addingTimeInterval(-86_400)
+        let session = insertSession(status: .completed, day: abc.dayB, startedAt: startedAt, into: context)
+        let rowInSession = insertSessionExercise(order: 0, exercise: abc.row, session: session, into: context)
+        insertSet(
+            index: 0,
+            load: 30,
+            reps: 10,
+            rir: 2,
+            isWarmup: false,
+            completedAt: startedAt.addingTimeInterval(120),
+            sessionExercise: rowInSession,
+            into: context
+        )
+        try context.save()
+
+        let plan = try XCTUnwrap(try fixture.planner.nextPlan(now: now))
+        XCTAssertEqual(plan.programDayID, abc.dayA.uuid)
+
+        // SPEC S4: escolhido à mão, o dia vazio ainda abre (a Home não deixa começar).
+        let manual = try XCTUnwrap(try fixture.planner.plan(forDayID: emptyDay.uuid, now: now))
+        XCTAssertTrue(manual.exercises.isEmpty)
+    }
+
     func testS3_inProgressSessionIsIgnoredByRotationAndHistory() throws {
         let fixture = try makeFixture()
         let context = fixture.context

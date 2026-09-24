@@ -1,4 +1,5 @@
 import Foundation
+import HealthKit
 import SwiftData
 import TrainerCore
 import os
@@ -7,8 +8,9 @@ import os
 /// (`Date()`) e escolhe implementações concretas; o resto recebe tudo por injeção
 /// (ARCHITECTURE §3, AGENTS R9).
 extension AppEnvironment {
-    /// Ambiente do app de verdade: store persistente, seed do bundle, notificações reais e
-    /// HealthKit real quando o aparelho tem o app Saúde.
+    /// Ambiente do app de verdade: store persistente, seed do bundle, notificações reais,
+    /// HealthKit real quando o aparelho tem o app Saúde, decisões de semana leve e log do diálogo
+    /// em JSON (Application Support/PersonalTrainer).
     ///
     /// Nunca derruba o launch por causa do store, do seed ou das referências, e nunca esconde os
     /// dados do usuário:
@@ -44,7 +46,15 @@ extension AppEnvironment {
             modelContext: context,
             appliedEvents: AppliedEventStore(userDefaults: .standard)
         )
-        let planner = SessionPlanner(modelContext: context, coordinator: coordinator)
+        // A mesma instância vai ao planner e ao ambiente: com o padrão em memória do planner,
+        // "Fazer semana leve agora" e "Seguir normal" se perderiam ao relançar (contrato §2.2).
+        let deloadDecisions = LiveDeloadDecisionsStore()
+        let planner = SessionPlanner(
+            modelContext: context,
+            coordinator: coordinator,
+            deloadDecisions: deloadDecisions
+        )
+        let programs = ProgramRepository(modelContext: context)
         let notifications = LiveNotificationScheduler()
 
         // Sem app Saúde (iPad), o fake fica indisponível de propósito: com `isAvailable == true`
@@ -68,17 +78,44 @@ extension AppEnvironment {
             healthRecorder = nil
         }
 
+        // Painel de saúde (SPEC §7.10): só leitura, e a autorização só sai do botão "Conectar ao
+        // Saúde" (AGENTS §7). Sem app Saúde, o fake fica indisponível pelo mesmo motivo do
+        // `healthKit` acima: dados sintéticos não podem aparecer como se fossem da pessoa.
+        let healthReader: any HealthDataReading
+        if HKHealthStore.isHealthDataAvailable() {
+            healthReader = LiveHealthDataReader()
+        } else {
+            healthReader = FakeHealthDataReader(isAvailable: false)
+        }
+
+        // Diálogo (SPEC §7.11): o `refresh` só acontece com as abas na tela, então no modo de
+        // erro do store nada é lido nem gravado por ele. Permissão de notificação só por ação da
+        // pessoa (AGENTS §7).
+        let coach = CoachService(
+            planner: planner,
+            programs: programs,
+            log: LiveCoachLogStore(),
+            expiry: ProvisioningExpiryReader(bundle: .main),
+            notifications: notifications,
+            now: { Date() },
+            calendar: .current,
+            defaults: .standard
+        )
+
         return AppEnvironment(
             modelContainer: modelContainer,
             coordinator: coordinator,
             planner: planner,
-            programs: ProgramRepository(modelContext: context),
+            programs: programs,
             catalog: CatalogRepository(modelContext: context),
             backup: backup,
             references: ReferenceLibrary.load(bundle: .main),
             restTimer: RestTimer(notifications: notifications),
             notifications: notifications,
             healthKit: healthKit,
+            healthReader: healthReader,
+            deloadDecisions: deloadDecisions,
+            coach: coach,
             healthRecorder: healthRecorder,
             watchSync: NoopWatchSyncService(),
             now: { Date() },
@@ -90,6 +127,7 @@ extension AppEnvironment {
     /// ele, fakes para efeitos externos (AGENTS R9) e relógio fixo (SPEC P11), para que toda
     /// preview mostre o mesmo programa e as mesmas datas. Sem gravador do Saúde: nada sai do
     /// preview. As referências vêm do bundle; se faltarem, `ReferenceLibrary` devolve `.empty`.
+    /// Diálogo, decisões de semana leve e leitura do Saúde também são fakes.
     @MainActor
     static func preview(now: Date = Date(timeIntervalSince1970: 1_758_600_000)) -> AppEnvironment {
         let fixedNow = now
@@ -102,20 +140,41 @@ extension AppEnvironment {
             modelContext: context,
             appliedEvents: AppliedEventStore.inMemory()
         )
-        let planner = SessionPlanner(modelContext: context, coordinator: coordinator)
+        // Decisões em memória e ajustes fixos: nenhuma preview lê nem grava o que o app real guardou.
+        let deloadDecisions = FakeDeloadDecisionsStore()
+        let planner = SessionPlanner(
+            modelContext: context,
+            coordinator: coordinator,
+            deloadDecisions: deloadDecisions,
+            settings: { PlannerSettings() }
+        )
+        let programs = ProgramRepository(modelContext: context)
         let notifications = FakeNotificationScheduler()
+        let coach = CoachService(
+            planner: planner,
+            programs: programs,
+            log: FakeCoachLogStore(),
+            expiry: .unavailable,
+            notifications: notifications,
+            now: { fixedNow },
+            calendar: .current,
+            defaults: UserDefaults(suiteName: "AppEnvironment.preview") ?? .standard
+        )
 
         return AppEnvironment(
             modelContainer: modelContainer,
             coordinator: coordinator,
             planner: planner,
-            programs: ProgramRepository(modelContext: context),
+            programs: programs,
             catalog: CatalogRepository(modelContext: context),
             backup: BackupService(modelContext: context),
             references: ReferenceLibrary.load(bundle: .main),
             restTimer: RestTimer(notifications: notifications),
             notifications: notifications,
             healthKit: FakeHealthKitService(),
+            healthReader: FakeHealthDataReader(),
+            deloadDecisions: deloadDecisions,
+            coach: coach,
             healthRecorder: nil,
             watchSync: NoopWatchSyncService(),
             now: { fixedNow }

@@ -75,7 +75,8 @@ struct PrescriptionRow: View {
         return "\(minutes) min \(remainder) s"
     }
 
-    /// Rótulos fixos acordados para o M1 (AGENTS §4: textos de UI em pt-BR no código).
+    /// Rótulos fixos acordados para o M1 (AGENTS §4: textos de UI em pt-BR no código). A nota de
+    /// semana leve segue o vocabulário do DESIGN §6 ("semana leve", nunca "deload").
     static func noteText(_ note: PrescriptionNote) -> String {
         switch note {
         case .calibrate: return "Calibrar"
@@ -84,7 +85,7 @@ struct PrescriptionRow: View {
         case .retry: return "Repetir"
         case .decrease: return "Reduzir"
         case .returning: return "Retorno"
-        case .deload: return "Deload"
+        case .deload: return "Semana leve"
         }
     }
 }

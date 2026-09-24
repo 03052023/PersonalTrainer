@@ -15,7 +15,7 @@ final class HomeViewModel {
     /// Treino exibido: o próximo da rotação (S1–S2) ou o dia escolhido à mão (S4). `nil` quando
     /// não há programa ativo ou a última leitura falhou.
     private(set) var plan: SessionPlan?
-    /// `uuid` da sessão `inProgress`, se houver (SPEC S3): o botão vira "Retomar treino".
+    /// `uuid` da sessão `inProgress`, se houver (SPEC S3): o botão vira "Retomar".
     private(set) var activeSessionID: UUID?
     /// Dias do programa ativo, ordenados por `order`, para o menu do nome do dia (T2.14).
     private(set) var days: [ProgramDayTemplate] = []
@@ -79,7 +79,7 @@ final class HomeViewModel {
         } catch {
             plan = nil
             didFailToLoad = true
-            errorMessage = Self.message(for: error, fallback: "Não foi possível carregar o próximo treino.")
+            errorMessage = Self.message(for: error, fallback: "Não foi possível carregar a próxima sessão.")
         }
     }
 
@@ -88,7 +88,7 @@ final class HomeViewModel {
     /// referência de S2; nada é gravado aqui. Em falha, o plano atual é mantido.
     func selectDay(_ dayID: UUID) {
         guard activeSessionID == nil else {
-            errorMessage = "Já existe um treino em andamento. Toque em Retomar treino."
+            errorMessage = "Já existe uma sessão em andamento. Toque em Retomar."
             return
         }
         do {
@@ -110,6 +110,18 @@ final class HomeViewModel {
         refresh()
     }
 
+    /// Chamar depois de cada resposta ao diálogo (SPEC §7.11). "Aplicar" (C2) muda o programa ou
+    /// pede a semana leve, e "Seguir normal" (C1) a desfaz: nos dois casos o plano na tela ficou
+    /// velho e é relido. As outras respostas não mudam o plano.
+    func didHandleCoachAction(_ action: CoachAction) {
+        switch action {
+        case .apply, .keepNormal:
+            refresh()
+        default:
+            break
+        }
+    }
+
     /// Retoma a sessão ativa (RF-02: só existe uma) ou inicia uma nova a partir do plano.
     /// Devolve o `uuid` da sessão a abrir, ou `nil` se algo impediu (mensagem em `errorMessage`).
     func startSession() -> UUID? {
@@ -119,6 +131,12 @@ final class HomeViewModel {
         }
         guard let plan else {
             errorMessage = "Nenhum programa ativo para iniciar."
+            return nil
+        }
+        // SPEC S2/RF-33: um dia ainda sem exercícios não vira sessão (ela sairia vazia). O botão da
+        // Home já fica desabilitado; isto cobre o "Começar" do diálogo (C5).
+        guard !plan.exercises.isEmpty else {
+            errorMessage = "Este dia ainda não tem exercícios. Escolha os exercícios dele na aba Programa."
             return nil
         }
         do {
@@ -134,7 +152,7 @@ final class HomeViewModel {
                 activeSessionID = inProgressID
                 selectedDayID = nil
             }
-            errorMessage = Self.message(for: error, fallback: "Não foi possível iniciar o treino.")
+            errorMessage = Self.message(for: error, fallback: "Não foi possível iniciar a sessão.")
             return nil
         }
     }
@@ -176,11 +194,11 @@ final class HomeViewModel {
         if let planningError = error as? PlanningError {
             switch planningError {
             case .noActiveProgram:
-                return "Nenhum programa ativo. Ative um programa para ver o próximo treino."
+                return "Nenhum programa ativo. Ative um programa para ver a próxima sessão."
             case .programHasNoDays:
-                return "O programa ativo não tem dias de treino."
+                return "O programa ativo não tem dias."
             case .sessionAlreadyInProgress:
-                return "Já existe um treino em andamento. Toque em Retomar treino."
+                return "Já existe uma sessão em andamento. Toque em Retomar."
             case .exerciseNotFound:
                 return "Um exercício do programa não foi encontrado no catálogo."
             }
@@ -188,7 +206,7 @@ final class HomeViewModel {
         if let coordinatorError = error as? SessionCoordinatorError {
             switch coordinatorError {
             case .sessionAlreadyInProgress:
-                return "Já existe um treino em andamento. Toque em Retomar treino."
+                return "Já existe uma sessão em andamento. Toque em Retomar."
             default:
                 return fallback
             }

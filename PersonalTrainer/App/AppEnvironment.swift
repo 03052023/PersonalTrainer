@@ -24,6 +24,15 @@ final class AppEnvironment {
     let restTimer: RestTimer
     let notifications: any NotificationScheduling
     let healthKit: any HealthKitServicing
+    /// Leitura do app Saúde para o painel de saúde (SPEC §7.10): `LiveHealthDataReader` no
+    /// aparelho com o app Saúde, `FakeHealthDataReader` nos demais casos, em previews e testes.
+    let healthReader: any HealthDataReading
+    /// Decisões de semana leve ("Fazer semana leve agora", "Seguir normal"), a mesma instância
+    /// injetada no `SessionPlanner` (SPEC §7.5; contrato V2-FINAL §2.2).
+    let deloadDecisions: any DeloadDecisionsStoring
+    /// O diálogo do app (SPEC §7.11 C1–C8): feed da Home, destaque na abertura, lembrete da
+    /// validade da instalação.
+    let coach: CoachService
     /// Leva sessões finalizadas ao app Saúde (RF-13/RF-14). `nil` em previews e testes: sem
     /// observador, nenhum treino é gravado no Saúde. Mantido aqui para viver pelo processo.
     let healthRecorder: HealthKitWorkoutRecorder?
@@ -48,6 +57,9 @@ final class AppEnvironment {
         restTimer: RestTimer,
         notifications: any NotificationScheduling,
         healthKit: any HealthKitServicing,
+        healthReader: any HealthDataReading,
+        deloadDecisions: any DeloadDecisionsStoring,
+        coach: CoachService,
         healthRecorder: HealthKitWorkoutRecorder?,
         watchSync: any WatchSyncServicing,
         now: @escaping () -> Date = { Date() },
@@ -63,6 +75,9 @@ final class AppEnvironment {
         self.restTimer = restTimer
         self.notifications = notifications
         self.healthKit = healthKit
+        self.healthReader = healthReader
+        self.deloadDecisions = deloadDecisions
+        self.coach = coach
         self.healthRecorder = healthRecorder
         self.watchSync = watchSync
         self.now = now

@@ -10,8 +10,20 @@ struct ProgramDetailView: View {
     @State private var model: ProgramDetailViewModel
     private let references: ReferenceCatalog
 
-    @State private var isRenaming = false
+    /// Alvo do alerta de renomear: o programa ou um dia (T2.22). Os dois casos compartilham um só
+    /// `.alert`, para não empilhar dois alertas no mesmo nó da lista (o comentário mais abaixo
+    /// explica por que isso importa: é o mesmo motivo que já mantinha este alerta fora do `Group`
+    /// do erro).
+    private enum RenameTarget: Equatable {
+        case program
+        case day(id: UUID, name: String)
+    }
+
+    @State private var renameTarget: RenameTarget?
     @State private var nameDraft = ""
+
+    // Dias do programa (T2.22, RF-36).
+    @State private var dayPendingDeletion: ProgramDayTemplate?
 
     init(
         programID: UUID,
@@ -71,7 +83,7 @@ struct ProgramDetailView: View {
                 }
                 Button {
                     nameDraft = program.name
-                    isRenaming = true
+                    renameTarget = .program
                 } label: {
                     Label("Renomear", systemImage: "pencil")
                 }
@@ -94,7 +106,7 @@ struct ProgramDetailView: View {
                 }
             }
 
-            Section("Dias") {
+            Section {
                 if model.days.isEmpty {
                     Text("Este programa não tem dias de treino.")
                         .foregroundStyle(.secondary)
@@ -111,21 +123,115 @@ struct ProgramDetailView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .swipeActions(edge: .trailing) {
+                        // Sem `role: .destructive`: apagar pede confirmação, e o papel destrutivo
+                        // anima a saída da linha antes da resposta (mesmo cuidado do `ProgramTabView`).
+                        Button {
+                            dayPendingDeletion = day
+                        } label: {
+                            Label("Apagar", systemImage: "trash")
+                        }
+                        .tint(.red)
+                        .disabled(!model.canRemoveDay)
+                        Button {
+                            nameDraft = day.name
+                            renameTarget = .day(id: day.id, name: day.name)
+                        } label: {
+                            Label("Renomear", systemImage: "pencil")
+                        }
+                        .tint(.blue)
+                    }
                 }
+                .onMove { source, destination in
+                    model.moveDays(fromOffsets: source, toOffset: destination)
+                }
+
+                Button {
+                    model.addDay()
+                } label: {
+                    Label("Adicionar dia", systemImage: "plus.circle.fill")
+                }
+                .disabled(!model.canAddDay)
+            } header: {
+                Text("Dias")
+            } footer: {
+                Text("De \(ProgramLimits.minDays) a \(ProgramLimits.maxDays) dias. Hoje: \(ProgramListViewModel.dayCountText(model.days.count)).")
             }
         }
         .navigationTitle(program.name)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                EditButton()
+            }
+        }
         // Alerta de renomear preso à lista, e não ao `Group`, para não dividir o mesmo nó com o
-        // alerta de erro.
-        .alert("Renomear programa", isPresented: $isRenaming) {
-            TextField("Nome do programa", text: $nameDraft)
+        // alerta de erro. Programa e dia compartilham este único `.alert` (ver `RenameTarget`)
+        // para a mesma razão não valer duas vezes dentro da própria lista.
+        .alert(
+            renameAlertTitle,
+            isPresented: Binding(
+                get: { renameTarget != nil },
+                set: { isPresented in
+                    if !isPresented { renameTarget = nil }
+                }
+            )
+        ) {
+            TextField(renameFieldLabel, text: $nameDraft)
             Button("Cancelar", role: .cancel) {}
             Button("Renomear") {
-                model.rename(to: nameDraft)
+                switch renameTarget {
+                case .program:
+                    model.rename(to: nameDraft)
+                case .day(let id, _):
+                    model.renameDay(id: id, to: nameDraft)
+                case nil:
+                    break
+                }
             }
         } message: {
-            Text("O nome aparece na lista de programas e na tela de treino.")
+            Text(renameAlertMessage)
+        }
+        .confirmationDialog(
+            "Apagar dia?",
+            isPresented: Binding(
+                get: { dayPendingDeletion != nil },
+                set: { isPresented in
+                    if !isPresented { dayPendingDeletion = nil }
+                }
+            ),
+            titleVisibility: .visible,
+            presenting: dayPendingDeletion
+        ) { day in
+            Button("Apagar \(day.name)", role: .destructive) {
+                model.removeDay(id: day.id)
+                dayPendingDeletion = nil
+            }
+            Button("Cancelar", role: .cancel) {}
+        } message: { _ in
+            Text("O histórico de sessões desse dia continua no Histórico; só o dia é removido do programa.")
+        }
+    }
+
+    /// Título, rótulo de campo e mensagem do `.alert` de renomear, conforme `renameTarget`.
+    private var renameAlertTitle: String {
+        switch renameTarget {
+        case .day: return "Renomear dia"
+        case .program, nil: return "Renomear programa"
+        }
+    }
+
+    private var renameFieldLabel: String {
+        switch renameTarget {
+        case .day: return "Nome do dia"
+        case .program, nil: return "Nome do programa"
+        }
+    }
+
+    private var renameAlertMessage: String {
+        switch renameTarget {
+        case .day: return "O nome aparece na rotação de treino e no histórico das próximas sessões."
+        case .program, nil: return "O nome aparece na lista de programas e na tela de treino."
         }
     }
 

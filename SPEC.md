@@ -171,7 +171,7 @@ Parâmetros padrão: S = 3, faixa 8–12, T = 2, descanso 120 s. Séries retas (
 | Regra | Descrição |
 |-------|-----------|
 | **S1** | O programa ativo tem dias ordenados D1…Dn. |
-| **S2** | Próximo = dia seguinte (na ordem de `order`) ao da última sessão `completed` ou `abandoned` com ≥ 1 série de trabalho. Se não há nenhuma, ou se o dia dessa sessão não existe mais no programa (programa editado) → D1. Após Dn → D1. `order` é único dentro do programa (invariante validado no seed). Empates de data são desfeitos pelo id da sessão (P11). |
+| **S2** | Próximo = dia seguinte (na ordem de `order`) ao da última sessão `completed` ou `abandoned` com ≥ 1 série de trabalho. Se não há nenhuma, ou se o dia dessa sessão não existe mais no programa (programa editado) → D1. Após Dn → D1. `order` é único dentro do programa (invariante validado no seed). Empates de data são desfeitos pelo id da sessão (P11). Um dia ainda sem exercícios (recém-acrescentado, abaixo do mínimo de RF-33) fica fora da escolha automática até ganhar um; escolhido à mão (S4), abre, mas não inicia sessão. |
 | **S3** | Se existe sessão `inProgress`, o "próximo treino" é retomá-la. Essa regra é do planejador, não do seletor: o seletor ignora sessões `inProgress`. |
 | **S4** | O usuário pode escolher outro dia manualmente; a rotação segue a partir do dia escolhido (a sessão registrada nesse dia passa a ser a referência de S2). |
 
