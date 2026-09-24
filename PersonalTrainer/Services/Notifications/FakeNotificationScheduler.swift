@@ -7,11 +7,13 @@ import Foundation
 /// Mesmo desenho do `FakeHealthKitService`: estado num `actor` interno e classe `Sendable`
 /// não isolada, para não amarrar o `RestTimer` nem os testes dele ao `@MainActor`.
 final class FakeNotificationScheduler: NotificationScheduling {
-    /// Uma chamada a `scheduleRestTimerEnd`.
+    /// Uma chamada a `scheduleRestTimerEnd` (`title == nil`) ou a `scheduleReminder`.
     struct ScheduledRequest: Sendable, Hashable {
         let fireDate: Date
         let identifier: String
         let body: String
+        /// Título do lembrete; `nil` no fim de descanso, que usa o título fixo do app.
+        var title: String? = nil
     }
 
     private let state: State
@@ -27,7 +29,8 @@ final class FakeNotificationScheduler: NotificationScheduling {
         get async { await state.authorizationRequestCount }
     }
 
-    /// Toda chamada a `scheduleRestTimerEnd`, na ordem, inclusive as já canceladas ou substituídas.
+    /// Toda chamada a `scheduleRestTimerEnd` e a `scheduleReminder`, na ordem, inclusive as já
+    /// canceladas ou substituídas.
     var scheduledRequests: [ScheduledRequest] {
         get async { await state.scheduledRequests }
     }
@@ -58,6 +61,12 @@ final class FakeNotificationScheduler: NotificationScheduling {
 
     func cancel(identifier: String) async {
         await state.cancel(identifier: identifier)
+    }
+
+    func scheduleReminder(at fireDate: Date, identifier: String, title: String, body: String) async {
+        await state.schedule(
+            ScheduledRequest(fireDate: fireDate, identifier: identifier, body: body, title: title)
+        )
     }
 
     // MARK: Estado protegido
