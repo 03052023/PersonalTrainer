@@ -299,6 +299,8 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 ### Pendências para a versão 2.1 (achados da revisão final, não bloqueiam)
 
+- [ ] **T6.1 [CI] Como fazer: ilustração própria animada + passos (RF-40)** — pedido do usuário (2026-09-24): minimalista, sem realismo, direto ao ponto. Escopo e formato de dados definidos após a pesquisa `exercise-illustrations-research`.
+- [ ] **T6.2 [CI] RIR explicado na sessão (RF-41)** — Escopo: `Features/Session/RIRPicker.swift` (rótulos por valor), `Features/Session/RIRExplainerSheet.swift` (nova), cartão de primeira vez em `Features/Session/ActiveSessionView.swift` (marca `hasSeenRIRExplainer` em `@AppStorage`), leitura acessível em `Features/Home/PrescriptionRow.swift`. Aceite: os 4 itens do RF-41 visíveis no simulador, e o cartão some depois de "Entendi" e não volta.
 - [ ] **A5** Importar backup mantém decisões de semana leve, o log e a revisão do diálogo tomados sobre os dados antigos; esses JSON também não entram no backup. Decidir o que o import zera.
 - [ ] **B7** Duração estimada no cartão da sessão (DESIGN §9.2).
 - [ ] **B10** "Fazer backup" (C7) deveria abrir a exportação direto, não só a aba Ajustes.
