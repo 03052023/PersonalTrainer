@@ -34,17 +34,9 @@ Armadilha do Swift 6.3 no Linux: listas de tuplas com membros implícitos dentro
 
 Onda 2 concluída e mesclada no `main` (fbdf75d): `DeloadScheduler`, `TrainerCore/Coach` (C1–C8, `CoachLog`, `ReviewSchedule`, `ProvisioningProfileParser`), Completo corpo todo com id novo (o A/B/C da M1 fica intacto e inativo no seed) e referências novas. Todos verdes no CI.
 
-**Onda 3 (app), workflow `wf_d47ca6cb-752`**, a partir do `main` 6d2da14. Cada agente itera no App build do seu branch `ci/v3-*`:
+**Onda 3 (app) concluída** (workflow `wf_d47ca6cb-752`): os 5 branches `v3/health`, `v3/planner`, `v3/coach`, `v3/program-days` e `v3/design` ficaram verdes no App build. Os relatórios, com a API para o integrador, estão em `docs/wave3-agent-results.json`.
 
-| Branch | CI | Tarefa (contrato §2) |
-|---|---|---|
-| `v3/health` | `ci/v3-health` | 2.1 Saúde (mescla `m5/health-reader` e `m5/health-ui`) |
-| `v3/planner` | `ci/v3-planner` | 2.2 Planejador |
-| `v3/coach` | `ci/v3-coach` | 2.3 Diálogo (tem um shim temporário `Services/Coach/SessionPlanning+CoachShim.swift`, que o integrador apaga) |
-| `v3/program-days` | `ci/v3-program-days` | 2.4 Dias D/E |
-| `v3/design` | `ci/v3-design` | 2.5 Design |
-
-**Ao retomar:** para cada branch `v3/*`, confira se o último commit tem App build verde. Depois rode o **integrador** (§2.6) num worktree novo a partir do `main`: mescla os 5 branches, apaga o shim, liga Home/Root/Ajustes e itera em `ci/v3-final`. Em seguida, revisão adversarial e correção.
+**Integração:** o branch `v3/integration` (worktree `pt-wt/w3-integration`) tem os 5 mesclados sem conflito, e o shim do diálogo já foi apagado (ad4eb3e, enviado para `ci/v3-merge`). **Falta o integrador** (contrato §2.6): ligar Home, Root e Ajustes, `AppEnvironment` (`healthReader`, `coach`, `deloadDecisions`), aba Hoje, Começar e flor; acrescentar `Services/Decisions` ao ARCHITECTURE §17; iterar em `ci/v3-final`. Depois, revisão adversarial, correção e merge no `main`.
 
 Pendências do corretor do M2 que não bloqueiam: C10 (blocos de intervalos do Combate e de equilíbrio/mobilidade viram lembretes C8) e C11 (exercício do seed editado exige SchemaV3 antes de um seed v3). Os programas Foco inferior e Foco superior ainda usam os descansos antigos (180/120 s) e não foram revisados para 2×/semana.
 
