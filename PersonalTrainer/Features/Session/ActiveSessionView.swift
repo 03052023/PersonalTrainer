@@ -139,8 +139,8 @@ struct ActiveSessionView: View {
                 SubstituteExerciseSheet(
                     exerciseName: model.selectedExercise?.exerciseName ?? "",
                     suggestions: model.substituteSuggestions,
-                    allExercises: model.substitutionCatalog,
                     references: references,
+                    context: .session,
                     onPick: { model.substituteSelectedExercise(with: $0) },
                     onCancel: { model.cancelSubstitution() }
                 )

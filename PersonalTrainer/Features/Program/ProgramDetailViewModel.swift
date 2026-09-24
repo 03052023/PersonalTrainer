@@ -265,7 +265,7 @@ final class ProgramDetailViewModel {
 
     /// Substitutos sugeridos para o alvo (mesmo padrão de movimento e grupo primário, RF-34),
     /// sem repetir exercícios que já estão no dia.
-    func substitutes(forTargetID targetID: UUID, inDay dayID: UUID, limit: Int = 5) -> [ExerciseDefinition] {
+    func substitutes(forTargetID targetID: UUID, inDay dayID: UUID, limit: Int = 20) -> [ExerciseDefinition] {
         let dayTargets = targets(inDay: dayID)
         guard
             let target = dayTargets.first(where: { $0.id == targetID }),

@@ -234,7 +234,9 @@ final class ActiveSessionViewModel {
         }
         let inSession = Set(exercises.map(\.exerciseUUID))
         do {
-            substituteSuggestions = try planner.substitutes(for: exercise.exerciseUUID, limit: 5)
+            // RF-34: a folha mostra só os substitutos deste exercício, do mais ao menos parecido,
+            // sem o catálogo inteiro; o limite alto cobre todos os candidatos de um padrão.
+            substituteSuggestions = try planner.substitutes(for: exercise.exerciseUUID, limit: 20)
                 .filter { !inSession.contains($0.id) }
         } catch {
             logger.error("Falha ao buscar substitutos: \(String(describing: error), privacy: .public)")

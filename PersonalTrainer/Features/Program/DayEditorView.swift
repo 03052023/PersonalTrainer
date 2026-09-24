@@ -19,6 +19,8 @@ struct DayEditorView: View {
         let kind: Kind
         let title: String
         let highlighted: [ExerciseDefinition]
+        /// Nome do exercício trocado (título da folha de substitutos); vazio ao adicionar.
+        var exerciseName: String = ""
     }
 
     /// Pedido de edição de um alvo.
@@ -37,14 +39,17 @@ struct DayEditorView: View {
 
     @Bindable private var model: ProgramDetailViewModel
     private let dayID: UUID
+    /// Referências do "Por quê?" na folha de substitutos (RF-32).
+    private let references: ReferenceCatalog
 
     @State private var pickerRequest: PickerRequest? = nil
     @State private var editRequest: EditRequest? = nil
     @State private var pendingChange: PendingChange? = nil
 
-    init(model: ProgramDetailViewModel, dayID: UUID) {
+    init(model: ProgramDetailViewModel, dayID: UUID, references: ReferenceCatalog = .empty) {
         self.model = model
         self.dayID = dayID
+        self.references = references
     }
 
     var body: some View {
@@ -60,24 +65,39 @@ struct DayEditorView: View {
             }
         }
         .sheet(item: $pickerRequest, onDismiss: { applyPendingChange() }) { request in
-            ExercisePickerView(
-                exercises: model.availableExercises,
-                title: request.title,
-                highlighted: request.highlighted,
-                onPick: { exercise in
-                    switch request.kind {
-                    case .add:
+            switch request.kind {
+            case .add:
+                // Adicionar é o caminho para outro músculo: catálogo inteiro.
+                ExercisePickerView(
+                    exercises: model.availableExercises,
+                    title: request.title,
+                    highlighted: request.highlighted,
+                    onPick: { exercise in
                         pendingChange = .add(exerciseID: exercise.id)
-                    case .replace(let targetID):
-                        pendingChange = .replace(targetID: targetID, exerciseID: exercise.id)
+                        pickerRequest = nil
+                    },
+                    onCancel: {
+                        pendingChange = nil
+                        pickerRequest = nil
                     }
-                    pickerRequest = nil
-                },
-                onCancel: {
-                    pendingChange = nil
-                    pickerRequest = nil
-                }
-            )
+                )
+            case .replace(let targetID):
+                // RF-34: trocar mostra só os substitutos deste exercício, do mais ao menos parecido.
+                SubstituteExerciseSheet(
+                    exerciseName: request.exerciseName,
+                    suggestions: request.highlighted,
+                    references: references,
+                    context: .program,
+                    onPick: { exercise in
+                        pendingChange = .replace(targetID: targetID, exerciseID: exercise.id)
+                        pickerRequest = nil
+                    },
+                    onCancel: {
+                        pendingChange = nil
+                        pickerRequest = nil
+                    }
+                )
+            }
         }
         .sheet(item: $editRequest, onDismiss: { applyPendingChange() }) { request in
             TargetEditorSheet(
@@ -184,7 +204,8 @@ struct DayEditorView: View {
         pickerRequest = PickerRequest(
             kind: .replace(targetID: target.id),
             title: "Trocar exercício",
-            highlighted: model.substitutes(forTargetID: target.id, inDay: dayID)
+            highlighted: model.substitutes(forTargetID: target.id, inDay: dayID),
+            exerciseName: model.exerciseName(for: target)
         )
     }
 

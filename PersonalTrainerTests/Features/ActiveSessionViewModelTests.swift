@@ -557,7 +557,7 @@ final class ActiveSessionViewModelTests: XCTestCase {
         XCTAssertTrue(model.isShowingSubstituteSheet)
         XCTAssertEqual(
             fixture.planner.substitutesCalls,
-            [SessionTestPlanner.SubstitutesCall(exerciseID: fixture.legPressCatalog.uuid, limit: 5)]
+            [SessionTestPlanner.SubstitutesCall(exerciseID: fixture.legPressCatalog.uuid, limit: 20)]
         )
         XCTAssertEqual(model.substituteSuggestions.map(\.id), [fixture.hackDefinition.id])
         XCTAssertEqual(

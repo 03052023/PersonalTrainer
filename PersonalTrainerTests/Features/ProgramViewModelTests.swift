@@ -362,7 +362,7 @@ final class ProgramViewModelTests: XCTestCase {
 
         let substitutes = model.substitutes(forTargetID: benchTarget.id, inDay: fixture.dayA.id)
 
-        XCTAssertLessThanOrEqual(substitutes.count, 5)
+        XCTAssertLessThanOrEqual(substitutes.count, 20)
         XCTAssertFalse(substitutes.contains { dayExerciseIDs.contains($0.id) })
         XCTAssertFalse(substitutes.contains { $0.id == fixture.archivedChest.id })
         XCTAssertTrue(substitutes.contains { $0.id == fixture.dumbbellBench.id }, "Mesmo padrão e mesmo grupo primário")

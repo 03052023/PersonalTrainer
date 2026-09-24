@@ -1,23 +1,30 @@
 import SwiftUI
 import TrainerCore
 
-/// Folha "Trocar exercício" da sessão (SPEC RF-34): até 5 substitutos com o mesmo padrão de
-/// movimento (ordenados pelo planner) e "Ver todos os exercícios", que troca o conteúdo da
-/// folha pelo `ExercisePickerView` do catálogo com os substitutos em "Sugeridos".
+/// Onde a troca acontece: muda só o rodapé (quanto tempo a troca vale e como trabalhar outro
+/// músculo).
+enum SubstituteContext {
+    /// Sessão em andamento: a troca vale só para esta sessão.
+    case session
+    /// Editor do dia do programa: a troca fica no programa.
+    case program
+}
+
+/// Folha "Trocar exercício" (SPEC RF-34), usada na sessão e no editor do programa. Mostra **só**
+/// os substitutos deste exercício (mesmo padrão de movimento e ao menos um grupo primário em
+/// comum, `ExerciseSubstitution`), do mais ao menos parecido, na ordem em que chegam. Não há
+/// catálogo inteiro aqui (pedido do usuário, 2026-09-24): para trabalhar outro músculo, a pessoa
+/// adiciona um exercício ao dia e apaga este.
 ///
-/// Só escolhe: quem troca é o `ActiveSessionViewModel` (planner + coordinator). A troca vale só
-/// para este treino; o histórico de carga de cada exercício é separado (P3).
+/// Só escolhe: quem troca é quem apresenta a folha (sessão ou editor). O histórico de carga de
+/// cada exercício é separado (P3).
 struct SubstituteExerciseSheet: View {
     private let exerciseName: String
     private let suggestions: [ExerciseDefinition]
-    private let allExercises: [ExerciseDefinition]
     private let references: ReferenceCatalog
+    private let context: SubstituteContext
     private let onPick: (ExerciseDefinition) -> Void
     private let onCancel: () -> Void
-
-    /// Lista completa no lugar dos substitutos. Troca de conteúdo, e não folha sobre folha:
-    /// escolher na lista completa fecha tudo de uma vez.
-    @State private var isShowingAll = false
 
     /// Chave de tópico do contrato de `ReferenceCatalog`.
     private static let whyTopic = "topic.substitution"
@@ -25,65 +32,40 @@ struct SubstituteExerciseSheet: View {
     init(
         exerciseName: String,
         suggestions: [ExerciseDefinition],
-        allExercises: [ExerciseDefinition],
         references: ReferenceCatalog,
+        context: SubstituteContext = .session,
         onPick: @escaping (ExerciseDefinition) -> Void,
         onCancel: @escaping () -> Void
     ) {
         self.exerciseName = exerciseName
         self.suggestions = suggestions
-        self.allExercises = allExercises
         self.references = references
+        self.context = context
         self.onPick = onPick
         self.onCancel = onCancel
     }
 
     var body: some View {
-        if isShowingAll {
-            ExercisePickerView(
-                exercises: allExercises,
-                title: "Todos os exercícios",
-                highlighted: suggestions,
-                onPick: onPick,
-                onCancel: { isShowingAll = false }
-            )
-        } else {
-            suggestionsList
-        }
-    }
-
-    private var suggestionsList: some View {
         NavigationStack {
             List {
                 Section {
                     if suggestions.isEmpty {
-                        Text("Nenhum substituto com o mesmo padrão de movimento no catálogo.")
+                        Text("Nenhum exercício parecido com este no catálogo.")
                             .foregroundStyle(.secondary)
                     } else {
-                        ForEach(suggestions, id: \.id) { exercise in
+                        ForEach(Array(suggestions.enumerated()), id: \.element.id) { pair in
                             Button {
-                                onPick(exercise)
+                                onPick(pair.element)
                             } label: {
-                                SubstituteRow(exercise: exercise)
+                                SubstituteRow(exercise: pair.element, isClosest: pair.offset == 0)
                             }
                             .buttonStyle(.plain)
                         }
                     }
                 } header: {
-                    Text("Mesmo padrão de movimento")
+                    Text("Do mais parecido ao menos parecido")
                 } footer: {
-                    Text("A troca vale só para este treino. O exercício novo tem histórico de carga próprio e começa em calibração se você nunca o fez.")
-                }
-
-                if !allExercises.isEmpty {
-                    Section {
-                        Button {
-                            isShowingAll = true
-                        } label: {
-                            Label("Ver todos os exercícios", systemImage: "list.bullet")
-                                .frame(minHeight: 44)
-                        }
-                    }
+                    Text(footerText)
                 }
 
                 // RF-32: por que trocar por mesmo padrão de movimento mantém o estímulo. A seção
@@ -109,11 +91,23 @@ struct SubstituteExerciseSheet: View {
     private var title: String {
         exerciseName.isEmpty ? "Trocar exercício" : "Trocar \(exerciseName)"
     }
+
+    private var footerText: String {
+        let history = "O exercício novo tem histórico de carga próprio e começa em calibração se você nunca o fez."
+        switch context {
+        case .session:
+            return "A troca vale só para esta sessão. \(history) Para trabalhar outro músculo, ajuste o dia na aba Programa."
+        case .program:
+            return "A troca fica no programa. \(history) Para trabalhar outro músculo, use \"Adicionar exercício\" e apague este."
+        }
+    }
 }
 
-/// Uma linha: nome, padrão de movimento e equipamento. Altura ≥ 44 pt para o toque.
+/// Uma linha: nome, padrão de movimento e equipamento; o primeiro da lista leva o selo "Mais
+/// parecido". Altura ≥ 44 pt para o toque.
 private struct SubstituteRow: View {
     let exercise: ExerciseDefinition
+    let isClosest: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -124,6 +118,11 @@ private struct SubstituteRow: View {
                 Text(detail)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                if isClosest {
+                    Text("Mais parecido")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Theme.accent)
+                }
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
@@ -212,23 +211,18 @@ private enum SubstitutePreviewData {
             SubstitutePreviewData.machineChestPress,
             SubstitutePreviewData.pushUp,
         ],
-        allExercises: [
-            SubstitutePreviewData.dumbbellBench,
-            SubstitutePreviewData.machineChestPress,
-            SubstitutePreviewData.pushUp,
-        ],
         references: .empty,
         onPick: { _ in },
         onCancel: {}
     )
 }
 
-#Preview("Sem substitutos") {
+#Preview("No programa, sem substitutos") {
     SubstituteExerciseSheet(
         exerciseName: "Cadeira extensora",
         suggestions: [],
-        allExercises: [SubstitutePreviewData.dumbbellBench],
         references: .empty,
+        context: .program,
         onPick: { _ in },
         onCancel: {}
     )

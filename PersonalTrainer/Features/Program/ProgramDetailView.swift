@@ -113,7 +113,7 @@ struct ProgramDetailView: View {
                 }
                 ForEach(model.days, id: \.id) { day in
                     NavigationLink {
-                        DayEditorView(model: model, dayID: day.id)
+                        DayEditorView(model: model, dayID: day.id, references: references)
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(day.name)
