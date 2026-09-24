@@ -329,7 +329,11 @@ final class BackupServiceTests: XCTestCase {
             appVersion: "9.9.9 (99)",
             timeZone: TimeZone(secondsFromGMT: 0) ?? .current,
             reapplySeed: {
-                XCTAssertNoThrow(try SeedLoader.loadIfNeeded(context: target, bundle: .main, now: seedDate))
+                do {
+                    _ = try SeedLoader.loadIfNeeded(context: target, bundle: .main, now: seedDate)
+                } catch {
+                    XCTFail("O seed não foi reaplicado: \(error)")
+                }
             }
         )
         let report = try service.importBackup(data)
