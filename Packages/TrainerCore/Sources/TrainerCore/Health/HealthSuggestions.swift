@@ -94,32 +94,42 @@ enum HealthSuggestions {
         default: reason = "Só \(nights) dos últimos 7 dias têm HRV ou sono registrados."
         }
         return (
-            "Use o Apple Watch à noite",
-            reason + " Use o Apple Watch para dormir: ele mede HRV, FC de repouso e sono, que o app usa "
+            "Use o relógio à noite",
+            reason + " Use o relógio para dormir: ele mede HRV, FC de repouso e sono, que o app usa "
                 + "para acompanhar sua recuperação e na revisão periódica."
         )
     }
 
     // MARK: - A3: VO2max desatualizado
 
+    /// Janela de leitura do HealthKit para VO2max (igual a `HealthInput.vo2Max`, SPEC A3). Sem
+    /// nenhuma estimativa aqui, o relógio do usuário provavelmente não envia VO2max ao Saúde, então
+    /// a sugestão de atualizar nunca aparece — só quem já teve alguma estimativa a recebe.
+    static let vo2MaxReadingWindowDays = 180
+
+    /// Só sugere quando há estimativa desatualizada (> 60 dias, `Vo2MaxTrend.isStale`) **e** ao menos
+    /// uma estimativa na janela de leitura de 180 dias: quem usa um relógio que nunca enviou VO2max
+    /// ao Saúde não tem o que "atualizar", então nunca recebe esta sugestão.
     static func updateVo2Max(
         samples: [Vo2MaxSample],
         now: Date,
         calendar: Calendar
     ) -> (title: String, detail: String)? {
-        guard Vo2MaxTrend.isStale(samples: samples, now: now, calendar: calendar) else { return nil }
-        let reason: String
-        if let latest = Vo2MaxTrend.validSamples(samples, now: now).last {
-            let days = HealthDays.daysBetween(latest.date, now, calendar: calendar)
-            reason = "Sua última estimativa de VO2max (\(HealthText.decimal(latest.value)) mL/kg/min) "
-                + "tem \(HealthText.count(days, singular: "dia", plural: "dias"))."
-        } else {
-            reason = "O app ainda não tem nenhuma estimativa de VO2max do Apple Watch."
-        }
+        // `latest` é a amostra válida mais recente: se ela já está fora da janela de leitura,
+        // nenhuma outra amostra (todas mais antigas) estaria dentro, então basta checar `latest`.
+        guard Vo2MaxTrend.isStale(samples: samples, now: now, calendar: calendar),
+              let latest = Vo2MaxTrend.validSamples(samples, now: now).last
+        else { return nil }
+        let readingWindowStart = HealthDays.adding(-vo2MaxReadingWindowDays, to: now, calendar: calendar)
+        guard latest.date >= readingWindowStart else { return nil }
+
+        let days = HealthDays.daysBetween(latest.date, now, calendar: calendar)
+        let reason = "Sua última estimativa de VO2max (\(HealthText.decimal(latest.value)) mL/kg/min) "
+            + "tem \(HealthText.count(days, singular: "dia", plural: "dias"))."
         return (
             "Atualize seu VO2max",
-            reason + " Faça 20 min de caminhada rápida ou corrida ao ar livre com o app Exercício do "
-                + "Apple Watch para ele atualizar a estimativa."
+            reason + " Faça 20 min de caminhada rápida ou corrida ao ar livre com o seu relógio para "
+                + "ele atualizar a estimativa."
         )
     }
 
