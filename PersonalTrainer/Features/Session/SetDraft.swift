@@ -7,6 +7,7 @@ import TrainerCore
 struct SetDraft: Sendable, Hashable {
     /// Carga em kg (ou placas/nível conforme `loadUnit`). Passo do stepper = `loadIncrement`.
     var load: Double
+    /// Repetições, segundos ou passos, conforme `measure` (SPEC RF-43). Gravado em `reps`.
     var reps: Int
     /// RIR 0…5; `nil` = não informado.
     var rir: Int?
@@ -29,6 +30,8 @@ struct SetDraft: Sendable, Hashable {
     let targetReps: Int
     let targetRIR: Int
     let note: PrescriptionNote
+    /// O que o número da série conta (SPEC RF-43), vindo do catálogo do seed pelo `slug`.
+    let measure: ExerciseMeasure
 
     init(
         load: Double,
@@ -45,7 +48,8 @@ struct SetDraft: Sendable, Hashable {
         repMax: Int,
         targetReps: Int,
         targetRIR: Int,
-        note: PrescriptionNote
+        note: PrescriptionNote,
+        measure: ExerciseMeasure = .reps
     ) {
         self.load = load
         self.reps = reps
@@ -63,23 +67,40 @@ struct SetDraft: Sendable, Hashable {
         self.targetReps = targetReps
         self.targetRIR = targetRIR
         self.note = note
+        self.measure = measure
     }
 
-    /// Texto curto da prescrição, ex.: "3 × 8–12 · 60 kg · RIR 2". Usa a carga PRESCRITA, não
-    /// a que o usuário está editando: é a mesma convenção da Home (`PrescriptionRow`) e do
-    /// histórico, inclusive o "—" da calibração sem carga (SPEC P2).
+    /// Texto curto da prescrição, ex.: "3 × 8–12 · 60 kg · RIR 2" ou "3 × 20–40 s · — · RIR 2".
+    /// Usa a carga PRESCRITA, não a que o usuário está editando: é a mesma convenção da Home
+    /// (`PrescriptionRow`) e do histórico, inclusive o "—" da calibração sem carga (SPEC P2).
     var prescriptionSummary: String {
-        let loadText: String
-        if let prescribedLoad {
-            switch loadUnit {
-            case .kilograms: loadText = LoadFormatter.kilograms(prescribedLoad)
-            case .plates: loadText = "\(Int(prescribedLoad.rounded())) placas"
-            case .level: loadText = "nível \(Int(prescribedLoad.rounded()))"
-            }
-        } else {
-            loadText = "—"
+        let range = MeasureText.range(min: repMin, max: repMax, measure: measure)
+        return "\(plannedSets) × \(range) · \(prescribedLoadText ?? "—") · RIR \(targetRIR)"
+    }
+
+    /// Leitura por voz da mesma prescrição (SPEC RF-41 d): "3 séries de 8 a 12 repetições,
+    /// 60 kg, parar com 2 repetições de reserva".
+    var prescriptionSpokenText: String {
+        PrescriptionSpeech.text(
+            sets: plannedSets,
+            repMin: repMin,
+            repMax: repMax,
+            measure: measure,
+            loadText: prescribedLoadText,
+            targetRIR: targetRIR
+        )
+    }
+
+    /// Carga prescrita na unidade do exercício; `nil` na calibração sem carga (SPEC P2).
+    private var prescribedLoadText: String? {
+        guard let prescribedLoad else {
+            return nil
         }
-        return "\(plannedSets) × \(repMin)–\(repMax) · \(loadText) · RIR \(targetRIR)"
+        switch loadUnit {
+        case .kilograms: return LoadFormatter.kilograms(prescribedLoad)
+        case .plates: return "\(Int(prescribedLoad.rounded())) placas"
+        case .level: return "nível \(Int(prescribedLoad.rounded()))"
+        }
     }
 }
 

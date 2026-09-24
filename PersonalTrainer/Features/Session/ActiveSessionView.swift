@@ -8,6 +8,10 @@ import TrainerCore
 /// `onFinished` é chamado depois de `finish()`/`abandon()` bem-sucedidos, para o fluxo
 /// mostrar o resumo (T1.8) e a Home recalcular o próximo treino. `onMinimize` ("Voltar") fecha
 /// a tela sem encerrar nada: a sessão continua `inProgress` e a Home oferece "Retomar".
+///
+/// RF-41 (c): na primeira sessão, o `RIRIntroCard` explica o RIR antes do registro da série e
+/// some em "Entendi"; a marca fica em `@AppStorage` (preferência da tela, não dado de treino),
+/// então o cartão não volta em nenhuma sessão seguinte.
 struct ActiveSessionView: View {
     @Bindable private var model: ActiveSessionViewModel
     private let references: ReferenceCatalog
@@ -16,6 +20,8 @@ struct ActiveSessionView: View {
 
     @State private var isShowingSkipDialog = false
     @State private var isShowingFinishDialog = false
+    /// Marca o cartão do RIR como visto (TASKS T6.2). Chave fixa: renomear faria o cartão voltar.
+    @AppStorage("hasSeenRIRExplainer") private var hasSeenRIRExplainer = false
 
     init(
         model: ActiveSessionViewModel,
@@ -43,9 +49,21 @@ struct ActiveSessionView: View {
                     )
 
                     if let exercise = model.selectedExercise {
+                        if !hasSeenRIRExplainer {
+                            RIRIntroCard(onAcknowledge: {
+                                withAnimation(.easeInOut(duration: 0.4)) {
+                                    hasSeenRIRExplainer = true
+                                }
+                            })
+                            .padding(.horizontal)
+                            .transition(.opacity)
+                        }
+
                         CurrentExercisePanel(
                             exercise: exercise,
                             prescriptionSummary: model.prescriptionSummary(for: exercise),
+                            prescriptionSpokenText: model.prescriptionSpokenText(for: exercise),
+                            measure: model.measure(for: exercise),
                             draft: Binding<SetDraft>($model.currentDraft),
                             references: references,
                             canSubstitute: model.canSubstituteSelectedExercise,
@@ -151,6 +169,7 @@ struct ActiveSessionView: View {
             ) { edit in
                 EditSetSheet(
                     edit: edit,
+                    references: references,
                     onSave: { model.saveEditedSet($0) },
                     onDelete: { model.deleteSet(id: edit.setID) },
                     onCancel: { model.cancelEditingSet() }

@@ -6,11 +6,17 @@ import TrainerCore
 /// e badge "Pulado"; uma linha por série ("1 · 60 kg × 10 · RIR 2"), aquecimento marcado,
 /// ordenadas por `index`; e por fim o link para a evolução de carga do exercício (T2.10).
 ///
+/// A medida do exercício (SPEC RF-43), lida de `\.exerciseTraits` pelo `slug`, dá a unidade da
+/// faixa e das séries ("3 × 20–40 s", "1 · 0 kg × 30 s"); o VoiceOver lê a prescrição por extenso,
+/// com "RIR 2" como "parar com 2 repetições de reserva" (SPEC RF-41 d).
+///
 /// Só leitura: recebe o snapshot da prescrição e as séries; nada aqui escreve (R4).
 @MainActor
 struct SessionExerciseSection: View {
     let sessionExercise: SessionExerciseModel
     let references: ReferenceCatalog
+
+    @Environment(\.exerciseTraits) private var traits
 
     init(sessionExercise: SessionExerciseModel, references: ReferenceCatalog) {
         self.sessionExercise = sessionExercise
@@ -53,6 +59,7 @@ struct SessionExerciseSection: View {
                 }
                 Text(prescriptionText)
                     .font(.subheadline)
+                    .accessibilityLabel(prescriptionSpokenText)
                 if let note = sessionExercise.note {
                     HStack(spacing: 8) {
                         Text(Self.noteText(note))
@@ -88,21 +95,43 @@ struct SessionExerciseSection: View {
 
     // MARK: - Textos
 
-    /// "1 · 60 kg × 10 · RIR 2". `index` é 0-based (`SessionCoordinating.logSet`); o usuário
-    /// conta a partir de 1.
+    /// "1 · 60 kg × 10 · RIR 2" ou "1 · 20 kg × 30 passos · RIR 2". `index` é 0-based
+    /// (`SessionCoordinating.logSet`); o usuário conta a partir de 1.
     private func setLine(_ set: SetLogModel) -> String {
-        "\(set.index + 1) · \(loadText(set.load)) × \(set.reps) · \(rirText(set.rir))"
+        "\(set.index + 1) · \(loadText(set.load)) × \(MeasureText.amount(set.reps, measure: measure)) · \(rirText(set.rir))"
     }
 
-    /// "3 × 8–12 · 60 kg · RIR 2"; carga `nil` (calibração, SPEC P2) vira "—".
+    /// "3 × 8–12 · 60 kg · RIR 2" ou "3 × 20–40 s · 0 kg · RIR 2"; carga `nil` (calibração,
+    /// SPEC P2) vira "—".
     private var prescriptionText: String {
-        let loadText: String
-        if let load = sessionExercise.prescribedLoad {
-            loadText = self.loadText(load)
-        } else {
-            loadText = "—"
-        }
-        return "\(sessionExercise.prescribedSets) × \(sessionExercise.prescribedRepMin)–\(sessionExercise.prescribedRepMax) · \(loadText) · RIR \(sessionExercise.prescribedRIR)"
+        let range = MeasureText.range(
+            min: sessionExercise.prescribedRepMin,
+            max: sessionExercise.prescribedRepMax,
+            measure: measure
+        )
+        return "\(sessionExercise.prescribedSets) × \(range) · \(prescribedLoadText ?? "—") · RIR \(sessionExercise.prescribedRIR)"
+    }
+
+    /// Leitura por voz da prescrição (SPEC RF-41 d).
+    private var prescriptionSpokenText: String {
+        PrescriptionSpeech.text(
+            sets: sessionExercise.prescribedSets,
+            repMin: sessionExercise.prescribedRepMin,
+            repMax: sessionExercise.prescribedRepMax,
+            measure: measure,
+            loadText: prescribedLoadText,
+            targetRIR: sessionExercise.prescribedRIR
+        )
+    }
+
+    /// Carga prescrita na unidade do exercício; `nil` na calibração sem carga (SPEC P2).
+    private var prescribedLoadText: String? {
+        sessionExercise.prescribedLoad.map { loadText($0) }
+    }
+
+    /// Repetições, segundos ou passos (SPEC RF-43); sem relação com o catálogo, repetições.
+    private var measure: ExerciseMeasure {
+        MeasureText.measure(of: sessionExercise.exercise, in: traits)
     }
 
     /// Nota da prescrição em pt-BR. Raw desconhecido nem chega aqui (`note == nil` esconde a

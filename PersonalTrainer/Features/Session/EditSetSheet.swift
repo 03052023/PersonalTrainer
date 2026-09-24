@@ -1,7 +1,8 @@
 import SwiftUI
 import TrainerCore
 
-/// Correção de uma série já registrada (SPEC RF-19, P10): carga, repetições e RIR, ou apagar.
+/// Correção de uma série já registrada (SPEC RF-19, P10): carga, repetições (ou segundos e
+/// passos, SPEC RF-43) e RIR, ou apagar.
 ///
 /// Edita uma cópia local (`@State`) e só devolve os valores em "Salvar"; quem grava é o
 /// `ActiveSessionViewModel`, pelo coordinator (AGENTS R4). Aquecimento/trabalho não muda aqui:
@@ -10,17 +11,20 @@ struct EditSetSheet: View {
     @State private var edit: ActiveSessionViewModel.SetEdit
     @State private var isConfirmingDelete = false
 
+    private let references: ReferenceCatalog
     private let onSave: (ActiveSessionViewModel.SetEdit) -> Void
     private let onDelete: () -> Void
     private let onCancel: () -> Void
 
     init(
         edit: ActiveSessionViewModel.SetEdit,
+        references: ReferenceCatalog = .empty,
         onSave: @escaping (ActiveSessionViewModel.SetEdit) -> Void,
         onDelete: @escaping () -> Void,
         onCancel: @escaping () -> Void
     ) {
         self._edit = State(initialValue: edit)
+        self.references = references
         self.onSave = onSave
         self.onDelete = onDelete
         self.onCancel = onCancel
@@ -40,11 +44,12 @@ struct EditSetSheet: View {
 
                     RepsStepper(
                         value: $edit.reps,
-                        range: 0...50,
-                        highlightRange: SetEntryView.highlightRange(repMin: edit.repMin, repMax: edit.repMax)
+                        range: MeasureText.stepperRange(edit.measure),
+                        highlightRange: SetEntryView.highlightRange(repMin: edit.repMin, repMax: edit.repMax),
+                        measure: edit.measure
                     )
 
-                    RIRPicker(selection: $edit.rir)
+                    RIRPicker(selection: $edit.rir, references: references)
 
                     Button(role: .destructive) {
                         isConfirmingDelete = true
@@ -100,6 +105,27 @@ struct EditSetSheet: View {
             loadUnit: .kilograms,
             repMin: 8,
             repMax: 12
+        ),
+        onSave: { _ in },
+        onDelete: {},
+        onCancel: {}
+    )
+}
+
+#Preview("Carregada em passos") {
+    EditSetSheet(
+        edit: ActiveSessionViewModel.SetEdit(
+            setID: UUID(),
+            number: 1,
+            load: 20,
+            reps: 32,
+            rir: 2,
+            isWarmup: false,
+            loadIncrement: 2,
+            loadUnit: .kilograms,
+            repMin: 20,
+            repMax: 40,
+            measure: .steps
         ),
         onSave: { _ in },
         onDelete: {},
