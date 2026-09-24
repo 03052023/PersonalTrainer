@@ -447,7 +447,9 @@ final class CatalogViewModelTests: XCTestCase {
         XCTAssertEqual(MuscleGroup.hamstrings.displayName, "Posteriores")
 
         // `Equipment` e `LoadUnit` não são CaseIterable: a lista de raw values abaixo é a do domínio.
-        let equipmentRaw: Set<String> = ["barbell", "dumbbell", "machine", "cable", "bodyweight", "smith", "kettlebell"]
+        let equipmentRaw: Set<String> = [
+            "barbell", "dumbbell", "machine", "cable", "bodyweight", "smith", "kettlebell", "household",
+        ]
         XCTAssertEqual(Set(Equipment.pickerOrder.map(\.rawValue)), equipmentRaw)
         XCTAssertEqual(Equipment.pickerOrder.count, equipmentRaw.count, "Sem repetição no Picker")
         XCTAssertEqual(Set(Equipment.pickerOrder.map(\.displayName)).count, equipmentRaw.count)

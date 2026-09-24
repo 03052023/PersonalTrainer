@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "exercises": [
     {
       "id": "44979BE9-E276-42B9-AC77-76C831062888",
@@ -13,6 +13,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "horizontalPush",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -27,6 +28,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "horizontalPush",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -41,6 +43,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "horizontalPush",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -55,6 +58,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "horizontalPush",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -69,6 +73,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "chestFly",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -83,6 +88,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "chestFly",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -97,6 +103,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "chestFly",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -111,6 +118,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "horizontalPush",
+      "atHome": true,
       "isCustom": false
     },
     {
@@ -125,6 +133,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "verticalPush",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -139,6 +148,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "verticalPush",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -153,6 +163,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "shoulderIsolation",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -167,6 +178,7 @@
       "isUnilateral": true,
       "machineNotes": null,
       "movementPattern": "shoulderIsolation",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -181,6 +193,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "shoulderIsolation",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -195,6 +208,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "elbowExtension",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -209,6 +223,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "elbowExtension",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -223,6 +238,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "elbowExtension",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -237,6 +253,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "elbowExtension",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -251,6 +268,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "verticalPull",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -265,6 +283,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "horizontalPull",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -279,6 +298,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "horizontalPull",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -293,6 +313,7 @@
       "isUnilateral": true,
       "machineNotes": null,
       "movementPattern": "horizontalPull",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -307,6 +328,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "horizontalPull",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -321,6 +343,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "verticalPull",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -335,6 +358,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "hinge",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -349,6 +373,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "elbowFlexion",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -363,6 +388,7 @@
       "isUnilateral": true,
       "machineNotes": null,
       "movementPattern": "elbowFlexion",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -377,6 +403,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "elbowFlexion",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -391,6 +418,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "elbowFlexion",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -405,6 +433,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "squat",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -419,6 +448,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "squat",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -433,6 +463,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "kneeExtension",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -447,6 +478,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "squat",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -461,6 +493,7 @@
       "isUnilateral": true,
       "machineNotes": null,
       "movementPattern": "lunge",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -475,6 +508,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "kneeFlexion",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -489,6 +523,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "kneeFlexion",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -503,6 +538,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "hinge",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -517,6 +553,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "hipThrust",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -531,6 +568,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "hipThrust",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -545,6 +583,7 @@
       "isUnilateral": true,
       "machineNotes": null,
       "movementPattern": "hipThrust",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -559,6 +598,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "explosive",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -573,6 +613,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "calfRaise",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -587,6 +628,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "calfRaise",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -601,6 +643,8 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "coreStability",
+      "measure": "seconds",
+      "atHome": true,
       "isCustom": false
     },
     {
@@ -615,6 +659,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "coreFlexion",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -629,6 +674,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "coreFlexion",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -643,6 +689,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "horizontalPush",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -657,6 +704,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "verticalPush",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -671,6 +719,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "verticalPush",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -685,6 +734,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "verticalPull",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -699,6 +749,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "verticalPull",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -713,6 +764,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "verticalPull",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -727,6 +779,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "horizontalPull",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -741,6 +794,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "shoulderIsolation",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -755,6 +809,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "shoulderIsolation",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -769,6 +824,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "elbowFlexion",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -783,6 +839,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "elbowExtension",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -797,6 +854,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "squat",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -811,6 +869,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "squat",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -825,6 +884,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "squat",
+      "atHome": true,
       "isCustom": false
     },
     {
@@ -839,6 +899,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "squat",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -853,6 +914,7 @@
       "isUnilateral": true,
       "machineNotes": null,
       "movementPattern": "lunge",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -867,6 +929,7 @@
       "isUnilateral": true,
       "machineNotes": null,
       "movementPattern": "lunge",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -881,6 +944,7 @@
       "isUnilateral": true,
       "machineNotes": null,
       "movementPattern": "lunge",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -895,6 +959,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "hinge",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -909,6 +974,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "hinge",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -923,6 +989,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "hinge",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -937,6 +1004,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "hinge",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -951,6 +1019,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "kneeFlexion",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -965,6 +1034,7 @@
       "isUnilateral": true,
       "machineNotes": null,
       "movementPattern": "kneeFlexion",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -979,6 +1049,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "hipThrust",
+      "atHome": true,
       "isCustom": false
     },
     {
@@ -993,6 +1064,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "hipThrust",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1007,6 +1079,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "calfRaise",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1021,6 +1094,7 @@
       "isUnilateral": true,
       "machineNotes": null,
       "movementPattern": "calfRaise",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1035,6 +1109,7 @@
       "isUnilateral": true,
       "machineNotes": null,
       "movementPattern": "kneeExtension",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1049,6 +1124,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "kneeExtension",
+      "atHome": true,
       "isCustom": false
     },
     {
@@ -1063,6 +1139,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "coreFlexion",
+      "atHome": true,
       "isCustom": false
     },
     {
@@ -1077,6 +1154,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "coreFlexion",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1091,6 +1169,8 @@
       "isUnilateral": true,
       "machineNotes": null,
       "movementPattern": "coreStability",
+      "measure": "seconds",
+      "atHome": true,
       "isCustom": false
     },
     {
@@ -1105,6 +1185,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "coreStability",
+      "atHome": true,
       "isCustom": false
     },
     {
@@ -1119,6 +1200,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "coreStability",
+      "atHome": true,
       "isCustom": false
     },
     {
@@ -1133,6 +1215,7 @@
       "isUnilateral": true,
       "machineNotes": null,
       "movementPattern": "coreStability",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1147,6 +1230,8 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "carry",
+      "measure": "steps",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1161,6 +1246,8 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "carry",
+      "measure": "steps",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1175,6 +1262,8 @@
       "isUnilateral": true,
       "machineNotes": null,
       "movementPattern": "carry",
+      "measure": "steps",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1189,6 +1278,8 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "carry",
+      "measure": "steps",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1203,6 +1294,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "explosive",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1217,6 +1309,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "explosive",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1231,6 +1324,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "explosive",
+      "atHome": true,
       "isCustom": false
     },
     {
@@ -1245,6 +1339,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "explosive",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1259,6 +1354,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "explosive",
+      "atHome": true,
       "isCustom": false
     },
     {
@@ -1273,6 +1369,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "explosive",
+      "atHome": true,
       "isCustom": false
     },
     {
@@ -1287,6 +1384,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "explosive",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1301,6 +1399,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "explosive",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1315,6 +1414,7 @@
       "isUnilateral": true,
       "machineNotes": null,
       "movementPattern": "explosive",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1329,6 +1429,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "explosive",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1343,6 +1444,7 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "explosive",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1357,6 +1459,8 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "neck",
+      "measure": "seconds",
+      "atHome": false,
       "isCustom": false
     },
     {
@@ -1371,6 +1475,8 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "neck",
+      "measure": "seconds",
+      "atHome": true,
       "isCustom": false
     },
     {
@@ -1385,6 +1491,368 @@
       "isUnilateral": false,
       "machineNotes": null,
       "movementPattern": "neck",
+      "atHome": false,
+      "isCustom": false
+    },
+    {
+      "id": "4E4736EE-C6EC-4C8C-9D57-398146BE42B7",
+      "slug": "chair-incline-push-up",
+      "name": "Flexão de braço inclinada na cadeira",
+      "primaryMuscles": ["chest"],
+      "secondaryMuscles": ["triceps", "shoulders"],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "horizontalPush",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "70F15AC6-A7D8-42A8-87C6-F41BF0C5DB05",
+      "slug": "knee-push-up",
+      "name": "Flexão de braço com joelhos no chão",
+      "primaryMuscles": ["chest"],
+      "secondaryMuscles": ["triceps", "shoulders"],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "horizontalPush",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "AA927F41-7EBD-467C-B431-7E5D8D80E297",
+      "slug": "pike-push-up",
+      "name": "Flexão pike (quadril alto)",
+      "primaryMuscles": ["shoulders"],
+      "secondaryMuscles": ["triceps"],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "verticalPush",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "D2580A88-08C9-459E-9E30-52B1EFB9583F",
+      "slug": "water-bottle-shoulder-press",
+      "name": "Desenvolvimento com garrafas",
+      "primaryMuscles": ["shoulders"],
+      "secondaryMuscles": ["triceps"],
+      "equipment": "household",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "verticalPush",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "D1E60B24-317C-490B-8A43-B30FD90A5D93",
+      "slug": "chair-dip",
+      "name": "Mergulho na cadeira",
+      "primaryMuscles": ["triceps"],
+      "secondaryMuscles": ["chest", "shoulders"],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "elbowExtension",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "5A2CBB80-1280-4226-9D62-45192D2698AE",
+      "slug": "water-bottle-overhead-triceps-extension",
+      "name": "Tríceps francês com garrafa",
+      "primaryMuscles": ["triceps"],
+      "secondaryMuscles": [],
+      "equipment": "household",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "elbowExtension",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "09A1F2A0-D603-4F0F-BE08-636EDDDFB413",
+      "slug": "bodyweight-squat",
+      "name": "Agachamento com peso do corpo",
+      "primaryMuscles": ["quads", "glutes"],
+      "secondaryMuscles": ["hamstrings"],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "squat",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "0167899B-6559-4B08-815A-7AADAD435FA2",
+      "slug": "chair-bulgarian-split-squat",
+      "name": "Agachamento búlgaro com cadeira",
+      "primaryMuscles": ["quads", "glutes"],
+      "secondaryMuscles": ["hamstrings"],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": true,
+      "machineNotes": null,
+      "movementPattern": "lunge",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "E110AB5E-9B03-4A81-853A-FBF44BD93DA8",
+      "slug": "bodyweight-lunge",
+      "name": "Afundo com peso do corpo",
+      "primaryMuscles": ["quads", "glutes"],
+      "secondaryMuscles": ["hamstrings"],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": true,
+      "machineNotes": null,
+      "movementPattern": "lunge",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "33EBA30A-8A38-4FDC-A19B-934279F05A8D",
+      "slug": "bodyweight-reverse-lunge",
+      "name": "Afundo reverso com peso do corpo",
+      "primaryMuscles": ["quads", "glutes"],
+      "secondaryMuscles": ["hamstrings"],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": true,
+      "machineNotes": null,
+      "movementPattern": "lunge",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "57374B6B-44F7-4E7B-8AB6-3C930D3CEAF9",
+      "slug": "single-leg-romanian-deadlift",
+      "name": "Stiff unilateral",
+      "primaryMuscles": ["hamstrings", "glutes"],
+      "secondaryMuscles": ["back", "core"],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": true,
+      "machineNotes": null,
+      "movementPattern": "hinge",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "F450C3AD-042B-4826-A76A-908B8D74E0B4",
+      "slug": "single-leg-glute-bridge",
+      "name": "Ponte de glúteo unilateral",
+      "primaryMuscles": ["glutes"],
+      "secondaryMuscles": ["hamstrings", "core"],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": true,
+      "machineNotes": null,
+      "movementPattern": "hipThrust",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "9D46FE1E-E674-4F91-A566-5C9165CB070C",
+      "slug": "step-calf-raise",
+      "name": "Panturrilha no degrau",
+      "primaryMuscles": ["calves"],
+      "secondaryMuscles": [],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "calfRaise",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "076A5DA3-9E62-4D2D-8404-9C5EBEB30090",
+      "slug": "single-leg-step-calf-raise",
+      "name": "Panturrilha unilateral no degrau",
+      "primaryMuscles": ["calves"],
+      "secondaryMuscles": [],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": true,
+      "machineNotes": null,
+      "movementPattern": "calfRaise",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "007F762D-0EE9-461E-A10F-728AFD9B662F",
+      "slug": "backpack-bent-over-row",
+      "name": "Remada curvada com mochila",
+      "primaryMuscles": ["back"],
+      "secondaryMuscles": ["biceps"],
+      "equipment": "household",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "horizontalPull",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "17CF7F4C-11CA-434F-A0E9-DF0711D70C04",
+      "slug": "one-arm-backpack-row",
+      "name": "Remada unilateral com mochila",
+      "primaryMuscles": ["back"],
+      "secondaryMuscles": ["biceps"],
+      "equipment": "household",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": true,
+      "machineNotes": null,
+      "movementPattern": "horizontalPull",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "A78E5035-53F5-48D2-A1DE-5756B7F2A6FD",
+      "slug": "prone-ytw-raise",
+      "name": "Y-T-W de bruços",
+      "primaryMuscles": ["shoulders"],
+      "secondaryMuscles": ["back"],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "shoulderIsolation",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "CD77ED8C-623D-4AC7-908B-EB88B971D25C",
+      "slug": "backpack-pullover",
+      "name": "Pullover com mochila",
+      "primaryMuscles": ["back"],
+      "secondaryMuscles": ["chest", "triceps"],
+      "equipment": "household",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "verticalPull",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "131FF86C-90CA-43CB-AB62-D8E9D2B27B79",
+      "slug": "backpack-curl",
+      "name": "Rosca com mochila",
+      "primaryMuscles": ["biceps"],
+      "secondaryMuscles": [],
+      "equipment": "household",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "elbowFlexion",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "CBF8BDFA-C1E9-4AE7-A401-3D650D749FA0",
+      "slug": "water-bottle-lateral-raise",
+      "name": "Elevação lateral com garrafas",
+      "primaryMuscles": ["shoulders"],
+      "secondaryMuscles": [],
+      "equipment": "household",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "shoulderIsolation",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "A220F202-8D45-4606-AFA6-2C9BA46CDA81",
+      "slug": "grocery-bag-carry",
+      "name": "Caminhada com sacolas",
+      "primaryMuscles": ["core"],
+      "secondaryMuscles": ["back", "shoulders", "glutes"],
+      "equipment": "household",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "carry",
+      "measure": "steps",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "CE69F80B-F5E6-4517-971D-DAE616519A38",
+      "slug": "superman",
+      "name": "Superman (de bruços)",
+      "primaryMuscles": ["core"],
+      "secondaryMuscles": ["back", "glutes"],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "coreStability",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "A7ABE74A-C485-4194-ABC9-EF31BB553EAB",
+      "slug": "towel-leg-curl",
+      "name": "Flexora com toalha no chão",
+      "primaryMuscles": ["hamstrings"],
+      "secondaryMuscles": ["glutes"],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "kneeFlexion",
+      "atHome": true,
+      "isCustom": false
+    },
+    {
+      "id": "DEBE3C12-6E2C-45DD-AF04-A346EB5BEAAD",
+      "slug": "lying-leg-raise",
+      "name": "Elevação de pernas deitado",
+      "primaryMuscles": ["core"],
+      "secondaryMuscles": [],
+      "equipment": "bodyweight",
+      "loadUnit": "kilograms",
+      "loadIncrement": 2.5,
+      "isUnilateral": false,
+      "machineNotes": null,
+      "movementPattern": "coreFlexion",
+      "atHome": true,
       "isCustom": false
     }
   ]
