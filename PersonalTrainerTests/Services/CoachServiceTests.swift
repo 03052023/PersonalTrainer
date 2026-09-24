@@ -426,7 +426,31 @@ final class CoachServiceTests: XCTestCase {
 
         XCTAssertEqual(fixture.programs.replacements.map { $0.targetID }, [target.id])
         XCTAssertEqual(fixture.programs.replacements.map { $0.exerciseID }, [first.id])
-        XCTAssertEqual(fixture.planner.substitutesCalls.last, original.id)
+        XCTAssertEqual(fixture.planner.programSubstitutesCalls.last, original.id)
+    }
+
+    /// SPEC RF-42: "o programa não muda". Com o modo casa ligado, `substitutes` (a folha Trocar da
+    /// sessão) só oferece exercícios de casa; a troca da revisão muda o programa, então usa
+    /// `programSubstitutes`, a regra do RF-34 sobre o catálogo inteiro.
+    func testHandle_applySwapExercise_usesProgramSubstitutes_notTheHomeModeOnes() throws {
+        let original = exercise(name: "Supino reto")
+        let target = ExerciseTarget(exerciseID: original.id, order: 0)
+        let suggestion = swapSuggestion(targetID: target.id)
+        let fixture = try makeFixture(logStore: storeWithReview([suggestion]))
+        defer { fixture.cleanUp() }
+        fixture.programs.programs = [program(name: "Completo", goal: .hypertrophy, isActive: true, targets: [target])]
+        let homeOnly = exercise(name: "Flexão de joelhos")
+        let gym = exercise(name: "Supino com halteres")
+        fixture.planner.substitutesToReturn = [homeOnly]
+        fixture.planner.programSubstitutesToReturn = [gym, homeOnly]
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        let message = try XCTUnwrap(fixture.service.messages.first { $0.rule == .review })
+        fixture.service.handle(.apply, on: message)
+
+        XCTAssertEqual(fixture.programs.replacements.map { $0.exerciseID }, [gym.id])
+        XCTAssertEqual(fixture.planner.programSubstitutesCalls.last, original.id)
+        XCTAssertTrue(fixture.planner.substitutesCalls.isEmpty, "A folha da sessão não decide a troca no programa")
     }
 
     func testHandle_applySwapExercise_skipsASubstituteAlreadyInTheDay() throws {
@@ -1021,10 +1045,14 @@ final class CoachTestPlanner: SessionPlanning {
     var goalToReturn: ProgramGoal?
     var planToReturn: SessionPlan?
     var substitutesToReturn: [ExerciseDefinition] = []
+    /// `nil`: `programSubstitutes` devolve o mesmo que `substitutes` (sem modo casa, as duas
+    /// listas coincidem, como no `SessionPlanner`).
+    var programSubstitutesToReturn: [ExerciseDefinition]?
     private(set) var requestDeloadCalls: [Date] = []
     private(set) var dismissDeloadCalls: [Date] = []
     private(set) var nextPlanCalls: [Date] = []
     private(set) var substitutesCalls: [UUID] = []
+    private(set) var programSubstitutesCalls: [UUID] = []
 
     func nextPlan(now: Date) throws -> SessionPlan? {
         nextPlanCalls.append(now)
@@ -1046,6 +1074,11 @@ final class CoachTestPlanner: SessionPlanning {
     func substitutes(for exerciseID: UUID, limit: Int) throws -> [ExerciseDefinition] {
         substitutesCalls.append(exerciseID)
         return Array(substitutesToReturn.prefix(limit))
+    }
+
+    func programSubstitutes(for exerciseID: UUID, limit: Int) throws -> [ExerciseDefinition] {
+        programSubstitutesCalls.append(exerciseID)
+        return Array((programSubstitutesToReturn ?? substitutesToReturn).prefix(limit))
     }
 
     func deloadStatus(now: Date) throws -> DeloadStatus {

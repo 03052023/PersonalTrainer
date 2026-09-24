@@ -74,7 +74,9 @@ private enum SettingsPreviewFixture {
             reader: FakeHealthDataReader(),
             sessionsProvider: { [] },
             now: { fixedNow },
-            defaults: UserDefaults(suiteName: "SettingsPreview.health") ?? .standard
+            defaults: UserDefaults(suiteName: "SettingsPreview.health") ?? .standard,
+            // AGENTS R9: log do diálogo em memória, nunca o arquivo real.
+            logStore: FakeCoachLogStore()
         )
     }
 }

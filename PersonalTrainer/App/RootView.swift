@@ -165,12 +165,15 @@ private struct RootTabs: View {
                 home.refresh()
             }
         ))
+        // A4/B8: o mesmo log do diálogo do `CoachService`. "Ok, entendi" no detalhe do Saúde e
+        // "Entendi" no feed gravam e leem a mesma resposta, nos dois sentidos.
         self._healthModel = State(initialValue: HealthViewModel(
             reader: environment.healthReader,
             sessionsProvider: { [environment] in
                 RootTabs.recentSessions(from: environment)
             },
-            now: environment.now
+            now: environment.now,
+            logStore: environment.coach.logStore
         ))
     }
 
@@ -257,6 +260,12 @@ private struct RootTabs: View {
         // Sugestões de saúde (C3) e tendências de recuperação (R6) chegam com a leitura do Saúde,
         // que termina depois da abertura.
         .onChange(of: healthModel.report) { _, _ in
+            refreshCoach()
+        }
+        // A4/B8: "Ok, entendi" no detalhe do Saúde (empilhado na aba Hoje) grava no log do
+        // diálogo; o feed da Home relê na hora, sem esperar a volta ao primeiro plano. O sentido
+        // inverso não precisa disto: o detalhe lê o log sempre que aparece.
+        .onChange(of: healthModel.visibleSuggestions.map(\.kind)) { _, _ in
             refreshCoach()
         }
         .onAppear {

@@ -212,10 +212,12 @@ private enum HomePreviewFixture {
         container: ModelContainer
     ) -> HomeView {
         let fixedNow = referenceDate
+        // Um log em memória para o diálogo e o Saúde, como no app (A4/B8; AGENTS R9).
+        let logStore = FakeCoachLogStore()
         let coach = CoachService(
             planner: planner,
             programs: ProgramRepository(modelContext: container.mainContext),
-            log: FakeCoachLogStore(),
+            log: logStore,
             expiry: .unavailable,
             notifications: FakeNotificationScheduler(),
             now: { fixedNow },
@@ -228,7 +230,8 @@ private enum HomePreviewFixture {
             reader: FakeHealthDataReader(),
             sessionsProvider: { [] },
             now: { fixedNow },
-            defaults: healthDefaults
+            defaults: healthDefaults,
+            logStore: logStore
         )
         return HomeView(
             model: HomeViewModel(planner: planner, coordinator: coordinator, now: { fixedNow }),
