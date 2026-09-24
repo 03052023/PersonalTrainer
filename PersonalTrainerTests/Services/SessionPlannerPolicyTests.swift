@@ -209,6 +209,11 @@ final class SessionPlannerPolicyTests: XCTestCase {
         XCTAssertTrue(plan.isDeload)
         XCTAssertEqual(plan.reason, .deload(.scheduled))
 
+        // Com a semana leve já programada, o pedido manual não grava nada nem troca o gatilho.
+        try fixture.planner.requestDeload(now: saturdayNoon)
+        XCTAssertEqual(fixture.decisions.saveCount, 0)
+        XCTAssertEqual(try fixture.planner.deloadStatus(now: saturdayNoon), .pending(trigger: .scheduled))
+
         // Padrão (6 semanas): ainda não.
         fixture.settings.value = PlannerSettings()
         XCTAssertEqual(try fixture.planner.deloadStatus(now: saturdayNoon), .inactive)
@@ -327,8 +332,10 @@ final class SessionPlannerPolicyTests: XCTestCase {
         XCTAssertEqual(try fixture.planner.deloadStatus(now: startedAt), .active(start: startedAt))
 
         try fixture.planner.dismissDeload(now: startedAt.addingTimeInterval(60))
+        // Pedir de novo durante a passagem não emenda outra semana leve.
+        try fixture.planner.requestDeload(now: startedAt.addingTimeInterval(90))
 
-        XCTAssertEqual(fixture.decisions.saveCount, 1, "só o pedido foi gravado")
+        XCTAssertEqual(fixture.decisions.saveCount, 1, "só o primeiro pedido foi gravado")
         XCTAssertEqual(fixture.decisions.decisions.manualRequestedAt, now)
         XCTAssertNil(fixture.decisions.decisions.dismissedAt)
         XCTAssertEqual(try fixture.planner.deloadStatus(now: startedAt.addingTimeInterval(120)), .active(start: startedAt))

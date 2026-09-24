@@ -221,9 +221,12 @@ final class SessionPlanner: SessionPlanning {
 
     func requestDeload(now: Date) throws {
         let status = try deloadStatus(now: now)
-        if case .pending(trigger: .manual) = status {
-            // O pedido anterior ainda espera a primeira sessão leve; regravar a data mudaria o
-            // `since` da mensagem C1 e a faria voltar (docs/V2-FINAL-CONTRACT.md §2).
+        guard case .inactive = status else {
+            // Já há semana leve programada ou em andamento. Regravar a data de um pedido que
+            // espera mudaria o `since` da mensagem C1 e a faria voltar (docs/V2-FINAL-CONTRACT.md
+            // §2); um pedido durante a passagem, que nenhuma sessão leve posterior atenderia,
+            // emendaria uma segunda semana leve logo depois da atual.
+            logger.info("Pedido de semana leve ignorado: já há uma programada ou em andamento.")
             return
         }
         var decisions = deloadDecisions.load()

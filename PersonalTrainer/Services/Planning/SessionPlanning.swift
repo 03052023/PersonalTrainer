@@ -75,9 +75,10 @@ extension SessionPlanning {
     /// sem programa ativo ou com programa sem dias.
     func deloadStatus(now: Date) throws -> DeloadStatus { .inactive }
 
-    /// "Fazer semana leve agora" (SPEC §7.5 c): grava `DeloadDecisions.manualRequestedAt`.
-    /// Um pedido que ainda espera a primeira sessão leve não é regravado, para que a data do
-    /// pedido (e a mensagem C1 que depende dela) não mude a cada toque.
+    /// "Fazer semana leve agora" (SPEC §7.5 c): grava `DeloadDecisions.manualRequestedAt = now`.
+    /// Só grava com `deloadStatus == .inactive`: com semana leve já programada (qualquer
+    /// gatilho) o próximo plano já é leve e a data do pedido, que a mensagem C1 usa, não muda a
+    /// cada toque; durante a passagem (`.active`) o pedido emendaria outra semana leve.
     func requestDeload(now: Date) throws {}
 
     /// "Seguir normal" (SPEC §7.11 C1): grava `dismissedAt = now` e limpa `manualRequestedAt`.
