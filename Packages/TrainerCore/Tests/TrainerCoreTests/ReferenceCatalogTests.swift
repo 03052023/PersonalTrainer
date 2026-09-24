@@ -360,13 +360,15 @@ private func sentenceCount(_ text: String) -> Int {
 private enum ReferenceFixture {
     static let referenceID = "author-2020-topic"
 
-    /// Topic keys the M2 UI asks for (docs/M2-CONTRACT.md, `ReferenceCatalog` doc comment).
+    /// Topic keys the M2 UI asks for (docs/M2-CONTRACT.md, `ReferenceCatalog` doc comment), plus
+    /// the RF-32 additions from docs/V2-FINAL-CONTRACT.md §1.4 (sleep, steps, estimated 1RM).
     static let requiredTopics = [
         "rule.P2", "rule.P4", "rule.P5", "rule.P6", "rule.P9", "rule.S2", "rule.D",
         "note.calibrate", "note.increase", "note.hold", "note.retry", "note.decrease", "note.returning", "note.deload",
         "goal.hypertrophy", "goal.strength", "goal.endurance", "goal.longevity", "goal.combat",
         "topic.rir", "topic.volume", "topic.frequency", "topic.maintenance", "topic.substitution",
         "topic.rest", "topic.concurrent", "topic.hrv", "topic.aerobic", "topic.vo2max",
+        "topic.sleep", "topic.steps", "topic.e1rm",
     ]
 
     static func reference(
