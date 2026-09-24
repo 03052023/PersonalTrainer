@@ -32,7 +32,15 @@ extension AppEnvironment {
 
         let backup: BackupService
         if storeLoadError == nil {
-            backup = BackupService(modelContext: context, pendingRestoreURL: BackupService.defaultPendingRestoreURL())
+            backup = BackupService(
+                modelContext: context,
+                pendingRestoreURL: BackupService.defaultPendingRestoreURL(),
+                // Um backup de uma versão anterior volta com o seed dela: o catálogo atual (os
+                // exercícios de casa, RF-42) é completado logo depois da importação.
+                reapplySeed: {
+                    AppEnvironment.loadSeed(into: context, now: Date(), logger: AppEnvironment.makeLogger(category: "Seed"))
+                }
+            )
             // Antes do seed: uma importação interrompida deixa o store vazio, e o seed instalaria o
             // catálogo padrão por cima dos dados que o retrato da importação ainda guarda.
             backup.recoverInterruptedImportIfNeeded()
@@ -103,7 +111,8 @@ extension AppEnvironment {
             notifications: notifications,
             now: { Date() },
             calendar: .current,
-            defaults: .standard
+            defaults: .standard,
+            traits: traits
         )
 
         return AppEnvironment(
@@ -165,7 +174,8 @@ extension AppEnvironment {
             notifications: notifications,
             now: { fixedNow },
             calendar: .current,
-            defaults: UserDefaults(suiteName: "AppEnvironment.preview") ?? .standard
+            defaults: UserDefaults(suiteName: "AppEnvironment.preview") ?? .standard,
+            traits: traits
         )
 
         return AppEnvironment(

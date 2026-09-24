@@ -155,12 +155,17 @@ private struct RootTabs: View {
         )
         self._homeModel = State(initialValue: home)
         // Depois de importar um backup, pedir uma semana leve ou mudar o modo casa, o plano mudou:
-        // a Home relê. O diálogo relê ao voltar para "Hoje", longe dos alertas do Ajustes.
+        // a Home relê. O diálogo relê ao voltar para "Hoje", longe dos alertas do Ajustes; depois
+        // de uma importação ele também esquece a revisão guardada em memória (A5).
+        let coachService = environment.coach
         self._settingsModel = State(initialValue: SettingsViewModel(
             backup: environment.backup,
             planner: environment.planner,
             now: environment.now,
             appVersion: SettingsViewModel.bundleVersion(.main),
+            onImported: { [coachService] in
+                coachService.resetAfterImport()
+            },
             onDataChanged: { [home] in
                 home.refresh()
             }

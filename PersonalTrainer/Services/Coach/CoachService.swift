@@ -90,6 +90,9 @@ final class CoachService {
     let now: () -> Date
     let calendar: Calendar
     let defaults: UserDefaults
+    /// Medida de cada exercício pelo `slug` (SPEC RF-43): o C6 só fala de exercícios medidos em
+    /// repetições. `.empty` mede tudo em repetições.
+    let traits: ExerciseTraitsCatalog
 
     // MARK: - Estado interno (usado pelas extensões)
 
@@ -122,7 +125,8 @@ final class CoachService {
         notifications: any NotificationScheduling,
         now: @escaping () -> Date,
         calendar: Calendar,
-        defaults: UserDefaults
+        defaults: UserDefaults,
+        traits: ExerciseTraitsCatalog = .empty
     ) {
         self.planner = planner
         self.programs = programs
@@ -131,6 +135,7 @@ final class CoachService {
         self.now = now
         self.calendar = calendar
         self.defaults = defaults
+        self.traits = traits
         // O perfil só muda numa reinstalação, que reinicia o processo: basta ler uma vez.
         self.provisioningExpiry = expiry.expirationDate()
         self.isExpiryReminderEnabled = defaults.bool(forKey: DefaultsKey.expiryReminderEnabled)
@@ -165,6 +170,16 @@ final class CoachService {
     /// pedem confirmação"). `nil` fora do C2.
     func applySummary(for message: CoachMessage) -> String? {
         applyDetails[message.id]
+    }
+
+    /// A5 (docs/V21-CONTRACT.md B1): chamar depois de importar um backup, quando o
+    /// `BackupImportCleanup` já apagou o `last-review.json`. A revisão guardada em memória valia
+    /// para os dados antigos e continuaria no feed até reabrir o app. O `lastReviewAt` fica no log,
+    /// então a próxima revisão segue o calendário de sempre.
+    func resetAfterImport() {
+        review = nil
+        didLoadReview = false
+        rebuild(allowsNewHighlight: false)
     }
 
     /// Fecha o destaque sem responder: a mensagem continua no feed da Home.

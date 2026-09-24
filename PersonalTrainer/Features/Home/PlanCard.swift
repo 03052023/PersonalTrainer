@@ -129,7 +129,8 @@ struct PlanCard: View {
     }
 
     /// Interruptor "Em casa" (SPEC RF-42). Os fechamentos leem as propriedades do cartão, sem
-    /// capturar nada além dele.
+    /// capturar nada além dele. Com uma sessão em andamento fica desabilitado, como a escolha do
+    /// dia: "Retomar" abre a sessão como ela começou, e trocar aqui só mudaria o cartão.
     private var homeModeToggle: some View {
         Toggle(
             isOn: Binding<Bool>(
@@ -143,6 +144,7 @@ struct PlanCard: View {
                 .font(.subheadline.weight(.semibold))
         }
         .tint(Theme.accent)
+        .disabled(!canChooseDay)
         .accessibilityHint(Text("Troca os exercícios da sessão por equivalentes que dá para fazer em casa. O programa não muda."))
     }
 

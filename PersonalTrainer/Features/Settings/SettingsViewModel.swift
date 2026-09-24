@@ -66,6 +66,7 @@ final class SettingsViewModel {
     private let now: () -> Date
     private let defaults: UserDefaults
     private let importCleanup: BackupImportCleanup
+    private let onImported: () -> Void
     private let onDataChanged: () -> Void
     @ObservationIgnored private var pendingImportData: Data?
     private let logger = Logger(
@@ -78,6 +79,8 @@ final class SettingsViewModel {
     ///     V2-FINAL §2 e V21 B1: chaves compartilhadas). Testes passam uma suite isolada.
     ///   - importCleanup: o que a importação zera (A5); `nil` usa os arquivos e as chaves do app
     ///     (`BackupImportCleanup.live(defaults:)`). Testes passam arquivos temporários.
+    ///   - onImported: só depois de uma importação bem-sucedida, já com a limpeza feita (A5), para
+    ///     quem guarda em memória algo decidido sobre os dados antigos (a revisão do diálogo).
     ///   - onDataChanged: depois de importar um backup, programar uma semana leve ou mudar o modo
     ///     casa, para quem guarda o plano em cache (Home) reler.
     init(
@@ -87,6 +90,7 @@ final class SettingsViewModel {
         appVersion: String,
         defaults: UserDefaults = .standard,
         importCleanup: BackupImportCleanup? = nil,
+        onImported: @escaping () -> Void = {},
         onDataChanged: @escaping () -> Void
     ) {
         self.backup = backup
@@ -99,6 +103,7 @@ final class SettingsViewModel {
         } else {
             self.importCleanup = BackupImportCleanup.live(defaults: defaults)
         }
+        self.onImported = onImported
         self.onDataChanged = onDataChanged
         let settings = PlannerSettings.load(from: defaults)
         self.frequencySelector = settings.frequencySelector
@@ -198,6 +203,7 @@ final class SettingsViewModel {
             // antigos. O log do diálogo fica. Uma falha aqui só vai para o log: o banco já é o
             // do backup.
             importCleanup.run()
+            onImported()
             present(title: "Backup importado", message: Self.summary(of: report))
             onDataChanged()
         } catch {

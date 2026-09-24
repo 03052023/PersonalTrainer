@@ -6,7 +6,9 @@ import os
 /// O backup só leva o SwiftData. Três estados do app ficam fora dele e foram decididos sobre os
 /// dados antigos, então deixam de valer quando o banco é substituído:
 /// - `deload-decisions.json`: "Fazer semana leve agora" e "Seguir normal" (SPEC §7.5 c, §7.11 C1);
-/// - `last-review.json`: o relatório da última revisão periódica (§7.8, C2);
+/// - `last-review.json`: o relatório da última revisão periódica (§7.8, C2), e a chave
+///   `coachLastReviewProgramID`, o programa sobre o qual ele foi feito. A cópia em memória do
+///   `CoachService` sai por `resetAfterImport()`, chamado pelo Ajustes depois desta limpeza;
 /// - `coachPendingDeloadSince` (e o gatilho gravado junto, `coachPendingDeloadTrigger`): desde
 ///   quando a semana leve está programada, que dá o período da mensagem C1.
 ///
@@ -50,6 +52,7 @@ struct BackupImportCleanup {
             defaultsKeys: [
                 CoachService.DefaultsKey.pendingDeloadSince,
                 CoachService.DefaultsKey.pendingDeloadTrigger,
+                CoachService.DefaultsKey.lastReviewProgramID,
             ],
             defaults: defaults
         )

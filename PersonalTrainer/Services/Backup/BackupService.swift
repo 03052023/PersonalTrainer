@@ -36,6 +36,7 @@ final class BackupService: BackupServicing {
     private let appVersion: String
     private let timeZone: TimeZone
     private let pendingRestoreURL: URL?
+    private let reapplySeed: (@MainActor () -> Void)?
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "PersonalTrainer",
         category: "BackupService"
@@ -47,16 +48,22 @@ final class BackupService: BackupServicing {
     ///   - pendingRestoreURL: onde guardar o retrato do store durante uma importação, para
     ///     sobreviver a uma morte do processo no meio dela. `nil` (previews, testes) mantém o
     ///     retrato só em memória. O app passa `defaultPendingRestoreURL()`.
+    ///   - reapplySeed: roda depois de cada importação bem-sucedida. O app passa o `SeedLoader`: um
+    ///     backup de uma versão anterior grava o `schemaSeedVersion` dela, e os exercícios que o seed
+    ///     atual acrescentou (os de casa do seed 3, SPEC RF-42) só voltariam no próximo launch. Com o
+    ///     seed já na versão atual, não faz nada. `nil` (previews, testes) não reaplica.
     init(
         modelContext: ModelContext,
         appVersion: String? = nil,
         timeZone: TimeZone = .current,
-        pendingRestoreURL: URL? = nil
+        pendingRestoreURL: URL? = nil,
+        reapplySeed: (@MainActor () -> Void)? = nil
     ) {
         self.modelContext = modelContext
         self.appVersion = appVersion ?? Self.bundleAppVersion(.main)
         self.timeZone = timeZone
         self.pendingRestoreURL = pendingRestoreURL
+        self.reapplySeed = reapplySeed
     }
 
     /// `Application Support/PersonalTrainer/pre-import-backup.json`, ao lado do store. `nil` se a
@@ -135,6 +142,9 @@ final class BackupService: BackupServicing {
 
         discardPendingRestore()
         logger.info("Backup importado: \(document.exercises.count) exercícios, \(document.programs.count) programas, \(document.sessions.count) sessões, \(document.setCount) séries.")
+        // Depois de conferir as contagens: o que o seed acrescenta não é do backup. Uma falha do
+        // seed só vai para o log dele; a importação já terminou.
+        reapplySeed?()
         return BackupImportReport(
             exercises: document.exercises.count,
             programs: document.programs.count,

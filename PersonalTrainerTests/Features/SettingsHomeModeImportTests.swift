@@ -59,9 +59,15 @@ final class SettingsHomeModeImportTests: XCTestCase {
         defaults.set("manual", forKey: "coachPendingDeloadTrigger")
         defaults.set(now.timeIntervalSince1970, forKey: "lastBackupAt")
         let counter = SettingsHomeCallCounter()
+        let imported = SettingsHomeCallCounter()
         let model = try makeModel(
             defaults: defaults,
             cleanupFiles: [decisions, review],
+            onImported: {
+                // O diálogo esquece a revisão em memória depois da limpeza dos arquivos.
+                XCTAssertFalse(FileManager.default.fileExists(atPath: review.path(percentEncoded: false)))
+                imported.count += 1
+            },
             onDataChanged: { counter.count += 1 }
         )
 
@@ -73,6 +79,7 @@ final class SettingsHomeModeImportTests: XCTestCase {
 
         XCTAssertEqual(model.alert?.title, "Backup importado")
         XCTAssertEqual(counter.count, 1)
+        XCTAssertEqual(imported.count, 1)
         XCTAssertFalse(FileManager.default.fileExists(atPath: decisions.path(percentEncoded: false)))
         XCTAssertFalse(FileManager.default.fileExists(atPath: review.path(percentEncoded: false)))
         XCTAssertTrue(FileManager.default.fileExists(atPath: coachLog.path(percentEncoded: false)), "O log do diálogo fica")
@@ -90,12 +97,19 @@ final class SettingsHomeModeImportTests: XCTestCase {
         defaults.set(now.timeIntervalSince1970, forKey: "coachPendingDeloadSince")
         let backup = SettingsHomeTestBackup()
         backup.importError = BackupError.corrupted
-        let model = try makeModel(defaults: defaults, backup: backup, cleanupFiles: [decisions])
+        let imported = SettingsHomeCallCounter()
+        let model = try makeModel(
+            defaults: defaults,
+            backup: backup,
+            cleanupFiles: [decisions],
+            onImported: { imported.count += 1 }
+        )
 
         try selectBackupFile(for: model, in: folder)
         model.confirmImport()
 
         XCTAssertEqual(model.alert?.title, "Backup não importado")
+        XCTAssertEqual(imported.count, 0, "Nada foi importado: a revisão do diálogo continua")
         XCTAssertTrue(FileManager.default.fileExists(atPath: decisions.path(percentEncoded: false)))
         XCTAssertNotNil(defaults.object(forKey: "coachPendingDeloadSince"))
     }
@@ -120,7 +134,8 @@ final class SettingsHomeModeImportTests: XCTestCase {
         XCTAssertTrue(names.contains("deload-decisions.json"))
         XCTAssertTrue(names.contains("last-review.json"))
         XCTAssertFalse(names.contains("coach-log.json"), "O log do diálogo nunca é apagado")
-        XCTAssertEqual(cleanup.defaultsKeys, ["coachPendingDeloadSince", "coachPendingDeloadTrigger"])
+        XCTAssertEqual(cleanup.defaultsKeys, ["coachPendingDeloadSince", "coachPendingDeloadTrigger", "coachLastReviewProgramID"])
+        XCTAssertEqual(CoachService.DefaultsKey.lastReviewProgramID, "coachLastReviewProgramID")
         XCTAssertEqual(CoachService.DefaultsKey.pendingDeloadSince, "coachPendingDeloadSince")
     }
 
@@ -144,6 +159,7 @@ final class SettingsHomeModeImportTests: XCTestCase {
         defaults: UserDefaults,
         backup: SettingsHomeTestBackup? = nil,
         cleanupFiles: [URL] = [],
+        onImported: @escaping () -> Void = {},
         onDataChanged: @escaping () -> Void = {}
     ) throws -> SettingsViewModel {
         let fixedNow = now
@@ -158,6 +174,7 @@ final class SettingsHomeModeImportTests: XCTestCase {
                 defaultsKeys: ["coachPendingDeloadSince", "coachPendingDeloadTrigger"],
                 defaults: defaults
             ),
+            onImported: onImported,
             onDataChanged: onDataChanged
         )
     }

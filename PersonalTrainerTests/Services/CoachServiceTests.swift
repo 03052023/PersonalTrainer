@@ -301,6 +301,30 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertFalse(fixture.service.messages.contains { $0.rule == .review }, "\"Aplicar\" só daria erro")
     }
 
+    func testA5_resetAfterImport_forgetsTheStoredReview() throws {
+        let suggestion = ProgramSuggestion(
+            id: "deload:2026-W39",
+            kind: .deload,
+            rule: "R2",
+            title: "Semana mais leve",
+            reason: "Sinais de fadiga nas últimas 2 semanas.",
+            referenceTopic: "rule.D"
+        )
+        let fixture = try makeFixture(logStore: storeWithReview([suggestion]))
+        defer { fixture.cleanUp() }
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        XCTAssertTrue(fixture.service.messages.contains { $0.rule == .review }, "A revisão guardada está no feed")
+
+        // A importação apagou o last-review.json (BackupImportCleanup); o lastReviewAt fica no log.
+        fixture.logStore.lastReview = nil
+        fixture.service.resetAfterImport()
+
+        XCTAssertFalse(fixture.service.messages.contains { $0.rule == .review })
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        XCTAssertFalse(fixture.service.messages.contains { $0.rule == .review }, "Nem ao voltar para Hoje")
+        XCTAssertEqual(fixture.logStore.reviewSaveCount, 0, "A próxima revisão segue o calendário do lastReviewAt")
+    }
+
     func testHandle_applySwitchProgram_activatesTheNextProgramWithTheSameGoal() throws {
         let suggestion = ProgramSuggestion(
             id: "switchProgram:old:2026-W39",
@@ -714,6 +738,57 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertEqual(progressRequests, [bench.id])
     }
 
+    func testRefresh_newBestMark_onlyForExercisesMeasuredInReps() throws {
+        let bench = exercise(name: "Supino reto")
+        let walk = exercise(name: "Caminhada do fazendeiro")
+        let fixture = try makeFixture(traits: ExerciseTraitsCatalog(traitsBySlug: [
+            walk.slug: ExerciseTraits(measure: .steps),
+        ]))
+        defer { fixture.cleanUp() }
+        let older = UUID()
+        let latest = UUID()
+        let olderDate = date(2026, 9, 21, hour: 8)
+        let latestDate = date(2026, 9, 23, hour: 8)
+        fixture.planner.sessionsToReturn = [
+            session(id: older, startedAt: olderDate),
+            session(id: latest, startedAt: latestDate),
+        ]
+        // Mesma progressão nos dois: 20 → 24 kg com o mesmo número por série.
+        func slot(_ definition: ExerciseDefinition, reps: Int, repMin: Int, repMax: Int) -> ExerciseReviewInput {
+            ExerciseReviewInput(
+                exercise: definition,
+                targetID: UUID(),
+                dayID: UUID(),
+                sets: 3,
+                repMin: repMin,
+                repMax: repMax,
+                history: [
+                    ExerciseHistoryEntry(sessionID: older, date: olderDate, sets: [SetResult(load: 20, reps: reps, rir: 2, completedAt: olderDate)]),
+                    ExerciseHistoryEntry(sessionID: latest, date: latestDate, sets: [SetResult(load: 24, reps: reps, rir: 2, completedAt: latestDate)]),
+                ]
+            )
+        }
+        fixture.planner.reviewInputToReturn = ReviewInput(
+            programID: UUID(),
+            programName: "Completo",
+            programDayCount: 1,
+            programStartDate: olderDate,
+            exercises: [
+                slot(bench, reps: 8, repMin: 8, repMax: 12),
+                slot(walk, reps: 30, repMin: 20, repMax: 40),
+            ],
+            sessions: [],
+            weeklySetTarget: 10...20,
+            currentPrescriptions: []
+        )
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+
+        // SPEC RF-43: passos não são repetições; o 1RM estimado de uma carregada não é marca.
+        let records = fixture.service.messages.filter { $0.rule == .personalRecord }
+        XCTAssertEqual(records.map(\.suggestionID), [bench.id.uuidString])
+    }
+
     // MARK: - C8 Longevidade
 
     func testHandle_done_marksTheBlockForTheWeekOnly() throws {
@@ -878,7 +953,8 @@ final class CoachServiceTests: XCTestCase {
     private func makeFixture(
         expiry: Date? = nil,
         logStore: FakeCoachLogStore? = nil,
-        authorizationToGrant: Bool = true
+        authorizationToGrant: Bool = true,
+        traits: ExerciseTraitsCatalog = .empty
     ) throws -> Fixture {
         let suite = "CoachServiceTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -902,7 +978,8 @@ final class CoachServiceTests: XCTestCase {
             notifications: notifications,
             now: { clock.now },
             calendar: calendar,
-            defaults: defaults
+            defaults: defaults,
+            traits: traits
         )
         return Fixture(
             service: service,
