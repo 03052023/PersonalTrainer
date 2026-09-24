@@ -44,7 +44,8 @@ Armadilha do Swift 6.3 no Linux: listas de tuplas com membros implícitos dentro
 5. **T4.3 / CA4-4:** a troca de programa por mesociclo virou sugestão opcional (C2), não troca automática; `Engine/ProgramRotationPolicy.swift` não foi criado. Ajustar CA4-4.
 6. Programa mais novo que a janela de 4 semanas: R3/R4 não rodam (decisão conservadora, falta na SPEC).
 7. Faltam tópicos de referência próprios para "mudar faixa de repetições" e "trocar programa" (hoje usam `topic.substitution`).
-| `handoff/identity-and-state` | este documento + DESIGN.md + candidatos de ícone | mesclar no `main` na rodada final |
+| `v2/core-integration` | **verde no CI** (run 35944194119, commit 6c16ab3) | `main` 3128a5a + `m5/health-core` + `m4/engine-policies` + `m4/review-core` mesclados sem conflito; todo o TrainerCore (incluindo os 70 testes da revisão, que nunca tinham rodado) passa no Linux. Mesclar este branch no `main` em vez dos três separados |
+| `handoff/identity-and-state` | este documento + DESIGN.md + ícone final no catálogo | mesclar no `main` na rodada final |
 
 Resultados detalhados dos agentes do M5 (incertezas, perguntas, referências a adicionar): `docs/m5-agent-results.json`.
 
@@ -61,8 +62,8 @@ Worktrees em `C:\Users\leona\Developer\pt-wt\*`. Os dos `m2/*` já foram mesclad
 ## 6. Rodada final da versão 2 (o que falta fazer)
 
 1. Confirmar/terminar a revisão e a correção do M2 (seção 3).
-2. Enviar `m4/*` e `m5/*` ao GitHub e deixar o Core tests verde (corrigir pelas anotações). Resolver na SPEC os pontos do M4 listados na §4, principalmente o rearme do deload.
-3. Mesclar no `main`: `m5/health-core`, `m5/health-reader`, `m5/health-ui`, `m4/engine-policies`, `m4/review-core`, `handoff/identity-and-state`.
+2. ~~Core tests verde para M4 + M5~~ (feito em `v2/core-integration`). Resolver na SPEC os pontos do M4 listados na §4, principalmente o rearme do deload.
+3. Mesclar no `main`: `v2/core-integration`, `m5/health-reader`, `m5/health-ui`, `handoff/identity-and-state`.
 4. Integração (app, compilado só no CI):
    - Card Saúde na Home e `HealthViewModel` no AppEnvironment (`LiveHealthDataReader` quando disponível).
    - Referências novas no `references.v1.json`: `topic.sleep`, `topic.steps`, FRIEND 2015 (doi 10.1016/j.mayocp.2015.07.026), Tanaka 2001 (10.1016/S0735-1097(00)01054-8), ACSM 2011 (10.1249/MSS.0b013e318213fefb), OMS 2020 (10.1136/bjsports-2020-102955) — verificar no Crossref.
