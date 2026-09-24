@@ -1,0 +1,376 @@
+<title>Magister no iPhone</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<style>
+  :root {
+    --ground: #F2EBE0;
+    --surface: #FAF6F0;
+    --ink: #33281F;
+    --muted: #6B5A4C;
+    --line: #E2D7C7;
+    --accent: #355A7C;
+    --accent-soft: #DDE5EC;
+    --on-accent: #FAF6F0;
+    --caution: #7A5B1A;
+    --caution-soft: #F3E6C8;
+    --petal: #F1EDE4;
+    --petal-center: #E9DCC6;
+    --icon-top: #2B3F58;
+    --icon-bottom: #1C2B40;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --ground: #1C1714;
+      --surface: #29221C;
+      --ink: #F0E7DA;
+      --muted: #BCAB98;
+      --line: #3B3129;
+      --accent: #9DBAD6;
+      --accent-soft: #26323E;
+      --on-accent: #1C1714;
+      --caution: #D4B062;
+      --caution-soft: #3A3021;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --ground: #1C1714;
+    --surface: #29221C;
+    --ink: #F0E7DA;
+    --muted: #BCAB98;
+    --line: #3B3129;
+    --accent: #9DBAD6;
+    --accent-soft: #26323E;
+    --on-accent: #1C1714;
+    --caution: #D4B062;
+    --caution-soft: #3A3021;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    padding-inline: 16px;
+    padding-block: 24px 48px;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; display: grid; gap: 28px; }
+  h1, h2 { font-family: "Newsreader", "New York", Georgia, "Times New Roman", serif; font-weight: 600; text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(28px, 7vw, 38px); line-height: 1.12; }
+  h2 { font-size: 24px; line-height: 1.2; }
+  h3 { font-size: 17px; margin: 0; }
+  p { margin: 0; }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  a:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+  header { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center; }
+  .app-icon { width: 72px; height: 72px; border-radius: 17px; display: block; box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+  .lede { color: var(--muted); font-size: 17px; }
+
+  section { display: grid; gap: 14px; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 12px; }
+  .need { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+  .need li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; }
+  .need li::before { content: ""; width: 10px; height: 10px; margin-top: 8px; border-radius: 50%; background: var(--accent); }
+
+  .note { background: var(--accent-soft); border-radius: 12px; padding: 14px 16px; display: grid; gap: 6px; }
+  .note strong { color: var(--ink); }
+  .caution { background: var(--caution-soft); border-left: 4px solid var(--caution); border-radius: 8px; padding: 12px 14px; }
+
+  .paths { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .path { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 8px; align-content: start; }
+  .path .tag { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+
+  ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; counter-reset: step; }
+  .step { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; grid-template-columns: 36px 1fr; gap: 12px; counter-increment: step; }
+  .step::before { content: counter(step); width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-weight: 700; display: grid; place-items: center; font-variant-numeric: tabular-nums; }
+  .step.done { opacity: .62; }
+  .step-body { display: grid; gap: 8px; min-width: 0; }
+  .step-body ul { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); cursor: pointer; min-height: 44px; }
+  .check input { width: 22px; height: 22px; accent-color: var(--accent); }
+
+  .ios-path { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .ios-path span { background: var(--accent-soft); color: var(--ink); border-radius: 8px; padding: 3px 9px; font-size: 15px; font-weight: 600; }
+  .ios-path i { color: var(--muted); font-style: normal; }
+
+  .file { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 14px; background: var(--accent-soft); padding: 2px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+
+  .link-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: 12px; background: var(--accent); color: var(--on-accent); font-weight: 600; text-decoration: none; border: 0; font-size: 15px; cursor: pointer; }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+  .url { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; min-width: 320px; font-size: 15px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .ok { color: var(--accent); font-weight: 700; white-space: nowrap; }
+  .part { color: var(--caution); font-weight: 700; white-space: nowrap; }
+
+  details { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 4px 16px; }
+  summary { cursor: pointer; font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+  details p { padding-bottom: 12px; color: var(--ink); }
+
+  footer { color: var(--muted); font-size: 13px; }
+  @media (prefers-reduced-motion: no-preference) { .step { transition: opacity .2s ease; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <svg class="app-icon" viewBox="0 0 100 100" role="img" aria-label="Ícone do Magister: cinco pétalas creme sobre azul-marinho">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="var(--icon-top)"/>
+          <stop offset="1" stop-color="var(--icon-bottom)"/>
+        </linearGradient>
+      </defs>
+      <rect width="100" height="100" fill="url(#bg)"/>
+      <g transform="translate(50 52)">
+        <g fill="var(--petal)">
+          <path d="M0 -7 C4 -7 9.6 -10 9.6 -21 C9.6 -28 5.3 -33 0 -33 C-5.3 -33 -9.6 -28 -9.6 -21 C-9.6 -10 -4 -7 0 -7Z"/>
+          <path transform="rotate(72)" d="M0 -7 C4 -7 9.6 -10 9.6 -21 C9.6 -28 5.3 -33 0 -33 C-5.3 -33 -9.6 -28 -9.6 -21 C-9.6 -10 -4 -7 0 -7Z"/>
+          <path transform="rotate(144)" d="M0 -7 C4 -7 9.6 -10 9.6 -21 C9.6 -28 5.3 -33 0 -33 C-5.3 -33 -9.6 -28 -9.6 -21 C-9.6 -10 -4 -7 0 -7Z"/>
+          <path transform="rotate(216)" d="M0 -7 C4 -7 9.6 -10 9.6 -21 C9.6 -28 5.3 -33 0 -33 C-5.3 -33 -9.6 -28 -9.6 -21 C-9.6 -10 -4 -7 0 -7Z"/>
+          <path transform="rotate(288)" d="M0 -7 C4 -7 9.6 -10 9.6 -21 C9.6 -28 5.3 -33 0 -33 C-5.3 -33 -9.6 -28 -9.6 -21 C-9.6 -10 -4 -7 0 -7Z"/>
+        </g>
+        <circle r="5" fill="var(--petal-center)"/>
+      </g>
+    </svg>
+    <div>
+      <h1>Como instalar o Magister no seu iPhone</h1>
+    </div>
+  </header>
+
+  <p class="lede">Oi, Amanda! O Magister é um app de treino gratuito que monta cada sessão para você, na academia ou em casa. Na primeira vez a instalação leva uns 30 minutos. Siga na ordem e marque cada passo quando terminar (as marcações ficam salvas neste aparelho).</p>
+
+  <section aria-labelledby="need">
+    <h2 id="need">O que você precisa</h2>
+    <div class="panel">
+      <ul class="need">
+        <li><span><strong>Um computador com Windows.</strong> O mais fácil é usar o mesmo computador em que o Magister já foi instalado no outro iPhone da casa: lá já está tudo pronto.</span></li>
+        <li><span><strong>O cabo do seu iPhone</strong> para ligar no computador.</span></li>
+        <li><span><strong>O seu Apple ID e a senha</strong> (o mesmo e-mail da App Store). Você digita só dentro do programa Impactor, no computador. Não mande essa senha para ninguém, nem por mensagem.</span></li>
+        <li><span><strong>O arquivo do app:</strong> <span class="file">PersonalTrainer-iphone-only-for-resigning.ipa</span> (o passo 1 explica onde pegar).</span></li>
+      </ul>
+    </div>
+    <div class="note">
+      <strong>Dá para fazer só pelo iPhone?</strong>
+      <p>Infelizmente não. Como o app não está na App Store, a Apple exige que um programa no computador "assine" o app com o seu Apple ID, de graça. Depois de instalado, ele funciona só no iPhone. O computador só volta a ser usado para renovar a cada 7 dias (explico no fim).</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="which">
+    <h2 id="which">Qual computador você vai usar?</h2>
+    <div class="paths">
+      <div class="path">
+        <span class="tag">Caminho mais fácil</span>
+        <h3>O computador onde o Magister já é instalado</h3>
+        <p>O iTunes e o Impactor já estão instalados nele, e o arquivo do app está na pasta <strong>Downloads</strong>. Pule direto para o passo 1.</p>
+      </div>
+      <div class="path">
+        <span class="tag">Seu próprio computador</span>
+        <h3>Um Windows que ainda não tem nada</h3>
+        <p>Antes do passo 1, instale os dois programas da seção "Preparar outro computador", logo abaixo.</p>
+      </div>
+    </div>
+    <details>
+      <summary>Preparar outro computador (só se não for o computador de sempre)</summary>
+      <div class="step-body" style="padding-bottom:14px">
+        <p><strong>1. iTunes, baixado do site da Apple.</strong> Ele ensina o Windows a conversar com o iPhone. Não use a versão da Microsoft Store: ela não funciona para isso. Se ela já estiver instalada, desinstale antes.</p>
+        <div class="link-row">
+          <a class="btn" href="https://www.apple.com/itunes/download/win64" target="_blank" rel="noopener">Baixar o iTunes (Apple)</a>
+          <button class="btn ghost" type="button" data-copy="https://www.apple.com/itunes/download/win64">Copiar link</button>
+        </div>
+        <p class="url">https://www.apple.com/itunes/download/win64</p>
+        <p>Abra o arquivo baixado (<span class="file">iTunes64Setup.exe</span>) e clique em Avançar até terminar.</p>
+        <p><strong>2. Impactor</strong>, o programa que instala o app no iPhone.</p>
+        <div class="link-row">
+          <a class="btn" href="https://github.com/claration/impactor/releases/download/v2.6.3/Impactor-windows-x86_64-setup.exe" target="_blank" rel="noopener">Baixar o Impactor</a>
+          <button class="btn ghost" type="button" data-copy="https://github.com/claration/impactor/releases/download/v2.6.3/Impactor-windows-x86_64-setup.exe">Copiar link</button>
+        </div>
+        <p class="url">https://github.com/claration/impactor/releases/download/v2.6.3/Impactor-windows-x86_64-setup.exe</p>
+        <p>Abra o arquivo baixado e instale. Se o Windows mostrar "O Windows protegeu o computador", clique em <strong>Mais informações → Executar assim mesmo</strong>. O Impactor é um programa gratuito e de código aberto. Página oficial: <a href="https://github.com/claration/impactor/releases/latest" target="_blank" rel="noopener">github.com/claration/impactor</a>.</p>
+      </div>
+    </details>
+  </section>
+
+  <section aria-labelledby="steps">
+    <h2 id="steps">Passo a passo</h2>
+    <ol class="steps">
+      <li class="step" id="s1">
+        <div class="step-body">
+          <h3>Pegue o arquivo do app</h3>
+          <p><strong>No computador de sempre:</strong> abra a pasta <strong>Downloads</strong> e procure a pasta <strong>PersonalTrainer-for-resigning</strong>. Dentro dela, o arquivo que você vai usar é o <span class="file">PersonalTrainer-iphone-only-for-resigning.ipa</span> (o que tem "iphone-only" no nome).</p>
+          <p><strong>Se não achar:</strong> peça o arquivo para quem instalou o app no outro iPhone. Ou baixe pelo GitHub, entrando com uma conta do GitHub:</p>
+          <div class="link-row">
+            <a class="btn ghost" href="https://github.com/03052023/PersonalTrainer/actions/runs/35997614062" target="_blank" rel="noopener">Abrir a página do arquivo</a>
+            <button class="btn ghost" type="button" data-copy="https://github.com/03052023/PersonalTrainer/actions/runs/35997614062">Copiar link</button>
+          </div>
+          <ul>
+            <li>Role até <strong>Artifacts</strong> e clique em <strong>PersonalTrainer-for-resigning</strong>.</li>
+            <li>No arquivo baixado (.zip): botão direito → <strong>Extrair tudo…</strong> → <strong>Extrair</strong>.</li>
+            <li>Esse link funciona até <strong>27 de setembro</strong>. Depois disso, peça um novo.</li>
+          </ul>
+          <label class="check"><input type="checkbox" id="c1" data-step="s1"> Tenho o arquivo .ipa</label>
+        </div>
+      </li>
+
+      <li class="step" id="s2">
+        <div class="step-body">
+          <h3>Ligue o iPhone no computador</h3>
+          <ul>
+            <li>Conecte com o cabo e desbloqueie o iPhone.</li>
+            <li>Se aparecer <strong>"Confiar neste computador?"</strong>, toque em <strong>Confiar</strong> e digite o código do iPhone.</li>
+          </ul>
+          <label class="check"><input type="checkbox" id="c2" data-step="s2"> iPhone ligado e confiado</label>
+        </div>
+      </li>
+
+      <li class="step" id="s3">
+        <div class="step-body">
+          <h3>Instale pelo Impactor</h3>
+          <ul>
+            <li>Abra o <strong>Impactor</strong> no computador.</li>
+            <li>Escolha o arquivo <span class="file">PersonalTrainer-iphone-only-for-resigning.ipa</span> (arraste para a janela ou use o botão de escolher arquivo).</li>
+            <li>Selecione o <strong>seu</strong> iPhone na lista.</li>
+            <li>Entre com o <strong>seu</strong> Apple ID e a senha. Se o Impactor já estiver com a conta de outra pessoa, adicione ou troque para a sua: assim cada iPhone renova no próprio ritmo.</li>
+            <li>Se pedir um <strong>código de 6 dígitos</strong>, ele aparece no seu iPhone. Digite no Impactor.</li>
+            <li>Clique em instalar e espere terminar. Não desconecte o cabo no meio.</li>
+          </ul>
+          <label class="check"><input type="checkbox" id="c3" data-step="s3"> O Impactor terminou</label>
+        </div>
+      </li>
+
+      <li class="step" id="s4">
+        <div class="step-body">
+          <h3>Ligue o Modo de Desenvolvedor no iPhone</h3>
+          <p>Necessário uma única vez, porque o app não veio da App Store.</p>
+          <div class="ios-path" aria-label="Ajustes, Privacidade e Segurança, Modo de Desenvolvedor">
+            <span>Ajustes</span><i>›</i><span>Privacidade e Segurança</span><i>›</i><span>Modo de Desenvolvedor</span>
+          </div>
+          <ul>
+            <li>Fica bem no fim da tela de Privacidade e Segurança. Só aparece <strong>depois</strong> do passo 3.</li>
+            <li>Ligue a chave e toque em <strong>Reiniciar</strong>.</li>
+            <li>Quando o iPhone voltar, toque em <strong>Ativar</strong> e digite o código do iPhone.</li>
+          </ul>
+          <label class="check"><input type="checkbox" id="c4" data-step="s4"> Modo de Desenvolvedor ativado</label>
+        </div>
+      </li>
+
+      <li class="step" id="s5">
+        <div class="step-body">
+          <h3>Autorize o app no iPhone</h3>
+          <div class="ios-path" aria-label="Ajustes, Geral, VPN e Gerenciamento de Dispositivos">
+            <span>Ajustes</span><i>›</i><span>Geral</span><i>›</i><span>VPN e Gerenciamento de Dispositivos</span>
+          </div>
+          <ul>
+            <li>Toque no <strong>seu e-mail</strong> (o do Apple ID) e depois em <strong>Confiar</strong>.</li>
+            <li>Se você tentar abrir o app antes disso, vai aparecer "Desenvolvedor não confiável". É normal, basta fazer este passo.</li>
+          </ul>
+          <label class="check"><input type="checkbox" id="c5" data-step="s5"> App autorizado</label>
+        </div>
+      </li>
+
+      <li class="step" id="s6">
+        <div class="step-body">
+          <h3>Abra o Magister</h3>
+          <ul>
+            <li>Procure o ícone da <strong>flor creme sobre azul-marinho</strong>, com o nome <strong>Magister</strong>.</li>
+            <li>Na primeira abertura, escolha o seu <strong>objetivo</strong>: Hipertrofia, Força, Resistência, Longevidade ou Combate. Dá para trocar depois, na aba Programa.</li>
+            <li>A permissão do app <strong>Saúde</strong> só aparece quando você terminar a primeira sessão ou tocar no cartão de Saúde. Toque em <strong>permitir tudo</strong> para o app ler seus dados.</li>
+            <li>Vai treinar em casa? Ligue <strong>Em casa</strong> no cartão do treino do dia (ou em <strong>Ajustes</strong>). O app troca cada exercício por uma versão com o peso do corpo ou com objetos de casa, como mochila com peso, garrafas de água ou cadeira. Desligando, volta o treino da academia.</li>
+            <li>Recomendado: <strong>Magister → Ajustes → Avisos</strong>, ligue o aviso na véspera de o app vencer.</li>
+          </ul>
+          <label class="check"><input type="checkbox" id="c6" data-step="s6"> Pronto, estou usando</label>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section aria-labelledby="watch">
+    <h2 id="watch">Seu relógio Amazfit (app Zepp)</h2>
+    <div class="panel">
+      <p>O Magister lê os dados do app <strong>Saúde</strong> do iPhone, então o relógio precisa mandar os dados para lá:</p>
+      <div class="ios-path" aria-label="App Zepp, Perfil, Adicionar contas, Apple Saúde">
+        <span>App Zepp</span><i>›</i><span>Perfil</span><i>›</i><span>Adicionar contas</span><i>›</i><span>Apple Saúde</span>
+      </div>
+      <p>Ligue todos os tipos de dado. Para conferir, abra <strong>Saúde → Explorar → Coração → Frequência cardíaca → Fontes de Dados</strong>: o Zepp precisa aparecer lá.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>No Magister</th><th>Com o Amazfit</th></tr></thead>
+          <tbody>
+            <tr><td>Frequência cardíaca da sessão</td><td class="ok">Funciona</td></tr>
+            <tr><td>Minutos de caminhada, corrida e outros aeróbicos</td><td class="ok">Funciona</td></tr>
+            <tr><td>Sono e passos</td><td class="ok">Funciona</td></tr>
+            <tr><td>Recuperação (variabilidade cardíaca)</td><td class="part">Parcial: a maioria dos Amazfit não envia esse dado</td></tr>
+            <tr><td>VO2máx</td><td class="part">Não chega: o Zepp não envia VO2máx ao Saúde</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="caution">Se aparecer a sugestão de caminhar com o relógio para atualizar o VO2máx, toque em <strong>"Não sugerir mais isto"</strong>: com o Amazfit esse número não chega ao Saúde.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="renew">
+    <h2 id="renew">A cada 7 dias: renovar</h2>
+    <div class="panel">
+      <p>Com o Apple ID gratuito, o app para de abrir 7 dias depois de instalado. Para renovar, repita os passos <strong>2 e 3</strong> com o mesmo arquivo, antes de vencer. <strong>Não apague o app</strong>: instalando por cima, seus treinos continuam.</p>
+      <p>Os passos 4 e 5 não precisam ser repetidos.</p>
+    </div>
+  </section>
+
+  <section aria-labelledby="help">
+    <h2 id="help">Se algo der errado</h2>
+    <details><summary>"Desenvolvedor não confiável"</summary><p>Faça o passo 5 e abra o app de novo.</p></details>
+    <details><summary>Não encontro o Modo de Desenvolvedor</summary><p>Ele só aparece depois de uma tentativa de instalação (passo 3). Faça o passo 3 primeiro e depois volte a Ajustes › Privacidade e Segurança, no fim da lista.</p></details>
+    <details><summary>O Impactor não encontra o iPhone</summary><p>Desbloqueie o iPhone, tire e coloque o cabo e confirme "Confiar". Num computador novo, confira se o iTunes veio do site da Apple, não da Microsoft Store.</p></details>
+    <details><summary>O app parou de abrir depois de uma semana</summary><p>É o limite de 7 dias do Apple ID gratuito. Renove como explicado acima. Seus dados estão guardados.</p></details>
+    <details><summary>Apareceu uma tela dizendo que os dados não abriram</summary><p>Nada foi apagado. Tire um print e mande para quem cuida do app.</p></details>
+  </section>
+
+  <footer>Magister · uso pessoal, sem anúncios e sem conta. Seus dados ficam só no seu iPhone e no app Saúde.</footer>
+</div>
+
+<script>
+  (function () {
+    var KEY = "magister-install-steps";
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { saved = {}; }
+    var boxes = document.querySelectorAll('input[type="checkbox"][data-step]');
+    boxes.forEach(function (box) {
+      var step = document.getElementById(box.getAttribute("data-step"));
+      if (saved[box.id]) { box.checked = true; if (step) step.classList.add("done"); }
+      box.addEventListener("change", function () {
+        if (step) step.classList.toggle("done", box.checked);
+        saved[box.id] = box.checked;
+        try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {}
+      });
+    });
+    document.querySelectorAll("[data-copy]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var text = btn.getAttribute("data-copy");
+        var original = btn.textContent;
+        var done = function () { btn.textContent = "Copiado"; setTimeout(function () { btn.textContent = original; }, 1600); };
+        var fallback = function () {
+          var url = btn.parentElement && btn.parentElement.nextElementSibling;
+          if (url && window.getSelection) {
+            var range = document.createRange();
+            range.selectNodeContents(url);
+            var sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+            btn.textContent = "Link selecionado";
+            setTimeout(function () { btn.textContent = original; }, 1600);
+          }
+        };
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, fallback);
+          } else { fallback(); }
+        } catch (e) { fallback(); }
+      });
+    });
+  })();
+</script>
