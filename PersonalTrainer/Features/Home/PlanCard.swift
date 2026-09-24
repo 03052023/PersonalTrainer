@@ -55,7 +55,7 @@ struct PlanCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private var header: some View {

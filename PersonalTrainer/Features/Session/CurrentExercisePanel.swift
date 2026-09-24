@@ -160,7 +160,7 @@ private extension PrescriptionNote {
         case .returning:
             return "Retorno"
         case .deload:
-            return "Deload"
+            return "Semana leve"
         }
     }
 }

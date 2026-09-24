@@ -72,6 +72,7 @@ struct HomeView: View {
             }
             // DESIGN §9.1: nada acima do objetivo. O título fica para o botão de voltar das telas
             // abertas daqui; a aba já diz "Hoje".
+            .background(Theme.background)
             .navigationTitle("Hoje")
             .toolbar(.hidden, for: .navigationBar)
             .onAppear {

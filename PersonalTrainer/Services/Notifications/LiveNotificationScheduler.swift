@@ -14,7 +14,7 @@ import UserNotifications
 /// `RestTimerView`. Em segundo plano, o sistema entrega alerta + som em `fireDate` (CA1-3).
 final class LiveNotificationScheduler: NotificationScheduling {
     /// Título fixo das notificações do app (nome de exibição, `CFBundleDisplayName`).
-    static let title = "Personal"
+    static let title = "Magister"
 
     init() {}
 

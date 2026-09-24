@@ -151,7 +151,7 @@ final class HistoryTests: XCTestCase {
         XCTAssertEqual(SessionExerciseSection.noteText(.retry), "Repetir")
         XCTAssertEqual(SessionExerciseSection.noteText(.decrease), "Reduzir")
         XCTAssertEqual(SessionExerciseSection.noteText(.returning), "Retorno")
-        XCTAssertEqual(SessionExerciseSection.noteText(.deload), "Deload")
+        XCTAssertEqual(SessionExerciseSection.noteText(.deload), "Semana leve")
     }
 
     // MARK: - ExerciseProgressView (T2.10)

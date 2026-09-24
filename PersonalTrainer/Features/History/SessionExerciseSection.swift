@@ -115,7 +115,7 @@ struct SessionExerciseSection: View {
         case .retry: return "Repetir"
         case .decrease: return "Reduzir"
         case .returning: return "Retorno"
-        case .deload: return "Deload"
+        case .deload: return "Semana leve"
         }
     }
 
