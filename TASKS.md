@@ -301,6 +301,7 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 - [ ] **T6.1 [CI] Como fazer: ilustração própria animada + passos (RF-40)** — pedido do usuário (2026-09-24): minimalista, sem realismo, direto ao ponto. Escopo e formato de dados definidos após a pesquisa `exercise-illustrations-research`.
 - [ ] **T6.2 [CI] RIR explicado na sessão (RF-41)** — Escopo: `Features/Session/RIRPicker.swift` (rótulos por valor), `Features/Session/RIRExplainerSheet.swift` (nova), cartão de primeira vez em `Features/Session/ActiveSessionView.swift` (marca `hasSeenRIRExplainer` em `@AppStorage`), leitura acessível em `Features/Home/PrescriptionRow.swift`. Aceite: os 4 itens do RF-41 visíveis no simulador, e o cartão some depois de "Entendi" e não volta.
+- [ ] **T6.3 [SCHEMA][CI] Exercícios medidos em tempo ou passos** (achado de 2026-09-24): isometrias (pescoço, prancha) e carregadas aparecem como "10–20 repetições", quando são segundos ou passos. Acrescentar ao exercício a medida (`reps` | `seconds` | `steps`), com SchemaV3 e estágio de migração (R6), seed e rótulos na sessão, no histórico e na prescrição. A progressão (P4–P6) passa a usar a mesma lógica sobre a medida.
 - [ ] **A5** Importar backup mantém decisões de semana leve, o log e a revisão do diálogo tomados sobre os dados antigos; esses JSON também não entram no backup. Decidir o que o import zera.
 - [ ] **B7** Duração estimada no cartão da sessão (DESIGN §9.2).
 - [ ] **B10** "Fazer backup" (C7) deveria abrir a exportação direto, não só a aba Ajustes.
