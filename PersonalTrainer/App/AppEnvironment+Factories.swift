@@ -119,7 +119,8 @@ extension AppEnvironment {
             healthRecorder: healthRecorder,
             watchSync: NoopWatchSyncService(),
             now: { Date() },
-            storeLoadError: storeLoadError
+            storeLoadError: storeLoadError,
+            traits: ExerciseTraitsLibrary.load(bundle: .main)
         )
     }
 
@@ -177,7 +178,8 @@ extension AppEnvironment {
             coach: coach,
             healthRecorder: nil,
             watchSync: NoopWatchSyncService(),
-            now: { fixedNow }
+            now: { fixedNow },
+            traits: ExerciseTraitsLibrary.load(bundle: .main)
         )
     }
 }

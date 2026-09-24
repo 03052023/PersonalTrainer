@@ -62,7 +62,7 @@ Andaime (arquiteto, no `main`, antes da onda B):
 - `AppEnvironment.traits`;
 - `Features/DesignSystem/ExerciseTraitsEnvironment.swift` com `EnvironmentValues.exerciseTraits` (padrão `.empty`), injetado na raiz.
 
-### B1 `v4/home-mode` (dono de `Services/Planning/*`, `Features/Home/*` exceto `PrescriptionRow.swift`, `Features/Settings/*` e `App/RootView.swift`)
+### B1 `v4/home-mode` (dono de `Services/Planning/*`, `Features/Home/*` exceto `PrescriptionRow.swift`, `Features/Settings/*`, `App/RootView.swift` e `App/AppEnvironment+Factories.swift`, para passar `traits` ao `SessionPlanner`)
 - Chave `UserDefaults` `homeModeEnabled`, padrão false, lida em `PlannerSettings`.
 - Ligada, `nextPlan` e `plan(forDayID:)` aplicam `HomeSubstitution.swaps`. O alvo vem do original e a prescrição do histórico do exercício de casa, como em `substitutionPlan`.
 - `SessionPlan` ganha `isHomeMode`, `homeNotices: [String]` e `estimatedMinutes: Int` (B7). A estimativa soma, por série, reps médias × 3 s (ou os segundos), mais o descanso, mais 2 min por exercício de preparação.

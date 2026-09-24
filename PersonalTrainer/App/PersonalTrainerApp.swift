@@ -18,6 +18,7 @@ struct PersonalTrainerApp: App {
                 environment = AppEnvironment.live()
             })
             .environment(environment)
+            .environment(\.exerciseTraits, environment.traits)
             .modelContainer(environment.modelContainer)
         }
     }

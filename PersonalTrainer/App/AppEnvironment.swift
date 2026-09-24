@@ -45,6 +45,9 @@ final class AppEnvironment {
     /// instalação nova, e nada é gravado, semeado ou exportado por cima dos dados reais, que
     /// continuam intactos no disco.
     let storeLoadError: String?
+    /// Medida e marca "de casa" por `slug`, do catálogo do bundle (SPEC RF-42, RF-43). Também vai
+    /// para o ambiente do SwiftUI (`\.exerciseTraits`) na raiz.
+    let traits: ExerciseTraitsCatalog
 
     init(
         modelContainer: ModelContainer,
@@ -63,7 +66,8 @@ final class AppEnvironment {
         healthRecorder: HealthKitWorkoutRecorder?,
         watchSync: any WatchSyncServicing,
         now: @escaping () -> Date = { Date() },
-        storeLoadError: String? = nil
+        storeLoadError: String? = nil,
+        traits: ExerciseTraitsCatalog = .empty
     ) {
         self.modelContainer = modelContainer
         self.coordinator = coordinator
@@ -82,5 +86,6 @@ final class AppEnvironment {
         self.watchSync = watchSync
         self.now = now
         self.storeLoadError = storeLoadError
+        self.traits = traits
     }
 }
