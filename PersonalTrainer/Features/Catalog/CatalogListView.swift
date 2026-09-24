@@ -137,7 +137,7 @@ struct CatalogListView: View {
             } else if model.exercises.isEmpty {
                 ContentUnavailableView(
                     "Catálogo vazio",
-                    systemImage: "figure.strengthtraining.traditional",
+                    systemImage: "list.bullet",
                     description: Text("Toque em + para criar um exercício.")
                 )
             } else {

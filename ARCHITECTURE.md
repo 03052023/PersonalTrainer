@@ -387,7 +387,8 @@ PersonalTrainer/                        ← raiz do repo (Windows: C:\Users\leon
 │       └── Tests/TrainerCoreTests/
 ├── PersonalTrainer/                     (target iOS — XcodeGen inclui a pasta inteira, exceto Support/)
 │   ├── App/            PersonalTrainerApp.swift · AppEnvironment.swift · AppEnvironment+Factories.swift · RootView.swift
-│   ├── Features/       Home/ · Session/ · History/ · (M2) Catalog/ · Program/ · Settings/
+│   ├── Features/       Home/ · Session/ · History/ · (M2) Catalog/ · Program/ · Settings/ ·
+│   │                   DesignSystem/ (Theme, GoalStyle, FlowerView, PrimaryButtonStyle — DESIGN.md §3/§4/§9)
 │   ├── PreviewSupport/ doubles privados de SessionPlanning/SessionCoordinating para #Preview (fora de Features/ para o grep R4 ficar limpo)
 │   ├── Services/       Planning/ · Session/ · RestTimer/ · Seed/ · Notifications/ · HealthKit/ · WatchSync/ · (M2) Backup/
 │   ├── Persistence/    Schema/{SchemaV1,CurrentSchema}.swift · MigrationPlan.swift · ModelContainerFactory.swift · Mappers/ · Repositories/
