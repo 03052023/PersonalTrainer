@@ -450,6 +450,56 @@
       "doi": "10.1007/s10935-014-0355-2",
       "level": "study",
       "summary": "Em 6.704 atletas do ensino médio, cada libra a mais de força de pescoço se associou a 5% menos chance de concussão."
+    },
+    {
+      "id": "kaminsky-2015-friend",
+      "authors": "Kaminsky LA, Arena R, Myers J",
+      "year": 2015,
+      "title": "Reference Standards for Cardiorespiratory Fitness Measured With Cardiopulmonary Exercise Testing",
+      "source": "Mayo Clinic Proceedings",
+      "doi": "10.1016/j.mayocp.2015.07.026",
+      "level": "study",
+      "summary": "Tabela de referência de VO2max por idade e sexo, com percentis obtidos de testes cardiopulmonares em esteira de adultos de 20 a 79 anos no registro americano FRIEND; base da faixa (muito baixo a superior) que o app mostra."
+    },
+    {
+      "id": "lesuer-1997-1rm-equations",
+      "authors": "LeSuer DA, McCormick JH, Mayhew JL, Wasserstein RL, Arnold MD",
+      "year": 1997,
+      "title": "The Accuracy of Prediction Equations for Estimating 1-RM Performance in the Bench Press, Squat, and Deadlift",
+      "source": "Journal of Strength and Conditioning Research",
+      "doi": "10.1519/00124278-199711000-00001",
+      "level": "study",
+      "summary": "Comparando a estimativa de 1RM com o teste direto em levantamento terra, agachamento e supino, a fórmula de Epley teve boa correlação, mas erro que varia por exercício e cresce com mais repetições até a falha."
+    },
+    {
+      "id": "wood-2002-1rm-older-adults",
+      "authors": "Wood TM, Maddalozzo GF, Harter RA",
+      "year": 2002,
+      "title": "Accuracy of Seven Equations for Predicting 1-RM Performance of Apparently Healthy, Sedentary Older Adults",
+      "source": "Measurement in Physical Education and Exercise Science",
+      "doi": "10.1207/S15327841MPEE0602_1",
+      "level": "study",
+      "summary": "Em adultos mais velhos sedentários, sete fórmulas de 1RM estimado (entre elas a de Epley) tiveram boa correlação com o teste direto, mas todas com margem de erro relevante para uso individual."
+    },
+    {
+      "id": "cappuccio-2010-sleep-mortality",
+      "authors": "Cappuccio FP, D'Elia L, Strazzullo P, Miller MA",
+      "year": 2010,
+      "title": "Sleep Duration and All-Cause Mortality: A Systematic Review and Meta-Analysis of Prospective Studies",
+      "source": "Sleep",
+      "doi": "10.1093/sleep/33.5.585",
+      "level": "metaAnalysis",
+      "summary": "Meta-análise de estudos prospectivos: dormir menos do que o recomendado, de forma habitual, se associou a maior mortalidade por todas as causas."
+    },
+    {
+      "id": "saintmaurice-2020-steps",
+      "authors": "Saint-Maurice PF, Troiano RP, Bassett DR Jr, Graubard BI, Carlson SA, Shiroma EJ, et al.",
+      "year": 2020,
+      "title": "Association of Daily Step Count and Step Intensity With Mortality Among US Adults",
+      "source": "JAMA",
+      "doi": "10.1001/jama.2020.1382",
+      "level": "study",
+      "summary": "Em adultos americanos, mais passos por dia se associaram a menor mortalidade por todas as causas, com queda mais acentuada até cerca de 8 mil passos e sem vantagem adicional clara da velocidade do passo além do total diário."
     }
   ],
   "topics": {
@@ -481,7 +531,10 @@
     "topic.concurrent": ["schumann-2022-concurrent", "wilson-2012-concurrent"],
     "topic.hrv": ["bellenger-2016-hrv", "plews-2013-hrv", "buchheit-2014-hr-monitoring"],
     "topic.aerobic": ["bull-2020-who", "garber-2011-acsm", "tanaka-2001-hrmax"],
-    "topic.vo2max": ["mandsager-2018-fitness", "kodama-2009-fitness", "lambe-2025-watch-vo2max"]
+    "topic.vo2max": ["mandsager-2018-fitness", "kodama-2009-fitness", "lambe-2025-watch-vo2max", "kaminsky-2015-friend"],
+    "topic.sleep": ["watson-2015-sleep", "cappuccio-2010-sleep-mortality"],
+    "topic.steps": ["paluch-2022-steps", "saintmaurice-2020-steps"],
+    "topic.e1rm": ["lesuer-1997-1rm-equations", "wood-2002-1rm-older-adults"]
   },
   "explanations": {
     "rule.P2": "Sem histórico do exercício, a primeira sessão é de calibração: a meta é o mínimo da faixa e, se não há carga inicial definida, você escolhe a carga com 1 repetição a mais em reserva. Estimar quantas repetições faltam para a falha tem erro médio de cerca de 1 repetição, e essa folga evita começar pesado demais.",
@@ -512,6 +565,9 @@
     "topic.concurrent": "Aeróbico junto com musculação não compromete a hipertrofia nem a força máxima, mas pode reduzir ganhos de força explosiva quando feito na mesma sessão. Uma meta-análise de 2012 viu mais interferência com corrida e com mais frequência e duração de aeróbico; a atualização de 2022 não confirmou o efeito de modalidade nem de frequência. Por prudência, o app separa as sessões e prefere baixo impacto perto de treinos de pernas.",
     "topic.hrv": "A variabilidade da frequência cardíaca (VFC) em repouso é acompanhada como média de vários dias, nunca como leitura isolada. A evidência de que ela reflete a recuperação é limitada e inconsistente: vem sobretudo de atletas de endurance, usa índices (rMSSD) diferentes do SDNN que o Apple Watch registra e, numa meta-análise, a VFC de repouso quase não mudou com o excesso de treino. Por isso ela só modula sugestões e nunca altera a carga.",
     "topic.aerobic": "A meta é de 150–300 min por semana de aeróbico moderado, em que 1 min vigoroso vale 2 moderados, como recomenda a OMS. A intensidade é classificada pela frequência cardíaca em relação à máxima estimada por 208 − 0,7 × idade.",
-    "topic.vo2max": "O VO2max mede a aptidão cardiorrespiratória e é estimado pelo Apple Watch em caminhadas e corridas ao ar livre. Aptidão maior, medida em teste de esforço, se associa fortemente a menor mortalidade, sem limite superior de benefício observado. A estimativa do relógio é aproximada (numa validação, errou em média cerca de 13%, para baixo), então vale a tendência, não o valor isolado."
+    "topic.vo2max": "O VO2max mede a aptidão cardiorrespiratória e é estimado pelo Apple Watch em caminhadas e corridas ao ar livre. A faixa mostrada (de muito baixo a superior) usa os percentis por idade e sexo do registro americano FRIEND, com testes cardiopulmonares em esteira de adultos de 20 a 79 anos. Aptidão maior, medida em teste de esforço, se associa fortemente a menor mortalidade, sem limite superior de benefício observado, mas a estimativa do relógio é aproximada (numa validação, errou em média cerca de 13%, para baixo), por isso vale mais a tendência do que o valor isolado.",
+    "topic.sleep": "A meta padrão é de 7 a 9 horas de sono por noite, como recomenda o consenso da AASM e da SRS. Dormir de forma habitual menos do que isso esteve associado a maior mortalidade por todas as causas numa meta-análise de estudos prospectivos.",
+    "topic.steps": "A meta padrão é de pelo menos 7.000 passos por dia. Mais passos diários se associaram a menor mortalidade em várias coortes internacionais, com queda mais acentuada até cerca de 7.000–8.000 passos, e uma coorte americana também associou mais passos por dia a menor risco de morte, sem uma vantagem adicional clara da velocidade do passo.",
+    "topic.e1rm": "O 1RM estimado usa a fórmula de Epley (carga × (1 + repetições/30)) sobre a melhor série de trabalho, para acompanhar o progresso sem precisar testar a carga máxima real a cada sessão. Estudos que compararam essa e outras fórmulas com o teste direto de 1RM encontram boa correlação, mas erro individual relevante que cresce com mais repetições até a falha, por isso o app usa a tendência entre sessões, não o valor isolado como alvo."
   }
 }
