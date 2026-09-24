@@ -1,0 +1,166 @@
+# Guia de design: Magister
+
+Versão 1.1 · 2026-09-23. Vale para iPhone e Apple Watch. Decisões do dono registradas na SPEC (decisões 15 e 16): nome **Magister**, ícone de cinco pétalas creme sobre **azul profundo**, nada de cultura de academia.
+
+## 0. O nome
+
+**Magister** é latim para "mestre, quem ensina e guia" (a raiz de "magistério" e de *master*). É o papel de um personal trainer sem o vocabulário de academia: alguém que conhece o caminho, explica o porquê e acompanha a pessoa. Uma palavra só, curta, séria e amigável, que funciona em pt-BR, espanhol, italiano e inglês. Na tela aparece só "Magister". Se um dia for publicado, o título na loja pode ser "Magister: Personal Trainer". Colisões conhecidas ficam fora do fitness: um app escolar holandês e um app espanhol de concursos.
+
+## 1. Princípios
+
+1. **Os objetivos ficam no centro.** O app existe para cinco objetivos: Hipertrofia, Força, Resistência muscular, Longevidade e Combate. Cada tela responde "para qual objetivo isto serve?" antes de mostrar números.
+2. **Calma no lugar de euforia.** Superfícies claras e quentes, pouco movimento, nenhum grito. Descanso e semana leve fazem parte do plano e nunca aparecem como fracasso.
+3. **A ciência fica à vista.** Toda sugestão tem um "Por quê?" com autor, ano e nível de evidência. A referência é a autoridade, não um coach motivacional.
+4. **Nada de cultura de academia.** Sem preto com neon, cromado, halteres, silhuetas musculosas, raios, chamas, troféus, fontes condensadas em itálico ou linguagem militar.
+5. **Autonomia.** O app explica e a pessoa decide. Voz adulta, sem culpa e sem gamificação punitiva: nada de sequências que "quebram" nem de confete.
+
+## 2. O ícone: cinco pétalas, um centro
+
+Arquivos: `AppIcon.png` (1024 px, opaco), `AppIcon-dark.png`, `AppIcon-tinted.png` e `Scripts/design/render-icon.ps1`, que reproduz tudo.
+
+**O que significa.** Uma flor de cinco pétalas vista de cima, em creme sobre azul profundo, como esmalte claro sobre faiança azul (a mesma família de cores do azulejo luso-brasileiro). O azul profundo lembra água funda e céu ao anoitecer: calma, profundidade, constância.
+- **As 5 pétalas são os 5 objetivos**, todas iguais: equilíbrio sem hierarquia. A flor inteira é a pessoa inteira. Treinar é o meio, e o fim é florescer, isto é, viver bem, capaz e por muito tempo (eudaimonia, "florescimento humano") [1][2].
+- **As lentes**, onde duas pétalas vizinhas se sobrepõem e a camada fica mais densa, dizem que os objetivos dividem território: ganhos de um ajudam o outro.
+- **O miolo vazado é você.** O azul aparece no centro: os objetivos cercam a pessoa, mas não a preenchem.
+- **Leitura de índice (Peirce)** [3]: a flor e a faiança pedem tempo, repetição, estresse (o fogo) e repouso (o resfriamento), a mesma lógica de estímulo, recuperação e adaptação. É o contrário do metal cromado.
+- **Cinco** é o número das flores pentâmeras mais comuns (a simetria radial é o estado ancestral das flores) [4] e ecoa o corpo inteiro (cabeça e quatro membros), sem desenhar figura nem estrela.
+- **O que foi evitado de propósito:** pontas, linhas cruzadas e estrela central (pentagrama); círculos em 6 direções (Flor da Vida); lótus de perfil (ioga); entalhe na ponta (sakura); tons rosa e dourado (spa). As pétalas são levemente alongadas (1,10 : 1), o que dá direção "para fora" e afasta o ícone do brasão japonês de círculos perfeitos (umebachi).
+
+**Geometria** (1024 px): centro da flor em (512; 526,5). Cada pétala é uma elipse de 136 × 124 px de semi-eixos, a 181 px do centro, e o miolo tem raio de 68 px. O símbolo mede 614 × 596 px (60% do lado): cabe na área segura de 72% e no recorte circular do Watch (raio externo de 317 px, contra 512 px do recorte). Não há texto, cantos arredondados, sombra ou brilho pintados; o Liquid Glass fica por conta do sistema (HIG) [5].
+
+**Cores do ícone:** azul profundo `#3E5F7E` → `#2C4763` (degradê vertical); pétalas `#EEEBE2` no centro → `#F8F7F2` nas pontas; lente `#A8B8C6`.
+- Contrastes medidos em pixel: ponta de cima contra o fundo, 6,62:1; lente contra a pétala, 1,81:1 (continua visível a 60 px).
+- O bloco do ícone contra o papel de parede claro `#F2F2F7` dá 6,09 a 7,16:1, e contra o escuro `#1C1C1E`, 2,13 a 2,50:1 (a flor creme mantém a leitura; é o mesmo comportamento de ícones escuros do sistema).
+- Variante escura (pétalas `#D8D7CF` sobre `#17202B`): 11,38:1. A variante tingida é uma silhueta limpa em tons de cinza.
+- Alternativas testadas e descartadas pelo dono: barro bege (versão 1.0), três musgos, azul claro invertido, azul médio, azul-marinho e azul-ardósia.
+
+## 3. Paleta
+
+Superfícies claras e quentes (bege-linho); o azul profundo do ícone é a cor de ação; tons terrosos identificam os objetivos. Contraste WCAG de cada cor contra o fundo e contra a superfície (vale o menor valor); AA exige 4,5:1 para texto e 3:1 para gráficos.
+
+| Token | Uso | Claro | Escuro | Contraste mínimo (claro / escuro) |
+|---|---|---|---|---|
+| `background` | fundo das telas | `#F2EBE0` | `#1C1714` | — |
+| `surface` | cartões, folhas, listas | `#FAF6F0` | `#29221C` | — |
+| `textPrimary` | texto e números | `#33281F` | `#F0E7DA` | 12,11 / 12,80 |
+| `textSecondary` | legendas, rótulos | `#6B5A4C` | `#BCAB98` | 5,56 / 7,03 |
+| `accent` | botão principal, links, seleção, tint global (AccentColor) — azul profundo | `#355A7C` | `#9DBAD6` | 6,11 / 7,78 |
+| `onAccent` | texto sobre `accent` | `#FAF6F0` | `#1C1714` | 6,71 / 8,82 |
+| `accentSoft` | fundo de item selecionado, chips (não é texto) | `#DDE5EC` | `#26323E` | texto primário sobre ele: 11,27 / 10,66 |
+| `goalHypertrophy` | Hipertrofia (terracota) | `#904C36` | `#E0927A` | 5,42 / 6,39 |
+| `goalStrength` | Força (argila) | `#7A583C` | `#C9A27F` | 5,39 / 6,69 |
+| `goalEndurance` | Resistência muscular (ardósia) | `#4F6170` | `#9FB2C2` | 5,41 / 7,18 |
+| `goalLongevity` | Longevidade (sálvia) | `#56654A` | `#A9B98F` | 5,28 / 7,48 |
+| `goalCombat` | Combate (ameixa) | `#74506A` | `#C9A0BC` | 5,72 / 6,89 |
+| `health` | saúde e aeróbico (ocre) | `#7A5B1A` | `#D4B062` | 5,31 / 7,60 |
+| `destructive` | apagar, erro | vermelho do sistema | vermelho do sistema | — |
+
+- As cores de objetivo e o acento sobre `accentSoft` também passam AA: no claro, o menor valor é 5,03:1 (Resistência); no escuro, 5,32:1 (Hipertrofia).
+- **A cor nunca identifica sozinha:** todo objetivo aparece com nome, símbolo e posição da pétala (HIG).
+- Vermelho é só para erro ou ação destrutiva, nunca "cor de esforço".
+- Com Aumentar Contraste ligado, `textSecondary` passa a usar `textPrimary` e cartões ganham borda de 1 pt em `textSecondary`.
+- A escolha é por coerência e legibilidade. O efeito emocional das cores tem evidência fraca, então não o usamos como argumento.
+
+## 4. Os objetivos e a flor dentro do app
+
+A mesma flor do ícone é o sistema de identidade. No app, a pétala do objetivo ativo fica preenchida com a cor dele, e as outras ficam em contorno de 1,5 pt em `textSecondary`.
+
+| Pétala (horário, a partir do topo) | Objetivo | Subtítulo | SF Symbol* |
+|---|---|---|---|
+| 1 (topo) | Longevidade | Viver bem por mais tempo | `tree` |
+| 2 | Hipertrofia | Ganhar massa muscular | `leaf` |
+| 3 | Força | Ficar mais forte | `mountain.2` |
+| 4 | Combate | Saber se defender | `shield` |
+| 5 | Resistência muscular | Aguentar mais | `repeat` |
+
+Com essa ordem, cada lente é uma interseção real: Longevidade∩Hipertrofia (massa muscular contra sarcopenia), Hipertrofia∩Força, Força∩Combate (potência), Combate∩Resistência (condicionamento) e Resistência∩Longevidade. **A ordem é decisão do dono.** \*Confirmar nomes e disponibilidade no app SF Symbols (iOS 18 / watchOS 11).
+
+## 5. Tipografia (só fontes do sistema, sempre com Dynamic Type)
+
+| Papel | Fonte | SwiftUI | Por quê |
+|---|---|---|---|
+| Títulos de tela e de seção, cartão de referência | **New York** (serifada) | `.font(.system(.title2, design: .serif))` | Evoca livro e periódico: a ciência fica visível. É o oposto da fonte condensada de academia. |
+| Números: carga, repetições, tempo, RIR | **SF Pro Rounded** | `.fontDesign(.rounded).monospacedDigit()` | Suaviza sem perder precisão; os dígitos de largura fixa não "pulam" no cronômetro. |
+| Texto corrido, botões, listas | **SF Pro** | padrão (`.body`, `.headline`) | A leitura mais neutra e legível do sistema. |
+| Apple Watch | SF Compact (padrão) e Rounded nos números | `.fontDesign(.rounded)` | A tela é pequena; a serifada fica reservada ao iPhone. |
+
+Proibido: fontes condensadas, itálico agressivo, caixa-alta gritada e fontes baixadas.
+
+## 6. Tom de voz (pt-BR)
+
+Trate por "você". Explique o porquê em uma frase e mostre a referência. Use frases curtas e verbos de cuidado, progresso e autonomia.
+
+| Evite | Use |
+|---|---|
+| treino pesado, treino insano, monstro | sessão de hoje |
+| shape, definição, projeto verão, maromba, frango | (não usar; fale de capacidade e de saúde) |
+| no pain no gain, sem desculpas, foco total, bora | "Hoje o plano é X. Se algo doer, pare e ajuste." |
+| guerreiro, missão, batalha, destruir, esmagar | objetivo, plano, prática contínua |
+| falhou, falha (como veredito) | ficou abaixo do alvo / não completou |
+| deload | semana leve |
+| PR, recorde | melhor marca |
+| queimar calorias | gasto de energia |
+| você perdeu a sequência | "Voltar também é progresso." |
+
+## 7. Vocabulário da interface
+
+| Hoje no app | Proposta | Motivo |
+|---|---|---|
+| Aba "Treino" | **Hoje** | Fala do dia e da pessoa, não do esforço. |
+| "Iniciar treino" | **Começar** | Verbo simples e convidativo; o contexto já diz o quê. |
+| treino (unidade) | **sessão** | Termo neutro da literatura científica ("sessão de treino"). "Prática" soa a ioga e meditação e fica vago; "treino" carrega a cultura de academia. |
+| "Treino concluído" | **Sessão concluída** | Mesmo termo em todo o app. |
+| Histórico, Programa, Ajustes | mantidos | Já são neutros e claros. |
+
+Termos técnicos úteis ficam, com explicação no primeiro uso ou no "Por quê?":
+- **série**: um bloco de repetições seguidas;
+- **repetições**;
+- **RIR**: repetições em reserva, isto é, quantas você ainda conseguiria fazer. "RIR 0" substitui "até a falha";
+- **carga**;
+- **semana leve**: redução planejada de volume para recuperar;
+- **VO2max**: capacidade aeróbica;
+- **HRV**: variabilidade da frequência cardíaca.
+
+## 8. Abas e símbolos
+
+| Aba | Título | SF Symbol | Substitui |
+|---|---|---|---|
+| today | Hoje | `sun.max` | `figure.strengthtraining.traditional` |
+| history | Histórico | `clock.arrow.circlepath` | (mantém) |
+| program | Programa | `list.bullet.rectangle` | (mantém) |
+| settings | Ajustes | `gearshape` | (mantém) |
+
+- Renderização monocromática ou hierárquica, com o mesmo peso do texto ao lado.
+- **Não usar:** `dumbbell`, `figure.strengthtraining.*`, `figure.boxing`, `figure.kickboxing`, `figure.martial.arts`, `flame`, `bolt`, `trophy`.
+- Trocas no código atual (tarefa futura):
+  - `figure.strengthtraining.traditional` nos estados vazios de Home, Sessão e Catálogo → `sun.max` ou `list.bullet`;
+  - `flame` na série de aquecimento → `thermometer.medium`;
+  - `target` no cartão do plano → símbolo do objetivo (§4).
+
+## 9. Home: regras
+
+1. **No topo, o objetivo ativo:** a flor (cerca de 56 pt) com a pétala do objetivo preenchida, o nome em New York e o subtítulo humano ("Ficar mais forte"). Nada fica acima disso.
+2. **Logo abaixo, a sessão de hoje:** cartão em `surface` com o nome do dia, o número de exercícios e a duração estimada. O único botão proeminente da tela é **Começar**, em `accent`.
+3. **Dia de descanso ou semana leve** aparecem no lugar da sessão como parte do plano: "Hoje é dia de descanso. Recuperar também faz você progredir." Nunca em vermelho nem com tom de alerta.
+4. **Saúde vem depois** (sono, HRV, VO2max, aeróbico), em cartões discretos com cor `health`. Nunca acima do objetivo.
+5. O **"Por quê?"** (referências) fica a um toque de qualquer sugestão.
+6. **Proibido na Home:** anéis concêntricos (a estética do app Fitness), sequências punitivas, confete, fotos ou silhuetas de corpo, números gigantes de calorias.
+
+## 10. Movimento e retorno
+
+- Animações lentas (0,4 a 0,6 s, `easeInOut`): a pétala se enche ao concluir a sessão. A flor pode crescer de 0,5× a 1× na abertura ou na tela de progresso, como índice de adaptação gradual.
+- Vibração leve (`.sensoryFeedback(.success)`) ao concluir uma série. Nada de fogos por "melhor marca".
+- Respeitar Reduzir Movimento: trocar crescimento por esmaecimento.
+
+## 11. Incertezas e decisões do dono
+
+- **Ícone sem Mac:** o caminho é o catálogo de imagens com PNG de 1024 px mais as variantes escura e tingida (suportadas desde o iOS 18). Para a variante escura, a Apple sugere fundo transparente; a entregue é opaca e só o CI e o aparelho confirmam como fica. Cores não foram testadas em tela P3 com True Tone. Não foi feita busca por ícones parecidos na App Store.
+- **Decisões do dono ainda abertas:** a ordem das pétalas (§4); manter "Combate" ou trocar por "Autodefesa" (exige registro na SPEC). Nome (Magister) e cor (azul profundo) já decididos.
+
+## Fontes
+
+1. VanderWeele, T. J. (2017). On the promotion of human flourishing. *PNAS*. https://www.pnas.org/doi/10.1073/pnas.1702996114
+2. Aristóteles, ética e eudaimonia (Stanford Encyclopedia of Philosophy). https://plato.stanford.edu/entries/aristotle-ethics/
+3. Peirce, teoria dos signos: ícone, índice e símbolo (SEP). https://plato.stanford.edu/entries/peirce-semiotics/
+4. Evolução da simetria floral, revisão (PMC). https://pmc.ncbi.nlm.nih.gov/articles/PMC9472818/
+5. Apple Human Interface Guidelines, App icons. https://developer.apple.com/design/human-interface-guidelines/app-icons
