@@ -227,7 +227,7 @@ struct ExerciseSubstitutionTests {
     }
 }
 
-/// Chest exercises mirroring `exercises.v1.json` (same muscles, equipment and names), plus
+/// Chest exercises mirroring the seed catalog (same muscles, equipment and names), plus
 /// patterns from T2.19. Defaults: chest, barbell, bilateral, kilograms, horizontal push.
 private enum SubstitutionFixture {
     static let barbellBench = exercise(1, "Supino reto com barra")

@@ -72,6 +72,7 @@ final class SeedLoaderTests: XCTestCase {
         let active = programs.filter(\.isActive)
         XCTAssertEqual(active.map(\.uuid), [seedActive.id])
         let program = try XCTUnwrap(active.first)
+        XCTAssertEqual(program.name, "Hipertrofia — Completo")
         XCTAssertTrue(programs.allSatisfy { $0.createdAt == now })
 
         // To-many não garante ordem; `order` é a ordem de verdade.

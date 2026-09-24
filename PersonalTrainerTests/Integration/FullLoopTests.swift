@@ -10,7 +10,9 @@ import XCTest
 /// explicitamente entre ações (SPEC P11); nada aqui lê `Date()`.
 ///
 /// Os JSON do seed vêm de `Bundle.main`, o bundle do app hospedeiro dos testes (mesma premissa
-/// de `SeedLoaderTests`).
+/// de `SeedLoaderTests`). Seed v2: o programa ativo é "Hipertrofia — Completo" (3 dias, 5
+/// exercícios cada); o primeiro exercício do Dia A é o supino reto com barra (incremento
+/// 2,5 kg, 6–10 reps, RIR 2, sem `startingLoad`), e as contas abaixo valem para ele.
 @MainActor
 final class FullLoopTests: XCTestCase {
     /// Data de referência fixa; cada sessão termina e o relógio avança um dia.
@@ -22,12 +24,14 @@ final class FullLoopTests: XCTestCase {
         let harness = try makeHarness()
         let days = try programDays(in: harness)
         XCTAssertEqual(days.count, 3, "o seed padrão tem Dia A, B e C")
+        XCTAssertEqual(days.map { $0.exercises.count }, [5, 5, 5], "SPEC §7.9: 5 exercícios por dia")
 
         // Plano A em instalação limpa: primeiro exercício sem carga (SPEC P2, sem `startingLoad`).
         let planA = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
         XCTAssertEqual(planA.programDayID, days[0].uuid)
         XCTAssertFalse(planA.exercises.isEmpty)
         let first = try XCTUnwrap(planA.exercises.first)
+        XCTAssertEqual(first.exercise.name, "Supino reto com barra")
         XCTAssertEqual(first.prescription.note, .calibrate)
         XCTAssertNil(first.prescription.load)
         let increment = first.exercise.loadIncrement
@@ -284,7 +288,8 @@ final class FullLoopTests: XCTestCase {
         let container = try ModelContainerFactory.make(.inMemory)
         let context = container.mainContext
         let report = try SeedLoader.loadIfNeeded(context: context, bundle: .main, now: clock)
-        XCTAssertEqual(report.insertedPrograms, 1)
+        // Seed v2: 7 programas (M2-CONTRACT §2), só um ativo.
+        XCTAssertEqual(report.insertedPrograms, 7)
         XCTAssertFalse(report.skipped)
         let coordinator = SessionCoordinator(modelContext: context, appliedEvents: AppliedEventStore.inMemory())
         let planner = SessionPlanner(modelContext: context, coordinator: coordinator)
@@ -294,7 +299,10 @@ final class FullLoopTests: XCTestCase {
     /// Dias do programa ativo em ordem de `order` (SPEC S1).
     private func programDays(in harness: Harness) throws -> [ProgramDayModel] {
         let programs = try harness.context.fetch(FetchDescriptor<ProgramModel>())
-        let program = try XCTUnwrap(programs.first(where: { $0.isActive }))
+        let active = programs.filter { $0.isActive }
+        XCTAssertEqual(active.count, 1, "SPEC S1: exatamente um programa ativo")
+        let program = try XCTUnwrap(active.first)
+        XCTAssertEqual(program.name, "Hipertrofia — Completo")
         return program.days.sorted { $0.order < $1.order }
     }
 

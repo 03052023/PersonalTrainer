@@ -1,13 +1,12 @@
 import Foundation
 
-// Seed files (ARCHITECTURE §11): `Resources/Seed/exercises.v1.json` and
-// `Resources/Seed/program-default.v1.json` ship in the iPhone bundle and use the
-// synthesized `Codable` of the domain structs — the same encoding as the backup —
-// so the JSON stays readable and editable by hand (ARCHITECTURE §11: in M1 the
-// program is edited in the JSON and the app reinstalled). The three seed types live
+// Seed files (ARCHITECTURE §11): `Resources/Seed/exercises.v2.json` and
+// `Resources/Seed/programs.v2.json` (seed v2, M2) ship in the iPhone bundle and use
+// the synthesized `Codable` of the domain structs — the same encoding as the backup —
+// so the JSON stays readable and editable by hand. The three seed types live
 // together in this file because TASKS.md T0.6 scopes them to `SeedBundle.swift`.
 
-/// Contents of `exercises.v1.json`: the exercise catalog (SPEC §7.1 "Exercício").
+/// Contents of `exercises.v2.json`: the exercise catalog (SPEC §7.1 "Exercício").
 public struct SeedExerciseCatalog: Codable, Sendable, Hashable {
     /// Seed format version; `SeedLoader` (T1.10) compares it with
     /// `UserSettingsModel.schemaSeedVersion` to decide whether to upsert.
@@ -20,8 +19,8 @@ public struct SeedExerciseCatalog: Codable, Sendable, Hashable {
     }
 }
 
-/// Contents of `program-default.v1.json`: the programs installed on first launch
-/// (SPEC §7.1 "Programa"). Exactly one of them is `isActive` (SPEC S1).
+/// Contents of `programs.v2.json`: the programs installed by the seed (SPEC §7.1
+/// "Programa"). Exactly one of them is `isActive` (SPEC S1).
 public struct SeedProgramFile: Codable, Sendable, Hashable {
     public let version: Int
     public let programs: [ProgramTemplate]

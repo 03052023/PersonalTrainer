@@ -822,7 +822,7 @@ private let completoName = "Hipertrofia — Completo"
 private let lowerFocusName = "Hipertrofia — Foco inferior"
 private let upperFocusName = "Hipertrofia — Foco superior"
 
-/// Every exercise of `exercises.v1.json` (id, slug, name). Session history and the
+/// Every exercise of the M1 (version 1) catalog (id, slug, name). Session history and the
 /// SwiftData upsert (by slug) point at these, so v2 must keep all of them unchanged.
 private let v1CatalogEntries: [(id: String, slug: String, name: String)] = [
     ("44979BE9-E276-42B9-AC77-76C831062888", "barbell-bench-press", "Supino reto com barra"),
@@ -872,7 +872,7 @@ private let v1CatalogEntries: [(id: String, slug: String, name: String)] = [
     ("6525301A-2D1D-4626-A921-D40DF056735E", "hanging-leg-raise", "Elevação de pernas suspenso"),
 ]
 
-/// Day and target ids of `program-default.v1.json`, in order. `SessionSummary.programDayID`
+/// Day and target ids of the M1 (version 1) default program, in order. `SessionSummary.programDayID`
 /// and the rotation (SPEC S2) resolve days by id, so the Completo program keeps them.
 private let completoV1Days: [(day: String, targets: [String])] = [
     ("72FC489D-1D0A-444D-91E6-A1C161E537FB", [
