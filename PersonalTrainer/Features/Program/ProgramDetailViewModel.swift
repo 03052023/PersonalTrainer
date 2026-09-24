@@ -148,6 +148,67 @@ final class ProgramDetailViewModel {
         }
     }
 
+    // MARK: - Dias do programa (T2.22, RF-36)
+
+    /// RF-36: no máximo `ProgramLimits.maxDays` dias por programa.
+    var canAddDay: Bool {
+        days.count < ProgramLimits.maxDays
+    }
+
+    /// RF-36: no mínimo `ProgramLimits.minDays` dia por programa.
+    var canRemoveDay: Bool {
+        days.count > ProgramLimits.minDays
+    }
+
+    /// Acrescenta um dia com o próximo rótulo livre ("Dia D", "Dia E"…, RF-36).
+    func addDay() {
+        guard canAddDay else {
+            errorMessage = Self.message(for: ProgramRepositoryError.tooManyDays, fallback: "")
+            return
+        }
+        perform(fallback: "Não foi possível adicionar o dia.", onDayScreen: false) {
+            _ = try programs.addDay(programID: programID, name: nil)
+        }
+    }
+
+    /// Renomeia um dia. Nome vazio (só espaços) é recusado antes de ir ao repositório.
+    func renameDay(id dayID: UUID, to newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            errorMessage = "O nome do dia não pode ficar vazio."
+            return
+        }
+        guard trimmed != day(id: dayID)?.name else { return }
+        perform(fallback: "Não foi possível renomear o dia.", onDayScreen: false) {
+            try programs.renameDay(id: dayID, to: trimmed)
+        }
+    }
+
+    /// Remove um dia (a view confirma antes de chamar). RF-36: o programa nunca fica com menos
+    /// de `ProgramLimits.minDays` dias; nesse caso nada é removido e a tela avisa. O histórico
+    /// (por sessão) não muda (ARCHITECTURE §5, decisão 3).
+    func removeDay(id dayID: UUID) {
+        guard canRemoveDay else {
+            errorMessage = Self.message(for: ProgramRepositoryError.tooFewDays, fallback: "")
+            return
+        }
+        perform(fallback: "Não foi possível remover o dia.", onDayScreen: false) {
+            try programs.removeDay(id: dayID)
+        }
+    }
+
+    /// Reordena os dias com a semântica de `.onMove` (mesmo algoritmo de `moveTargets`).
+    func moveDays(fromOffsets source: IndexSet, toOffset destination: Int) {
+        let current = days.map(\.id)
+        let desired = Self.reordered(current, moving: source, to: destination)
+        guard desired != current else { return }
+        perform(fallback: "Não foi possível reordenar os dias.", onDayScreen: false) {
+            for (index, id) in Self.moveSteps(from: current, to: desired) {
+                try programs.moveDay(id: id, toIndex: index)
+            }
+        }
+    }
+
     // MARK: - Dia (RF-33, RF-34, RF-16)
 
     /// RF-33: no máximo `ProgramLimits.maxExercisesPerDay` por dia.
@@ -377,6 +438,10 @@ final class ProgramDetailViewModel {
             return "Cada dia pode ter no máximo \(ProgramLimits.maxExercisesPerDay) exercícios."
         case .tooFewExercises:
             return "Cada dia precisa de pelo menos \(ProgramLimits.minExercisesPerDay) exercício."
+        case .tooManyDays:
+            return "O programa pode ter no máximo \(ProgramLimits.maxDays) dias."
+        case .tooFewDays:
+            return "O programa precisa de pelo menos \(ProgramLimits.minDays) dia."
         case .invalidParameters(let detail):
             return detail.isEmpty ? "Valores inválidos." : "Valores inválidos: \(detail)"
         }

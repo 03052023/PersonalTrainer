@@ -147,7 +147,7 @@ final class ProgramListViewModel {
         case .cannotDeleteActive:
             return "O programa ativo não pode ser apagado. Ative outro programa antes."
         case .dayNotFound, .targetNotFound, .exerciseNotFound, .tooManyExercises,
-             .tooFewExercises, .invalidParameters:
+             .tooFewExercises, .tooManyDays, .tooFewDays, .invalidParameters:
             return fallback
         }
     }
