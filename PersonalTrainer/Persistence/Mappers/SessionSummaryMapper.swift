@@ -10,6 +10,8 @@ enum SessionSummaryMapper {
     ///   **e** registrou ≥ 1 série de trabalho (SPEC §7.4). Secundários não contam.
     /// - Os grupos vêm do `ExerciseModel` relacionado; se a relação foi anulada, do
     ///   `catalog` (uuid → definição) passado por quem chama.
+    /// - `isDeload` é copiado da sessão (SPEC §7.5): sem ele o `DeloadScheduler` nunca veria a
+    ///   semana leve começar nem terminar.
     static func summary(
         from session: WorkoutSessionModel,
         catalog: [UUID: ExerciseDefinition] = [:]
@@ -50,7 +52,8 @@ enum SessionSummaryMapper {
             endedAt: session.endedAt,
             status: status,
             primaryMusclesTrained: primaryMusclesTrained,
-            workingSetCount: workingSetCount
+            workingSetCount: workingSetCount,
+            isDeload: session.isDeload
         )
     }
 }
