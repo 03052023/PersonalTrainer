@@ -1,40 +1,49 @@
 {
-  "version": 1,
-  "rig": "mannequin-v1",
+  "version": 2,
+  "rig": "mannequin-v2",
   "units": "stature",
   "angles": "degrees, absolute per segment; 0 = the way the figure faces (right in the drawing), 90 = up, -90 = down, 180 = back",
+  "fields": {
+    "frames[].label": "role of the key frame: Início, Fim (or Meio)",
+    "frames[].caption": "short key-position caption shown under the frame, pt-BR, up to about 28 characters",
+    "frames[].grip": "palm-centre target for the two-bone arm IK (world units, stature = 1)",
+    "frames[].armDepth": "foreshortening of [upper arm, forearm+hand] in the drawing plane (1 = parallel to it); with arms.forearm only the second number is used",
+    "arms.forearm": "locks the forearm to this absolute angle (90 = vertical, bar over the elbow); the elbow sits under the grip and the upper arm foreshortens by itself",
+    "cue": "motion arrow on frame 1: follows the path of 'track' (hip, hand or a prop id) over the way out, trimmed to 'span' (fractions of the path length) and moved off the path either 'gap' to the 'side' (left or right of the direction of travel) or by a fixed 'offset'",
+    "moving": "optional override; by default the renderer highlights the segments that turn at least 12 degrees or whose midpoint travels at least 0.04 H, AND whose joint changes at least 12 degrees (or that rigidly follow a moving parent in the same limb)",
+    "props[].attach": "hand (moves with the hand), or back (rests on the upper back, drawn behind the trunk and half hidden by it)",
+    "mistakes": "exactly 2, one error each, written as 'the error: what to do instead' (the part before the colon is shown in semibold)"
+  },
   "guides": [
     {
       "slug": "barbell-back-squat",
       "view": "side",
-      "caption": "Vista lateral · barra nas costas",
       "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
       "timing": { "toEnd": 1.6, "toStart": 1.2, "hold": 0.4, "easing": "easeInOut" },
       "scene": [],
       "props": [
-        { "id": "barbell", "kind": "barbell", "attach": "back", "offset": [-0.07, -0.02] }
+        { "id": "barbell", "kind": "barbell", "attach": "back", "offset": [-0.085, 0.0] }
       ],
-      "arms": { "reach": "barbell", "depth": 0.6, "elbow": -125 },
+      "arms": { "reach": "barbell", "depth": 0.65, "elbow": -150 },
       "frames": [
-        { "label": "Início", "pose": { "trunk": 84, "neck": 88, "thigh": -90, "shin": -88, "foot": -12 } },
-        { "label": "Fim", "pose": { "trunk": 50, "neck": 64, "thigh": -12, "shin": -115, "foot": -12 } }
+        { "label": "Início", "caption": "Em pé, barra nas costas", "pose": { "trunk": 84, "neck": 88, "thigh": -90, "shin": -88, "foot": -12 } },
+        { "label": "Fim", "caption": "Coxas paralelas ao chão", "pose": { "trunk": 50, "neck": 64, "thigh": -12, "shin": -115, "foot": -12 } }
       ],
-      "cue": { "track": "barbell", "offset": [0.21, 0.0] },
+      "cue": { "track": "hip", "offset": [-0.082, 0.0], "span": [0.0, 0.97] },
       "a11y": "Pessoa em pé com a barra nas costas dobra quadril e joelhos até as coxas ficarem paralelas ao chão e volta a ficar em pé.",
       "steps": [
-        "Barra no alto das costas, pés na largura dos ombros e pontas um pouco para fora.",
-        "Desça levando o quadril para trás e os joelhos na direção dos pés, até as coxas ficarem paralelas ao chão.",
-        "Suba empurrando o chão com o pé inteiro, tronco firme, até ficar em pé."
+        "Apoie a barra no alto das costas, com os pés na largura dos ombros e as pontas um pouco para fora.",
+        "Leve o quadril para trás e desça até as coxas ficarem paralelas ao chão.",
+        "Suba empurrando o chão com o pé inteiro e o tronco firme, até ficar em pé."
       ],
       "mistakes": [
-        "Joelhos caindo para dentro na subida.",
-        "Calcanhares saindo do chão ou costas arredondando embaixo."
+        "Deixar os joelhos caírem para dentro: aponte-os para as pontas dos pés.",
+        "Tirar os calcanhares do chão: mantenha o pé inteiro apoiado."
       ]
     },
     {
       "slug": "barbell-bench-press",
       "view": "side",
-      "caption": "Vista lateral · banco e barra",
       "anchor": { "joint": "hip", "at": [0.0, 0.30] },
       "timing": { "toEnd": 1.6, "toStart": 1.2, "hold": 0.4, "easing": "easeInOut" },
       "scene": [
@@ -43,32 +52,31 @@
       "props": [
         { "id": "barbell", "kind": "barbell", "attach": "hand" }
       ],
-      "arms": { "reach": "grip", "depth": [0.97, 0.97], "elbow": -60 },
+      "arms": { "reach": "grip", "forearm": 90 },
       "frames": [
-        { "label": "Início", "grip": [-0.272, 0.652], "armDepth": [0.97, 0.97], "pose": { "trunk": 180, "neck": 178, "thigh": -4, "shin": -96, "foot": -12 } },
-        { "label": "Fim", "grip": [-0.165, 0.385], "armDepth": [0.68, 1.0], "pose": { "trunk": 180, "neck": 178, "thigh": -4, "shin": -96, "foot": -12 } }
+        { "label": "Início", "caption": "Braços estendidos", "grip": [-0.285, 0.64], "armDepth": [0.91, 0.91], "pose": { "trunk": 180, "neck": 178, "thigh": -4, "shin": -96, "foot": -12 } },
+        { "label": "Fim", "caption": "Barra toca o peito", "grip": [-0.17, 0.378], "armDepth": [0.78, 0.86], "pose": { "trunk": 180, "neck": 178, "thigh": -4, "shin": -96, "foot": -12 } }
       ],
-      "cue": { "track": "barbell", "offset": [0.2, 0.0] },
+      "cue": { "track": "barbell", "offset": [0.012, 0.0], "span": [0.34, 0.86] },
       "a11y": "Pessoa deitada no banco desce a barra dos braços estendidos até o peito e empurra de volta.",
       "steps": [
-        "Deite com os olhos sob a barra, pés firmes no chão e ombros encaixados no banco.",
+        "Deite com os olhos embaixo da barra, pés firmes no chão e ombros apoiados no banco.",
         "Desça a barra com controle até tocar de leve a parte baixa do peito.",
         "Empurre até estender os braços, com a barra de volta sobre os ombros."
       ],
       "mistakes": [
-        "Quicar a barra no peito ou tirar o quadril do banco.",
-        "Cotovelos abertos na linha dos ombros; deixe-os um pouco mais perto do tronco."
+        "Quicar a barra no peito: desça com controle e toque de leve.",
+        "Abrir os cotovelos na linha dos ombros: deixe-os um pouco mais perto do tronco."
       ]
     },
     {
       "slug": "seated-cable-row",
       "view": "side",
-      "caption": "Vista lateral · polia baixa",
       "anchor": { "joint": "hip", "at": [0.0, 0.29] },
       "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
       "scene": [
-        { "kind": "rail", "x1": -0.26, "x2": 0.76 },
-        { "kind": "tower", "x": 0.62, "width": 0.14, "height": 0.96 },
+        { "kind": "rail", "x1": -0.24, "x2": 0.74 },
+        { "kind": "tower", "x": 0.61, "width": 0.13, "height": 0.96 },
         { "kind": "seat", "x": -0.21, "top": 0.232, "length": 0.34 },
         { "kind": "footPlate", "at": [0.536, 0.33], "length": 0.27, "angle": 80 },
         { "kind": "pulley", "id": "pulley", "at": [0.575, 0.205] }
@@ -79,26 +87,24 @@
       ],
       "arms": { "reach": "grip", "depth": 0.95 },
       "frames": [
-        { "label": "Início", "grip": [0.372, 0.498], "elbow": -95, "pose": { "trunk": 84, "neck": 88, "thigh": 12, "shin": -10, "foot": 80 } },
-        { "label": "Fim", "grip": [0.115, 0.44], "elbow": -155, "pose": { "trunk": 94, "neck": 97, "thigh": 12, "shin": -10, "foot": 80 } }
+        { "label": "Início", "caption": "Braços estendidos", "grip": [0.345, 0.5], "armDepth": [0.97, 0.97], "elbow": -95, "pose": { "trunk": 90, "neck": 90, "thigh": 12, "shin": -10, "foot": 80 } },
+        { "label": "Fim", "caption": "Puxador na barriga", "grip": [0.08, 0.41], "armDepth": [0.98, 0.82], "elbow": -155, "pose": { "trunk": 90, "neck": 90, "thigh": 12, "shin": -10, "foot": 80 } }
       ],
-      "cue": { "track": "handle", "offset": [0.0, 0.2] },
+      "cue": { "track": "handle", "offset": [0.0, -0.022], "span": [0.22, 0.93] },
       "a11y": "Pessoa sentada puxa o puxador do cabo até a barriga, com os cotovelos indo para trás, e volta a estender os braços.",
       "steps": [
-        "Sente com os pés na plataforma, joelhos levemente dobrados e tronco ereto.",
-        "Puxe o puxador até a barriga levando os cotovelos para trás, junto ao corpo.",
+        "Sente com os pés na plataforma, os joelhos levemente dobrados e o tronco ereto.",
+        "Traga o puxador até a barriga levando os cotovelos para trás, rente ao corpo.",
         "Volte estendendo os braços devagar, sem deixar o tronco ir para a frente."
       ],
       "mistakes": [
-        "Jogar o tronco para trás para ajudar a puxar.",
-        "Subir os ombros em direção às orelhas."
+        "Jogar o tronco para trás: mantenha-o parado e puxe com os braços.",
+        "Encolher os ombros: mantenha-os baixos, longe das orelhas."
       ]
     },
     {
       "slug": "dumbbell-lateral-raise",
-      "bonus": true,
       "view": "front",
-      "caption": "Vista frontal · halteres",
       "anchor": { "joint": "hip", "at": [0.0, 0.528] },
       "timing": { "toEnd": 1.2, "toStart": 1.8, "hold": 0.4, "easing": "easeInOut" },
       "scene": [],
@@ -106,19 +112,19 @@
         { "id": "dumbbell", "kind": "dumbbell", "attach": "hand" }
       ],
       "frames": [
-        { "label": "Início", "pose": { "trunk": 90, "neck": 90, "thigh": -93, "shin": -90, "upperArm": -78, "forearm": -82 } },
-        { "label": "Fim", "pose": { "trunk": 90, "neck": 90, "thigh": -93, "shin": -90, "upperArm": 2, "forearm": -8 } }
+        { "label": "Início", "caption": "Braços ao lado do corpo", "pose": { "trunk": 90, "neck": 90, "thigh": -93, "shin": -90, "upperArm": -78, "forearm": -82 } },
+        { "label": "Fim", "caption": "Braços na altura dos ombros", "pose": { "trunk": 90, "neck": 90, "thigh": -93, "shin": -90, "upperArm": 2, "forearm": -8 } }
       ],
-      "cue": { "track": "hand", "offset": [0.07, 0.0] },
+      "cue": { "track": "hand", "side": "right", "gap": 0.075, "span": [0.06, 0.96] },
       "a11y": "Pessoa em pé, de frente, eleva os halteres pelas laterais até a altura dos ombros e desce devagar.",
       "steps": [
-        "Em pé, halteres ao lado do corpo e cotovelos levemente dobrados.",
+        "Fique em pé, com os halteres ao lado do corpo e os cotovelos levemente dobrados.",
         "Eleve os braços pelas laterais até a altura dos ombros.",
         "Desça devagar até os braços voltarem ao lado do corpo."
       ],
       "mistakes": [
-        "Balançar o tronco para ganhar impulso.",
-        "Encolher os ombros ou subir os halteres acima da linha dos ombros."
+        "Balançar o tronco: suba devagar, sem pegar impulso.",
+        "Encolher os ombros: deixe-os baixos enquanto os braços sobem."
       ]
     }
   ]
