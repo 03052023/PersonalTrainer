@@ -13,7 +13,9 @@ import TrainerCore
 /// Datas vêm sempre do closure `now` injetado (SPEC P11), nunca de `Date()`. O serviço de
 /// notificações só entra para pedir permissão na primeira série concluída (AGENTS §7).
 /// `planner` e `catalog` só servem ao botão "Trocar" (RF-34): substitutos, lista completa e a
-/// prescrição do exercício novo.
+/// prescrição do exercício novo. `traits` diz a medida de cada exercício pelo `slug` (SPEC RF-43),
+/// para o rascunho e a prescrição mostrarem segundos ou passos; é o mesmo catálogo que a raiz
+/// injeta em `\.exerciseTraits`.
 @Observable
 @MainActor
 final class ActiveSessionViewModel {
@@ -31,6 +33,8 @@ final class ActiveSessionViewModel {
         let loadUnit: LoadUnit
         let repMin: Int
         let repMax: Int
+        /// Medida do exercício (SPEC RF-43): o stepper da correção vira "Segundos" ou "Passos".
+        var measure: ExerciseMeasure = .reps
 
         var id: UUID { setID }
     }
@@ -67,6 +71,7 @@ final class ActiveSessionViewModel {
     private let catalog: any CatalogRepositoring
     private let notifications: any NotificationScheduling
     private let now: () -> Date
+    private let traits: ExerciseTraitsCatalog
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "PersonalTrainer",
         category: "ActiveSessionViewModel"
@@ -86,7 +91,8 @@ final class ActiveSessionViewModel {
         catalog: any CatalogRepositoring,
         restTimer: RestTimer,
         notifications: any NotificationScheduling,
-        now: @escaping () -> Date
+        now: @escaping () -> Date,
+        traits: ExerciseTraitsCatalog = .empty
     ) {
         self.coordinator = coordinator
         self.planner = planner
@@ -94,6 +100,7 @@ final class ActiveSessionViewModel {
         self.restTimer = restTimer
         self.notifications = notifications
         self.now = now
+        self.traits = traits
         let session = coordinator.session(withID: sessionID)
         self.session = session
 
@@ -165,6 +172,18 @@ final class ActiveSessionViewModel {
     /// Carga prescrita `nil` (SPEC P2) aparece como "—", igual à Home e ao histórico.
     func prescriptionSummary(for exercise: SessionExerciseModel) -> String {
         makeDraft(for: exercise, sortedSets: []).prescriptionSummary
+    }
+
+    /// Leitura por voz da mesma prescrição (SPEC RF-41 d): "3 séries de 8 a 12 repetições,
+    /// 100 kg, parar com 2 repetições de reserva".
+    func prescriptionSpokenText(for exercise: SessionExerciseModel) -> String {
+        makeDraft(for: exercise, sortedSets: []).prescriptionSpokenText
+    }
+
+    /// Medida do exercício pelo `slug` do catálogo do seed (SPEC RF-43). Personalizado ou sem
+    /// relação com o catálogo mede em repetições.
+    func measure(for exercise: SessionExerciseModel) -> ExerciseMeasure {
+        MeasureText.measure(of: exercise.exercise, in: traits)
     }
 
     /// Séries de trabalho registradas (SPEC P1) — o "2" de "2/3" nos chips.
@@ -311,7 +330,8 @@ final class ActiveSessionViewModel {
                 loadIncrement: exercise.exercise?.loadIncrement ?? 2.5,
                 loadUnit: exercise.exercise?.loadUnit ?? .kilograms,
                 repMin: exercise.prescribedRepMin,
-                repMax: exercise.prescribedRepMax
+                repMax: exercise.prescribedRepMax,
+                measure: measure(for: exercise)
             )
             return
         }
@@ -560,7 +580,8 @@ final class ActiveSessionViewModel {
             repMax: exercise.prescribedRepMax,
             targetReps: targetReps,
             targetRIR: exercise.prescribedRIR,
-            note: exercise.note ?? .hold
+            note: exercise.note ?? .hold,
+            measure: measure(for: exercise)
         )
     }
 

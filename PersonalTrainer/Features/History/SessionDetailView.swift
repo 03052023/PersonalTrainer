@@ -8,11 +8,14 @@ import TrainerCore
 /// sessão; cada uma leva à evolução de carga do exercício (`ExerciseProgressView`, T2.10).
 ///
 /// Só leitura: recebe o modelo por `init` e nunca toca o `ModelContext` (R4). Não lê
-/// `AppEnvironment`; quem navega até aqui é `HistoryListView`.
+/// `AppEnvironment`; quem navega até aqui é `HistoryListView`. A tonelagem soma só exercícios
+/// medidos em repetições (SPEC RF-12 com RF-43), com a medida lida de `\.exerciseTraits`.
 @MainActor
 struct SessionDetailView: View {
     let session: WorkoutSessionModel
     let references: ReferenceCatalog
+
+    @Environment(\.exerciseTraits) private var traits
 
     init(session: WorkoutSessionModel, references: ReferenceCatalog) {
         self.session = session
@@ -63,14 +66,16 @@ struct SessionDetailView: View {
         )
     }
 
-    /// "3.450 kg" (agrupamento pt-BR; até uma casa decimal para cargas de 2,5 kg).
+    /// "3.450 kg" (agrupamento pt-BR; até uma casa decimal para cargas de 2,5 kg). Segundos e
+    /// passos ficam fora (SPEC RF-43): carga × passos não é tonelagem.
     private var tonnageText: String {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "pt_BR")
         formatter.numberStyle = .decimal
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 1
-        let number = formatter.string(from: NSNumber(value: stats.tonnage)) ?? "\(stats.tonnage)"
+        let tonnage = MeasureText.tonnage(of: orderedExercises, traits: traits)
+        let number = formatter.string(from: NSNumber(value: tonnage)) ?? "\(tonnage)"
         return "\(number) kg"
     }
 

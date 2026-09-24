@@ -6,10 +6,15 @@ import TrainerCore
 /// próxima série (`SetEntryView`, T1.6). Sem `draft` (exercício pulado) mostra só o aviso; não
 /// há série a registrar.
 ///
-/// A prescrição aparece só aqui; o `SetEntryView` mostra apenas "Série X de N".
+/// A prescrição aparece só aqui; o `SetEntryView` mostra apenas "Série X de N". A medida do
+/// exercício (SPEC RF-43) formata as séries registradas ("× 30 s"); o VoiceOver lê a prescrição
+/// por extenso, com "RIR 2" como "parar com 2 repetições de reserva" (SPEC RF-41 d).
 struct CurrentExercisePanel: View {
     let exercise: SessionExerciseModel
     let prescriptionSummary: String
+    /// Leitura por voz da prescrição; `nil` lê o próprio `prescriptionSummary`.
+    var prescriptionSpokenText: String? = nil
+    var measure: ExerciseMeasure = .reps
     /// `nil` quando não há próxima série (exercício pulado).
     let draft: Binding<SetDraft>?
     let references: ReferenceCatalog
@@ -38,6 +43,7 @@ struct CurrentExercisePanel: View {
                                 setLog: setLog,
                                 number: number(of: setLog),
                                 loadUnit: loadUnit,
+                                measure: measure,
                                 isEditable: true
                             )
                             .contentShape(Rectangle())
@@ -54,7 +60,7 @@ struct CurrentExercisePanel: View {
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             } else if let draft {
-                SetEntryView(draft: draft, onComplete: onComplete)
+                SetEntryView(draft: draft, references: references, onComplete: onComplete)
             }
         }
         .padding(.horizontal)
@@ -105,7 +111,7 @@ struct CurrentExercisePanel: View {
         Text(prescriptionSummary)
             .font(.subheadline)
             .foregroundStyle(.secondary)
-            .accessibilityLabel("Prescrição: \(prescriptionSummary)")
+            .accessibilityLabel("Prescrição: \(prescriptionSpokenText ?? prescriptionSummary)")
     }
 
     @ViewBuilder
