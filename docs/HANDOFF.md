@@ -39,13 +39,13 @@ Todos os `m2/*`, `m4/*`, `m5/*`, `v2/*`, `v3/*` e `handoff/*` já estão no `mai
 - Acento do app mantido em `#355A7C` / `#9DBAD6`, um tom acima do marinho do ícone. O marinho puro se confundiria com o texto marrom-escuro (justificativa em DESIGN §3).
 - **Guia de design:** `DESIGN.md` (versão 1.1) — fundo bege-linho, acento azul profundo (`#355A7C` claro / `#9DBAD6` escuro, contrastes AA calculados), tokens por objetivo, tipografia New York nos títulos e SF Rounded nos números, voz sem jargão de academia, aba "Hoje" (`sun.max`), botão "Começar", Home com o objetivo no topo. **Ajuste pendente:** a seção 2 descreve o conceito B; atualizar para o conceito A escolhido e trocar as cores de objetivo pela paleta das pétalas.
 
-## 5b. Versão 2.1 em andamento (2026-09-24)
+## 5b. Versão 2.1 entregue (2026-09-24)
 
 Escopo e contrato em `docs/V21-CONTRACT.md`: modo casa (RF-42, §7.13), medida (RF-43), RIR explicado (RF-41), textos de relógio genérico, ajustes B7/B10/A4-B8/A5. O "Como fazer" (RF-40) fica para a versão seguinte.
 - Onda A no `main`: `v4/core-home` e `v4/health-texts`, verdes. Andaime (72b5fb5) verde.
 - Onda B: `v4/home-mode` (ca7394a, App build 36025529850 verde), `v4/session-measure` (e0be816, verde) e `v4/health-coach` (5219f7e, verde).
-- Integração, revisão e correção: workflow `wf_cab9e138-c6e` no worktree `pt-wt/w4-integration`, branch `v4/integration` → `ci/v4-final`.
-- **Ao retomar:** se `v4/integration` estiver verde, mescle no `main`, atualize o TASKS, troque o link do run em `docs/install/instalar-magister.html` (ou no scratchpad `magister-install/`) e publique a página da Amanda.
+- Integração, revisão (8 achados, 3 major) e correção: `main` 7a60541. App build 36037123014 (IPA para instalar, disponível até 2026-09-27) e Core tests 36038514976, os dois verdes.
+- Página de instalação da Amanda: `docs/install/instalar-magister.html`, publicada como artifact privado https://claude.ai/artifact/YExae7s4NkzJqLzSQuHrvH (o dono compartilha pelo menu Share). Próximo: "Como fazer" (RF-40, T6.1 e T6.4–T6.9) e as pendências da 2.1 no TASKS.
 
 ## 6. Próximos passos
 
