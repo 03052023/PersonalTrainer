@@ -121,7 +121,7 @@ private enum HealthPreviewFixture {
         HealthSuggestion(
             id: "wear-watch-at-night",
             kind: .wearWatchAtNight,
-            title: "Use o Apple Watch para dormir",
+            title: "Use o relógio para dormir",
             detail: "Faltaram dados noturnos em 5 dos últimos 7 dias. O relógio mede HRV, FC de repouso e sono, que o app usa na revisão periódica.",
             referenceTopic: "topic.hrv"
         ),
@@ -129,7 +129,7 @@ private enum HealthPreviewFixture {
             id: "update-vo2max",
             kind: .updateVo2Max,
             title: "Atualize o seu VO2máx",
-            detail: "A última estimativa tem 72 dias. Faça 20 min de caminhada rápida ou corrida ao ar livre com o Watch.",
+            detail: "A última estimativa tem 72 dias. Faça 20 min de caminhada rápida ou corrida ao ar livre com o seu relógio.",
             referenceTopic: "topic.vo2max"
         ),
         HealthSuggestion(
@@ -181,7 +181,9 @@ private enum HealthPreviewFixture {
             sessionsProvider: { [] },
             now: { fixedNow },
             calendar: calendar,
-            defaults: defaults(suite: suite, authorized: authorized)
+            defaults: defaults(suite: suite, authorized: authorized),
+            // AGENTS R9: log do diálogo em memória, próprio deste preview, nunca o arquivo real.
+            logStore: FakeCoachLogStore()
         )
     }
 
@@ -190,7 +192,6 @@ private enum HealthPreviewFixture {
     private static func defaults(suite: String, authorized: Bool) -> UserDefaults {
         let defaults = UserDefaults(suiteName: suite) ?? .standard
         defaults.set(authorized, forKey: HealthViewModel.Keys.readAuthorized)
-        defaults.removeObject(forKey: HealthViewModel.Keys.dismissedSuggestions)
         return defaults
     }
 }

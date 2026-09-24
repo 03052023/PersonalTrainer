@@ -15,6 +15,9 @@ import TrainerCore
 /// - Relógio e calendário chegam por injeção (SPEC P11): nada aqui lê a data do sistema.
 /// - Perfil manual: se o Saúde não informa data de nascimento ou sexo, `HealthProfileView` grava ano
 ///   e sexo em `UserDefaults` e o ViewModel mescla esses valores na `UserPhysiology` antes do cálculo.
+/// - Sugestões dispensadas: "Ok, entendi" grava no `CoachLog` compartilhado (`logStore`), a mesma
+///   fonte que o feed do diálogo da Home usa (SPEC §7.11 C3). Dispensar aqui também esconde a
+///   sugestão no feed, e vice-versa (V21-CONTRACT B3, A4/B8) — ver `HealthSuggestionDismissal`.
 @Observable
 @MainActor
 final class HealthViewModel {
@@ -24,7 +27,6 @@ final class HealthViewModel {
         static let birthYear = "profileBirthYear"
         static let sex = "profileSex"
         static let maxHeartRate = "profileMaxHeartRate"
-        static let dismissedSuggestions = "healthDismissedSuggestions"
     }
 
     /// Mensagem exibida quando o aparelho não tem o app Saúde (iPad, alguns simuladores).
@@ -75,8 +77,12 @@ final class HealthViewModel {
     private let sessionsProvider: @MainActor () -> [SessionSummary]
     private let now: () -> Date
     private let defaults: UserDefaults
-    /// Chaves "id|semana" das sugestões dispensadas com "Ok, entendi".
-    private var dismissedSuggestionKeys: Set<String>
+    /// Onde "Ok, entendi" grava e lê a dispensa de sugestões — o mesmo log do diálogo da Home
+    /// (SPEC §7.11, V21-CONTRACT B3 A4/B8; ver `HealthSuggestionDismissal`).
+    private let logStore: any CoachLogStoring
+    /// Incrementado a cada `dismiss(_:)`. `visibleSuggestions` o lê só para o Observation
+    /// invalidar a view na hora: o log em si é um arquivo externo, não uma propriedade rastreada.
+    private var dismissalTick = 0
     /// Última leitura crua do Saúde: permite recalcular ao salvar o perfil sem reler o HealthKit.
     @ObservationIgnored private var lastRawInput: HealthInput?
     /// Leitura em andamento. Quem chama `load()` durante ela espera o fim em vez de voltar na
@@ -93,15 +99,19 @@ final class HealthViewModel {
     ///     em previews e testes).
     ///   - sessionsProvider: sessões recentes de musculação (SPEC A5: encaixe do aeróbico longe dos
     ///     dias de inferior). Chamado a cada leitura, no ator principal.
-    ///   - defaults: onde ficam a flag de autorização, o perfil manual e as sugestões dispensadas.
-    ///     Testes passam uma suite isolada.
+    ///   - defaults: onde ficam a flag de autorização e o perfil manual. Testes passam uma suite
+    ///     isolada.
+    ///   - logStore: log do diálogo onde "Ok, entendi" grava a dispensa (AGENTS R9: `Live`/`Fake`).
+    ///     Padrão `LiveCoachLogStore()`, o mesmo arquivo que `CoachService` usa em produção; testes
+    ///     e previews devem passar um `FakeCoachLogStore` isolado.
     init(
         reader: any HealthDataReading,
         sessionsProvider: @escaping @MainActor () -> [SessionSummary],
         targets: HealthTargets = HealthTargets(),
         now: @escaping () -> Date,
         calendar: Calendar = .current,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        logStore: any CoachLogStoring = LiveCoachLogStore()
     ) {
         self.reader = reader
         self.sessionsProvider = sessionsProvider
@@ -109,8 +119,8 @@ final class HealthViewModel {
         self.now = now
         self.calendar = calendar
         self.defaults = defaults
+        self.logStore = logStore
         self.needsAuthorization = !defaults.bool(forKey: Keys.readAuthorized)
-        self.dismissedSuggestionKeys = Set(defaults.stringArray(forKey: Keys.dismissedSuggestions) ?? [])
 
         let storedYear = defaults.integer(forKey: Keys.birthYear)
         self.profileBirthYear = storedYear > 0 ? storedYear : nil
@@ -126,11 +136,15 @@ final class HealthViewModel {
         reader.isAvailable
     }
 
-    /// Sugestões do relatório menos as dispensadas nesta semana ("Ok, entendi").
+    /// Sugestões do relatório menos as dispensadas agora no log do diálogo (SPEC §7.11 C3), a
+    /// mesma fonte que o feed da Home consulta — ver `HealthSuggestionDismissal`.
     var visibleSuggestions: [HealthSuggestion] {
+        _ = dismissalTick
         guard let report else { return [] }
+        let log = logStore.load()
+        let referenceDate = now()
         return report.suggestions.filter { suggestion in
-            !dismissedSuggestionKeys.contains(Self.dismissalKey(for: suggestion, weekStart: report.weekStart))
+            !HealthSuggestionDismissal.isDismissed(suggestion.kind, log: log, now: referenceDate, calendar: calendar)
         }
     }
 
@@ -264,15 +278,25 @@ final class HealthViewModel {
         }
     }
 
-    /// "Ok, entendi": esconde a sugestão até o fim da semana do relatório. Na semana seguinte ela
-    /// volta se a condição persistir (as regras de §7.10 são recalculadas a cada leitura).
+    /// "Ok, entendi": grava a dispensa no log do diálogo (SPEC §7.11 C3), a mesma resposta que o
+    /// feed da Home grava para "Entendi" — esconde a sugestão nas duas telas por
+    /// `HealthSuggestionDismissal.cooldownDays`; se a condição persistir depois disso, ela volta
+    /// (as regras de §7.10 são recalculadas a cada leitura). Falha de gravação só loga: a tela
+    /// não trava, mas a sugestão pode reaparecer antes do prazo.
     func dismiss(_ suggestion: HealthSuggestion) {
-        guard let report else { return }
-        let weekSuffix = Self.weekSuffix(for: report.weekStart)
-        dismissedSuggestionKeys.insert(Self.dismissalKey(for: suggestion, weekStart: report.weekStart))
-        // Só as chaves da semana atual interessam; as antigas saem para a lista não crescer sem fim.
-        dismissedSuggestionKeys = dismissedSuggestionKeys.filter { $0.hasSuffix(weekSuffix) }
-        defaults.set(dismissedSuggestionKeys.sorted(), forKey: Keys.dismissedSuggestions)
+        let date = now()
+        var log = logStore.load()
+        log.entries.append(HealthSuggestionDismissal.entry(dismissing: suggestion.kind, at: date, calendar: calendar))
+        do {
+            try logStore.save(log)
+        } catch {
+            let reason = String(describing: error)
+            Self.logger.error("Dispensa de \(suggestion.kind.rawValue, privacy: .public) não foi gravada: \(reason, privacy: .public)")
+            errorMessage = "Não foi possível guardar sua resposta; esta sugestão pode aparecer de novo."
+        }
+        // Sempre, mesmo na falha: `visibleSuggestions` relê o log (que pode ter mudado por fora)
+        // e a view atualiza; sem gravação o próprio `logStore.load()` já devolve a mesma sugestão.
+        dismissalTick += 1
     }
 
     // MARK: Cálculo
@@ -315,13 +339,5 @@ final class HealthViewModel {
         return samples
             .filter { $0.date >= windowStart && $0.date <= now }
             .sorted { $0.date < $1.date }
-    }
-
-    private static func weekSuffix(for weekStart: Date) -> String {
-        "|\(Int(weekStart.timeIntervalSince1970))"
-    }
-
-    private static func dismissalKey(for suggestion: HealthSuggestion, weekStart: Date) -> String {
-        suggestion.id + weekSuffix(for: weekStart)
     }
 }
