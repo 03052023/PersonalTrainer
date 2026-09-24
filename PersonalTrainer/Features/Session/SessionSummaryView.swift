@@ -11,9 +11,14 @@ import TrainerCore
 /// escreve no `ModelContext` (AGENTS R4). A FC chega do HealthKit pelo gravador logo depois de
 /// finalizar; como o modelo é observável, a linha aparece sozinha quando o resumo é aplicado, e
 /// sem FC ela simplesmente não aparece (SPEC F4: "se disponível").
+///
+/// A tonelagem soma só os exercícios medidos em repetições (SPEC RF-12 com RF-43): carga × segundos
+/// ou carga × passos não é "kg levantados". A medida vem de `\.exerciseTraits` pelo `slug`.
 struct SessionSummaryView: View {
     private let session: WorkoutSessionModel
     private let onClose: () -> Void
+
+    @Environment(\.exerciseTraits) private var traits
 
     init(session: WorkoutSessionModel, onClose: @escaping () -> Void) {
         self.session = session
@@ -139,6 +144,11 @@ struct SessionSummaryView: View {
         )
     }
 
+    /// Só exercícios medidos em repetições (SPEC RF-43); os demais totais contam todos.
+    private var tonnage: Double {
+        MeasureText.tonnage(of: orderedExercises, traits: traits)
+    }
+
     /// "3.450 kg" (agrupamento pt-BR; até uma casa decimal para cargas de 2,5 kg).
     private var tonnageText: String {
         let formatter = NumberFormatter()
@@ -146,7 +156,8 @@ struct SessionSummaryView: View {
         formatter.numberStyle = .decimal
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 1
-        let number = formatter.string(from: NSNumber(value: stats.tonnage)) ?? "\(stats.tonnage)"
+        let value = tonnage
+        let number = formatter.string(from: NSNumber(value: value)) ?? "\(value)"
         return "\(number) kg"
     }
 }

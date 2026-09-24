@@ -77,6 +77,32 @@ struct HomeSubstitutionTests {
         }
     }
 
+    @Test("H2 em cada passo, os de mesma medida vêm primeiro (RF-43)")
+    func sameMeasureComesFirstInEachStep() {
+        let pallof = HF.exercise(60, "Pallof press", primary: [.core], equipment: .cable, unilateral: true, pattern: .coreStability)
+        let sidePlank = HF.exercise(61, "Prancha lateral", primary: [.core], equipment: .bodyweight, unilateral: true, pattern: .coreStability)
+        let deadBug = HF.exercise(62, "Dead bug", primary: [.core], equipment: .bodyweight, pattern: .coreStability)
+        let crunch = HF.exercise(63, "Abdominal supra", primary: [.core], equipment: .bodyweight, pattern: .coreFlexion)
+        let rotationalThrow = HF.exercise(64, "Arremesso rotacional", primary: [.core], equipment: .dumbbell, unilateral: true, pattern: .explosive)
+        let homeCatalog = [sidePlank, deadBug, crunch]
+        let traits = ExerciseTraitsCatalog(traitsBySlug: [
+            sidePlank.slug: ExerciseTraits(measure: .seconds, atHome: true),
+            deadBug.slug: ExerciseTraits(measure: .reps, atHome: true),
+            crunch.slug: ExerciseTraits(measure: .reps, atHome: true),
+        ])
+
+        // Mesmo padrão: a prancha lateral pontua mais (unilateral igual), mas mede em segundos.
+        #expect(HomeSubstitution.equivalents(for: pallof, in: homeCatalog, traits: traits) == [deadBug, sidePlank, crunch])
+        // Só pelo grupo: a mesma regra no segundo passo.
+        #expect(HomeSubstitution.equivalents(for: rotationalThrow, in: homeCatalog, traits: traits) == [crunch, deadBug, sidePlank])
+        // Sem as medidas, tudo mede em repetições e vale só a ordem do RF-34.
+        #expect(HomeSubstitution.equivalents(for: pallof, in: homeCatalog) == [sidePlank, deadBug, crunch])
+
+        let swaps = HomeSubstitution.swaps(for: [pallof, rotationalThrow], catalog: homeCatalog + [pallof, rotationalThrow], traits: traits)
+        let expected: [ExerciseDefinition?] = [deadBug, crunch]
+        #expect(swaps.map(\.replacement) == expected)
+    }
+
     @Test("H2 pescoço só troca por pescoço, e nada troca por pescoço pelo grupo costas")
     func neckIsOnlyEquivalentToNeck() {
         let onlyNeckAtHome = [HF.latPulldown, HF.neckBand, HF.neckIsometric]
@@ -244,6 +270,14 @@ struct HomeSubstitutionTests {
                 #expect(replacements.count == dayExercises.count, "\(label): \(replacements.map(\.slug))")
                 #expect(Set(replacements.map(\.id)).count == replacements.count, "\(label): \(replacements.map(\.slug))")
                 #expect(replacements.allSatisfy { traits.traits(for: $0).atHome }, "\(label)")
+                // H2 + H4: o alvo vem do original, então a faixa não pode mudar de unidade.
+                for (original, swap) in zip(dayExercises, swaps) {
+                    guard let replacement = swap.replacement else { continue }
+                    #expect(
+                        traits.traits(for: replacement).measure == traits.traits(for: original).measure,
+                        "\(label): \(original.slug) → \(replacement.slug) muda a medida"
+                    )
+                }
             }
         }
     }
@@ -274,7 +308,9 @@ struct HomeSubstitutionTests {
         SeedSwapCase(original: "cable-crunch", replacement: "floor-crunch"),
         SeedSwapCase(original: "dumbbell-farmers-walk", replacement: "grocery-bag-carry"),
         SeedSwapCase(original: "neck-isometric-band", replacement: "manual-neck-isometric"),
-        SeedSwapCase(original: "pallof-press", replacement: "side-plank"),
+        // H2: mesma medida primeiro. A prancha lateral pontua mais, mas mede em segundos.
+        SeedSwapCase(original: "pallof-press", replacement: "dead-bug"),
+        SeedSwapCase(original: "medicine-ball-rotational-throw", replacement: "floor-crunch"),
         SeedSwapCase(original: "box-jump", replacement: "jump-squat"),
     ]
 

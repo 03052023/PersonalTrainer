@@ -14,6 +14,9 @@ import Foundation
 ///      de "mesmo grupo primário" já usada no RF-34. Exercício de pescoço e exercício que não é de
 ///      pescoço nunca são equivalentes por grupo: o grupo costas do pescoço é só convenção de
 ///      contagem (SPEC §7.4), e uma isometria de pescoço não substitui uma puxada.
+///   Dentro de cada um dos dois passos, os de mesma medida (RF-43) vêm antes dos outros, cada parte
+///   na ordem do RF-34: o alvo vem do original (H4), e a faixa "8–12" de um pallof press não pode
+///   virar "8–12 s" de uma prancha lateral quando há um dead bug medido em repetições.
 ///   A lista vazia tira o exercício da sessão (`replacement == nil`).
 /// - H3: os exercícios de casa que já estão no dia ficam reservados antes de qualquer troca; cada
 ///   troca pega o primeiro da lista que o dia ainda não usa. Esgotados os do mesmo padrão, vale o
@@ -40,7 +43,7 @@ public enum HomeSubstitution {
                 swaps.append(HomeSwap(originalID: exercise.id, replacement: exercise))
                 continue
             }
-            let replacement = equivalents(for: exercise, in: homeCatalog).first { !used.contains($0.id) }
+            let replacement = equivalents(for: exercise, in: homeCatalog, traits: traits).first { !used.contains($0.id) }
             if let replacement {
                 used.insert(replacement.id)
             }
@@ -68,11 +71,13 @@ public enum HomeSubstitution {
     // MARK: - H2
 
     /// Lista completa de equivalentes de casa de `exercise` (H2), do mais ao menos parecido: primeiro
-    /// os do mesmo padrão, depois os que só compartilham um grupo primário. Sem repetidos e sem o
-    /// próprio exercício. Exercício sem grupo primário não tem equivalente.
+    /// os do mesmo padrão, depois os que só compartilham um grupo primário; em cada passo, os de mesma
+    /// medida antes. Sem repetidos e sem o próprio exercício. Exercício sem grupo primário não tem
+    /// equivalente. `traits` vazio mede tudo em repetições, e aí vale só a ordem do RF-34.
     static func equivalents(
         for exercise: ExerciseDefinition,
-        in homeCatalog: [ExerciseDefinition]
+        in homeCatalog: [ExerciseDefinition],
+        traits: ExerciseTraitsCatalog = .empty
     ) -> [ExerciseDefinition] {
         guard !exercise.primaryMuscles.isEmpty else { return [] }
 
@@ -90,7 +95,21 @@ public enum HomeSubstitution {
             sameGroup.append(candidate)
         }
 
-        return samePattern + ExerciseSubstitution.sortedBySimilarity(sameGroup, to: exercise)
+        let measure = traits.traits(for: exercise).measure
+        let sortedSameGroup = ExerciseSubstitution.sortedBySimilarity(sameGroup, to: exercise)
+        return sameMeasureFirst(samePattern, measure: measure, traits: traits)
+            + sameMeasureFirst(sortedSameGroup, measure: measure, traits: traits)
+    }
+
+    /// SPEC §7.13 H2: os de `measure` primeiro, mantendo a ordem de cada parte (partição estável).
+    private static func sameMeasureFirst(
+        _ list: [ExerciseDefinition],
+        measure: ExerciseMeasure,
+        traits: ExerciseTraitsCatalog
+    ) -> [ExerciseDefinition] {
+        let same = list.filter { traits.traits(for: $0).measure == measure }
+        let other = list.filter { traits.traits(for: $0).measure != measure }
+        return same + other
     }
 
     // MARK: - H1

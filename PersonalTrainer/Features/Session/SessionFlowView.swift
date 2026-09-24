@@ -36,7 +36,8 @@ struct SessionFlowView: View {
             catalog: environment.catalog,
             restTimer: environment.restTimer,
             notifications: environment.notifications,
-            now: environment.now
+            now: environment.now,
+            traits: environment.traits
         ))
     }
 

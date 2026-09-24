@@ -1,6 +1,7 @@
 import SwiftData
 import SwiftUI
 import TrainerCore
+import UniformTypeIdentifiers
 
 /// Raiz da navegação (T1.1, M2-CONTRACT §7; SPEC F1/F4/F5; DESIGN §8): abas "Hoje" (Home),
 /// "Histórico", "Programa" e "Ajustes", com a sessão ativa apresentada por cima em
@@ -91,8 +92,13 @@ private enum CoachDestination: Identifiable {
     }
 }
 
-/// Abas + apresentação da sessão, do onboarding e do diálogo. Dona do `HomeViewModel` e do
-/// `HealthViewModel` (um de cada por processo), da aba selecionada e do que está apresentado.
+/// Abas + apresentação da sessão, do onboarding e do diálogo. Dona do `HomeViewModel`, do
+/// `HealthViewModel` e do `SettingsViewModel` (um de cada por processo), da aba selecionada e do
+/// que está apresentado.
+///
+/// A exportação do backup e os alertas do Ajustes ficam aqui, na raiz, e não dentro da aba: o
+/// "Fazer backup" do diálogo (SPEC §7.11 C7) abre a exportação direto, de qualquer aba (B10), e o
+/// resultado aparece onde a pessoa está.
 ///
 /// Uma folha de cada vez: o destaque do diálogo só aparece quando nada mais está na tela
 /// (`blocksCoachSheet`, liberado nos `onDismiss` do onboarding e da sessão, depois que a
@@ -119,6 +125,7 @@ private struct RootTabs: View {
     private let coach: CoachService
     @State private var homeModel: HomeViewModel
     @State private var healthModel: HealthViewModel
+    @State private var settingsModel: SettingsViewModel
     @State private var presentedSession: PresentedSession? = nil
     @State private var coachDestination: CoachDestination? = nil
     @State private var selectedTab: RootTab = .today
@@ -141,17 +148,37 @@ private struct RootTabs: View {
     init(environment: AppEnvironment) {
         self.environment = environment
         self.coach = environment.coach
-        self._homeModel = State(initialValue: HomeViewModel(
+        let home = HomeViewModel(
             planner: environment.planner,
             coordinator: environment.coordinator,
             now: environment.now
+        )
+        self._homeModel = State(initialValue: home)
+        // Depois de importar um backup, pedir uma semana leve ou mudar o modo casa, o plano mudou:
+        // a Home relê. O diálogo relê ao voltar para "Hoje", longe dos alertas do Ajustes; depois
+        // de uma importação ele também esquece a revisão guardada em memória (A5).
+        let coachService = environment.coach
+        self._settingsModel = State(initialValue: SettingsViewModel(
+            backup: environment.backup,
+            planner: environment.planner,
+            now: environment.now,
+            appVersion: SettingsViewModel.bundleVersion(.main),
+            onImported: { [coachService] in
+                coachService.resetAfterImport()
+            },
+            onDataChanged: { [home] in
+                home.refresh()
+            }
         ))
+        // A4/B8: o mesmo log do diálogo do `CoachService`. "Ok, entendi" no detalhe do Saúde e
+        // "Entendi" no feed gravam e leem a mesma resposta, nos dois sentidos.
         self._healthModel = State(initialValue: HealthViewModel(
             reader: environment.healthReader,
             sessionsProvider: { [environment] in
                 RootTabs.recentSessions(from: environment)
             },
-            now: environment.now
+            now: environment.now,
+            logStore: environment.coach.logStore
         ))
     }
 
@@ -240,6 +267,12 @@ private struct RootTabs: View {
         .onChange(of: healthModel.report) { _, _ in
             refreshCoach()
         }
+        // A4/B8: "Ok, entendi" no detalhe do Saúde (empilhado na aba Hoje) grava no log do
+        // diálogo; o feed da Home relê na hora, sem esperar a volta ao primeiro plano. O sentido
+        // inverso não precisa disto: o detalhe lê o log sempre que aparece.
+        .onChange(of: healthModel.visibleSuggestions.map(\.kind)) { _, _ in
+            refreshCoach()
+        }
         .onAppear {
             connectCoachNavigation()
             if hasCompletedOnboarding {
@@ -316,23 +349,40 @@ private struct RootTabs: View {
             }
             .tag(RootTab.program)
 
-            // Depois de importar um backup ou pedir uma semana leve, o plano mudou: a Home relê.
-            // O diálogo relê ao voltar para "Hoje" (abaixo), longe dos alertas do Ajustes.
+            // O modelo é daqui (a Home relê pelo `onDataChanged` dele); a exportação e os alertas
+            // do Ajustes são apresentados logo abaixo, na raiz.
             SettingsView(
-                backup: environment.backup,
-                planner: environment.planner,
+                model: settingsModel,
                 coach: coach,
                 health: healthModel,
-                references: environment.references,
-                onDataChanged: {
-                    homeModel.refresh()
-                },
-                now: environment.now
+                references: environment.references
             )
             .tabItem {
                 Label("Ajustes", systemImage: "gearshape")
             }
             .tag(RootTab.settings)
+        }
+        // B10: o mesmo `fileExporter` serve ao botão "Exportar backup" do Ajustes e ao "Fazer
+        // backup" do diálogo (C7). Rótulo `onCompletion:` explícito, como no Ajustes. O
+        // `fileImporter` continua dentro da aba, em outro nível da hierarquia.
+        .fileExporter(
+            isPresented: $settingsModel.isExporterPresented,
+            document: settingsModel.exportDocument,
+            contentType: .json,
+            defaultFilename: settingsModel.exportFileName,
+            onCompletion: { result in
+                settingsModel.handleExportResult(result)
+            }
+        )
+        // Resultado de exportar, importar ou pedir semana leve, visível em qualquer aba.
+        .alert(
+            Text(settingsModel.alert?.title ?? ""),
+            isPresented: $settingsModel.isAlertPresented,
+            presenting: settingsModel.alert
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { alert in
+            Text(alert.message)
         }
     }
 
@@ -397,11 +447,14 @@ private struct RootTabs: View {
         let session = $presentedSession
         let blocks = $blocksCoachSheet
         let home = homeModel
+        let settings = settingsModel
         let catalog = environment.catalog
 
-        // C7 "Fazer backup": abre o Ajustes, onde fica a seção Backup.
+        // C7 "Fazer backup" (B10): abre a exportação direto, sem trocar de aba; o `fileExporter`
+        // e o alerta do resultado estão na raiz. Do destaque, o `CoachService` só chama isto
+        // depois que a folha fecha.
         coach.onBackupRequested = {
-            tab.wrappedValue = .settings
+            settings.prepareExport()
         }
         // C4 "Como renovar".
         coach.onRenewalHelpRequested = {

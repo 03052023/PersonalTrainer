@@ -6,12 +6,17 @@ import TrainerCore
 /// View pura: não conhece coordinator nem `ModelContext` (AGENTS R4); quem persiste é o dono do
 /// binding, que também decide se pede confirmação (0 kg na calibração). Controles ≥ 56 pt e
 /// Dynamic Type sem quebra (RNF-06).
+///
+/// O stepper do número segue a medida do exercício (SPEC RF-43): "Repetições", "Segundos" ou
+/// "Passos". `references` alimenta a folha "O que é RIR?" do seletor (RF-41).
 struct SetEntryView: View {
     @Binding var draft: SetDraft
+    let references: ReferenceCatalog
     let onComplete: () -> Void
 
-    init(draft: Binding<SetDraft>, onComplete: @escaping () -> Void) {
+    init(draft: Binding<SetDraft>, references: ReferenceCatalog = .empty, onComplete: @escaping () -> Void) {
         self._draft = draft
+        self.references = references
         self.onComplete = onComplete
     }
 
@@ -23,11 +28,12 @@ struct SetEntryView: View {
 
             RepsStepper(
                 value: $draft.reps,
-                range: 0...50,
-                highlightRange: SetEntryView.highlightRange(repMin: draft.repMin, repMax: draft.repMax)
+                range: MeasureText.stepperRange(draft.measure),
+                highlightRange: SetEntryView.highlightRange(repMin: draft.repMin, repMax: draft.repMax),
+                measure: draft.measure
             )
 
-            RIRPicker(selection: $draft.rir)
+            RIRPicker(selection: $draft.rir, references: references)
 
             Toggle("Aquecimento", isOn: $draft.isWarmup)
 
@@ -118,6 +124,24 @@ private enum SetEntryPreviewData {
         targetRIR: 2,
         note: .calibrate
     )
+
+    /// Prancha (SPEC RF-43): o stepper vira "Segundos" e a faixa, "20–40 s".
+    static let plank = SetDraft(
+        load: 0,
+        reps: 20,
+        rir: 2,
+        setIndex: 0,
+        plannedSets: 3,
+        prescribedLoad: 0,
+        loadIncrement: 2.5,
+        loadUnit: .kilograms,
+        repMin: 20,
+        repMax: 40,
+        targetReps: 20,
+        targetRIR: 2,
+        note: .hold,
+        measure: .seconds
+    )
 }
 
 private struct SetEntryPreviewHost: View {
@@ -145,6 +169,10 @@ private struct SetEntryPreviewHost: View {
 
 #Preview("Aquecimento") {
     SetEntryPreviewHost(draft: SetEntryPreviewData.warmup)
+}
+
+#Preview("Segundos") {
+    SetEntryPreviewHost(draft: SetEntryPreviewData.plank)
 }
 
 #Preview("Dynamic Type XXXL") {

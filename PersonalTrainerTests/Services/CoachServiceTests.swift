@@ -301,6 +301,30 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertFalse(fixture.service.messages.contains { $0.rule == .review }, "\"Aplicar\" só daria erro")
     }
 
+    func testA5_resetAfterImport_forgetsTheStoredReview() throws {
+        let suggestion = ProgramSuggestion(
+            id: "deload:2026-W39",
+            kind: .deload,
+            rule: "R2",
+            title: "Semana mais leve",
+            reason: "Sinais de fadiga nas últimas 2 semanas.",
+            referenceTopic: "rule.D"
+        )
+        let fixture = try makeFixture(logStore: storeWithReview([suggestion]))
+        defer { fixture.cleanUp() }
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        XCTAssertTrue(fixture.service.messages.contains { $0.rule == .review }, "A revisão guardada está no feed")
+
+        // A importação apagou o last-review.json (BackupImportCleanup); o lastReviewAt fica no log.
+        fixture.logStore.lastReview = nil
+        fixture.service.resetAfterImport()
+
+        XCTAssertFalse(fixture.service.messages.contains { $0.rule == .review })
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        XCTAssertFalse(fixture.service.messages.contains { $0.rule == .review }, "Nem ao voltar para Hoje")
+        XCTAssertEqual(fixture.logStore.reviewSaveCount, 0, "A próxima revisão segue o calendário do lastReviewAt")
+    }
+
     func testHandle_applySwitchProgram_activatesTheNextProgramWithTheSameGoal() throws {
         let suggestion = ProgramSuggestion(
             id: "switchProgram:old:2026-W39",
@@ -426,7 +450,31 @@ final class CoachServiceTests: XCTestCase {
 
         XCTAssertEqual(fixture.programs.replacements.map { $0.targetID }, [target.id])
         XCTAssertEqual(fixture.programs.replacements.map { $0.exerciseID }, [first.id])
-        XCTAssertEqual(fixture.planner.substitutesCalls.last, original.id)
+        XCTAssertEqual(fixture.planner.programSubstitutesCalls.last, original.id)
+    }
+
+    /// SPEC RF-42: "o programa não muda". Com o modo casa ligado, `substitutes` (a folha Trocar da
+    /// sessão) só oferece exercícios de casa; a troca da revisão muda o programa, então usa
+    /// `programSubstitutes`, a regra do RF-34 sobre o catálogo inteiro.
+    func testHandle_applySwapExercise_usesProgramSubstitutes_notTheHomeModeOnes() throws {
+        let original = exercise(name: "Supino reto")
+        let target = ExerciseTarget(exerciseID: original.id, order: 0)
+        let suggestion = swapSuggestion(targetID: target.id)
+        let fixture = try makeFixture(logStore: storeWithReview([suggestion]))
+        defer { fixture.cleanUp() }
+        fixture.programs.programs = [program(name: "Completo", goal: .hypertrophy, isActive: true, targets: [target])]
+        let homeOnly = exercise(name: "Flexão de joelhos")
+        let gym = exercise(name: "Supino com halteres")
+        fixture.planner.substitutesToReturn = [homeOnly]
+        fixture.planner.programSubstitutesToReturn = [gym, homeOnly]
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        let message = try XCTUnwrap(fixture.service.messages.first { $0.rule == .review })
+        fixture.service.handle(.apply, on: message)
+
+        XCTAssertEqual(fixture.programs.replacements.map { $0.exerciseID }, [gym.id])
+        XCTAssertEqual(fixture.planner.programSubstitutesCalls.last, original.id)
+        XCTAssertTrue(fixture.planner.substitutesCalls.isEmpty, "A folha da sessão não decide a troca no programa")
     }
 
     func testHandle_applySwapExercise_skipsASubstituteAlreadyInTheDay() throws {
@@ -690,6 +738,57 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertEqual(progressRequests, [bench.id])
     }
 
+    func testRefresh_newBestMark_onlyForExercisesMeasuredInReps() throws {
+        let bench = exercise(name: "Supino reto")
+        let walk = exercise(name: "Caminhada do fazendeiro")
+        let fixture = try makeFixture(traits: ExerciseTraitsCatalog(traitsBySlug: [
+            walk.slug: ExerciseTraits(measure: .steps),
+        ]))
+        defer { fixture.cleanUp() }
+        let older = UUID()
+        let latest = UUID()
+        let olderDate = date(2026, 9, 21, hour: 8)
+        let latestDate = date(2026, 9, 23, hour: 8)
+        fixture.planner.sessionsToReturn = [
+            session(id: older, startedAt: olderDate),
+            session(id: latest, startedAt: latestDate),
+        ]
+        // Mesma progressão nos dois: 20 → 24 kg com o mesmo número por série.
+        func slot(_ definition: ExerciseDefinition, reps: Int, repMin: Int, repMax: Int) -> ExerciseReviewInput {
+            ExerciseReviewInput(
+                exercise: definition,
+                targetID: UUID(),
+                dayID: UUID(),
+                sets: 3,
+                repMin: repMin,
+                repMax: repMax,
+                history: [
+                    ExerciseHistoryEntry(sessionID: older, date: olderDate, sets: [SetResult(load: 20, reps: reps, rir: 2, completedAt: olderDate)]),
+                    ExerciseHistoryEntry(sessionID: latest, date: latestDate, sets: [SetResult(load: 24, reps: reps, rir: 2, completedAt: latestDate)]),
+                ]
+            )
+        }
+        fixture.planner.reviewInputToReturn = ReviewInput(
+            programID: UUID(),
+            programName: "Completo",
+            programDayCount: 1,
+            programStartDate: olderDate,
+            exercises: [
+                slot(bench, reps: 8, repMin: 8, repMax: 12),
+                slot(walk, reps: 30, repMin: 20, repMax: 40),
+            ],
+            sessions: [],
+            weeklySetTarget: 10...20,
+            currentPrescriptions: []
+        )
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+
+        // SPEC RF-43: passos não são repetições; o 1RM estimado de uma carregada não é marca.
+        let records = fixture.service.messages.filter { $0.rule == .personalRecord }
+        XCTAssertEqual(records.map(\.suggestionID), [bench.id.uuidString])
+    }
+
     // MARK: - C8 Longevidade
 
     func testHandle_done_marksTheBlockForTheWeekOnly() throws {
@@ -854,7 +953,8 @@ final class CoachServiceTests: XCTestCase {
     private func makeFixture(
         expiry: Date? = nil,
         logStore: FakeCoachLogStore? = nil,
-        authorizationToGrant: Bool = true
+        authorizationToGrant: Bool = true,
+        traits: ExerciseTraitsCatalog = .empty
     ) throws -> Fixture {
         let suite = "CoachServiceTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -878,7 +978,8 @@ final class CoachServiceTests: XCTestCase {
             notifications: notifications,
             now: { clock.now },
             calendar: calendar,
-            defaults: defaults
+            defaults: defaults,
+            traits: traits
         )
         return Fixture(
             service: service,
@@ -1021,10 +1122,14 @@ final class CoachTestPlanner: SessionPlanning {
     var goalToReturn: ProgramGoal?
     var planToReturn: SessionPlan?
     var substitutesToReturn: [ExerciseDefinition] = []
+    /// `nil`: `programSubstitutes` devolve o mesmo que `substitutes` (sem modo casa, as duas
+    /// listas coincidem, como no `SessionPlanner`).
+    var programSubstitutesToReturn: [ExerciseDefinition]?
     private(set) var requestDeloadCalls: [Date] = []
     private(set) var dismissDeloadCalls: [Date] = []
     private(set) var nextPlanCalls: [Date] = []
     private(set) var substitutesCalls: [UUID] = []
+    private(set) var programSubstitutesCalls: [UUID] = []
 
     func nextPlan(now: Date) throws -> SessionPlan? {
         nextPlanCalls.append(now)
@@ -1046,6 +1151,11 @@ final class CoachTestPlanner: SessionPlanning {
     func substitutes(for exerciseID: UUID, limit: Int) throws -> [ExerciseDefinition] {
         substitutesCalls.append(exerciseID)
         return Array(substitutesToReturn.prefix(limit))
+    }
+
+    func programSubstitutes(for exerciseID: UUID, limit: Int) throws -> [ExerciseDefinition] {
+        programSubstitutesCalls.append(exerciseID)
+        return Array((programSubstitutesToReturn ?? substitutesToReturn).prefix(limit))
     }
 
     func deloadStatus(now: Date) throws -> DeloadStatus {

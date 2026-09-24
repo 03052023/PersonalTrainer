@@ -1,7 +1,7 @@
 import Foundation
 import TrainerCore
 
-/// Ajustes que mudam o planejamento (SPEC RF-39 e §7.5 b), lidos a cada plano.
+/// Ajustes que mudam o planejamento (SPEC RF-39, §7.5 b e RF-42), lidos a cada plano.
 ///
 /// O `SessionPlanner` recebe uma closure que devolve este valor; no app ela lê
 /// `UserDefaults.standard` com `load(from:)`, e os testes passam valores fixos. As chaves são
@@ -22,6 +22,9 @@ struct PlannerSettings: Sendable, Hashable {
     static let frequencySelectorKey = "plannerFrequencySelector"
     /// `Int`: semanas entre semanas leves (SPEC §7.5 b). Ausente vale 6; 0 desliga (b).
     static let deloadWeeksKey = "plannerDeloadWeeks"
+    /// `Bool`: modo casa (SPEC RF-42, §7.13; docs/V21-CONTRACT.md B1). Ausente vale `false`. A Home
+    /// (interruptor "Em casa") e o Ajustes ("Treinar em casa") gravam a mesma chave.
+    static let homeModeKey = "homeModeEnabled"
     /// SPEC RF-39: "padrão: ligado quando o programa tem ≥ 4 dias".
     static let autoFrequencyMinimumDays = 4
     /// SPEC §7.5 (b): "a cada N semanas de treino (padrão 6)".
@@ -30,16 +33,21 @@ struct PlannerSettings: Sendable, Hashable {
     var frequencySelector: FrequencySelectorMode
     /// N de SPEC §7.5 (b). Zero ou negativo desliga o gatilho por tempo; (a) e (c) continuam.
     var deloadWeeks: Int
+    /// SPEC RF-42: ligado, o plano troca cada exercício pelo equivalente de casa (§7.13 H1–H4) e o
+    /// "Trocar" da sessão oferece só alternativas de casa. O programa não muda.
+    var homeModeEnabled: Bool
 
     init(
         frequencySelector: FrequencySelectorMode = .auto,
-        deloadWeeks: Int = PlannerSettings.defaultDeloadWeeks
+        deloadWeeks: Int = PlannerSettings.defaultDeloadWeeks,
+        homeModeEnabled: Bool = false
     ) {
         self.frequencySelector = frequencySelector
         self.deloadWeeks = deloadWeeks
+        self.homeModeEnabled = homeModeEnabled
     }
 
-    /// Lê as duas chaves. `integer(forKey:)` devolve 0 para chave ausente, o que desligaria (b)
+    /// Lê as três chaves. `integer(forKey:)` devolve 0 para chave ausente, o que desligaria (b)
     /// em quem nunca abriu o Ajustes; por isso a ausência é conferida antes. Um valor negativo
     /// gravado por engano vira 0 (desligado), o mesmo efeito que `DeloadScheduler` já daria.
     static func load(from defaults: UserDefaults) -> PlannerSettings {
@@ -51,7 +59,9 @@ struct PlannerSettings: Sendable, Hashable {
         } else {
             weeks = max(0, defaults.integer(forKey: deloadWeeksKey))
         }
-        return PlannerSettings(frequencySelector: mode, deloadWeeks: weeks)
+        // `bool(forKey:)` devolve `false` para chave ausente, que é o padrão do modo casa.
+        let homeMode = defaults.bool(forKey: homeModeKey)
+        return PlannerSettings(frequencySelector: mode, deloadWeeks: weeks, homeModeEnabled: homeMode)
     }
 
     /// `true` quando o próximo dia sai do `FrequencyAwareSelector` (S5–S7) em vez da rotação.

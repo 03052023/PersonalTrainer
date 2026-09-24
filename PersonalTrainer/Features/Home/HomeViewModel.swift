@@ -32,24 +32,34 @@ final class HomeViewModel {
     /// `errorMessage` porque fechar o alerta zera a mensagem, e sem isto a tela passaria a
     /// dizer "Nenhum programa ativo" para uma falha de leitura (o programa pode existir).
     private(set) var didFailToLoad = false
+    /// Modo casa (SPEC RF-42): o interruptor "Em casa" do cartão. Espelho da chave
+    /// `PlannerSettings.homeModeKey`, relido a cada `refresh()` porque o Ajustes grava a mesma.
+    private(set) var isHomeMode = false
 
     private let planner: any SessionPlanning
     private let coordinator: any SessionCoordinating
     private let now: () -> Date
+    /// Onde fica a chave do modo casa; o planner lê a mesma (`PlannerSettings.load(from:)`).
+    private let defaults: UserDefaults
 
     private static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "PersonalTrainer",
         category: "Home"
     )
 
+    /// - Parameter defaults: o app usa `.standard`, a mesma suite que o `SessionPlanner` lê. Os
+    ///   testes passam uma suite isolada.
     init(
         planner: any SessionPlanning,
         coordinator: any SessionCoordinating,
-        now: @escaping () -> Date
+        now: @escaping () -> Date,
+        defaults: UserDefaults = .standard
     ) {
         self.planner = planner
         self.coordinator = coordinator
         self.now = now
+        self.defaults = defaults
+        self.isHomeMode = PlannerSettings.load(from: defaults).homeModeEnabled
     }
 
     /// Ponte para `.alert(isPresented:)`: verdadeiro enquanto há mensagem; atribuir `false` limpa.
@@ -66,6 +76,7 @@ final class HomeViewModel {
     /// rotação). Em falha do plano, ele é descartado (nunca iniciar a partir de um plano
     /// possivelmente desatualizado) e a mensagem vai para `errorMessage`.
     func refresh() {
+        isHomeMode = PlannerSettings.load(from: defaults).homeModeEnabled
         activeSessionID = coordinator.activeSession?.uuid
         if activeSessionID != nil {
             // Com treino em andamento a escolha manual não tem mais efeito: o botão só retoma, e
@@ -110,6 +121,16 @@ final class HomeViewModel {
         refresh()
     }
 
+    /// Interruptor "Em casa" (SPEC RF-42): grava a chave que o planner lê e relê o plano, mantendo
+    /// o dia escolhido à mão, se houver. O programa não muda: desligar volta os exercícios dele.
+    /// Uma sessão já em andamento continua como começou; só o "Trocar" dela passa a oferecer
+    /// alternativas de casa (§7.13 H2).
+    func setHomeMode(_ enabled: Bool) {
+        defaults.set(enabled, forKey: PlannerSettings.homeModeKey)
+        isHomeMode = enabled
+        refresh()
+    }
+
     /// Chamar depois de cada resposta ao diálogo (SPEC §7.11). "Aplicar" (C2) muda o programa ou
     /// pede a semana leve, e "Seguir normal" (C1) a desfaz: nos dois casos o plano na tela ficou
     /// velho e é relido. As outras respostas não mudam o plano.
@@ -134,9 +155,10 @@ final class HomeViewModel {
             return nil
         }
         // SPEC S2/RF-33: um dia ainda sem exercícios não vira sessão (ela sairia vazia). O botão da
-        // Home já fica desabilitado; isto cobre o "Começar" do diálogo (C5).
+        // Home já fica desabilitado; isto cobre o "Começar" do diálogo (C5). No modo casa o dia
+        // pode ficar vazio porque nenhum exercício tem opção em casa (§7.13 H2).
         guard !plan.exercises.isEmpty else {
-            errorMessage = "Este dia ainda não tem exercícios. Escolha os exercícios dele na aba Programa."
+            errorMessage = Self.emptyDayMessage(for: plan)
             return nil
         }
         do {
@@ -189,6 +211,16 @@ final class HomeViewModel {
     }
 
     // MARK: - Mensagens pt-BR
+
+    /// Texto do dia sem exercício, no cartão e no alerta do "Começar". No modo casa com exercícios
+    /// que saíram (§7.13 H2), a saída é desligar "Em casa" ou escolher outro dia; fora dele, o dia
+    /// ainda não tem exercícios no programa (RF-33).
+    nonisolated static func emptyDayMessage(for plan: SessionPlan) -> String {
+        if plan.isHomeMode && !plan.homeNotices.isEmpty {
+            return "Nenhum exercício deste dia tem opção em casa. Desligue Em casa ou escolha outro dia."
+        }
+        return "Este dia ainda não tem exercícios. Escolha os exercícios dele na aba Programa."
+    }
 
     private static func message(for error: any Error, fallback: String) -> String {
         if let planningError = error as? PlanningError {

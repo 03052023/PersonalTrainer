@@ -1,29 +1,39 @@
 import SwiftUI
+import TrainerCore
 
-/// Stepper de repetições da série (SPEC RF-03). O valor fica na cor de destaque enquanto está
-/// dentro da faixa prescrita (`highlightRange`), para o usuário ver de relance se cumpriu a
-/// meta sem ler o cabeçalho. Botões de 56 × 56 pt (RNF-06); toque longo repete o passo.
+/// Stepper do número da série (SPEC RF-03): repetições, ou segundos e passos conforme a medida do
+/// exercício (SPEC RF-43), com o título "Repetições", "Segundos" ou "Passos". O valor fica na cor
+/// de destaque enquanto está dentro da faixa prescrita (`highlightRange`), para o usuário ver de
+/// relance se cumpriu a meta sem ler o cabeçalho. Botões de 56 × 56 pt (RNF-06); toque longo
+/// repete o passo.
 struct RepsStepper: View {
     @Binding var value: Int
     let range: ClosedRange<Int>
     let highlightRange: ClosedRange<Int>
+    let measure: ExerciseMeasure
 
-    init(value: Binding<Int>, range: ClosedRange<Int>, highlightRange: ClosedRange<Int>) {
+    init(
+        value: Binding<Int>,
+        range: ClosedRange<Int>,
+        highlightRange: ClosedRange<Int>,
+        measure: ExerciseMeasure = .reps
+    ) {
         self._value = value
         self.range = range
         self.highlightRange = highlightRange
+        self.measure = measure
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Repetições")
+            Text(MeasureText.title(measure))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             HStack(spacing: 12) {
                 stepButton(
                     systemName: "minus",
-                    accessibilityLabel: "Diminuir repetições",
+                    accessibilityLabel: "Diminuir \(MeasureText.pluralNoun(measure))",
                     isEnabled: value > range.lowerBound
                 ) {
                     value = RepsStepper.stepped(value, by: -1, in: range)
@@ -36,10 +46,11 @@ struct RepsStepper: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                     .frame(maxWidth: .infinity)
+                    .accessibilityLabel(MeasureText.spokenAmount(value, measure: measure))
 
                 stepButton(
                     systemName: "plus",
-                    accessibilityLabel: "Aumentar repetições",
+                    accessibilityLabel: "Aumentar \(MeasureText.pluralNoun(measure))",
                     isEnabled: value < range.upperBound
                 ) {
                     value = RepsStepper.stepped(value, by: 1, in: range)
@@ -96,15 +107,22 @@ private struct RepsStepperButtonStyle: ButtonStyle {
 private struct RepsStepperPreviewHost: View {
     @State private var value: Int
     private let highlightRange: ClosedRange<Int>
+    private let measure: ExerciseMeasure
 
-    init(value: Int, highlightRange: ClosedRange<Int>) {
+    init(value: Int, highlightRange: ClosedRange<Int>, measure: ExerciseMeasure = .reps) {
         self._value = State(initialValue: value)
         self.highlightRange = highlightRange
+        self.measure = measure
     }
 
     var body: some View {
-        RepsStepper(value: $value, range: 0...50, highlightRange: highlightRange)
-            .padding()
+        RepsStepper(
+            value: $value,
+            range: MeasureText.stepperRange(measure),
+            highlightRange: highlightRange,
+            measure: measure
+        )
+        .padding()
     }
 }
 
@@ -114,6 +132,14 @@ private struct RepsStepperPreviewHost: View {
 
 #Preview("Fora da faixa") {
     RepsStepperPreviewHost(value: 6, highlightRange: 8...12)
+}
+
+#Preview("Segundos") {
+    RepsStepperPreviewHost(value: 30, highlightRange: 20...40, measure: .seconds)
+}
+
+#Preview("Passos") {
+    RepsStepperPreviewHost(value: 24, highlightRange: 20...40, measure: .steps)
 }
 
 #Preview("Dynamic Type AX5") {

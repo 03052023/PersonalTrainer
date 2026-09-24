@@ -4,10 +4,16 @@ import TrainerCore
 /// Uma linha do card da Home (SPEC F1, RF-01; CA1-1): nome do exercício, resumo
 /// "S × min–max · carga · RIR T · descanso", a nota da prescrição em pt-BR e o botão
 /// "Por quê?" da nota (SPEC RF-32).
+///
+/// A faixa sai na medida do exercício (SPEC RF-43, lida de `\.exerciseTraits` pelo `slug`):
+/// "3 × 20–40 s", "3 × 20–40 passos". O VoiceOver lê o resumo por extenso, com "RIR 2" como
+/// "parar com 2 repetições de reserva" (SPEC RF-41 d).
 /// View pura: só formata o `PlannedExercise`; nada de coordinator ou SwiftData.
 struct PrescriptionRow: View {
     let exercise: PlannedExercise
     let references: ReferenceCatalog
+
+    @Environment(\.exerciseTraits) private var traits
 
     init(exercise: PlannedExercise, references: ReferenceCatalog) {
         self.exercise = exercise
@@ -23,9 +29,10 @@ struct PrescriptionRow: View {
                     Spacer(minLength: 0)
                     PrescriptionNoteBadge(note: exercise.prescription.note)
                 }
-                Text(Self.summary(for: exercise))
+                Text(Self.summary(for: exercise, measure: measure))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .accessibilityLabel(Self.spokenSummary(for: exercise, measure: measure))
             }
             // Só o texto é combinado: o botão "Por quê?" fica fora para continuar acionável
             // sozinho no VoiceOver.
@@ -36,14 +43,36 @@ struct PrescriptionRow: View {
         }
     }
 
+    /// Repetições, segundos ou passos (SPEC RF-43). Personalizado sempre em repetições.
+    private var measure: ExerciseMeasure {
+        traits.traits(for: exercise.exercise).measure
+    }
+
     // MARK: - Formatação (pt-BR)
 
-    /// Ex.: "3 × 8–12 · 60 kg · RIR 2 · 2 min"; carga `nil` (SPEC P2) vira "—".
-    static func summary(for exercise: PlannedExercise) -> String {
+    /// Ex.: "3 × 8–12 · 60 kg · RIR 2 · 2 min" ou "3 × 20–40 s · 0 kg · RIR 2 · 1 min";
+    /// carga `nil` (SPEC P2) vira "—".
+    static func summary(for exercise: PlannedExercise, measure: ExerciseMeasure = .reps) -> String {
         let prescription = exercise.prescription
+        let range = MeasureText.range(min: prescription.repMin, max: prescription.repMax, measure: measure)
         let load = loadText(prescription.load, unit: exercise.exercise.loadUnit)
         let rest = restText(seconds: prescription.restSeconds)
-        return "\(prescription.sets) × \(prescription.repMin)–\(prescription.repMax) · \(load) · RIR \(prescription.targetRIR) · \(rest)"
+        return "\(prescription.sets) × \(range) · \(load) · RIR \(prescription.targetRIR) · \(rest)"
+    }
+
+    /// Leitura por voz do resumo (SPEC RF-41 d): "3 séries de 8 a 12 repetições, 60 kg, parar
+    /// com 2 repetições de reserva, descanso de 2 minutos".
+    static func spokenSummary(for exercise: PlannedExercise, measure: ExerciseMeasure = .reps) -> String {
+        let prescription = exercise.prescription
+        return PrescriptionSpeech.text(
+            sets: prescription.sets,
+            repMin: prescription.repMin,
+            repMax: prescription.repMax,
+            measure: measure,
+            loadText: prescription.load.map { loadText($0, unit: exercise.exercise.loadUnit) },
+            targetRIR: prescription.targetRIR,
+            restSeconds: prescription.restSeconds
+        )
     }
 
     /// Mesma convenção de `SetDraft.prescriptionSummary`: kg via `LoadFormatter`, placas e nível

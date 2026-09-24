@@ -7,7 +7,9 @@ import TrainerCore
 /// `ModelContext` (ARCHITECTURE §6): escolhe o dia com a rotação (S1–S2) ou com o
 /// `FrequencyAwareSelector` (S5–S7), busca o histórico de cada exercício, pede a prescrição ao
 /// `ProgressionRule` e, em semana leve (`DeloadScheduler`, SPEC §7.5), troca cada prescrição pela
-/// de `DeloadPolicy`. Só lê o banco; as escritas são delegadas: iniciar a sessão ao
+/// de `DeloadPolicy`. Com o modo casa ligado (SPEC RF-42, §7.13), troca cada exercício do dia pelo
+/// equivalente de casa (`HomeSubstitution`), com o alvo do original e o histórico do exercício de
+/// casa. Só lê o banco; as escritas são delegadas: iniciar a sessão ao
 /// `SessionCoordinating` (ARCHITECTURE §7, AR-2) e as decisões de semana leve ao
 /// `DeloadDecisionsStoring`.
 ///
@@ -26,6 +28,9 @@ final class SessionPlanner: SessionPlanning {
     private let settings: () -> PlannerSettings
     /// Calendário e fuso da semana de treino (SPEC §7.4), para S5–S7.
     private let calendar: Calendar
+    /// Medida e marca "de casa" por `slug` (SPEC RF-42, RF-43): quem é de casa no modo casa (H1)
+    /// e como estimar a duração (B7).
+    private let traits: ExerciseTraitsCatalog
     /// AGENTS §4: `subsystem` = bundle id, `category` = nome do serviço.
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "PersonalTrainer",
@@ -38,6 +43,8 @@ final class SessionPlanner: SessionPlanning {
     ///     normal" não sobrevivem a um relançamento.
     ///   - settings: padrão lê `UserDefaults.standard` a cada chamada.
     ///   - calendar: padrão acompanha o fuso e o calendário do aparelho.
+    ///   - traits: o app passa `AppEnvironment.traits` (catálogo do bundle). Com o padrão `.empty`,
+    ///     nenhum exercício é de casa: o modo casa tiraria todos da sessão, com aviso.
     init(
         modelContext: ModelContext,
         coordinator: any SessionCoordinating,
@@ -45,7 +52,8 @@ final class SessionPlanner: SessionPlanning {
         selector: any WorkoutSelector = RotationSelector(),
         deloadDecisions: any DeloadDecisionsStoring = FakeDeloadDecisionsStore(),
         settings: @escaping () -> PlannerSettings = { PlannerSettings.load(from: .standard) },
-        calendar: Calendar = .autoupdatingCurrent
+        calendar: Calendar = .autoupdatingCurrent,
+        traits: ExerciseTraitsCatalog = .empty
     ) {
         self.modelContext = modelContext
         self.coordinator = coordinator
@@ -54,6 +62,7 @@ final class SessionPlanner: SessionPlanning {
         self.deloadDecisions = deloadDecisions
         self.settings = settings
         self.calendar = calendar
+        self.traits = traits
     }
 
     // MARK: - SessionPlanning
@@ -83,7 +92,14 @@ final class SessionPlanner: SessionPlanning {
         let deload = deloadStatus(snapshot: snapshot, sessions: sessions, settings: currentSettings, now: now)
         // CA4-5: a semana leve é o que mais muda o treino, então é ela que a Home explica.
         let reason = deload.planReason ?? choice.reason
-        return makePlan(snapshot: snapshot, day: choice.day, deload: deload, reason: reason, now: now)
+        return try makePlan(
+            snapshot: snapshot,
+            day: choice.day,
+            deload: deload,
+            reason: reason,
+            homeMode: currentSettings.homeModeEnabled,
+            now: now
+        )
     }
 
     func plan(forDayID dayID: UUID, now: Date) throws -> SessionPlan? {
@@ -100,8 +116,16 @@ final class SessionPlanner: SessionPlanning {
         // SPEC S4 + §7.5: o dia é da pessoa, mas uma semana leve programada ou em andamento vale
         // para qualquer dia, senão trocar de dia na Home driblaria o descanso.
         let sessions = try allSessionSummaries()
-        let deload = deloadStatus(snapshot: snapshot, sessions: sessions, settings: settings(), now: now)
-        return makePlan(snapshot: snapshot, day: day, deload: deload, reason: .manual, now: now)
+        let currentSettings = settings()
+        let deload = deloadStatus(snapshot: snapshot, sessions: sessions, settings: currentSettings, now: now)
+        return try makePlan(
+            snapshot: snapshot,
+            day: day,
+            deload: deload,
+            reason: .manual,
+            homeMode: currentSettings.homeModeEnabled,
+            now: now
+        )
     }
 
     func startSession(from plan: SessionPlan, now: Date) throws -> UUID {
@@ -154,17 +178,7 @@ final class SessionPlanner: SessionPlanning {
             throw PlanningError.exerciseNotFound(newExerciseID)
         }
         let exercise = try ExerciseMapper.definition(from: exerciseModel)
-        let substituteTarget = ExerciseTarget(
-            id: target.id,
-            exerciseID: exercise.id,
-            order: target.order,
-            sets: target.sets,
-            repMin: target.repMin,
-            repMax: target.repMax,
-            targetRIR: target.targetRIR,
-            restSeconds: target.restSeconds,
-            startingLoad: exercise.id == target.exerciseID ? target.startingLoad : nil
-        )
+        let substituteTarget = SessionPlanner.substituteTarget(from: target, for: exercise)
         let entries = try history(forExerciseUUID: exercise.id)
         let normal = progression.prescribe(
             target: substituteTarget,
@@ -188,21 +202,18 @@ final class SessionPlanner: SessionPlanning {
     /// próprio exercício é excluído. Vazio se ele não tem padrão de movimento (contrato de
     /// `SessionPlanning`) ou se `limit <= 0`. O exercício de origem pode estar arquivado (ainda
     /// está no programa ou na sessão); só os candidatos precisam estar visíveis.
+    ///
+    /// SPEC RF-42, §7.13 H2: com o modo casa ligado, "a folha Trocar oferece só alternativas de
+    /// casa", pela mesma regra do RF-34 (`HomeSubstitution.candidates`). A chave é lida a cada
+    /// chamada, como no plano.
     func substitutes(for exerciseID: UUID, limit: Int) throws -> [ExerciseDefinition] {
-        guard let exerciseModel = try fetchExercise(uuid: exerciseID) else {
-            throw PlanningError.exerciseNotFound(exerciseID)
-        }
-        let exercise = try ExerciseMapper.definition(from: exerciseModel)
-        guard exercise.movementPattern != nil, limit > 0 else {
-            return []
-        }
-        let catalog = try visibleCatalog()
-        return ExerciseSubstitution.candidates(
-            for: exercise,
-            in: catalog,
-            excluding: [exerciseID],
-            limit: limit
-        )
+        try candidates(for: exerciseID, limit: limit, homeOnly: settings().homeModeEnabled)
+    }
+
+    /// RF-34 sempre sobre o catálogo inteiro: trocar no programa não depende do modo casa, que só
+    /// vale para a sessão (RF-42: "o programa não muda").
+    func programSubstitutes(for exerciseID: UUID, limit: Int) throws -> [ExerciseDefinition] {
+        try candidates(for: exerciseID, limit: limit, homeOnly: false)
     }
 
     // MARK: - SessionPlanning (M4)
@@ -343,6 +354,15 @@ private extension SessionPlanner {
         let slots: [ProgramSlot]
         /// Histórico por `ExerciseDefinition.id`, como o motor o recebe (P3).
         let histories: [UUID: [ExerciseHistoryEntry]]
+    }
+
+    /// Um exercício que entra no plano, antes da semana leve: o do programa ou, no modo casa, o
+    /// equivalente de casa com o alvo do original (SPEC §7.13 H4).
+    struct PlanEntry {
+        let exercise: ExerciseDefinition
+        let target: ExerciseTarget
+        /// Prescrição normal (sem semana leve) calculada com o histórico de `exercise` (P3).
+        let normal: ExercisePrescription
     }
 
     /// Dia escolhido pelo seletor e o motivo, antes de considerar a semana leve.
@@ -524,26 +544,41 @@ private extension SessionPlanner {
     /// Uma prescrição por exercício do dia, na ordem de `order` (SPEC RF-01). Nada é gravado: o
     /// plano é um DTO que `SessionCoordinating.startSession` transforma em snapshots
     /// (ARCHITECTURE §5, decisão 3).
+    ///
+    /// Com `homeMode` (SPEC RF-42), cada exercício do dia passa por `HomeSubstitution.swaps`
+    /// (§7.13 H1–H3) e o que não tem opção em casa sai do plano com um aviso. Semana leve vale
+    /// igual: a prescrição leve é calculada sobre a do exercício que de fato entra na sessão.
     func makePlan(
         snapshot: ProgramSnapshot,
         day: ProgramDayTemplate,
         deload: DeloadStatus,
         reason: PlanReason,
+        homeMode: Bool,
         now: Date
-    ) -> SessionPlan {
+    ) throws -> SessionPlan {
         let plansDeload = deload.plansDeload
-        let planned = snapshot.slots
-            .filter { $0.dayID == day.id }
-            .map { slot in
-                PlannedExercise(
-                    id: UUID(),
-                    exercise: slot.exercise,
-                    target: slot.target,
-                    prescription: plansDeload
-                        ? SessionPlanner.deloadPrescription(from: slot.normal, exercise: slot.exercise)
-                        : slot.normal
-                )
-            }
+        let daySlots = snapshot.slots.filter { $0.dayID == day.id }
+        let entries: [PlanEntry]
+        let notices: [String]
+        if homeMode {
+            let home = try homeEntries(for: daySlots, snapshot: snapshot, now: now)
+            entries = home.entries
+            notices = home.notices
+        } else {
+            entries = daySlots.map { PlanEntry(exercise: $0.exercise, target: $0.target, normal: $0.normal) }
+            notices = []
+        }
+
+        let planned = entries.map { entry in
+            PlannedExercise(
+                id: UUID(),
+                exercise: entry.exercise,
+                target: entry.target,
+                prescription: plansDeload
+                    ? SessionPlanner.deloadPrescription(from: entry.normal, exercise: entry.exercise)
+                    : entry.normal
+            )
+        }
 
         return SessionPlan(
             programID: snapshot.template.id,
@@ -553,7 +588,84 @@ private extension SessionPlanner {
             exercises: planned,
             generatedAt: now,
             isDeload: plansDeload,
-            reason: reason
+            reason: reason,
+            isHomeMode: homeMode,
+            homeNotices: notices,
+            estimatedMinutes: SessionDurationEstimate.minutes(for: planned, traits: traits)
+        )
+    }
+
+    /// SPEC §7.13 sobre os exercícios de um dia, na ordem deles:
+    /// - H1/H2: o de casa fica como está (alvo e prescrição do programa); o da academia vira o
+    ///   equivalente de casa; sem equivalente, sai do plano com o aviso "Sem opção em casa para X";
+    /// - H3: `HomeSubstitution.swaps` já não repete exercício de casa no mesmo dia;
+    /// - H4: o alvo (séries, faixa, RIR, descanso) vem do original e a prescrição, do histórico do
+    ///   exercício de casa, como em `substitutionPlan` (sem histórico, `calibrate`).
+    func homeEntries(
+        for daySlots: [ProgramSlot],
+        snapshot: ProgramSnapshot,
+        now: Date
+    ) throws -> (entries: [PlanEntry], notices: [String]) {
+        guard !daySlots.isEmpty else {
+            return ([], [])
+        }
+        let catalog = try visibleCatalog()
+        let swaps = HomeSubstitution.swaps(
+            for: daySlots.map { $0.exercise },
+            catalog: catalog,
+            traits: traits
+        )
+        var entries: [PlanEntry] = []
+        var notices: [String] = []
+        // `swaps` sai na ordem de `dayExercises`, um por exercício.
+        for (slot, swap) in zip(daySlots, swaps) {
+            guard let replacement = swap.replacement else {
+                notices.append(SessionPlanner.noHomeOptionNotice(exerciseName: slot.exercise.name))
+                continue
+            }
+            if swap.isUnchanged {
+                entries.append(PlanEntry(exercise: slot.exercise, target: slot.target, normal: slot.normal))
+                continue
+            }
+            let target = SessionPlanner.substituteTarget(from: slot.target, for: replacement)
+            // O exercício de casa pode já estar no programa (outro dia): histórico já buscado.
+            let homeHistory: [ExerciseHistoryEntry]
+            if let cached = snapshot.histories[replacement.id] {
+                homeHistory = cached
+            } else {
+                homeHistory = try history(forExerciseUUID: replacement.id)
+            }
+            let normal = progression.prescribe(
+                target: target,
+                exercise: replacement,
+                history: homeHistory,
+                now: now
+            )
+            entries.append(PlanEntry(exercise: replacement, target: target, normal: normal))
+        }
+        return (entries, notices)
+    }
+
+    /// RF-34 e §7.13 H4: o alvo do exercício original (séries, faixa, RIR, descanso, ordem e `id`)
+    /// com o `exerciseID` do substituto, porque o motor o copia para a prescrição.
+    ///
+    /// `startingLoad` só é mantido quando se volta ao próprio exercício do alvo: a carga inicial
+    /// de um supino com barra não serve para halteres nem para uma flexão, e com ela o P2
+    /// prescreveria essa carga em vez de deixar a pessoa calibrar.
+    nonisolated static func substituteTarget(
+        from target: ExerciseTarget,
+        for exercise: ExerciseDefinition
+    ) -> ExerciseTarget {
+        ExerciseTarget(
+            id: target.id,
+            exerciseID: exercise.id,
+            order: target.order,
+            sets: target.sets,
+            repMin: target.repMin,
+            repMax: target.repMax,
+            targetRIR: target.targetRIR,
+            restSeconds: target.restSeconds,
+            startingLoad: exercise.id == target.exerciseID ? target.startingLoad : nil
         )
     }
 
@@ -637,6 +749,35 @@ private extension SessionPlanner {
         return try modelContext.fetch(descriptor).first?.session?.isDeload ?? false
     }
 
+    /// Substitutos de RF-34 para `substitutes` e `programSubstitutes`: o exercício de origem pode
+    /// estar arquivado (ainda está no programa ou na sessão); só os candidatos precisam estar
+    /// visíveis. Com `homeOnly`, só os de casa (SPEC §7.13 H2, `HomeSubstitution.candidates`).
+    func candidates(for exerciseID: UUID, limit: Int, homeOnly: Bool) throws -> [ExerciseDefinition] {
+        guard let exerciseModel = try fetchExercise(uuid: exerciseID) else {
+            throw PlanningError.exerciseNotFound(exerciseID)
+        }
+        let exercise = try ExerciseMapper.definition(from: exerciseModel)
+        guard exercise.movementPattern != nil, limit > 0 else {
+            return []
+        }
+        let catalog = try visibleCatalog()
+        if homeOnly {
+            return HomeSubstitution.candidates(
+                for: exercise,
+                catalog: catalog,
+                traits: traits,
+                excluding: [exerciseID],
+                limit: limit
+            )
+        }
+        return ExerciseSubstitution.candidates(
+            for: exercise,
+            in: catalog,
+            excluding: [exerciseID],
+            limit: limit
+        )
+    }
+
     /// Inclui arquivados: quem chama decide se isso importa.
     func fetchExercise(uuid: UUID) throws -> ExerciseModel? {
         var descriptor = FetchDescriptor<ExerciseModel>(
@@ -666,6 +807,16 @@ private extension SessionPlanner {
             }
         }
         return definitions.sorted { $0.slug < $1.slug }
+    }
+}
+
+// MARK: - Textos do modo casa
+
+extension SessionPlanner {
+    /// SPEC §7.13 H2: "o exercício sai da sessão com o aviso 'sem opção em casa para X'". Sem
+    /// pronome depois do nome, que pode ser masculino ou feminino ("Cadeira extensora").
+    nonisolated static func noHomeOptionNotice(exerciseName: String) -> String {
+        "Sem opção em casa para \(exerciseName): fica fora desta sessão."
     }
 }
 

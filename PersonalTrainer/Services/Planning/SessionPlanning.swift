@@ -10,14 +10,17 @@ import TrainerCore
 protocol SessionPlanning: AnyObject {
     /// Plano do próximo dia do programa ativo (S1–S2, ou S5–S7 com o seletor por frequência
     /// ligado), com uma prescrição por exercício (P1–P12) e, em semana leve, as prescrições de
-    /// SPEC §7.5 com `isDeload = true`. `reason` diz por que este dia (CA4-5).
+    /// SPEC §7.5 com `isDeload = true`. `reason` diz por que este dia (CA4-5). Com o modo casa
+    /// ligado (RF-42), os exercícios são os equivalentes de casa de §7.13, com `isHomeMode = true`
+    /// e os avisos em `homeNotices`; o dia escolhido continua sendo o do programa.
     /// Devolve `nil` se não há programa ativo ou se o programa não tem dias.
     /// Não grava nada. Não trata S3: quem chama deve consultar `SessionCoordinating.activeSession`
     /// antes e oferecer "Retomar" se houver sessão em andamento.
     func nextPlan(now: Date) throws -> SessionPlan?
 
     /// Plano para um dia escolhido manualmente (S4), com `reason = .manual`. Em semana leve
-    /// (programada ou em andamento) as prescrições também são as de SPEC §7.5.
+    /// (programada ou em andamento) as prescrições também são as de SPEC §7.5, e o modo casa vale
+    /// como em `nextPlan`.
     /// `nil` se o dia não existe no programa ativo.
     func plan(forDayID dayID: UUID, now: Date) throws -> SessionPlan?
 
@@ -39,6 +42,9 @@ protocol SessionPlanning: AnyObject {
     func completedSessionSummaries() throws -> [SessionSummary]
     func finishedSessionSummaries() throws -> [SessionSummary]
     func reviewInput(now: Date, recovery: RecoveryContext) throws -> ReviewInput?
+
+    // v2.1 (docs/V21-CONTRACT.md B1) — padrão na extensão abaixo.
+    func programSubstitutes(for exerciseID: UUID, limit: Int) throws -> [ExerciseDefinition]
 }
 
 // MARK: - Operações do M2 (contrato; implementadas por `SessionPlanner` em T2.9/T2.14)
@@ -64,9 +70,22 @@ extension SessionPlanning {
         throw PlanningError.exerciseNotFound(newExerciseID)
     }
 
-    /// Candidatos a substituto de um exercício, do catálogo não arquivado (RF-34),
-    /// via `ExerciseSubstitution.candidates`. Vazio se o exercício não tem padrão de movimento.
+    /// Candidatos a substituto de um exercício na SESSÃO, do catálogo não arquivado (RF-34),
+    /// via `ExerciseSubstitution.candidates`. Com o modo casa ligado (RF-42), só os de casa, via
+    /// `HomeSubstitution.candidates`. Vazio se o exercício não tem padrão de movimento.
     func substitutes(for exerciseID: UUID, limit: Int) throws -> [ExerciseDefinition] { [] }
+}
+
+// MARK: - Operações da versão 2.1
+
+extension SessionPlanning {
+    /// Candidatos para trocar um exercício NO PROGRAMA (RF-34 na edição, sugestão de troca da
+    /// revisão, §7.8 R5): sempre a regra do RF-34 sobre o catálogo inteiro, ignorando o modo casa,
+    /// que só vale para a sessão (RF-42: "o programa não muda"). O padrão encaminha para
+    /// `substitutes(for:limit:)`, o comportamento de antes da versão 2.1.
+    func programSubstitutes(for exerciseID: UUID, limit: Int) throws -> [ExerciseDefinition] {
+        try substitutes(for: exerciseID, limit: limit)
+    }
 }
 
 // MARK: - Operações do M4 (semana leve, diálogo e revisão)

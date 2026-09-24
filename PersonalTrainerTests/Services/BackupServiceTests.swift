@@ -314,6 +314,38 @@ final class BackupServiceTests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<WorkoutSessionModel>()), 1)
     }
 
+    // MARK: - Seed depois da importação (SPEC RF-42)
+
+    func testRF42_importOfBackupWithOlderSeed_reappliesSeedAndBringsTheHomeExercises() throws {
+        let source = try makeContext()
+        _ = try insertFixture(into: source)
+        // O fixture grava `schemaSeedVersion` 2, como um backup feito na versão 2.0.
+        let data = try makeService(source).exportBackup(now: now)
+
+        let target = try makeContext()
+        let seedDate = now
+        let service = BackupService(
+            modelContext: target,
+            appVersion: "9.9.9 (99)",
+            timeZone: TimeZone(secondsFromGMT: 0) ?? .current,
+            reapplySeed: {
+                do {
+                    _ = try SeedLoader.loadIfNeeded(context: target, bundle: .main, now: seedDate)
+                } catch {
+                    XCTFail("O seed não foi reaplicado: \(error)")
+                }
+            }
+        )
+        let report = try service.importBackup(data)
+
+        XCTAssertEqual(report, BackupImportReport(exercises: 3, programs: 2, sessions: 2, sets: 4), "O relatório conta o que veio do arquivo")
+        let exercises = try target.fetch(FetchDescriptor<ExerciseModel>())
+        XCTAssertTrue(exercises.contains { $0.slug == "backpack-bent-over-row" }, "Exercício de casa do seed 3 já está no banco")
+        let settings = try XCTUnwrap(try target.fetch(FetchDescriptor<UserSettingsModel>()).first)
+        XCTAssertEqual(settings.schemaSeedVersion, SeedLoader.currentSeedVersion)
+        XCTAssertEqual(try target.fetchCount(FetchDescriptor<WorkoutSessionModel>()), 2, "O histórico fica como veio do backup")
+    }
+
     // MARK: - Retrato no disco (importação interrompida)
 
     func testRF18_successfulImport_leavesNoPendingRestoreFile() throws {

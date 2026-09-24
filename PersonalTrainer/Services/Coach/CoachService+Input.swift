@@ -274,7 +274,10 @@ extension CoachService {
     // MARK: - C6 Melhor marca
 
     /// Melhores marcas da última sessão concluída (`PersonalRecordDetector`), com os históricos
-    /// dos exercícios do programa ativo que o planejador já monta para a revisão.
+    /// dos exercícios do programa ativo que o planejador já monta para a revisão. Só os medidos em
+    /// repetições (SPEC RF-43): o 1RM estimado (Epley) sobre segundos ou passos não é força, e a
+    /// mensagem falaria em "repetições" de uma prancha ou de uma carregada, contra o "Ver evolução",
+    /// que nesses casos mostra só a carga.
     func personalRecords(sessions: [SessionSummary], reviewInput: ReviewInput?) -> [PersonalRecord] {
         guard let reviewInput else {
             return []
@@ -290,7 +293,7 @@ extension CoachService {
             return []
         }
         var histories: [UUID: [ExerciseHistoryEntry]] = [:]
-        for slot in reviewInput.exercises {
+        for slot in reviewInput.exercises where traits.traits(for: slot.exercise).measure == .reps {
             // O mesmo exercício em dois alvos traz o mesmo histórico; o detector descarta
             // entradas repetidas.
             histories[slot.exercise.id, default: []] += slot.history

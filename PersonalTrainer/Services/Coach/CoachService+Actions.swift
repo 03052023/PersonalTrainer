@@ -66,8 +66,8 @@ extension CoachService {
     /// - addSets/removeSets: `updateTarget` com `proposedSets` (absoluto: aplicar duas vezes não
     ///   soma), mantendo faixa, RIR, descanso e carga inicial;
     /// - changeRepRange: `updateTarget` com a faixa proposta;
-    /// - swapExercise: `replaceExercise` pelo primeiro de `SessionPlanning.substitutes` que ainda
-    ///   não está no dia (`swapReplacements`);
+    /// - swapExercise: `replaceExercise` pelo primeiro de `SessionPlanning.programSubstitutes`
+    ///   que ainda não está no dia (`swapReplacements`);
     /// - switchProgram: `activate` do próximo programa com o mesmo objetivo (as cargas ficam, o
     ///   histórico é por exercício); sem outro, a pessoa escolhe na aba Programa;
     /// - deload: `SessionPlanning.requestDeload`;
@@ -165,10 +165,14 @@ extension CoachService {
     }
 
     /// O substituto de cada alvo de uma troca (RF-34): o primeiro candidato de
-    /// `SessionPlanning.substitutes` que não está no dia do alvo nem foi escolhido para outro
-    /// alvo do mesmo dia, como no editor manual; assim o dia não fica com o mesmo exercício duas
-    /// vezes. Lança `suggestionOutdated` se um alvo sumiu do programa ativo e `noSubstitute` se
-    /// não sobra candidato.
+    /// `SessionPlanning.programSubstitutes` que não está no dia do alvo nem foi escolhido para
+    /// outro alvo do mesmo dia, como no editor manual; assim o dia não fica com o mesmo exercício
+    /// duas vezes. Lança `suggestionOutdated` se um alvo sumiu do programa ativo e `noSubstitute`
+    /// se não sobra candidato.
+    ///
+    /// `programSubstitutes`, e não `substitutes`: a troca muda o programa, e o modo casa só vale
+    /// para a sessão (SPEC RF-42: "o programa não muda"). Com ele ligado, `substitutes` daria só
+    /// exercícios de casa, que ficariam no programa depois de desligar a chave.
     func swapReplacements(for targetIDs: [UUID]) throws -> [(targetID: UUID, substitute: ExerciseDefinition)] {
         let days = try programs.allPrograms()
             .filter { $0.isActive }
@@ -184,7 +188,7 @@ extension CoachService {
             var taken = takenByDay[day.id] ?? Set(day.exercises.map { $0.exerciseID })
             // O próprio exercício já sai da lista; com um candidato a mais do que os exercícios
             // do dia, sobra ao menos um fora dele quando o catálogo tem.
-            let candidates = try planner.substitutes(for: target.exerciseID, limit: taken.count + 1)
+            let candidates = try planner.programSubstitutes(for: target.exerciseID, limit: taken.count + 1)
             guard let substitute = candidates.first(where: { !taken.contains($0.id) }) else {
                 throw CoachServiceError.noSubstitute
             }
