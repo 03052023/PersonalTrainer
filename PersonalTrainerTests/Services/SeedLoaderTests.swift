@@ -15,7 +15,8 @@ import XCTest
 /// é lido aqui — exatamente como o app fará.
 ///
 /// As contagens exatas vêm do próprio seed decodificado; o contrato do M2 fixa só os mínimos
-/// (≥ 70 exercícios, 7 programas, 1 ativo, 5 exercícios por dia no ativo).
+/// (≥ 70 exercícios, 8 programas — decisão 8, 2026-09-23: Completo corpo todo com id novo ao
+/// lado do A/B/C legado —, 1 ativo, 5 exercícios por dia no ativo).
 @MainActor
 final class SeedLoaderTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
@@ -31,7 +32,7 @@ final class SeedLoaderTests: XCTestCase {
 
         XCTAssertEqual(SeedLoader.currentSeedVersion, 2)
         XCTAssertGreaterThanOrEqual(seed.catalog.exercises.count, 70)
-        XCTAssertEqual(seed.programs.programs.count, 7)
+        XCTAssertEqual(seed.programs.programs.count, 8)
         XCTAssertEqual(seed.programs.programs.filter(\.isActive).count, 1)
         XCTAssertNoThrow(try SeedValidator.validate(seed))
     }

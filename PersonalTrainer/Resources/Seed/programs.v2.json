@@ -2,11 +2,206 @@
   "version": 2,
   "programs": [
     {
-      "id": "26262EE7-89B0-4048-93F9-1720FD9CBE40",
+      "id": "14E3FAC0-8424-4360-AF9D-20D18DCB0E45",
       "name": "Hipertrofia — Completo",
       "isActive": true,
       "goal": "hypertrophy",
-      "summary": "Para quem quer ganhar massa muscular no corpo todo de forma equilibrada, em três dias: empurrar, inferior e puxar.",
+      "summary": "Para quem quer ganhar massa muscular no corpo todo de forma equilibrada, em três dias que misturam superior e inferior, com cada grande grupo trabalhado duas vezes por semana.",
+      "days": [
+        {
+          "id": "FA96F171-D35F-4946-AD86-581B66BD55F3",
+          "name": "Dia A — Corpo todo",
+          "order": 0,
+          "exercises": [
+            {
+              "id": "BD89988E-77E4-4F8F-B3C2-DDDA112548DF",
+              "exerciseID": "44979BE9-E276-42B9-AC77-76C831062888",
+              "order": 0,
+              "sets": 4,
+              "repMin": 6,
+              "repMax": 10,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            },
+            {
+              "id": "E2F7254B-A534-40F3-92F1-7CA786EE62CC",
+              "exerciseID": "285A095F-8121-40DA-97C2-93503C480183",
+              "order": 1,
+              "sets": 4,
+              "repMin": 6,
+              "repMax": 10,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            },
+            {
+              "id": "234AE68A-22E0-428E-82D6-C2E62BAA421C",
+              "exerciseID": "A6C1ABFC-0F95-409B-A5B4-A67AB0A17B00",
+              "order": 2,
+              "sets": 4,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            },
+            {
+              "id": "90907E7E-1AB1-4A1E-BA84-A479B3CD3B42",
+              "exerciseID": "FD32CC7D-93CC-4A77-B683-E5810E6586A8",
+              "order": 3,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            },
+            {
+              "id": "E4FBE0B3-D7A9-4B6D-AB20-D432F85ED386",
+              "exerciseID": "84822646-546B-4E54-9673-A868A06AA70D",
+              "order": 4,
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 15,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            }
+          ]
+        },
+        {
+          "id": "CDBC1A70-B6B8-405C-9B4C-627D83A5ACCD",
+          "name": "Dia B — Corpo todo",
+          "order": 1,
+          "exercises": [
+            {
+              "id": "41DBB7E0-2499-45D2-A827-AD8E3D4221D5",
+              "exerciseID": "9D9414F9-C707-4A0A-87BD-25EADF571924",
+              "order": 0,
+              "sets": 4,
+              "repMin": 6,
+              "repMax": 10,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            },
+            {
+              "id": "93976E5F-E777-41D3-AD3B-1CE2680BFDB5",
+              "exerciseID": "79DD67B9-B416-4492-9080-ECF151567891",
+              "order": 1,
+              "sets": 4,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            },
+            {
+              "id": "3AEA959A-ACAD-4285-BD38-371DDAC6ED3D",
+              "exerciseID": "F334C89D-BA40-42DB-971F-5582A84259B5",
+              "order": 2,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            },
+            {
+              "id": "BFA11D3E-8595-451F-9BD4-190026CB6F81",
+              "exerciseID": "672FE619-A847-46B6-A25A-D25744FC607F",
+              "order": 3,
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 15,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            },
+            {
+              "id": "36690EA0-116F-43BA-83DD-72180553BAF4",
+              "exerciseID": "5086416C-CD87-467A-B732-1A76EEC63FCA",
+              "order": 4,
+              "sets": 4,
+              "repMin": 20,
+              "repMax": 40,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            }
+          ]
+        },
+        {
+          "id": "C924FA28-5DCA-4DA1-B9B4-EF6D0D1EB6BF",
+          "name": "Dia C — Corpo todo",
+          "order": 2,
+          "exercises": [
+            {
+              "id": "15B05A0C-F5B7-4711-B280-33E9933D88F0",
+              "exerciseID": "BE906DB6-73DC-4ACD-8AE6-5E8CE8DD9910",
+              "order": 0,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            },
+            {
+              "id": "F9494330-C884-401B-B29C-D9F8C4A3BDD7",
+              "exerciseID": "DA046A61-1335-48A4-A255-7E3940965DD2",
+              "order": 1,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            },
+            {
+              "id": "0CBA62C3-980E-4A51-9526-BA91D0108259",
+              "exerciseID": "D226D440-66D5-4172-9C82-462DBE23132E",
+              "order": 2,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            },
+            {
+              "id": "2B98B6C5-4E2C-45DF-8729-B8BB30AEEEE0",
+              "exerciseID": "C6C9FDF2-F4D2-40BF-8790-80D8B6C21DF3",
+              "order": 3,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            },
+            {
+              "id": "BC0083EF-6555-4AD3-9694-30F91CD21597",
+              "exerciseID": "D41B575D-CE48-4ED6-9A79-6103D648370D",
+              "order": 4,
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 15,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "26262EE7-89B0-4048-93F9-1720FD9CBE40",
+      "name": "Hipertrofia — Empurrar/Inferior/Puxar",
+      "isActive": false,
+      "goal": "hypertrophy",
+      "summary": "Formato anterior por divisão (empurrar, inferior, puxar), em três dias. Mantido para quem já treina nele; instalações novas usam o Completo (corpo todo).",
       "days": [
         {
           "id": "72FC489D-1D0A-444D-91E6-A1C161E537FB",

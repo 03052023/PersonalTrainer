@@ -288,8 +288,9 @@ final class FullLoopTests: XCTestCase {
         let container = try ModelContainerFactory.make(.inMemory)
         let context = container.mainContext
         let report = try SeedLoader.loadIfNeeded(context: context, bundle: .main, now: clock)
-        // Seed v2: 7 programas (M2-CONTRACT §2), só um ativo.
-        XCTAssertEqual(report.insertedPrograms, 7)
+        // Seed v2: 8 programas (decisão 8, 2026-09-23: Completo corpo todo com id novo ao
+        // lado do A/B/C legado, docs/V2-FINAL-CONTRACT.md §1.3), só um ativo.
+        XCTAssertEqual(report.insertedPrograms, 8)
         XCTAssertFalse(report.skipped)
         let coordinator = SessionCoordinator(modelContext: context, appliedEvents: AppliedEventStore.inMemory())
         let planner = SessionPlanner(modelContext: context, coordinator: coordinator)

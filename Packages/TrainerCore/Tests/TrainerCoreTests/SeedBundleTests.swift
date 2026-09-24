@@ -4,6 +4,14 @@ import Testing
 
 // MARK: - Real seed files (PersonalTrainer/Resources/Seed), catalog
 
+// SPEC 7.9 (decisão 8, 2026-09-23): o Completo de hipertrofia virou corpo todo (cada grande
+// grupo 2×/semana), substituindo o antigo A/B/C empurrar/inferior/puxar. `SeedLoader` nunca
+// sobrescreve um programa já instalado (upsert por uuid ausente), então quem já tem o A/B/C
+// antigo no store (id `26262EE7…`, o usuário real da M1) continua com ele intacto; o seed só
+// muda o que instalações NOVAS recebem. Por isso o Completo corpo todo ganha um id NOVO e o
+// A/B/C antigo continua no arquivo (renomeado e inativo — renomear é seguro porque o loader
+// nunca reescreve a cópia já instalada do usuário).
+
 @Test("Seed arquivos reais v2 decodificam e passam no SeedValidator")
 func seedFilesDecodeAndValidate() throws {
     let bundle = try loadSeedBundle()
@@ -162,11 +170,11 @@ func seedCatalogHasGoalSpecificExercises() throws {
 
 // MARK: - Real seed files, programs
 
-@Test("S1 arquivo de programas tem 7 programas, só o Completo ativo, todos com objetivo e resumo")
-func seedProgramFileHasSevenProgramsWithOneActive() throws {
+@Test("S1 arquivo de programas tem 8 programas, só o Completo ativo, todos com objetivo e resumo")
+func seedProgramFileHasEightProgramsWithOneActive() throws {
     let programs = try loadSeedBundle().programs.programs
 
-    #expect(programs.count == 7)
+    #expect(programs.count == 8)
     let active = programs.filter(\.isActive)
     #expect(active.count == 1)
     #expect(active.first?.id == UUID(uuidString: completoProgramID))
@@ -230,23 +238,26 @@ func seedProgramFileIdentifiersAreUnique() throws {
     #expect(Set(ids).count == ids.count)
 }
 
-@Test("S2 Completo mantém o id, os dias e os alvos do programa padrão v1")
-func seedCompletoKeepsV1Identifiers() throws {
-    let program = try completoProgram()
+@Test("S2 o A/B/C legado (id antigo do Completo) mantém o id, os dias e os alvos do programa padrão v1, agora inativo")
+func seedLegacyProgramKeepsV1Identifiers() throws {
+    let program = try legacyProgram()
 
-    #expect(program.name == completoName)
+    #expect(program.name == legacyPushLegsPullName)
     #expect(program.goal == .hypertrophy)
-    #expect(program.isActive)
-    #expect(program.days.count == completoV1Days.count)
-    for (day, expected) in zip(program.days, completoV1Days) {
+    // SeedLoader nunca sobrescreve um programa já instalado (upsert por uuid ausente): o
+    // usuário real da M1 continua com o A/B/C ativo no store dele mesmo com isActive=false
+    // aqui. Esta flag só decide o que uma instalação NOVA recebe (SPEC S1: um único ativo).
+    #expect(!program.isActive)
+    #expect(program.days.count == legacyProgramV1Days.count)
+    for (day, expected) in zip(program.days, legacyProgramV1Days) {
         #expect(day.id == UUID(uuidString: expected.day), "\(day.name)")
         #expect(day.exercises.map(\.id) == expected.targets.compactMap(UUID.init(uuidString:)), "\(day.name)")
     }
 }
 
-@Test("SPEC 7.2 Completo usa S = 3, T = 2, startingLoad nulo e faixas/descansos previstos")
-func seedCompletoUsesSpecificationParameters() throws {
-    let program = try completoProgram()
+@Test("SPEC 7.2 o A/B/C legado usa S = 3, T = 2, startingLoad nulo e faixas/descansos previstos")
+func seedLegacyProgramUsesSpecificationParameters() throws {
+    let program = try legacyProgram()
     // 6–10 for heavy compounds, 8–12 default, 12–15 for calves/core (TASKS.md T0.6).
     let allowedRepRanges: Set<[Int]> = [[6, 10], [8, 12], [12, 15]]
 
@@ -262,6 +273,30 @@ func seedCompletoUsesSpecificationParameters() throws {
     }
 }
 
+@Test("SPEC 7.9 decisão 8: Completo corpo todo usa 4 séries nos compostos e 3 nos isolados, RIR 2, startingLoad nulo e descanso 150/90 s")
+func seedCompletoUsesFullBodySpecificationParameters() throws {
+    let bundle = try loadSeedBundle()
+    let program = try completoProgram(in: bundle)
+    let exercisesByID = Dictionary(
+        bundle.catalog.exercises.map { ($0.id, $0) },
+        uniquingKeysWith: { first, _ in first }
+    )
+
+    for day in program.days {
+        for target in day.exercises {
+            let label = "\(day.name) ordem \(target.order)"
+            let exercise = try #require(exercisesByID[target.exerciseID], "\(label)")
+            let pattern = try #require(exercise.movementPattern, "\(label)")
+            let isCompound = compoundPatterns.contains(pattern)
+
+            #expect(target.targetRIR == 2, "\(label)")
+            #expect(target.startingLoad == nil, "\(label)")
+            #expect(target.sets == (isCompound ? 4 : 3), "\(label): \(pattern.rawValue)")
+            #expect(target.restSeconds == (isCompound ? 150 : 90), "\(label): \(pattern.rawValue)")
+        }
+    }
+}
+
 @Test("SPEC 7.4 Completo treina os 10 grupos musculares como primário")
 func seedCompletoCoversAllMuscleGroups() throws {
     let bundle = try loadSeedBundle()
@@ -271,29 +306,44 @@ func seedCompletoCoversAllMuscleGroups() throws {
     #expect(trained == Set(MuscleGroup.allCases))
 }
 
-@Test("Seed dias do Completo cobrem os grupos anunciados no nome")
-func seedCompletoDaysMatchTheirSplit() throws {
+@Test("SPEC 7.9 decisão 8: cada dia do Completo corpo todo mistura superior e inferior")
+func seedCompletoDaysMixUpperAndLowerBody() throws {
     let bundle = try loadSeedBundle()
     let program = try completoProgram(in: bundle)
-    let expectedBySplit: [Int: Set<MuscleGroup>] = [
-        0: [.chest, .shoulders, .triceps],
-        1: [.quads, .hamstrings, .glutes, .calves],
-        2: [.back, .biceps, .core],
-    ]
+    let upperBody: Set<MuscleGroup> = [.chest, .back, .shoulders, .biceps, .triceps]
+    let lowerBody: Set<MuscleGroup> = [.quads, .hamstrings, .glutes, .calves]
 
     for day in program.days {
-        let expected = try #require(expectedBySplit[day.order], "dia inesperado: \(day.name)")
         let trained = try primaryMuscles(of: day, catalog: bundle.catalog)
-        #expect(expected.isSubset(of: trained), "\(day.name) treina \(trained)")
+        #expect(!trained.isDisjoint(with: upperBody), "\(day.name) sem superior: \(trained)")
+        #expect(!trained.isDisjoint(with: lowerBody), "\(day.name) sem inferior: \(trained)")
     }
 }
 
-@Test("RF-35 hipertrofia tem os formatos completo, foco inferior e foco superior, todos com os 10 grupos")
+@Test("SPEC 7.9 decisão 8: no Completo corpo todo, cada grande grupo é treinado em pelo menos 2 dos 3 dias")
+func seedCompletoTrainsEveryGroupTwiceAWeek() throws {
+    let bundle = try loadSeedBundle()
+    let program = try completoProgram(in: bundle)
+    #expect(program.days.count == 3)
+
+    var daysByGroup: [MuscleGroup: Int] = [:]
+    for day in program.days {
+        for group in try primaryMuscles(of: day, catalog: bundle.catalog) {
+            daysByGroup[group, default: 0] += 1
+        }
+    }
+
+    for group in MuscleGroup.allCases {
+        #expect(daysByGroup[group, default: 0] >= 2, "\(group.rawValue): \(daysByGroup[group, default: 0]) dias")
+    }
+}
+
+@Test("RF-35 hipertrofia tem o Completo corpo todo, o A/B/C legado, foco inferior e foco superior, todos com os 10 grupos")
 func seedHypertrophyFormatsCoverAllGroups() throws {
     let bundle = try loadSeedBundle()
     let hypertrophy = bundle.programs.programs.filter { $0.goal == .hypertrophy }
 
-    #expect(Set(hypertrophy.map(\.name)) == [completoName, lowerFocusName, upperFocusName])
+    #expect(Set(hypertrophy.map(\.name)) == [completoName, legacyPushLegsPullName, lowerFocusName, upperFocusName])
     for program in hypertrophy {
         let trained = try primaryMuscles(of: program, catalog: bundle.catalog)
         #expect(trained == Set(MuscleGroup.allCases), "\(program.name) treina \(trained)")
@@ -834,8 +884,13 @@ func validatorRejectsIdentifiersRepeatedAcrossPrograms() {
 private let catalogFileName = "exercises.v2.json"
 private let programFileName = "programs.v2.json"
 
-private let completoProgramID = "26262EE7-89B0-4048-93F9-1720FD9CBE40"
+private let completoProgramID = "14E3FAC0-8424-4360-AF9D-20D18DCB0E45"
 private let completoName = "Hipertrofia — Completo"
+/// Id do Completo até a M1 (A empurrar / B inferior / C puxar, decisão 8 original). Mantido
+/// no seed, inativo e renomeado, porque `SeedLoader` nunca sobrescreve o programa que o
+/// usuário real já tem instalado sob este id (ARCHITECTURE §11, docs/V2-FINAL-CONTRACT.md §1.3).
+private let legacyPushLegsPullProgramID = "26262EE7-89B0-4048-93F9-1720FD9CBE40"
+private let legacyPushLegsPullName = "Hipertrofia — Empurrar/Inferior/Puxar"
 private let lowerFocusName = "Hipertrofia — Foco inferior"
 private let upperFocusName = "Hipertrofia — Foco superior"
 
@@ -890,8 +945,9 @@ private let v1CatalogEntries: [(id: String, slug: String, name: String)] = [
 ]
 
 /// Day and target ids of the M1 (version 1) default program, in order. `SessionSummary.programDayID`
-/// and the rotation (SPEC S2) resolve days by id, so the Completo program keeps them.
-private let completoV1Days: [(day: String, targets: [String])] = [
+/// and the rotation (SPEC S2) resolve days by id, so the legacy A/B/C program (old id of
+/// "Completo", now renamed and inactive — see `legacyPushLegsPullProgramID`) keeps them.
+private let legacyProgramV1Days: [(day: String, targets: [String])] = [
     ("72FC489D-1D0A-444D-91E6-A1C161E537FB", [
         "29E8A320-A3CC-4B24-B76F-15D07D47C0A9", "CF34FDDD-96FE-4263-BEE3-D1970C270190",
         "4B71B8AE-A1EC-4F02-BA69-9723C798F44B", "43121DAC-CB10-482E-950E-CB364D72010A",
@@ -931,7 +987,9 @@ private struct GoalParameterRule: Sendable {
 }
 
 /// SPEC 7.9 table (combat has components instead of a single row). Sets: hypertrophy
-/// maintenance days use 2 and focus days 4 (RF-35); longevity uses 2 (TASKS T2.16).
+/// ranges from 2 (foco maintenance days, RF-35) to 4 (foco focus days, RF-35; Completo corpo
+/// todo compostos, decisão 8 — `seedCompletoUsesFullBodySpecificationParameters` pins the
+/// exact 4/3 split); longevity uses 2 (TASKS T2.16).
 private let goalParameterRules: [ProgramGoal: GoalParameterRule] = [
     .hypertrophy: GoalParameterRule(
         compoundReps: 6...12, isolationReps: 8...15, repsInReserve: 1...3, restSeconds: 90...180, sets: 2...4
@@ -979,6 +1037,12 @@ private func completoProgram(in bundle: SeedBundle? = nil) throws -> ProgramTemp
     let programs = try (bundle ?? loadSeedBundle()).programs.programs
     let id = try #require(UUID(uuidString: completoProgramID))
     return try #require(programs.first { $0.id == id }, "programa Completo ausente")
+}
+
+private func legacyProgram(in bundle: SeedBundle? = nil) throws -> ProgramTemplate {
+    let programs = try (bundle ?? loadSeedBundle()).programs.programs
+    let id = try #require(UUID(uuidString: legacyPushLegsPullProgramID))
+    return try #require(programs.first { $0.id == id }, "programa legado (A/B/C) ausente")
 }
 
 private func requireProgram(named name: String, in bundle: SeedBundle) throws -> ProgramTemplate {
