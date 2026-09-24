@@ -86,7 +86,9 @@ func allSuggestionsOrderIdsTopics() {
         DailyRecoverySample(day: day(1), hrvSDNN: 40, sleepHours: 5.5),
     ] + (7..<14).map { DailyRecoverySample(day: day($0), hrvSDNN: 70) }
     let steps = (1...7).map { DailyStepCount(day: day($0), steps: 4_000) }
-    let list = suggestions(recovery: recovery, vo2Max: [], steps: steps)
+    // Estimativa desatualizada mas dentro da janela de leitura, para a sugestão de VO2max aparecer
+    // junto com as outras (CA5-4 cobre a ausência total de estimativa em separado).
+    let list = suggestions(recovery: recovery, vo2Max: [Vo2MaxSample(date: day(65), value: 42)], steps: steps)
 
     #expect(list.map(\.kind) == HealthSuggestionKind.allCases)
     #expect(list.map(\.id) == [
@@ -103,7 +105,7 @@ func noSuggestionsWhenEverythingIsFine() {
     #expect(suggestions(workouts: weekDone).isEmpty)
 }
 
-// MARK: - CA5-3 (A4): usar o Watch à noite
+// MARK: - CA5-3 (A4): usar o relógio à noite
 
 // Casos com tipo explícito (evita o limite de inferência do compilador dentro do macro @Test).
 private let nightDataCases: [(Int, Bool)] = [(0, true), (1, true), (2, true), (3, false), (7, false)]
@@ -112,7 +114,7 @@ private let recentLowerBodyHours: [Double] = [0.0, 0.5, 2.0, 5.9, 6.0, 12.0, 17.
 private let noRecentLowerBodyHours: [Double] = [24.0, 25.0, 49.0]
 
 @Test(
-    "CA5-3 A4 sem HRV/sono em 5 ou mais dos últimos 7 dias → sugestão 'Use o Apple Watch à noite'",
+    "CA5-3 A4 sem HRV/sono em 5 ou mais dos últimos 7 dias → sugestão 'Use o relógio à noite'",
     arguments: nightDataCases
 )
 func ca53WearWatchAtNight(nightsWithData: Int, expectsSuggestion: Bool) {
@@ -125,8 +127,8 @@ func ca53WearWatchAtNight(nightsWithData: Int, expectsSuggestion: Bool) {
     let found = suggestion(.wearWatchAtNight, in: suggestions(recovery: recovery, workouts: weekDone))
     #expect((found != nil) == expectsSuggestion)
     if let found {
-        #expect(found.title == "Use o Apple Watch à noite")
-        #expect(found.detail.contains("Use o Apple Watch para dormir: ele mede HRV, FC de repouso e sono"))
+        #expect(found.title == "Use o relógio à noite")
+        #expect(found.detail.contains("Use o relógio para dormir: ele mede HRV, FC de repouso e sono"))
         #expect(found.referenceTopic == "topic.hrv")
     }
 }
@@ -151,27 +153,51 @@ func wearWatchTextHasNumbers() {
 
 // MARK: - CA5-4 (A3): atualizar o VO2max
 
-@Test("CA5-4 A3 sem nenhuma estimativa de VO2max → sugestão de caminhada/corrida ao ar livre")
-func ca54NoVo2Max() throws {
-    let found = try #require(suggestion(.updateVo2Max, in: suggestions(vo2Max: [], workouts: weekDone)))
-    #expect(found.title == "Atualize seu VO2max")
-    #expect(found.detail.contains("ainda não tem nenhuma estimativa de VO2max"))
-    #expect(found.detail.contains("20 min de caminhada rápida ou corrida ao ar livre"))
-    #expect(found.referenceTopic == "topic.vo2max")
+@Test("CA5-4 A3 sem nenhuma estimativa de VO2max (relógio que nunca enviou ao Saúde) → sem sugestão")
+func ca54NoVo2Max() {
+    // Onda A2: relógio sem nenhuma estimativa na janela de leitura nunca recebe a sugestão, porque
+    // não há como saber se ele algum dia enviaria VO2max ao Saúde.
+    #expect(suggestion(.updateVo2Max, in: suggestions(vo2Max: [], workouts: weekDone)) == nil)
 }
 
 @Test("CA5-4 A3 última estimativa com mais de 60 dias → sugestão com a idade da estimativa")
 func ca54StaleVo2Max() throws {
     let stale = [Vo2MaxSample(date: day(61), value: 42.5)]
     let found = try #require(suggestion(.updateVo2Max, in: suggestions(vo2Max: stale, workouts: weekDone)))
+    #expect(found.title == "Atualize seu VO2max")
     #expect(found.detail.hasPrefix("Sua última estimativa de VO2max (42,5 mL/kg/min) tem 61 dias."))
     #expect(found.detail.contains("20 min de caminhada rápida ou corrida ao ar livre"))
+    #expect(found.detail.contains("com o seu relógio"))
+    #expect(found.referenceTopic == "topic.vo2max")
 }
 
 @Test("CA5-4 A3 estimativa nos últimos 60 dias → sem sugestão")
 func ca54RecentVo2Max() {
     #expect(suggestion(.updateVo2Max, in: suggestions(vo2Max: [Vo2MaxSample(date: day(59), value: 40)])) == nil)
     #expect(suggestion(.updateVo2Max, in: suggestions(vo2Max: [Vo2MaxSample(date: day(0), value: 40)])) == nil)
+}
+
+@Test("CA5-4 A3 (onda A2) só sugere com estimativa na janela de leitura de 180 dias")
+func ca54ReadingWindowGatesSuggestion() {
+    // Estimativa desatualizada mas ainda dentro dos 180 dias de leitura: sugere. (170, não 180, para
+    // não depender da hora exata do corte; a fronteira exata é `ca54ReadingWindowBoundary`, abaixo.)
+    #expect(suggestion(.updateVo2Max, in: suggestions(vo2Max: [Vo2MaxSample(date: day(170), value: 40)])) != nil)
+    // Fora da janela de leitura (relógio provavelmente não envia VO2max ao Saúde): nunca sugere.
+    #expect(suggestion(.updateVo2Max, in: suggestions(vo2Max: [Vo2MaxSample(date: day(190), value: 40)])) == nil)
+    #expect(suggestion(.updateVo2Max, in: suggestions(vo2Max: [Vo2MaxSample(date: day(365), value: 40)])) == nil)
+}
+
+@Test("CA5-4 A3 (onda A2) fronteira exata: 180 dias atrás ainda entra na janela; 1 min a mais, não")
+func ca54ReadingWindowBoundary() throws {
+    // "Agora" = 2024-01-03 12:00 UTC (`wednesdayNoon`); 180 dias antes = 2023-07-07 12:00.
+    let atBoundary = try #require(
+        suggestion(.updateVo2Max, in: suggestions(vo2Max: [Vo2MaxSample(date: at(2023, 7, 7, 12), value: 40)]))
+    )
+    #expect(atBoundary.detail.hasPrefix("Sua última estimativa de VO2max (40 mL/kg/min)"))
+    #expect(suggestion(
+        .updateVo2Max,
+        in: suggestions(vo2Max: [Vo2MaxSample(date: at(2023, 7, 7, 11, 59), value: 40)])
+    ) == nil)
 }
 
 // MARK: - A2: déficit aeróbico

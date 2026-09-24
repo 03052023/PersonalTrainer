@@ -165,7 +165,9 @@ func emptyInput() {
     #expect(report.recovery.nightsWithData7 == 0)
     #expect(report.recovery.alerts.isEmpty)
     #expect(report.steps.average7 == nil)
-    #expect(report.suggestions.map(\.kind) == [.wearWatchAtNight, .updateVo2Max, .aerobicDeficit])
+    // Onda A2: sem nenhuma estimativa de VO2max na janela de leitura (relógio que nunca enviou ao
+    // Saúde), a sugestão de atualizar nunca aparece — mesmo com entrada totalmente vazia.
+    #expect(report.suggestions.map(\.kind) == [.wearWatchAtNight, .aerobicDeficit])
 }
 
 @Test("Relatório é Codable sem perda (o app pode guardar o último relatório)")
