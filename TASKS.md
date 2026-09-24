@@ -303,15 +303,15 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 |----|-------------|
 | CA4-1 | Com Peito 2/2 e Pernas 0/2 na semana, seletor escolhe o dia de pernas mesmo fora da ordem de rotação (teste S5–S7). |
 | CA4-2 | Grupo treinado há 30 h exclui o dia candidato; se todos excluídos, cai na rotação (teste S6). |
-| CA4-3 | ≥ 50 % dos exercícios com `decrease` → próxima passagem da rotação é deload com séries ⌈0,6·S⌉, carga 0,85·L, RIR 4; a passagem seguinte volta às cargas pré-deload (teste). |
-| CA4-4 | Após N semanas configuradas, programa ativo muda para o próximo da lista e as cargas por exercício são preservadas (teste de integração). |
+| CA4-3 | ≥ 50 % dos exercícios com `decrease` → próxima passagem da rotação é deload com séries ⌈0,6·S⌉, carga arredondar↓(0,85·C, inc) sobre a carga C da prescrição normal, RIR 4; a passagem seguinte volta às cargas pré-deload, e as mesmas reduções não disparam um novo deload (rearme, §7.5) (teste). |
+| CA4-4 | Após o mesociclo (padrão 8 semanas), a revisão sugere trocar para o próximo programa (§7.11 C2, sempre opcional); ao aceitar, o programa ativo muda e as cargas por exercício são preservadas, porque o histórico é por exercício (teste de integração). Nada troca sozinho (§7.8). |
 | CA4-5 | Home exibe um aviso de uma linha explicando a escolha ("Pernas: abaixo da meta semanal" / "Semana de deload"). |
 
 ### Tarefas M4
 
 - [~] **T4.1 FrequencyAwareSelector** — Escopo: `Engine/FrequencyAwareSelector.swift` + testes. Depende de: T0.4, T2.3. Sem Mac.
 - [~] **T4.2 DeloadPolicy** — Escopo: `Engine/DeloadPolicy.swift`, ajuste em `DoubleProgressionRule` para ignorar entradas `wasDeload` + testes. Depende de: T0.3. Sem Mac.
-- [~] **T4.3 ProgramRotationPolicy** — Escopo: `Engine/ProgramRotationPolicy.swift` + testes. Depende de: T0.2. Sem Mac.
+- [x] **T4.3 Troca de programa por mesociclo** — Entregue como sugestão opcional `switchProgram` em `Review/ProgramReviewer` (§7.11 C2), não como `Engine/ProgramRotationPolicy.swift`: a troca nunca é automática (§7.8). Aplicar a sugestão fica na T4.4. Verde no CI (v2/core-integration).
 - [~] **T4.5 Revisão periódica em TrainerCore (SPEC §7.8 R1–R5, R7)** — Escopo: `Sources/TrainerCore/Review/EstimatedOneRepMax.swift`, `Review/ReviewReport.swift`, `Review/ProgramSuggestion.swift`, `Review/ProgramReviewer.swift` + testes de tabela por regra. Entradas: histórico por exercício, `SessionSummary`s, programa, objetivo, `now`. Saída: `ReviewReport` com sinais e `[ProgramSuggestion]` (deload, volume ±, troca de exercício/faixa, frequência), cada uma com regra, motivo e números. `Review/` é módulo separado de `Engine/` (que continua sem qualquer referência a FC, R2). Sem Mac.
 - [~] **T4.7 [CI] Tela de sugestões na abertura** — Escopo: `Features/Review/*`, `Services/Review/ReviewScheduler.swift` (a cada `reviewIntervalWeeks`, ou gatilho de deload), aplicação de sugestões aceitas via `ProgramRepository`. Recusar mantém o programa; cada decisão fica registrada. Depende de: T4.5, T2.6. A modulação por recuperação (R6) chega em T5.4.
 - [~] **T4.4 [CI] Integrar políticas no SessionPlanner + configurações** — Escopo: `SessionPlanner.swift`, `Features/Settings/ProgramPolicyView.swift`, `Features/Home/PlannerReasonBanner.swift`. Depende de: T4.1–T4.3. Aceite: CA4-5.
@@ -332,7 +332,7 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 | CA5-2 | Card "Saúde" na Home mostra "Aeróbico: X/150 min" da semana corrente e o último VO2max com a faixa por idade/sexo. |
 | CA5-3 | Sem HRV/sono em 5 dos últimos 7 dias → sugestão "Use o Apple Watch à noite"; com dados → sem sugestão (teste A4). |
 | CA5-4 | Sem `vo2Max` há 60 dias → sugestão de caminhada/corrida ao ar livre (teste A3). |
-| CA5-5 | Sugestão de encaixe nunca cai na véspera ou no dia de um treino de inferior (teste A5). |
+| CA5-5 | Sugestão de aeróbico vigoroso nunca cai nas 24 h antes de um dia de inferior; no mesmo dia de um treino de inferior, só modalidade de baixo impacto com ≥ 6 h de intervalo (teste A5). |
 | CA5-6 | Nenhuma referência a FC em `Packages/TrainerCore/Sources/TrainerCore/Engine` (`check-boundaries.sh` continua verde). |
 
 - [~] **T5.1 Regras de saúde em TrainerCore (A1–A6)** — Escopo: `Sources/TrainerCore/Health/HeartRateZones.swift` (FCmáx Tanaka, limiares ACSM, zonas), `Health/AerobicWeek.swift` (minutos por intensidade a partir de intervalos de FC já agregados por treino), `Health/Vo2MaxTrend.swift` (tendência + tabela de referência por idade/sexo), `Health/RecoveryTrend.swift` (médias 7 vs 28 dias, alertas), `Health/HealthSuggestions.swift` (A3, A4, A5 com o calendário do programa) + testes de tabela. Entradas são structs simples (`AerobicWorkoutSummary`, `DailyRecoverySample`); nada de HealthKit aqui. Sem Mac.

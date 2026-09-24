@@ -190,13 +190,21 @@ Parâmetros padrão: S = 3, faixa 8–12, T = 2, descanso 120 s. Séries retas (
 - Um grupo conta **1** em uma sessão concluída se houve ≥ 1 exercício com esse grupo como **primário** e ≥ 1 série de trabalho registrada **nesse exercício**. Secundário não conta (v1). (Na implementação, `SessionSummary.primaryMusclesTrained` já é construído com essa regra; o relatório semanal conta cada sessão uma vez.)
 - A semana é o intervalo semiaberto [segunda 00:00, próxima segunda 00:00) no fuso do usuário; uma sessão pertence à semana de `startedAt`.
 - Meta padrão: 2×/semana por grupo; configurável por grupo.
+- Não há grupo "pescoço": exercícios de pescoço (objetivo Combate) usam costas (trapézio) como grupo primário e contam para costas.
 - v1 (M2) só **exibe** realizado/meta. v2 (M4) usa isso na seleção (S5–S7).
 
 ### 7.5 Deload (M4)
 
-Gatilhos (qualquer um): (a) ≥ 50 % dos exercícios do programa com nota `decrease` na prescrição atual; (b) a cada N semanas de treino (padrão 6, configurável); (c) manual.
+Gatilhos (qualquer um; se (a) e (b) valem juntos, vale (a)):
+- **(a) Muitas reduções:** ≥ 50 % das prescrições atuais do programa (uma por exercício, sem contar `calibrate`) têm nota `decrease`. `retry` e `returning` não contam. Fronteira exata: 2 × reduções ≥ total.
+- **(b) Programado:** passaram N semanas (padrão 6, configurável; N ≤ 0 desliga) desde o início do último deload ou, se nunca houve deload, desde a primeira sessão. Conta tempo decorrido (N × 7 dias), pausas incluídas.
+- **(c) Manual.**
 
-Conteúdo: durante 1 semana (uma passagem completa da rotação), cada exercício recebe séries = ⌈S × 0,6⌉, carga = arredondar↓(L × 0,85, inc), RIR alvo = 4, nota `deload`. Sessões de deload **não** contam como falha nem sucesso para P4–P6; após o deload a prescrição volta ao estado anterior.
+**Rearme (decisão de 2026-09-23):** depois de um deload, (a) só considera reduções vindas de sessões **posteriores ao fim do último deload**. Sem isso, as mesmas notas `decrease` de antes do deload disparariam outro deload logo em seguida, porque as sessões de deload não mudam a prescrição normal (P3). Quem aplica essa filtragem é o planejador, antes de chamar a política.
+
+Conteúdo: durante 1 semana (uma passagem completa da rotação), cada exercício recebe séries = ⌈S × 0,6⌉ (mínimo 1), carga = arredondar↓(C × 0,85, inc) com o mínimo de P8, em que C é a carga da prescrição normal daquele dia, RIR alvo = 4, nota `deload`. Usar C em vez de L dá o mesmo resultado em `hold`/`retry`, uma carga um pouco menor em `decrease`/`returning` e até 0,85 × inc a mais em `increase`, uma diferença irrelevante numa semana leve. Sessões de deload **não** contam como falha nem sucesso para P4–P6; após o deload a prescrição volta ao estado anterior.
+
+Duração: o deload termina quando cada dia do programa teve uma sessão `completed` com `isDeload` e ≥ 1 série de trabalho iniciada depois do início do deload. Sessão abandonada move a rotação (S2), mas não conclui a passagem. Um deload interrompido por uma pausa longa continua ativo na volta e se soma a P9.
 
 ### 7.6 Política de frequência cardíaca
 
@@ -216,24 +224,29 @@ Segundo nível de recalibração, além do ajuste por sessão (§7.2): a cada `r
 |-------|-----------|
 | **R1 Desempenho** | Por exercício, 1RM estimado por sessão = carga × (1 + reps/30) (Epley) sobre a melhor série de trabalho. Estagnação = sem aumento do melhor 1RM estimado em 3 sessões consecutivas do exercício. |
 | **R2 Fadiga** | Sinais: proporção de séries de trabalho com RIR 0 nas últimas 2 semanas > 30 %; ≥ 50 % dos exercícios com nota `decrease` ou `retry` (§7.5 a). |
-| **R3 Volume** | Séries de trabalho por grupo primário por semana, comparadas à faixa alvo do objetivo do programa (§7.9). Abaixo → sugerir +1 série por exercício do grupo (máx. +2 por revisão); acima do teto com fadiga (R2) → sugerir −1. |
-| **R4 Aderência** | Sessões concluídas por semana vs. dias do programa; se < 70 % em 4 semanas, sugerir programa com menos dias antes de sugerir mais volume. |
-| **R5 Sugestões** | Deload (R2 verdadeiro, ou R1 em ≥ 50 % dos exercícios); troca de exercício ou de faixa de repetições (R1 em um exercício por 2 revisões seguidas); ajuste de volume (R3); mudança de frequência (R4). Cada sugestão traz o motivo em uma frase e os números que a geraram. |
+| **R3 Volume** | Séries de trabalho por grupo primário por semana (média das 4 últimas semanas completas), comparadas à faixa alvo do objetivo do programa (§7.9). Abaixo do mínimo (estritamente) → sugerir +1 série em exercícios do grupo, no máximo 2 exercícios por grupo por revisão e nunca acima de 10 séries por exercício. Acima do teto com fadiga (R2) → sugerir −1 série, com o mesmo limite e nunca abaixo de 1. Se o programa é mais novo que a janela de 4 semanas, R3 e R4 não julgam (só exibem o volume). |
+| **R4 Aderência** | Sessões concluídas (≥ 1 série de trabalho) nas 4 semanas ÷ (4 × dias do programa), limitado a 1; se < 70 %, sugerir programa com menos dias antes de sugerir mais volume (suprime o "+1 série" de R3). Programa de 1 dia não recebe sugestão de menos dias. |
+| **R5 Sugestões** | Deload (R2 verdadeiro, ou R1 em ≥ 50 % dos exercícios; não é sugerido com um deload em andamento); mudar a faixa de repetições para a vizinha (2 abaixo; se o mínimo ficaria abaixo de 3, 2 acima) quando o exercício está estagnado (R1) há ≥ 3 sessões, e trocar o exercício por um substituto (RF-34) quando está estagnado há ≥ 6 sessões; ajuste de volume (R3); mudança de frequência (R4); troca de programa ao fim do mesociclo (§7.11 C2, sempre opcional). Cada sugestão traz o motivo em uma frase e os números que a geraram. As contagens por sessões substituem a versão anterior "por 2 revisões seguidas", que exigiria guardar revisões passadas. |
 | **R6 Sinais secundários do HealthKit** | Tendência de HRV e de FC de repouso (média de 7 dias vs. 28 dias) e horas de sono, quando disponíveis. Só **modulam** sugestões já geradas por R1–R4: HRV em queda ≥ 10 % reforça deload; HRV estável ou em alta enfraquece (a sugestão vira "opcional"). Nunca geram sugestão sozinhos, nunca alteram carga de série (P12). |
 | **R7 Determinismo** | Mesmo histórico → mesmo relatório. Cada sugestão exibe a regra (R1–R6) e os números que a geraram; não há geração de texto por IA. |
 
-Base: autorregulação por RIR/RPE (Zourdos 2016; Helms 2016); dose-resposta de volume (Schoenfeld 2017); frequência ≥ 2×/semana por grupo (Schoenfeld 2016; Grgic 2018); HRV como marcador de recuperação com evidência moderada, majoritariamente em endurance, por isso secundário aqui.
+Base: autorregulação por RIR/RPE (Zourdos 2016; Helms 2016); dose-resposta de volume (Schoenfeld 2017). Frequência: com o volume semanal igualado, treinar um grupo 1× ou 2×/semana dá resultados parecidos (Schoenfeld 2019); 2×/semana é um jeito prático de distribuir o volume sem sessões longas (Schoenfeld 2016; Grgic 2018). HRV: evidência limitada e inconsistente como guia de treino, majoritariamente em endurance (Bellenger 2016), por isso só modula (R6).
 
 ### 7.9 Objetivo do programa (M2)
 
 Cada programa tem um `goal`: `hypertrophy` (padrão), `strength`, `endurance`, `longevity` ou `combat`. Todo programa gerado por padrão tem **5 exercícios por dia** (decisão do usuário, 2026-09-23); o usuário pode adicionar ou remover na edição. O objetivo define os padrões usados pelo seed, pela edição de programa e pela revisão (§7.8):
 
-| Objetivo | Faixa de reps | RIR alvo | Volume alvo por grupo/semana (séries de trabalho) | Descanso |
-|----------|---------------|----------|---------------------------------------------------|----------|
-| Hipertrofia | 6–12 (compostos), 8–15 (isolados) | 1–3 | 10–20 | 90–180 s |
-| Força | 3–6 | 1–3 | 6–12 | 180–300 s |
-| Resistência muscular | 12–20 | 2–4 | 8–16 | 60–90 s |
-| Longevidade | 8–15 | 2–3 | 6–12 | 90–120 s |
+| Objetivo | Faixa de reps (compostos / isolados) | RIR alvo | Volume alvo por grupo/semana (séries de trabalho) | Descanso (compostos / isolados) | Séries por exercício |
+|----------|---------------|----------|---------------------------------------------------|----------|----------|
+| Hipertrofia | 6–12 / 8–15 | 2 | 10–20 | 150 / 90 s | 3 (4 nos compostos do programa Completo) |
+| Força | 3–6 / 6–10 | 2 | 6–12 | 240 / 150 s | 4 |
+| Resistência muscular | 12–20 / 15–20 | 3 | 8–16 | 75 / 60 s | 3 |
+| Longevidade | 8–12 / 10–15 | 3 | 6–12 | 120 / 90 s | 2 |
+| Combate | 3–6 / 6–10 | 2 | 6–12 | 180 / 90 s | 3 |
+
+Os valores são os de `GoalDefaults` (TrainerCore). Compostos são os padrões de movimento empurrar, puxar, agachar, avançar, dobradiça de quadril, elevação de quadril, carregar e explosivo; os demais são isolados. Nos isolados de Força e Combate, 3–6 repetições seriam arriscadas para articulações pequenas (por exemplo, elevação lateral), por isso usam 6–10. Carregadas e pescoço mantêm faixa e descanso próprios ao trocar de objetivo, e só o RIR muda.
+
+**Programa Completo de hipertrofia = corpo todo** (decisão do usuário, 2026-09-23, substitui o A/B/C empurrar/inferior/puxar da decisão 8). Com 5 exercícios por dia e 3 dias, cada dia mistura superior e inferior, de modo que cada grande grupo é treinado 2×/semana, e os compostos têm 4 séries. Assim o volume semanal chega perto do mínimo de 10 séries sem sessões mais longas. Onde ainda ficar abaixo, a revisão (R3) sugere mais séries. Os formatos foco inferior e foco superior (RF-35) seguem a mesma lógica, com mais exercícios do grupo em foco.
 
 **Longevidade** = saúde geral e envelhecimento com autonomia. Além da musculação acima, ativa metas semanais com base científica sólida, acompanhadas no painel de saúde (§7.10):
 
@@ -270,9 +283,9 @@ Só leitura do HealthKit; o aeróbico é feito com o app Exercício do Apple Wat
 |-------|-----------|
 | **A1 Minutos por intensidade** | Treinos aeróbicos da semana (caminhada, corrida, ciclismo, natação, remo, elíptico, trilha, escada, HIIT, dança) classificados minuto a minuto pela FC: moderado = 64–76 % da FCmáx (ou 40–59 % da FC de reserva quando há FC de repouso), vigoroso ≥ 77 % FCmáx (ACSM). FCmáx = 208 − 0,7 × idade (Tanaka) salvo valor informado. Sem amostras de FC, usa o tipo do treino (caminhada = moderado; corrida/HIIT = vigoroso). |
 | **A2 Meta semanal** | Padrão OMS 2020: 150 min moderados-equivalentes (1 min vigoroso = 2 moderados); teto informativo 300. Configurável. Semana igual à de §7.4. |
-| **A3 VO2max** | Lê `vo2Max` do HealthKit (estimado pelo Watch em caminhada/corrida/trilha ao ar livre). Mostra último valor, tendência de 90 dias e faixa por idade e sexo (tabela de referência ACSM/Cooper, "muito baixo" a "excelente"). Sem estimativa há 60 dias → sugestão "Faça 20 min de caminhada rápida ou corrida ao ar livre com o Watch para atualizar o VO2max". |
+| **A3 VO2max** | Lê `vo2Max` do HealthKit (estimado pelo Watch em caminhada/corrida/trilha ao ar livre). Mostra último valor, tendência de 90 dias (último − média das estimativas entre 80 e 100 dias atrás) e faixa por idade e sexo pelos percentis do registro FRIEND (Kaminsky 2015, teste em esteira, 20–79 anos): < P10 muito baixo, P10 baixo, P25 regular, P50 bom, P75 excelente, ≥ P95 superior. Fora de 20–79 anos, sem sexo ou com sexo "outro": mostra o valor, sem faixa (não extrapola). Sem estimativa há 60 dias → sugestão "Faça 20 min de caminhada rápida ou corrida ao ar livre com o Watch para atualizar o VO2max". |
 | **A4 Recuperação** | HRV (SDNN), FC de repouso e sono: média dos últimos 7 dias vs. 28 dias. Sem dado noturno em ≥ 5 dos últimos 7 dias → sugestão "Use o Apple Watch para dormir; ele mede HRV, FC de repouso e sono, que o app usa na revisão periódica". Quedas de HRV ≥ 10 % ou alta de FC de repouso ≥ 5 bpm são exibidas como alerta amarelo e alimentam §7.8 R6. |
-| **A5 Encaixe sem interferência** | Ao sugerir aeróbico para completar a meta: preferir dias sem treino de inferior; se no mesmo dia, sugerir ≥ 6 h de intervalo e modalidade de baixo impacto (bicicleta, caminhada) em vez de corrida; nunca sugerir vigoroso nas 24 h antes de um dia de inferior. Base: meta-análises de treino concorrente (Wilson 2012; Schumann 2022) mostram que a interferência na hipertrofia e força é pequena e depende de volume, modalidade e proximidade das sessões. |
+| **A5 Encaixe sem interferência** | Ao sugerir aeróbico para completar a meta: preferir dias sem treino de inferior; se no mesmo dia, sugerir ≥ 6 h de intervalo e modalidade de baixo impacto (bicicleta, caminhada) em vez de corrida; nunca sugerir vigoroso nas 24 h antes de um dia de inferior. Base: a meta-análise mais recente (Schumann 2022) não encontrou prejuízo do treino concorrente na hipertrofia nem na força máxima, só na força explosiva, sobretudo com as sessões no mesmo dia. A anterior (Wilson 2012) apontava interferência maior com corrida e volume alto. As regras acima são cautela prática com custo baixo. |
 | **A6 Determinismo** | Regras fixas e testadas; sugestões trazem o motivo e os números. |
 
 ### 7.11 Diálogo do app com o usuário (M4, entregue com M2 e M5)
@@ -281,7 +294,7 @@ O app conversa com o usuário por **mensagens** curtas, geradas por regras deter
 
 | Regra | Mensagem | Ações | Cadência |
 |-------|----------|-------|----------|
-| **C1 Deload** | Gatilhos de §7.5 (≥ 50 % dos exercícios com `decrease`, ou N semanas desde o último deload, padrão 6) → "Semana mais leve programada" com o motivo. O deload é **aplicado automaticamente** na próxima passagem da rotação, com opção de desfazer. | "Ok" / "Seguir normal" | Quando dispara |
+| **C1 Deload** | Gatilhos de §7.5 (≥ 50 % dos exercícios com `decrease`, ou N semanas desde o último deload, padrão 6) → "Semana mais leve programada" com o motivo. O deload é **aplicado automaticamente** na próxima passagem da rotação, com opção de desfazer. Rearme conforme §7.5. | "Ok" / "Seguir normal" | Quando dispara |
 | **C2 Revisão periódica** | Sugestões de §7.8 (R1–R6): mais/menos séries por grupo, trocar exercício ou faixa de reps após estagnação, reduzir dias se a aderência cair, trocar de programa após o mesociclo (padrão 8 semanas, preservando cargas). | "Aplicar" / "Agora não" / "Não sugerir mais isto" | A cada 4 semanas ou gatilho |
 | **C3 Saúde** | Sugestões de §7.10 (usar o Watch à noite, caminhada/corrida de 20 min ao ar livre para o VO2máx, completar minutos de aeróbico evitando a véspera de pernas, sono baixo, recuperação em queda, passos). | "Entendi" / "Lembrar amanhã" | Diária, no máximo 1 por tipo a cada 3 dias |
 | **C4 Validade da instalação** | Lê a data de expiração do perfil de assinatura embutido no app; 2 dias antes: "O app expira em 2 dias; renove pelo Impactor" + notificação local na véspera. | "Como renovar" | Diária nos últimos 2 dias |
@@ -328,7 +341,7 @@ Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → **versão 2 = M2 (o
 5. Exatamente um `HKWorkout` por sessão; quem roda a `HKWorkoutSession` grava (M2: iPhone via `HKWorkoutBuilder`; M3: Watch).
 6. UI em pt-BR com strings fixas no código; sem localização.
 7. Sem CloudKit. Backup manual em JSON.
-8. Programa inicial padrão: 3 dias (A: Superior empurrar, B: Inferior, C: Superior puxar) — ajustável no JSON semente.
+8. Programa inicial padrão: 3 dias, ajustável no JSON semente. Até a M1 era A empurrar / B inferior / C puxar; desde 2026-09-23 o Completo de hipertrofia é **corpo todo** (cada grupo 2×/semana, §7.9).
 9. Peso corporal: `loadIncrement` = 2,5 kg (carga adicional), carga 0 permitida só para `bodyweight`. Todo exercício do catálogo tem `loadIncrement` > 0 (validado no seed).
 10. Só RIR entra na avaliação; séries com RIR ausente não recebem o bônus de P4.
 11. O app do Watch é **opcional** por desenho: tudo em M1–M2 funciona só com o iPhone, e a FC vem do app Exercício nativo do relógio via HealthKit até o companion existir (ver §7.6 e §13).
@@ -336,6 +349,7 @@ Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → **versão 2 = M2 (o
 13. **Sem IA no app gratuito** (2026-09-23). Revisão periódica e saúde são regras determinísticas (§7.8, §7.10). Ideia futura do usuário, fora do escopo atual: uma camada paga opcional com IA para personalização extra. Se for adiante, exige ADR própria e continua sem tocar no motor determinístico (a IA só proporia ajustes que o usuário aceita).
 15. **Identidade visual desvinculada da cultura de academia** (pedido do usuário, 2026-09-23): nada de halteres, preto/neon, músculos ou linguagem agressiva. Paleta terrosa (bege, areia, marrom), ícone com símbolo de pétalas ligado aos objetivos, e os **objetivos como elemento central** da interface. Guia em `DESIGN.md`; aplicado numa passada de design logo após a integração do M2.
 14. Aeróbico é registrado pelo app Exercício do Watch e apenas lido pelo app; o app não prescreve sessões de cardio, só meta semanal e sugestões de encaixe.
+16. **Nome e ícone** (decisão do usuário, 2026-09-23): o app se chama **Magister** (latim para "mestre, quem ensina e guia"; uma palavra só) nos dois targets. Os bundle IDs não mudam. O ícone tem cinco pétalas creme separadas, uma por objetivo, e miolo areia (a pessoa) sobre azul-marinho, com aparências escura e tingida. Significado, geometria e contrastes em `DESIGN.md` §0 e §2.
 
 ## 12. Questões abertas (não bloqueiam M0–M1)
 
