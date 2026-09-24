@@ -18,9 +18,19 @@ struct SessionPlan: Sendable, Hashable {
     let isDeload: Bool
     /// Por que este dia (CA4-5). `nil` em planos montados fora do planejador (previews, testes).
     let reason: PlanReason?
+    /// SPEC RF-42: os exercícios já são os equivalentes de casa (§7.13 H1–H4). O programa não muda;
+    /// a Home mostra a faixa "Em casa".
+    let isHomeMode: Bool
+    /// Avisos do modo casa em pt-BR, na ordem do dia: um "Sem opção em casa para X" por exercício
+    /// que saiu da sessão (§7.13 H2). Vazio fora do modo casa.
+    let homeNotices: [String]
+    /// Duração estimada em minutos (DESIGN §9.2, `SessionDurationEstimate`); 0 sem exercícios.
+    let estimatedMinutes: Int
 
-    /// `isDeload` e `reason` têm padrão para que quem já monta `SessionPlan` à mão (previews,
-    /// testes, doubles) continue compilando sem mudança.
+    /// `isDeload`, `reason` e os campos da versão 2.1 têm padrão para que quem já monta
+    /// `SessionPlan` à mão (previews, testes, doubles) continue compilando sem mudança. Sem
+    /// `estimatedMinutes`, a estimativa é calculada aqui, com todo exercício medido em repetições;
+    /// o planejador passa a dele, que conhece a medida de cada exercício (SPEC RF-43).
     init(
         programID: UUID,
         programName: String,
@@ -29,7 +39,10 @@ struct SessionPlan: Sendable, Hashable {
         exercises: [PlannedExercise],
         generatedAt: Date,
         isDeload: Bool = false,
-        reason: PlanReason? = nil
+        reason: PlanReason? = nil,
+        isHomeMode: Bool = false,
+        homeNotices: [String] = [],
+        estimatedMinutes: Int? = nil
     ) {
         self.programID = programID
         self.programName = programName
@@ -39,6 +52,10 @@ struct SessionPlan: Sendable, Hashable {
         self.generatedAt = generatedAt
         self.isDeload = isDeload
         self.reason = reason
+        self.isHomeMode = isHomeMode
+        self.homeNotices = homeNotices
+        self.estimatedMinutes = estimatedMinutes
+            ?? SessionDurationEstimate.minutes(for: exercises, traits: .empty)
     }
 }
 
