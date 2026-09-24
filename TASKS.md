@@ -299,7 +299,7 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 ### Pendências para a versão 2.1 (achados da revisão final, não bloqueiam)
 
-- [ ] **T6.1 [CI] Como fazer: ilustração própria animada + passos (RF-40)** — pedido do usuário (2026-09-24): minimalista, sem realismo, direto ao ponto. Escopo e formato de dados definidos após a pesquisa `exercise-illustrations-research`.
+- [ ] **Como fazer (RF-40, SPEC §7.12)**: estilo aprovado em 2026-09-24 (protótipo v2). Tarefas T6.1 e T6.4–T6.9 na seção "Versão 2.1: Como fazer", logo abaixo.
 - [ ] **T6.2 [CI] RIR explicado na sessão (RF-41)** — Escopo: `Features/Session/RIRPicker.swift` (rótulos por valor), `Features/Session/RIRExplainerSheet.swift` (nova), cartão de primeira vez em `Features/Session/ActiveSessionView.swift` (marca `hasSeenRIRExplainer` em `@AppStorage`), leitura acessível em `Features/Home/PrescriptionRow.swift`. Aceite: os 4 itens do RF-41 visíveis no simulador, e o cartão some depois de "Entendi" e não volta.
 - [ ] **T6.3 [SCHEMA][CI] Exercícios medidos em tempo ou passos** (achado de 2026-09-24): isometrias (pescoço, prancha) e carregadas aparecem como "10–20 repetições", quando são segundos ou passos. Acrescentar ao exercício a medida (`reps` | `seconds` | `steps`), com SchemaV3 e estágio de migração (R6), seed e rótulos na sessão, no histórico e na prescrição. A progressão (P4–P6) passa a usar a mesma lógica sobre a medida.
 - [ ] **A5** Importar backup mantém decisões de semana leve, o log e a revisão do diálogo tomados sobre os dados antigos; esses JSON também não entram no backup. Decidir o que o import zera.
@@ -310,6 +310,67 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 - [ ] Programas Foco inferior e Foco superior: revisar para 2×/semana no grupo em foco e alinhar os descansos ao §7.9 (150/90 s).
 - [ ] C10 (corretor do M2): blocos de intervalos do Combate e de equilíbrio/mobilidade com registro próprio; hoje são lembretes C8.
 - [ ] C11 (corretor do M2): marcar exercício do seed editado pelo usuário (SchemaV3) antes de qualquer seed v3.
+
+### Versão 2.1: Como fazer (RF-40, SPEC §7.12)
+
+Decisões do dono (2026-09-24):
+- estilo da v2 do protótipo aprovado (`docs/design/exercise-guides/compare-v2.png`);
+- o agente rascunha poses e textos, e o dono revisa por lote;
+- exceção de equipamento só dentro da folha (DESIGN §12).
+
+Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
+
+| CA | Verificação |
+|----|-------------|
+| CA6-1 | Core tests verdes, com ao menos um teste por regra E1–E9 e o teste de paridade com o renderizador de autoria (T6.4). |
+| CA6-2 | Todo exercício usado em `programs.v2.json` tem guia válida (o teste lê os dois arquivos). Ao fim do lote 2, os 99 do seed também. |
+| CA6-3 | No aparelho, "Como fazer" aparece na sessão, na Home e no catálogo para um exercício com guia, e não aparece para um personalizado. Um exercício trocado mostra a guia do substituto. |
+| CA6-4 | Em modo avião, a folha abre e anima. O app cresce menos de 1 MB, e nenhum arquivo de imagem é adicionado para as guias. |
+| CA6-5 | Com Reduzir Movimento, as posições ficam paradas lado a lado. Pausar para a animação. O VoiceOver lê a descrição, os passos e os erros, nessa ordem. |
+| CA6-6 | No modo escuro e com Aumentar Contraste, figura, seta e implemento continuam legíveis (DESIGN §3 e §12). |
+| CA6-7 | O dono aprovou a folha de revisão de cada lote (anotar a data aqui). |
+
+- [ ] **T6.1 Guias de execução em TrainerCore (§7.12 E1–E9)** — G1
+  - Escopo:
+    - `Packages/TrainerCore/Sources/TrainerCore/Guide/*` (catálogo, guia, quadro, pose, rig, cinemática com o modo antebraço travado, partes que se movem, tempo, validador, erros);
+    - `ExerciseGuideTests.swift` e `GuideKinematicsTests.swift`, que leem os arquivos reais por `#filePath`;
+    - `PersonalTrainer/Resources/Seed/exercise-guides.v1.json` com as 4 guias do protótipo v2;
+    - ARCHITECTURE §11 (formato) e §17 (pastas `Guide/`, `Features/ExerciseGuide/`, `Services/ExerciseGuides/`).
+  - Base: o formato de `docs/design/exercise-guides/exercise-guides.sample.json`.
+  - Só Foundation. A pose é função de `t`, sem `Date()`.
+  - O JSON entra no bundle sem tarefa [PROJ], porque o `project.yml` já inclui `PersonalTrainer/` inteiro.
+  - Aceite: CA6-1 parcial (E1–E9) e 4 guias válidas.
+- [ ] **T6.4 Ferramenta de autoria no Windows** — G2
+  - Escopo:
+    - promover `docs/design/exercise-guides/render-exercise-guides.ps1` para ler `exercise-guides.v1.json` e gerar folhas de revisão por lote, nos modos claro e escuro;
+    - opção `-Golden` com as coordenadas em t = 0, ¼, ½, ¾ e 1, gravadas em `Tests/TrainerCoreTests/Fixtures/exercise-guides-golden.v1.json`;
+    - `GuideGoldenTests.swift`: o Swift e o script concordam em até 0,001 H. Isso protege contra os dois renderizadores divergirem, já que o Swift não roda localmente.
+  - Depende de: T6.1. Aceite: CA6-1 completo.
+- [ ] **T6.5 [CI] Ilustração e folha "Como fazer"** — G2
+  - Escopo em `Features/ExerciseGuide/`:
+    - `GuideIllustrationView.swift`: `TimelineView(.animation(minimumInterval: 1.0 / 30, paused:))` + `Canvas`, com um único `accessibilityLabel`;
+    - `GuideStaticFramesView.swift`: modo Reduzir Movimento;
+    - `ExerciseGuideSheet.swift`: título em New York, "Trabalha: …", ilustração, Pausar/Continuar ≥ 44 pt, legendas, passos e erros;
+    - `ExerciseGuideButton.swift`.
+  - Previews com as 4 guias; só APIs do iOS 15 ou posterior.
+  - Depende de: T6.1. Aceite: App build verde e lista Verificado/Incerto (R11).
+- [ ] **T6.6 Conteúdo, lote 1: os 54 exercícios dos programas** — G3
+  - Escopo: `exercise-guides.v1.json`, as folhas `docs/design/exercise-guides/sheet-1*.png` e o teste de cobertura dos slugs de `programs.v2.json`.
+  - Fáceis e médios primeiro. Os difíceis (cadeira abdutora, Pallof, salto na caixa, arremesso rotacional) podem sair como `motion: "static"`, com setas.
+  - Não usar o campo `equipment` para decidir a cena: os 6 exercícios de medicine ball estão como `dumbbell`.
+  - Depende de: T6.1 e T6.4. Aceite: CA6-2 (54) e folha pronta para o dono.
+- [ ] **T6.7 [CI] "Como fazer" no app** — G3
+  - Escopo:
+    - `Services/ExerciseGuides/ExerciseGuideLibrary.swift`: lê o bundle, valida e devolve `.empty` em caso de falha (E8);
+    - injeção em `App/AppEnvironment*.swift`;
+    - botão em `Features/Session/CurrentExercisePanel.swift` (slug do exercício realizado), `Features/Home/PrescriptionRow.swift` e na tela do exercício no catálogo.
+  - Depende de: T6.5 e T6.2. Não rodar em paralelo com a T6.2, porque as duas editam `PrescriptionRow.swift`.
+  - Aceite: CA6-3 a CA6-6 no simulador.
+- [ ] **T6.8 [USER] Revisão do lote 1 e teste no aparelho** — G4 — O dono olha a folha e o app e anota as correções por exercício; o agente corrige no escopo da T6.6. Aceite: CA6-7 (lote 1) e CA6-3 a CA6-6 no iPhone.
+- [ ] **T6.9 Conteúdo, lote 2: os 45 restantes** — G5
+  - Escopo: `exercise-guides.v1.json`, as folhas `sheet-2*.png` e a cobertura dos 99.
+  - Difíceis previstos: voador, crucifixo inverso na máquina, abdominal na máquina, power clean suspenso, salto horizontal, arremesso para trás e extensão de pescoço na polia.
+  - Depende de: T6.8. Aceite: CA6-2 (99) e CA6-7 (lote 2).
 
 - [~] **T4.8 [CI] Diálogo do app (SPEC §7.11)** — `Services/Coach/CoachFeedBuilder.swift` (junta revisão, deload, saúde, validade da instalação, retomada, marcos, backup, longevidade), `Services/Coach/CoachLogStore.swift` (decisões em JSON, cadência/silêncio), `Services/Coach/ProvisioningExpiryReader.swift` (lê ExpirationDate do embedded.mobileprovision; notificação na véspera), `Features/Coach/*` (feed na Home, destaque na abertura, ações).
 

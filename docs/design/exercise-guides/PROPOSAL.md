@@ -1,11 +1,11 @@
 # Proposta: Como fazer (RF-40) — pesquisa de 2026-09-24
 
-Protótipo nesta pasta (compare.png, compare-dark.png). Gerador: render-exercise-guides.ps1 com exercise-guides.sample.json. Aguarda aprovação do dono antes de entrar na SPEC.
+Protótipo nesta pasta (compare.png, compare-dark.png). Gerador: render-exercise-guides.ps1 com exercise-guides.sample.json. Aprovado pelo dono em 2026-09-24.
 
 **Decisões do dono (2026-09-24):**
 - **Autoria aprovada:** o agente rascunha poses e textos (3 passos + 2 erros) e o dono revisa por lote, numa folha. Não é IA no app nem imagem gerada por modelo.
 - **Exceção de design aprovada:** equipamento discreto só dentro da folha "Como fazer" (DESIGN §12 proposto); a proibição continua no resto do app.
-- **Estilo: "dê mais clareza para o usuário".** A v2 (compare-v2.png) destaca o que se move, tem seta de movimento, legenda por posição, "Trabalha: …", o supino corrigido e a figura maior. Aguarda aprovação da v2.
+- **Estilo aprovado (v2, "dê mais clareza para o usuário"):** compare-v2.png destaca o que se move, tem seta de movimento, legenda por posição, "Trabalha: …", o supino corrigido e a figura maior. Registrado na SPEC (RF-40, §7.12 E1–E9, decisão 17), no DESIGN §12 e no TASKS.md (T6.1, T6.4–T6.9).
 
 ## Recomendação
 

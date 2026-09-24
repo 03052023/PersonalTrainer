@@ -158,6 +158,25 @@ Termos técnicos úteis ficam, com explicação no primeiro uso ou no "Por quê?
 - **Ícone sem Mac:** o caminho é o catálogo de imagens com PNG de 1024 px mais as aparências escura e tingida (suportadas desde o iOS 18; `appearances` → `luminosity` `dark`/`tinted` no `Contents.json`). Para a aparência escura, a Apple sugere fundo transparente; a entregue é opaca, e só o CI (`actool`) e o aparelho confirmam como fica. Cores não foram testadas em tela P3 com True Tone. Não foi feita busca por ícones parecidos na App Store.
 - **Decisões do dono ainda abertas:** a ordem das pétalas (§4); manter "Combate" ou trocar por "Autodefesa" (exige registro na SPEC). Nome (Magister) e ícone (pétalas creme sobre azul-marinho, 2026-09-23) já decididos.
 
+## 12. Ilustrações de exercício ("Como fazer", SPEC RF-40 e §7.12)
+
+Aprovado pelo dono em 2026-09-24 (protótipo v2 em `docs/design/exercise-guides/compare-v2.png` e `compare-v2-dark.png`).
+
+- **A figura:** manequim liso, sem músculos, rosto ou roupa marcada.
+  - As partes que se movem ficam em `accent`; o resto do corpo, em `accent` misturado ao fundo.
+  - Os membros do lado de lá ficam mais claros que os do lado de cá.
+  - O que se move tem contraste ≥ 3:1.
+- **Equipamento:**
+  - o que se move (barra, anilhas, halter, puxador, cabo) usa `textSecondary`;
+  - a estrutura fixa (banco, torre, assento) fica mais clara, como fundo.
+- **Sinais de leitura:**
+  - seta sólida na cor de texto principal, mostrando o caminho da ida;
+  - posição inicial em fantasma tracejado no quadro final;
+  - legenda numerada curta sob cada quadro;
+  - "Trabalha: …" sob o nome.
+- **Exceção ao "sem halteres" do §1.4:** equipamento aparece só dentro da folha Como fazer, nunca em ícones, estados vazios, abas ou na Home. A figura também nunca aparece na Home (§9.6), só na folha.
+- **Exceção ao §10:** a demonstração segue o ritmo do exercício (fases de 0,8 a 3 s, padrão de 1,5 s, `easeInOut`, pausas de 0,4 s) e tem botão Pausar. Com Reduzir Movimento, os quadros ficam parados lado a lado.
+
 ## Fontes
 
 1. VanderWeele, T. J. (2017). On the promotion of human flourishing. *PNAS*. https://www.pnas.org/doi/10.1073/pnas.1702996114
