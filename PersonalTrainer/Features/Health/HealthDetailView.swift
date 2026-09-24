@@ -382,7 +382,7 @@ struct HealthDetailView: View {
                 Label("Idade, sexo e FCmáx", systemImage: "person.crop.circle")
             }
         } footer: {
-            Text("Estes dados só servem de contexto; nunca mudam a carga da musculação. Se algo não aparece, confira as permissões no app Saúde: toque na sua foto › Apps › Personal.")
+            Text("Estes dados só servem de contexto; nunca mudam a carga da musculação. Se algo não aparece, confira as permissões no app Saúde: toque na sua foto › Apps › Magister.")
         }
     }
 }

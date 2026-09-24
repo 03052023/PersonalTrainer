@@ -11,10 +11,15 @@ import TrainerCore
 struct HealthCardView: View {
     private let model: HealthViewModel
     private let references: ReferenceCatalog
+    /// `false` esconde a primeira sugestão do card: o diálogo (SPEC §7.11 C3) já mostra as
+    /// sugestões de saúde no próprio feed, e repeti-las aqui duplicaria o aviso (contrato onda 3
+    /// §2.1). O padrão `true` mantém o card completo onde ninguém passa o diálogo (previews).
+    private let showsSuggestions: Bool
 
-    init(model: HealthViewModel, references: ReferenceCatalog) {
+    init(model: HealthViewModel, references: ReferenceCatalog, showsSuggestions: Bool = true) {
         self.model = model
         self.references = references
+        self.showsSuggestions = showsSuggestions
     }
 
     var body: some View {
@@ -121,7 +126,7 @@ struct HealthCardView: View {
                 metricLine(systemImage: "figure.walk", text: Format.stepsLine(report.steps.average7))
             }
 
-            if let suggestion = model.visibleSuggestions.first {
+            if showsSuggestions, let suggestion = model.visibleSuggestions.first {
                 Divider()
                 Label {
                     Text(suggestion.title)
