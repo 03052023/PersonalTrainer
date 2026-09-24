@@ -36,4 +36,26 @@ jobs:
       - name: Swift version
         run: swift --version
       - name: Test TrainerCore
-        run: swift test --package-path Packages/TrainerCore
+        shell: bash
+        run: |
+          set -o pipefail
+          swift test --package-path Packages/TrainerCore 2>&1 | tee /tmp/swift-test.log
+      # O log completo do Actions exige login no GitHub; anotações são públicas. Em falha, publica
+      # as linhas de erro do compilador e dos testes como anotações (lidas pelo agente sem credenciais).
+      - name: Report failures as annotations
+        if: failure()
+        shell: bash
+        run: |
+          test -f /tmp/swift-test.log || exit 0
+          grep -E "error:|recorded an issue|Expectation failed|failed after|Fatal error|Test run with" /tmp/swift-test.log \
+            | sed -E "s#$GITHUB_WORKSPACE/##g" | awk '!seen[$0]++' | head -64 > /tmp/errors.txt || true
+          total=$(wc -l < /tmp/errors.txt)
+          echo "linhas de erro: $total"
+          split -l 8 /tmp/errors.txt /tmp/err-chunk-
+          n=0
+          for chunk in /tmp/err-chunk-*; do
+            [ -f "$chunk" ] || continue
+            n=$((n+1))
+            msg=$(sed -e 's/%/%25/g' -e 's/\r//g' "$chunk" | awk 'BEGIN{ORS="%0A"} {print}')
+            echo "::error title=swift test (parte $n)::$msg"
+          done
