@@ -79,6 +79,9 @@ final class HealthViewModel {
     private var dismissedSuggestionKeys: Set<String>
     /// Última leitura crua do Saúde: permite recalcular ao salvar o perfil sem reler o HealthKit.
     @ObservationIgnored private var lastRawInput: HealthInput?
+    /// Leitura em andamento. Quem chama `load()` durante ela espera o fim em vez de voltar na
+    /// hora: o diálogo, na abertura, precisa do relatório pronto para a revisão (SPEC R6).
+    @ObservationIgnored private var inFlightLoad: Task<Void, Never>?
 
     private static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "PersonalTrainer",
@@ -142,9 +145,25 @@ final class HealthViewModel {
     ///
     /// Sem Saúde no aparelho: só a mensagem. Antes de o usuário conectar: não lê nada (a leitura sem
     /// pedido de autorização falharia e pedir aqui seria pedir no launch). Uma segunda chamada
-    /// enquanto a primeira está em andamento é ignorada (pull to refresh durante o `.task`).
+    /// enquanto a primeira está em andamento não lê de novo: espera a primeira terminar (pull to
+    /// refresh durante o `.task`, ou o diálogo na abertura).
     func load() async {
-        guard !isLoading else { return }
+        if let inFlightLoad {
+            await inFlightLoad.value
+            return
+        }
+        let task = Task<Void, Never> { @MainActor [weak self] in
+            guard let self else {
+                return
+            }
+            await self.performLoad()
+        }
+        inFlightLoad = task
+        await task.value
+        inFlightLoad = nil
+    }
+
+    private func performLoad() async {
         guard reader.isAvailable else {
             report = nil
             errorMessage = Self.unavailableMessage

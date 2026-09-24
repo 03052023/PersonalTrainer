@@ -79,15 +79,18 @@ struct CoachActionButtons: View {
         }
     }
 
+    /// DESIGN §9.2: na Home o único botão proeminente é "Começar"; no cartão a resposta principal
+    /// só ganha peso. Na folha de destaque, sem o "Começar" por perto, ela é proeminente.
     @ViewBuilder
     private func actionButton(_ action: CoachAction, isPrimary: Bool) -> some View {
         let button = Button {
             tap(action)
         } label: {
             Text(action.label)
+                .fontWeight(isPrimary ? Font.Weight.semibold : Font.Weight.regular)
                 .frame(maxWidth: fillsWidth ? CGFloat.infinity : nil)
         }
-        if isPrimary {
+        if isPrimary && fillsWidth {
             button.buttonStyle(.borderedProminent)
         } else {
             button.buttonStyle(.bordered)

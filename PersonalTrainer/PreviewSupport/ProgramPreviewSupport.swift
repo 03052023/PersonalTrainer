@@ -427,10 +427,12 @@ private final class ProgramPreviewRepository: ProgramRepositoring {
 
     /// "Dia " + a primeira letra livre (mesma regra de `ProgramRepository.nextDayLabel`).
     private static func nextDayLabel(existingNames: [String]) -> String {
-        let used = Set(existingNames)
         for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" {
             let candidate = "Dia \(letter)"
-            if !used.contains(candidate) {
+            let isUsed = existingNames.contains { name in
+                name == candidate || name.hasPrefix(candidate + " ")
+            }
+            if !isUsed {
                 return candidate
             }
         }

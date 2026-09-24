@@ -79,7 +79,7 @@ final class HomeViewModel {
         } catch {
             plan = nil
             didFailToLoad = true
-            errorMessage = Self.message(for: error, fallback: "Não foi possível carregar o próximo treino.")
+            errorMessage = Self.message(for: error, fallback: "Não foi possível carregar a próxima sessão.")
         }
     }
 
@@ -133,6 +133,12 @@ final class HomeViewModel {
             errorMessage = "Nenhum programa ativo para iniciar."
             return nil
         }
+        // SPEC S2/RF-33: um dia ainda sem exercícios não vira sessão (ela sairia vazia). O botão da
+        // Home já fica desabilitado; isto cobre o "Começar" do diálogo (C5).
+        guard !plan.exercises.isEmpty else {
+            errorMessage = "Este dia ainda não tem exercícios. Escolha os exercícios dele na aba Programa."
+            return nil
+        }
         do {
             let sessionID = try planner.startSession(from: plan, now: now())
             activeSessionID = sessionID
@@ -146,7 +152,7 @@ final class HomeViewModel {
                 activeSessionID = inProgressID
                 selectedDayID = nil
             }
-            errorMessage = Self.message(for: error, fallback: "Não foi possível iniciar o treino.")
+            errorMessage = Self.message(for: error, fallback: "Não foi possível iniciar a sessão.")
             return nil
         }
     }
@@ -188,9 +194,9 @@ final class HomeViewModel {
         if let planningError = error as? PlanningError {
             switch planningError {
             case .noActiveProgram:
-                return "Nenhum programa ativo. Ative um programa para ver o próximo treino."
+                return "Nenhum programa ativo. Ative um programa para ver a próxima sessão."
             case .programHasNoDays:
-                return "O programa ativo não tem dias de treino."
+                return "O programa ativo não tem dias."
             case .sessionAlreadyInProgress:
                 return "Já existe uma sessão em andamento. Toque em Retomar."
             case .exerciseNotFound:

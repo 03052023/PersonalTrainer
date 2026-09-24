@@ -387,6 +387,24 @@ final class SessionPlannerPolicyTests: XCTestCase {
         XCTAssertTrue(summaries.allSatisfy { $0.status == .completed })
     }
 
+    func testP9_finishedSessionSummaries_completedAndAbandoned_oldestFirst() throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        let program = try insertTwoDayProgram(into: context)
+
+        let older = insertCompletedSession(day: program.dayA, exercises: [program.bench], startedAt: monday, into: context)
+        let abandoned = insertSession(status: .abandoned, day: program.dayB, startedAt: monday.addingTimeInterval(day), into: context)
+        _ = insertSession(status: .inProgress, day: program.dayA, startedAt: monday.addingTimeInterval(3 * day), into: context)
+        let newer = insertCompletedSession(day: program.dayB, exercises: [program.row], startedAt: monday.addingTimeInterval(2 * day), into: context)
+        try context.save()
+
+        // SPEC P3/P9: o histórico do motor conta concluídas e abandonadas; em andamento fica fora.
+        let summaries = try fixture.planner.finishedSessionSummaries()
+
+        XCTAssertEqual(summaries.map { $0.id }, [older.uuid, abandoned.uuid, newer.uuid])
+        XCTAssertEqual(summaries.map { $0.status }, [.completed, .abandoned, .completed])
+    }
+
     func testR_reviewInput_activeProgramSessionsOnly_andLightPrescriptionsDuringLightWeek() throws {
         let fixture = try makeFixture()
         let context = fixture.context

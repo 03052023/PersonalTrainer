@@ -70,7 +70,10 @@ struct HomeView: View {
                 model.refresh()
                 await health.load()
             }
+            // DESIGN §9.1: nada acima do objetivo. O título fica para o botão de voltar das telas
+            // abertas daqui; a aba já diz "Hoje".
             .navigationTitle("Hoje")
+            .toolbar(.hidden, for: .navigationBar)
             .onAppear {
                 model.refresh()
             }
@@ -122,7 +125,8 @@ struct HomeView: View {
     }
 
     /// Botão principal ≥ 56 pt em `accent` (DESIGN §9.2, `PrimaryButtonStyle`; uso na academia,
-    /// SPEC §2). "Retomar" quando há sessão ativa (S3).
+    /// SPEC §2). "Retomar" quando há sessão ativa (S3). Um dia sem exercícios (RF-33) não começa:
+    /// a sessão sairia vazia.
     private var primaryButton: some View {
         Button {
             if let sessionID = model.startSession() {
@@ -132,6 +136,6 @@ struct HomeView: View {
             Text(model.activeSessionID == nil ? "Começar" : "Retomar")
         }
         .buttonStyle(.primary)
-        .disabled(model.plan == nil && model.activeSessionID == nil)
+        .disabled(model.activeSessionID == nil && (model.plan?.exercises.isEmpty ?? true))
     }
 }

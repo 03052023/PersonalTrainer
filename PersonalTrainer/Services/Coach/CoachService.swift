@@ -12,7 +12,8 @@ import TrainerCore
 /// (AGENTS R3).
 ///
 /// Uso pelo integrador:
-/// - `refresh(healthSuggestions:recovery:)` ao abrir a Home e ao voltar ao app;
+/// - `refresh(healthSuggestions:recovery:allowsHighlight:)` ao abrir e ao voltar ao app (com
+///   destaque) e depois de mudanças na tela (sem destaque);
 /// - `messages` no `CoachFeedSection`, `highlight` no `CoachHighlightSheet` com
 ///   `.sheet(item: $coach.highlight, onDismiss: { coach.highlightDidDismiss() })`;
 /// - `handle(_:on:)` em toda resposta; `onBackupRequested`, `onRenewalHelpRequested`,
@@ -32,6 +33,9 @@ final class CoachService {
         /// String (`DeloadTrigger.rawValue`) do pendente acima; só o `CoachService` usa, para
         /// saber quando um pendente automático virou pedido manual.
         static let pendingDeloadTrigger = "coachPendingDeloadTrigger"
+        /// String (`UUID`) do programa sobre o qual a última revisão rodou; só o `CoachService`
+        /// usa, para tirar do feed as sugestões de um programa que deixou de ser o ativo.
+        static let lastReviewProgramID = "coachLastReviewProgramID"
     }
 
     /// Identificador do lembrete de expiração (um só: reagendar substitui).
@@ -148,10 +152,13 @@ final class CoachService {
     /// - Parameters:
     ///   - healthSuggestions: `HealthReport.suggestions` de hoje (C3); `[]` sem Saúde.
     ///   - recovery: tendências agregadas para a revisão (SPEC R6); `.unknown` sem dados.
-    func refresh(healthSuggestions: [HealthSuggestion], recovery: RecoveryContext) {
+    ///   - allowsHighlight: SPEC §7.11, destaque "na abertura": `true` só na abertura e na volta
+    ///     ao primeiro plano. Os outros refreshes (troca de aba, fim da sessão, leitura do Saúde)
+    ///     passam `false`: atualizam o feed e mantêm um destaque já escolhido, sem abrir outro.
+    func refresh(healthSuggestions: [HealthSuggestion], recovery: RecoveryContext, allowsHighlight: Bool = true) {
         lastHealthSuggestions = healthSuggestions
         lastRecovery = recovery
-        rebuild(allowsNewHighlight: true)
+        rebuild(allowsNewHighlight: allowsHighlight)
     }
 
     /// O que "Aplicar" vai mudar, para a confirmação (SPEC §7.11: "ações que alteram o programa
@@ -253,7 +260,7 @@ final class CoachService {
     }
 
     /// Mantém o destaque aberto enquanto a mensagem existir; um novo só quando permitido (o
-    /// `refresh`, não a resposta a outra mensagem, para não encadear folhas).
+    /// `refresh` da abertura, não a resposta a outra mensagem, para não encadear folhas).
     private func updateHighlight(allowsNew: Bool) {
         if let current = highlight, let fresh = messages.first(where: { $0.id == current.id }) {
             if fresh != current {

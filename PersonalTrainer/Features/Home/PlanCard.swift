@@ -46,7 +46,7 @@ struct PlanCard: View {
                 bannerView(banner)
             }
             if plan.exercises.isEmpty {
-                Text("Este dia não tem exercícios.")
+                Text("Este dia ainda não tem exercícios. Escolha os exercícios dele na aba Programa.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {

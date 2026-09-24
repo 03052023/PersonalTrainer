@@ -264,11 +264,12 @@ private struct RootTabs: View {
             }
             // O diálogo espera a leitura do Saúde (se a pessoa conectou) para a revisão periódica
             // já sair com as tendências de recuperação (SPEC R6). Sem conexão, volta na hora.
+            // É o único refresh que pode abrir um destaque novo (SPEC §7.11: "na abertura").
             let health = healthModel
             let coachService = coach
             Task { @MainActor in
                 await health.loadIfStale()
-                RootTabs.refresh(coach: coachService, health: health)
+                RootTabs.refresh(coach: coachService, health: health, allowsHighlight: true)
             }
         }
     }
@@ -364,17 +365,19 @@ private struct RootTabs: View {
 
     // MARK: - Diálogo
 
+    /// Refresh depois de uma mudança na tela: atualiza o feed sem abrir destaque novo.
     private func refreshCoach() {
-        RootTabs.refresh(coach: coach, health: healthModel)
+        RootTabs.refresh(coach: coach, health: healthModel, allowsHighlight: false)
     }
 
-    /// SPEC §7.11: sugestões de saúde de hoje (C3) e as tendências agregadas de recuperação para
-    /// a revisão (R6). Sem relatório, `[]` e `.unknown`.
-    static func refresh(coach: CoachService, health: HealthViewModel) {
-        let report = health.report
+    /// SPEC §7.11: sugestões de saúde de hoje (C3), menos as dispensadas no detalhe do Saúde, e
+    /// as tendências agregadas de recuperação para a revisão (R6). Sem relatório, `[]` e
+    /// `.unknown`.
+    static func refresh(coach: CoachService, health: HealthViewModel, allowsHighlight: Bool) {
         coach.refresh(
-            healthSuggestions: report?.suggestions ?? [],
-            recovery: RecoveryContext.derived(from: report)
+            healthSuggestions: health.visibleSuggestions,
+            recovery: RecoveryContext.derived(from: health.report),
+            allowsHighlight: allowsHighlight
         )
     }
 
@@ -396,7 +399,7 @@ private struct RootTabs: View {
         let home = homeModel
         let catalog = environment.catalog
 
-        // C7 "Fazer backup": a exportação é a primeira seção do Ajustes.
+        // C7 "Fazer backup": abre o Ajustes, onde fica a seção Backup.
         coach.onBackupRequested = {
             tab.wrappedValue = .settings
         }

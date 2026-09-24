@@ -66,7 +66,8 @@ extension CoachService {
     /// - addSets/removeSets: `updateTarget` com `proposedSets` (absoluto: aplicar duas vezes não
     ///   soma), mantendo faixa, RIR, descanso e carga inicial;
     /// - changeRepRange: `updateTarget` com a faixa proposta;
-    /// - swapExercise: `replaceExercise` pelo primeiro de `SessionPlanning.substitutes`;
+    /// - swapExercise: `replaceExercise` pelo primeiro de `SessionPlanning.substitutes` que ainda
+    ///   não está no dia (`swapReplacements`);
     /// - switchProgram: `activate` do próximo programa com o mesmo objetivo (as cargas ficam, o
     ///   histórico é por exercício); sem outro, a pessoa escolhe na aba Programa;
     /// - deload: `SessionPlanning.requestDeload`;
@@ -119,17 +120,10 @@ extension CoachService {
             return nil
 
         case .swapExercise:
-            let targets = try activeTargets(suggestion.targetIDs)
             // Todos os substitutos antes de gravar: sem um deles, nada muda.
-            var replacements: [(targetID: UUID, exerciseID: UUID)] = []
-            for target in targets {
-                guard let substitute = try planner.substitutes(for: target.exerciseID, limit: 1).first else {
-                    throw CoachServiceError.noSubstitute
-                }
-                replacements.append((targetID: target.id, exerciseID: substitute.id))
-            }
+            let replacements = try swapReplacements(for: suggestion.targetIDs)
             for replacement in replacements {
-                try programs.replaceExercise(targetID: replacement.targetID, with: replacement.exerciseID)
+                try programs.replaceExercise(targetID: replacement.targetID, with: replacement.substitute.id)
             }
             return nil
 
@@ -168,6 +162,40 @@ extension CoachService {
             throw CoachServiceError.suggestionOutdated
         }
         return found
+    }
+
+    /// O substituto de cada alvo de uma troca (RF-34): o primeiro candidato de
+    /// `SessionPlanning.substitutes` que não está no dia do alvo nem foi escolhido para outro
+    /// alvo do mesmo dia, como no editor manual; assim o dia não fica com o mesmo exercício duas
+    /// vezes. Lança `suggestionOutdated` se um alvo sumiu do programa ativo e `noSubstitute` se
+    /// não sobra candidato.
+    func swapReplacements(for targetIDs: [UUID]) throws -> [(targetID: UUID, substitute: ExerciseDefinition)] {
+        let days = try programs.allPrograms()
+            .filter { $0.isActive }
+            .flatMap { $0.days }
+        var takenByDay: [UUID: Set<UUID>] = [:]
+        var replacements: [(targetID: UUID, substitute: ExerciseDefinition)] = []
+        for targetID in targetIDs {
+            guard let day = days.first(where: { candidate in candidate.exercises.contains { $0.id == targetID } }),
+                  let target = day.exercises.first(where: { $0.id == targetID })
+            else {
+                throw CoachServiceError.suggestionOutdated
+            }
+            var taken = takenByDay[day.id] ?? Set(day.exercises.map { $0.exerciseID })
+            // O próprio exercício já sai da lista; com um candidato a mais do que os exercícios
+            // do dia, sobra ao menos um fora dele quando o catálogo tem.
+            let candidates = try planner.substitutes(for: target.exerciseID, limit: taken.count + 1)
+            guard let substitute = candidates.first(where: { !taken.contains($0.id) }) else {
+                throw CoachServiceError.noSubstitute
+            }
+            taken.insert(substitute.id)
+            takenByDay[day.id] = taken
+            replacements.append((targetID: targetID, substitute: substitute))
+        }
+        guard !replacements.isEmpty else {
+            throw CoachServiceError.suggestionOutdated
+        }
+        return replacements
     }
 
     /// C2 "Experimentar um novo programa": o primeiro programa inativo com o mesmo objetivo do
@@ -217,16 +245,23 @@ extension CoachService {
             }
             return "\(subject) \(verb) para a faixa de \(range.lowerBound) a \(range.upperBound) repetições."
         case .swapExercise:
-            let pairs = suggestion.targetIDs.compactMap { targetID -> String? in
-                guard let exercise = targetExercises[targetID],
-                      let substitute = try? planner.substitutes(for: exercise.id, limit: 1).first
-                else {
+            // A mesma escolha de "Aplicar", para a confirmação dizer o que vai mudar.
+            let replacements: [(targetID: UUID, substitute: ExerciseDefinition)]
+            do {
+                replacements = try swapReplacements(for: suggestion.targetIDs)
+            } catch CoachServiceError.noSubstitute {
+                return "Não há um exercício parecido no catálogo para a troca."
+            } catch {
+                return nil
+            }
+            let pairs = replacements.compactMap { replacement -> String? in
+                guard let exercise = targetExercises[replacement.targetID] else {
                     return nil
                 }
-                return "\(exercise.name) dá lugar a \(substitute.name)"
+                return "\(exercise.name) dá lugar a \(replacement.substitute.name)"
             }
             guard !pairs.isEmpty else {
-                return "Não há um exercício parecido no catálogo para a troca."
+                return nil
             }
             return Self.joinedNames(pairs) + ". Séries, faixa e descanso continuam os mesmos."
         case .switchProgram:

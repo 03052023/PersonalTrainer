@@ -67,7 +67,7 @@ final class HomeViewModelTests: XCTestCase {
         model.refresh()
 
         XCTAssertNil(model.plan, "Plano antigo não pode sobreviver a uma leitura falha")
-        XCTAssertEqual(model.errorMessage, "O programa ativo não tem dias de treino.")
+        XCTAssertEqual(model.errorMessage, "O programa ativo não tem dias.")
         XCTAssertTrue(model.isPresentingError)
         XCTAssertTrue(model.didFailToLoad)
     }
@@ -99,7 +99,7 @@ final class HomeViewModelTests: XCTestCase {
 
         model.refresh()
 
-        XCTAssertEqual(model.errorMessage, "Não foi possível carregar o próximo treino.")
+        XCTAssertEqual(model.errorMessage, "Não foi possível carregar a próxima sessão.")
     }
 
     // MARK: - startSession()
@@ -120,6 +120,25 @@ final class HomeViewModelTests: XCTestCase {
         XCTAssertEqual(planner.startedPlans.count, 1)
         XCTAssertEqual(planner.startedPlans.first?.plan, plan)
         XCTAssertEqual(planner.startedPlans.first?.now, now)
+    }
+
+    func testStartSession_S2_dayWithoutExercises_doesNotStart() {
+        // RF-36: um dia recém-acrescentado ainda vazio (RF-33) não vira sessão.
+        let emptyPlan = SessionPlan(
+            programID: UUID(),
+            programName: "Programa ABC",
+            programDayID: UUID(),
+            programDayName: "Dia D",
+            exercises: [],
+            generatedAt: now
+        )
+        let planner = HomeTestPlanner(planToReturn: emptyPlan)
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+        model.refresh()
+
+        XCTAssertNil(model.startSession())
+        XCTAssertTrue(planner.startedPlans.isEmpty)
+        XCTAssertNotNil(model.errorMessage)
     }
 
     func testStartSession_withActiveSession_resumesWithoutStartingAnother() throws {
@@ -181,7 +200,7 @@ final class HomeViewModelTests: XCTestCase {
 
         XCTAssertNil(model.startSession())
         XCTAssertNil(model.activeSessionID)
-        XCTAssertEqual(model.errorMessage, "Não foi possível iniciar o treino.")
+        XCTAssertEqual(model.errorMessage, "Não foi possível iniciar a sessão.")
     }
 
     // MARK: - isPresentingError

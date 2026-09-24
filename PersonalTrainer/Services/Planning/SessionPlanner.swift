@@ -255,12 +255,14 @@ final class SessionPlanner: SessionPlanning {
     func completedSessionSummaries() throws -> [SessionSummary] {
         try allSessionSummaries()
             .filter { $0.status == .completed }
-            .sorted { lhs, rhs in
-                if lhs.startedAt != rhs.startedAt {
-                    return lhs.startedAt < rhs.startedAt
-                }
-                return lhs.id.uuidString < rhs.id.uuidString
-            }
+            .sorted(by: SessionPlanner.isChronological)
+    }
+
+    /// SPEC P3/P9: concluídas e abandonadas, como o histórico do motor; `inProgress` fica fora.
+    func finishedSessionSummaries() throws -> [SessionSummary] {
+        try allSessionSummaries()
+            .filter { $0.status == .completed || $0.status == .abandoned }
+            .sorted(by: SessionPlanner.isChronological)
     }
 
     /// SPEC §7.8 sobre o programa ativo:
@@ -423,7 +425,7 @@ private extension SessionPlanner {
         settings: PlannerSettings,
         now: Date
     ) throws -> DayChoice? {
-        let template = snapshot.template
+        let template = SessionPlanner.trainableTemplate(snapshot.template)
         guard settings.usesFrequencySelector(programDayCount: template.days.count) else {
             guard let day = selector.nextDay(program: template, recentSessions: sessions, now: now) else {
                 return nil
@@ -453,6 +455,25 @@ private extension SessionPlanner {
             now: now
         ) ?? .rotation
         return DayChoice(day: day, reason: reason)
+    }
+
+    /// RF-33/RF-36: um dia sem exercícios (recém-acrescentado no editor) fica fora da escolha
+    /// automática. Uma sessão vazia não move a rotação (S2 pede ≥ 1 série de trabalho), então a
+    /// Home voltaria a propor o mesmo dia. Escolhido à mão (S4) ele ainda abre. Se nenhum dia tem
+    /// exercícios, vale o programa inteiro.
+    nonisolated static func trainableTemplate(_ template: ProgramTemplate) -> ProgramTemplate {
+        let trainable = template.days.filter { !$0.exercises.isEmpty }
+        guard !trainable.isEmpty, trainable.count < template.days.count else {
+            return template
+        }
+        return ProgramTemplate(
+            id: template.id,
+            name: template.name,
+            days: trainable,
+            isActive: template.isActive,
+            goal: template.goal,
+            summary: template.summary
+        )
     }
 
     /// CA4-5: o grupo do dia mais longe da meta semanal, com a mesma conta do painel "Esta
@@ -584,6 +605,14 @@ private extension SessionPlanner {
     func allSessionSummaries() throws -> [SessionSummary] {
         let sessions = try modelContext.fetch(FetchDescriptor<WorkoutSessionModel>())
         return try sessions.map { try SessionSummaryMapper.summary(from: $0) }
+    }
+
+    /// Da mais antiga para a mais recente; empate de `startedAt` pelo `id` (SPEC P11).
+    nonisolated static func isChronological(_ lhs: SessionSummary, _ rhs: SessionSummary) -> Bool {
+        if lhs.startedAt != rhs.startedAt {
+            return lhs.startedAt < rhs.startedAt
+        }
+        return lhs.id.uuidString < rhs.id.uuidString
     }
 
     /// Histórico de UM exercício (ARCHITECTURE §6): o filtro por `exerciseUUID` é feito no banco;

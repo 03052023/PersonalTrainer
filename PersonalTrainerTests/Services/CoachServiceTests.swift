@@ -58,6 +58,22 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertTrue(fixture.service.messages.contains { $0.id == highlighted.id }, "A mensagem continua no feed")
     }
 
+    func testRefresh_withoutHighlight_updatesTheFeedButOpensNoSheet() throws {
+        let fixture = try makeFixture(expiry: date(2026, 9, 26, hour: 21))
+        defer { fixture.cleanUp() }
+
+        // Troca de aba, fim da sessão, leitura do Saúde: só o feed muda (SPEC §7.11, "na abertura").
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown, allowsHighlight: false)
+        XCTAssertTrue(fixture.service.messages.contains { $0.rule == .installExpiry })
+        XCTAssertNil(fixture.service.highlight)
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown, allowsHighlight: true)
+        XCTAssertEqual(fixture.service.highlight?.rule, .installExpiry, "Na abertura, o destaque aparece")
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown, allowsHighlight: false)
+        XCTAssertEqual(fixture.service.highlight?.rule, .installExpiry, "Um destaque já escolhido continua")
+    }
+
     func testHandle_onHighlight_defersNavigationUntilSheetCloses() throws {
         let fixture = try makeFixture(expiry: date(2026, 9, 26, hour: 21))
         defer { fixture.cleanUp() }
@@ -233,6 +249,58 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertTrue(fixture.service.messages.contains { $0.id == message.id }, "O relatório guardado continua no feed")
     }
 
+    func testRefresh_storedReviewOfAnotherProgram_leavesTheFeed() throws {
+        let firstSession = date(2026, 7, 20)
+        let oldTarget = ExerciseTarget(exerciseID: UUID(), order: 0)
+        let oldProgram = program(name: "Completo", goal: .hypertrophy, isActive: true, targets: [oldTarget])
+        let fixture = try makeFixture()
+        defer { fixture.cleanUp() }
+        fixture.planner.sessionsToReturn = [session(startedAt: firstSession)]
+        fixture.planner.reviewInputToReturn = reviewInput(programID: oldProgram.id, startDate: firstSession)
+        fixture.programs.programs = [oldProgram]
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        XCTAssertTrue(
+            fixture.service.messages.contains { $0.rule == .review },
+            "A revisão do programa ativo aparece (troca de programa, C2)"
+        )
+
+        // Outro programa ativado pela aba Programa, antes da próxima revisão.
+        let newProgram = program(name: "Foco superior", goal: .hypertrophy, isActive: true)
+        fixture.programs.programs = [newProgram]
+        fixture.planner.reviewInputToReturn = reviewInput(programID: newProgram.id, startDate: nil)
+        fixture.clock.now = date(2026, 9, 25)
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+
+        XCTAssertEqual(fixture.logStore.reviewSaveCount, 1)
+        XCTAssertFalse(
+            fixture.service.messages.contains { $0.rule == .review },
+            "As sugestões do programa anterior saem do feed"
+        )
+    }
+
+    func testRefresh_storedSuggestionForARemovedExercise_leavesTheFeed() throws {
+        let target = ExerciseTarget(exerciseID: UUID(), order: 0)
+        let suggestion = ProgramSuggestion(
+            id: "addSets:chest:\(target.id.uuidString):2026-W39",
+            kind: .addSets,
+            rule: "R3",
+            title: "Mais séries para o peito",
+            reason: "O peito teve 8 séries por semana.",
+            targetIDs: [target.id],
+            muscle: .chest,
+            proposedSets: 4,
+            referenceTopic: "topic.volume"
+        )
+        let fixture = try makeFixture(logStore: storeWithReview([suggestion]))
+        defer { fixture.cleanUp() }
+        fixture.programs.programs = [program(name: "Completo", goal: .hypertrophy, isActive: true)]
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+
+        XCTAssertFalse(fixture.service.messages.contains { $0.rule == .review }, "\"Aplicar\" só daria erro")
+    }
+
     func testHandle_applySwitchProgram_activatesTheNextProgramWithTheSameGoal() throws {
         let suggestion = ProgramSuggestion(
             id: "switchProgram:old:2026-W39",
@@ -361,6 +429,35 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertEqual(fixture.planner.substitutesCalls.last, original.id)
     }
 
+    func testHandle_applySwapExercise_skipsASubstituteAlreadyInTheDay() throws {
+        // Como no dia A do Empurrar/Inferior/Puxar: o melhor substituto do supino reto com barra
+        // é o supino inclinado com halteres, que já é o exercício seguinte do dia.
+        let original = exercise(name: "Supino reto com barra")
+        let incline = exercise(name: "Supino inclinado com halteres")
+        let target = ExerciseTarget(exerciseID: original.id, order: 0)
+        let inclineTarget = ExerciseTarget(exerciseID: incline.id, order: 1)
+        let suggestion = swapSuggestion(targetID: target.id)
+        let fixture = try makeFixture(logStore: storeWithReview([suggestion]))
+        defer { fixture.cleanUp() }
+        fixture.programs.programs = [
+            program(name: "Empurrar/Inferior/Puxar", goal: .hypertrophy, isActive: true, targets: [target, inclineTarget]),
+        ]
+        let flat = exercise(name: "Supino reto com halteres")
+        fixture.planner.substitutesToReturn = [incline, flat]
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        let message = try XCTUnwrap(fixture.service.messages.first { $0.rule == .review })
+        fixture.service.handle(.apply, on: message)
+
+        XCTAssertEqual(fixture.programs.replacements.map { $0.targetID }, [target.id])
+        XCTAssertEqual(
+            fixture.programs.replacements.map { $0.exerciseID },
+            [flat.id],
+            "O dia não fica com o mesmo exercício duas vezes"
+        )
+        XCTAssertNil(fixture.service.errorMessage)
+    }
+
     func testHandle_applySwapWithoutSubstitute_changesNothingAndExplains() throws {
         let target = ExerciseTarget(exerciseID: UUID(), order: 0)
         let suggestion = swapSuggestion(targetID: target.id)
@@ -379,23 +476,26 @@ final class CoachServiceTests: XCTestCase {
     }
 
     func testHandle_applyToATargetNoLongerInTheProgram_changesNothing() throws {
+        let target = ExerciseTarget(exerciseID: UUID(), order: 0)
         let suggestion = ProgramSuggestion(
-            id: "removeSets:back:gone:2026-W39",
+            id: "removeSets:back:\(target.id.uuidString):2026-W39",
             kind: .removeSets,
             rule: "R3",
             title: "Menos séries para as costas",
             reason: "As costas tiveram 24 séries por semana.",
-            targetIDs: [UUID()],
+            targetIDs: [target.id],
             muscle: .back,
             proposedSets: 2,
             referenceTopic: "topic.volume"
         )
         let fixture = try makeFixture(logStore: storeWithReview([suggestion]))
         defer { fixture.cleanUp() }
-        fixture.programs.programs = [program(name: "Completo", goal: .hypertrophy, isActive: true)]
+        fixture.programs.programs = [program(name: "Completo", goal: .hypertrophy, isActive: true, targets: [target])]
 
         fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
         let message = try XCTUnwrap(fixture.service.messages.first { $0.rule == .review })
+        // O exercício sai do programa depois que o feed foi montado.
+        fixture.programs.programs = [program(name: "Completo", goal: .hypertrophy, isActive: true)]
         fixture.service.handle(.apply, on: message)
 
         XCTAssertEqual(fixture.service.errorMessage, CoachService.errorText(for: CoachServiceError.suggestionOutdated))
@@ -497,6 +597,21 @@ final class CoachServiceTests: XCTestCase {
         let message = try XCTUnwrap(fixture.service.messages.first { $0.rule == .comeback })
         XCTAssertTrue(message.reason.contains("Dia B"))
         XCTAssertEqual(fixture.planner.nextPlanCalls, [now])
+    }
+
+    func testRefresh_abandonedSessionWithWorkingSets_countsAsTheLastSession() throws {
+        let fixture = try makeFixture()
+        defer { fixture.cleanUp() }
+        // SPEC P9/C5: a pausa conta da última sessão com série de trabalho, concluída ou abandonada.
+        fixture.planner.sessionsToReturn = [
+            session(startedAt: date(2026, 8, 30)),
+            session(startedAt: date(2026, 9, 21), status: .abandoned, workingSetCount: 4),
+        ]
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+
+        XCTAssertFalse(fixture.service.messages.contains { $0.rule == .comeback }, "Três dias não é uma pausa")
+        XCTAssertEqual(fixture.planner.nextPlanCalls, [])
     }
 
     func testRefresh_recentSession_doesNotComputeTheNextPlan() throws {
@@ -791,14 +906,20 @@ final class CoachServiceTests: XCTestCase {
         calendar.date(from: DateComponents(year: year, month: month, day: day, hour: hour, minute: minute))!
     }
 
-    private func session(id: UUID = UUID(), startedAt: Date, isDeload: Bool = false) -> SessionSummary {
+    private func session(
+        id: UUID = UUID(),
+        startedAt: Date,
+        status: SessionStatus = .completed,
+        workingSetCount: Int = 12,
+        isDeload: Bool = false
+    ) -> SessionSummary {
         SessionSummary(
             id: id,
             programDayID: UUID(),
             startedAt: startedAt,
             endedAt: startedAt.addingTimeInterval(3_600),
-            status: .completed,
-            workingSetCount: 12,
+            status: status,
+            workingSetCount: workingSetCount,
             isDeload: isDeload
         )
     }
@@ -808,6 +929,20 @@ final class CoachServiceTests: XCTestCase {
         (1...count).map { offset in
             session(startedAt: now.addingTimeInterval(-Double(offset) * 86_400))
         }
+    }
+
+    /// Entrada da revisão sem exercícios: só as sugestões do programa inteiro podem sair dela.
+    private func reviewInput(programID: UUID, startDate: Date?) -> ReviewInput {
+        ReviewInput(
+            programID: programID,
+            programName: "Completo",
+            programDayCount: 1,
+            programStartDate: startDate,
+            exercises: [],
+            sessions: [],
+            weeklySetTarget: 10...20,
+            currentPrescriptions: []
+        )
     }
 
     private func storeWithReview(_ suggestions: [ProgramSuggestion]) -> FakeCoachLogStore {
@@ -876,10 +1011,8 @@ final class CoachTestClock {
     }
 }
 
-/// `SessionPlanning` controlável. Os cinco métodos do contrato §2.2 (`deloadStatus`,
-/// `requestDeload`, `dismissDeload`, `completedSessionSummaries`, `reviewInput`) chegam aqui pela
-/// ponte temporária `CoachPlanningShim` (CoachPlannerShimTests.swift) até o integrador mesclar o
-/// planejador; depois disso eles implementam os requisitos reais do protocolo.
+/// `SessionPlanning` controlável. `sessionsToReturn` alimenta as concluídas e as terminadas
+/// (concluídas e abandonadas), cada uma com o seu filtro, como no `SessionPlanner`.
 @MainActor
 final class CoachTestPlanner: SessionPlanning {
     var deloadStatusToReturn: DeloadStatus = .inactive
@@ -928,7 +1061,11 @@ final class CoachTestPlanner: SessionPlanning {
     }
 
     func completedSessionSummaries() throws -> [SessionSummary] {
-        sessionsToReturn
+        sessionsToReturn.filter { $0.status == .completed }
+    }
+
+    func finishedSessionSummaries() throws -> [SessionSummary] {
+        sessionsToReturn.filter { $0.status != .inProgress }
     }
 
     func reviewInput(now: Date, recovery: RecoveryContext) throws -> ReviewInput? {

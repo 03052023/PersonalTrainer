@@ -17,7 +17,10 @@ extension CoachService {
         rememberTargets(from: reviewInput)
         let exercises = exerciseCatalog(from: reviewInput)
         let deload = deloadState(sessions: sessions, now: now)
-        let review = currentReview(log: &log, input: reviewInput, firstSessionAt: trainedStarts.min(), now: now)
+        let review = relevantReview(
+            currentReview(log: &log, input: reviewInput, firstSessionAt: trainedStarts.min(), now: now),
+            activeProgramID: reviewInput?.programID
+        )
         let records = personalRecords(sessions: sessions, reviewInput: reviewInput)
         let nextDay = nextDayName(lastSessionStart: lastSessionStart, now: now)
         let completedCount = sessions.filter { $0.status == .completed }.count
@@ -42,9 +45,11 @@ extension CoachService {
 
     // MARK: - Fontes
 
+    /// Concluídas e abandonadas (SPEC P3/P9); as regras que pedem só as concluídas (C6, C7)
+    /// filtram por `status`.
     func loadSessions() -> [SessionSummary] {
         do {
-            return try planner.completedSessionSummaries()
+            return try planner.finishedSessionSummaries()
         } catch {
             let reason = String(describing: error)
             Self.logger.error("Sessões indisponíveis para o diálogo: \(reason, privacy: .public)")
@@ -175,6 +180,7 @@ extension CoachService {
             let report = ProgramReviewer.review(input: input, now: now, calendar: calendar)
             review = report
             didLoadReview = true
+            defaults.set(input.programID.uuidString, forKey: DefaultsKey.lastReviewProgramID)
             do {
                 // O relatório primeiro: com `lastReviewAt` gravado e o relatório não, as
                 // sugestões sumiriam até a próxima revisão. Na falha, a revisão roda de novo.
@@ -192,6 +198,51 @@ extension CoachService {
             didLoadReview = true
         }
         return review
+    }
+
+    /// O relatório guardado só com o que ainda vale para o programa ativo: ele fica até a próxima
+    /// revisão, e o programa pode ter sido editado ou trocado nesse meio-tempo.
+    /// - Sugestão por exercício: só se todos os alvos ainda estão no programa ativo, senão
+    ///   "Aplicar" só daria erro (a mesma conferência de `activeTargets`).
+    /// - Sugestão do programa inteiro (semana leve, menos dias, trocar de programa): só se a
+    ///   revisão foi feita sobre o programa ativo. Sem a marca do programa revisado, vale.
+    /// Numa falha de leitura dos programas, o relatório segue como está; "Aplicar" confere de novo.
+    func relevantReview(_ report: ReviewReport?, activeProgramID: UUID?) -> ReviewReport? {
+        guard let report else {
+            return nil
+        }
+        let activeTargetIDs: Set<UUID>
+        do {
+            let targets = try programs.allPrograms()
+                .filter { $0.isActive }
+                .flatMap { $0.days }
+                .flatMap { $0.exercises }
+            activeTargetIDs = Set(targets.map { $0.id })
+        } catch {
+            let reason = String(describing: error)
+            Self.logger.error("Programas indisponíveis para conferir a revisão: \(reason, privacy: .public)")
+            return report
+        }
+        let reviewedProgramID = defaults.string(forKey: DefaultsKey.lastReviewProgramID)
+            .flatMap { UUID(uuidString: $0) }
+        let isSameProgram = reviewedProgramID == nil || reviewedProgramID == activeProgramID
+        let kept = report.suggestions.filter { suggestion in
+            if suggestion.targetIDs.isEmpty {
+                return isSameProgram
+            }
+            return suggestion.targetIDs.allSatisfy { activeTargetIDs.contains($0) }
+        }
+        guard kept.count != report.suggestions.count else {
+            return report
+        }
+        return ReviewReport(
+            generatedAt: report.generatedAt,
+            stagnantExerciseIDs: report.stagnantExerciseIDs,
+            fatigueHigh: report.fatigueHigh,
+            weeklySetsByMuscle: report.weeklySetsByMuscle,
+            adherence: report.adherence,
+            suggestions: kept
+        )
     }
 
     // MARK: - C5 Retomada

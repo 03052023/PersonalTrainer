@@ -633,6 +633,18 @@ final class ProgramRepositoryTests: XCTestCase {
         XCTAssertEqual(days.last?.exercises.count, 0)
     }
 
+    func testAddDay_defaultName_skipsLettersOfDescriptiveDayNames() throws {
+        let fixture = try makeFixture()
+        // Como no seed: "Dia A — Corpo todo" também ocupa a letra A (RF-36).
+        try fixture.repository.renameDay(id: fixture.dayA.uuid, to: "Dia A — Corpo todo")
+        try fixture.repository.renameDay(id: fixture.dayB.uuid, to: "Dia B — Corpo todo")
+
+        let newID = try fixture.repository.addDay(programID: fixture.program.uuid, name: nil)
+
+        let days = try XCTUnwrap(fixture.repository.program(id: fixture.program.uuid)).days
+        XCTAssertEqual(days.first { $0.id == newID }?.name, "Dia C")
+    }
+
     func testAddDay_explicitName_trimsAndUsesIt() throws {
         let fixture = try makeFixture()
 

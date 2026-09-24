@@ -462,14 +462,18 @@ final class ProgramRepository: ProgramRepositoring {
         }
     }
 
-    /// "Dia " + a primeira letra de A a Z que não aparece como nome exato de um dia existente
-    /// (RF-36). Com `ProgramLimits.maxDays` = 7, as 26 letras nunca se esgotam; o fallback numérico
-    /// só existe para um programa com nomes fora do padrão "Dia X" chegar a esse ponto sem travar.
+    /// "Dia " + a primeira letra de A a Z que nenhum dia existente usa (RF-36). Uma letra está em
+    /// uso quando o nome é "Dia X" ou começa por "Dia X " (os dias do seed se chamam "Dia A —
+    /// Corpo todo"). Com `ProgramLimits.maxDays` = 7, as 26 letras nunca se esgotam; o fallback
+    /// numérico só existe para um programa com nomes fora do padrão "Dia X" chegar a esse ponto
+    /// sem travar.
     private static func nextDayLabel(existingNames: [String]) -> String {
-        let used = Set(existingNames)
         for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" {
             let candidate = "Dia \(letter)"
-            if !used.contains(candidate) {
+            let isUsed = existingNames.contains { name in
+                name == candidate || name.hasPrefix(candidate + " ")
+            }
+            if !isUsed {
                 return candidate
             }
         }

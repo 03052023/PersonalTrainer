@@ -37,6 +37,7 @@ protocol SessionPlanning: AnyObject {
     func requestDeload(now: Date) throws
     func dismissDeload(now: Date) throws
     func completedSessionSummaries() throws -> [SessionSummary]
+    func finishedSessionSummaries() throws -> [SessionSummary]
     func reviewInput(now: Date, recovery: RecoveryContext) throws -> ReviewInput?
 }
 
@@ -89,6 +90,13 @@ extension SessionPlanning {
     /// Todas as sessões `completed`, de qualquer programa, da mais antiga para a mais recente
     /// (empate de `startedAt` pelo `id`). Com `isDeload` e as séries de trabalho de cada uma.
     func completedSessionSummaries() throws -> [SessionSummary] { [] }
+
+    /// Sessões `completed` e `abandoned`, de qualquer programa, na mesma ordem de
+    /// `completedSessionSummaries`: as que o motor lê como histórico (SPEC P3) e de onde conta a
+    /// pausa de P9 e do C5. O padrão devolve só as concluídas, para doubles que não distinguem.
+    func finishedSessionSummaries() throws -> [SessionSummary] {
+        try completedSessionSummaries()
+    }
 
     /// Entrada de `ProgramReviewer.review` para o programa ativo (SPEC §7.8). `nil` sem programa
     /// ativo ou com programa sem dias.
