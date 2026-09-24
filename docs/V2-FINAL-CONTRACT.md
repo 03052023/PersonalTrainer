@@ -139,13 +139,97 @@ Arquivos: `PersonalTrainer/Resources/Seed/references.v1.json`, `Packages/Trainer
 - Acrescentar FRIEND 2015 (Kaminsky, doi 10.1016/j.mayocp.2015.07.026) em `topic.vo2max`, e Tanaka 2001 (10.1016/S0735-1097(00)01054-8), ACSM 2011 (Garber, 10.1249/MSS.0b013e318213fefb) e OMS 2020 (Bull, 10.1136/bjsports-2020-102955) em `topic.aerobic` e onde couber (`goal.longevity`).
 - Conferir todo DOI novo em `https://api.crossref.org/works/<doi>`: título, primeiro autor e ano. Não inventar nada. `ReferenceValidator` precisa continuar passando.
 
-## 2. Onda 3 — app (depois da onda 2; implementadores em pastas disjuntas + integrador único)
+## 2. Onda 3 — app (depois da onda 2 mesclada)
 
-| Tarefa | Pasta dona | Entrega |
-|---|---|---|
-| Saúde | `Features/Health`, `Services/Health` | mesclar `m5/health-reader` e `m5/health-ui`; `HealthViewModel` recebe `HealthDataReading` |
-| Planejador | `Services/Planning`, `Services/Decisions` | `DeloadScheduler` + `DeloadPolicy.deloadPrescription` + `FrequencyAwareSelector` (chave em Ajustes; padrão ligado com ≥ 4 dias) no `SessionPlanner`; `SessionPlan.isDeload` e `reason`; `DeloadDecisionsStore` (JSON em Application Support) |
-| Diálogo | `Features/Coach`, `Services/Coach` | `CoachLogStore` (JSON), `ProvisioningExpiryReader` (Bundle `embedded.mobileprovision` → parser do core) + notificação local na véspera, execução da revisão quando `ReviewSchedule.isDue`, aplicar `ProgramSuggestion` via `ProgramRepositoring`, `PersonalRecordDetector` ao concluir a sessão |
-| Dias D/E | `Features/Program` | T2.22: adicionar/remover/renomear/reordenar dias (1–7) pelo `ProgramRepositoring` |
-| Design | `Features/DesignSystem` (nova), `Resources/Assets.xcassets/AccentColor.colorset` | tokens do DESIGN.md §3, `FlowerView` (a flor com a pétala do objetivo), troca de símbolos (§8) |
-| Integrador | `App/*`, `Features/Home/*`, `Features/Settings/*` | liga tudo: Home com objetivo + flor no topo, cartão de hoje e botão **Começar**, feed do diálogo, cartão de Saúde; aba **Hoje** (`sun.max`); Ajustes com as chaves novas |
+Cinco implementadores em paralelo, cada um num worktree próprio e dono exclusivo das pastas listadas, e depois **um integrador**, único a mexer em `App/*`, `Features/Home/*`, `Features/Settings/*` e `PreviewSupport/*` (salvo as exceções citadas). Todo código de app é escrito sem compilador local (AGENTS R11): cada implementador faz push do seu branch também para `ci/<seu-nome>` e itera até o App build ficar verde. Chame `watch-ci.ps1` com `-Minutes 9` (a ferramenta corta comandos em 10 min) e repita até o script dizer que todos os workflows terminaram. Requisitos novos em protocolos existentes sempre com implementação padrão na extensão, para que doubles e previews continuem compilando.
+
+Chaves de `UserDefaults` (strings exatas, compartilhadas entre tarefas):
+- `plannerFrequencySelector`: `"auto"` (padrão; ligado quando o programa tem ≥ 4 dias), `"on"` ou `"off"`.
+- `plannerDeloadWeeks`: Int, padrão 6; 0 desliga o gatilho (b).
+- `lastBackupAt`: Double (`timeIntervalSince1970`), gravada pelo Ajustes depois de exportar backup com sucesso.
+- `expiryReminderEnabled`: Bool, a pessoa pediu aviso na véspera da expiração.
+
+### 2.1 Saúde — `v3/health`, `ci/v3-health`
+Pastas: `Features/Health/*`, `Services/HealthKit/HealthDataReading.swift`, `Services/HealthKit/LiveHealthDataReader.swift`, `Services/HealthKit/FakeHealthDataReader.swift`, `PreviewSupport/HealthPreviewSupport.swift`, `PersonalTrainerTests/Features/HealthViewModelTests.swift`, `PersonalTrainerTests/Services/FakeHealthDataReaderTests.swift`.
+- Mescle `m5/health-reader` e `m5/health-ui` no seu branch e ajuste ao `main` atual até compilar.
+- `HealthCardView` ganha `showsSuggestions: Bool = true`. O integrador passa `false`, porque as sugestões de saúde aparecem só no feed do diálogo (C3).
+- `HealthViewModel.report` (já existe) é o que o integrador repassa ao diálogo.
+
+### 2.2 Planejador — `v3/planner`, `ci/v3-planner`
+Pastas: `Services/Planning/*`, `Services/Decisions/*` (nova), `Persistence/Mappers/SessionSummaryMapper.swift`, `Services/Session/SessionCoordinator.swift` (só para gravar `isDeload` a partir do plano), `PersonalTrainerTests/Services/SessionPlanner*Tests.swift`, `PersonalTrainerTests/Services/DeloadDecisionsStoreTests.swift`.
+
+```swift
+// SessionPlan ganha (com valores padrão no init, para não quebrar quem já constrói SessionPlan):
+let isDeload: Bool
+let reason: PlanReason?
+enum PlanReason: Sendable, Hashable {
+    case rotation                                              // S2
+    case manual                                                // S4
+    case frequency(muscle: MuscleGroup, done: Int, target: Int)  // S5–S7 (CA4-5)
+    case deload(DeloadTrigger?)                                // §7.5
+}
+
+// SessionPlanning ganha (requisitos + padrão na extensão):
+func deloadStatus(now: Date) throws -> DeloadStatus           // padrão .inactive
+func requestDeload(now: Date) throws                           // manual (c); padrão no-op
+func dismissDeload(now: Date) throws                           // "Seguir normal"; padrão no-op
+func completedSessionSummaries() throws -> [SessionSummary]    // todas; padrão []
+func reviewInput(now: Date, recovery: RecoveryContext) throws -> ReviewInput?   // programa ativo; padrão nil
+
+protocol DeloadDecisionsStoring: AnyObject {
+    func load() -> DeloadDecisions
+    func save(_ decisions: DeloadDecisions) throws
+}
+// LiveDeloadDecisionsStore: JSON em Application Support/PersonalTrainer/deload-decisions.json (escrita atômica)
+// FakeDeloadDecisionsStore: em memória
+```
+- `nextPlan`: com `plannerFrequencySelector` resolvido para ligado, usa `FrequencyAwareSelector` com `dayMuscles` (grupos primários dos exercícios de cada dia) e as metas do `UserSettingsModel`; senão, `RotationSelector`. Calcula `DeloadScheduler.status`: se `.pending` ou `.active`, cada exercício recebe `DeloadPolicy.deloadPrescription` e o plano sai com `isDeload = true`.
+- `plan(forDayID:)`: `reason = .manual`, e aplica o deload se ele estiver ativo.
+- Configurações por uma struct `PlannerSettings` injetada (closure no `init`, padrão lendo `UserDefaults.standard`), para os testes controlarem.
+
+### 2.3 Diálogo — `v3/coach`, `ci/v3-coach`
+Pastas: `Services/Coach/*` (nova), `Features/Coach/*` (nova), `Services/Notifications/*`, `PersonalTrainerTests/Services/Coach*Tests.swift`.
+- `CoachLogStoring` + `LiveCoachLogStore` (JSON em Application Support/PersonalTrainer/coach-log.json) + `FakeCoachLogStore`.
+- `ProvisioningExpiryReader`: lê `Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision")` e usa `ProvisioningProfileParser.expirationDate`. Devolve nil no simulador.
+- `NotificationScheduling` ganha `scheduleReminder(at:identifier:title:body:)` (padrão que encaminha para o método existente). O aviso de expiração é agendado para as 10h da véspera **só** se `expiryReminderEnabled`; a permissão é pedida na ação da mensagem C4, nunca no launch (AGENTS §7).
+- `CoachService` (`@MainActor @Observable`): `init(planner: any SessionPlanning, programs: any ProgramRepositoring, log: any CoachLogStoring, expiry: ProvisioningExpiryReader, notifications: any NotificationScheduling, now: @escaping () -> Date, calendar: Calendar, defaults: UserDefaults)`.
+  - `refresh(healthSuggestions: [HealthSuggestion], recovery: RecoveryContext)` monta o `CoachInput`: deload pelo planejador; revisão via `planner.reviewInput` + `ProgramReviewer.review` quando `ReviewSchedule.isDue`, registrando `lastReviewAt`; recordes via `PersonalRecordDetector` da última sessão concluída; backup por `lastBackupAt`; objetivo; marcas de longevidade vindas do log. Publica `messages: [CoachMessage]` e `highlight: CoachMessage?`.
+  - `handle(_ action: CoachAction, on message: CoachMessage)` grava no log e aplica o efeito:
+    - `apply`: addSets/removeSets → `updateTarget` com `proposedSets`; changeRepRange → `updateTarget` com a faixa; swapExercise → `replaceExercise` pelo primeiro de `planner.substitutes`; switchProgram → `activate`; deload → `planner.requestDeload`; reduceDays → só informa.
+    - `keepNormal` → `planner.dismissDeload`.
+    - `done` (C8) → marca equilíbrio ou mobilidade.
+    - `backupNow` e `howToRenew` → navegação, por closures que o integrador fornece.
+- Views: `CoachFeedSection(messages:references:onAction:)`, `CoachMessageCard`, `CoachHighlightSheet`, `RenewalHelpView` (passo a passo de renovar pelo Impactor, sem pedir credencial). Voz do DESIGN.md §6.
+
+### 2.4 Dias D/E — `v3/program-days`, `ci/v3-program-days` (T2.22)
+Pastas: `Persistence/Repositories/ProgramRepositoring.swift`, `Persistence/Repositories/ProgramRepository.swift`, `Features/Program/*`, `PersonalTrainerTests/Persistence/ProgramRepositoryTests.swift`, `PreviewSupport/ProgramPreviewSupport.swift`.
+- `ProgramRepositoring` ganha `addDay(programID:name:) -> UUID`, `removeDay(id:)`, `renameDay(id:to:)` e `moveDay(id:toIndex:)`, com padrões que lançam erro na extensão. Limite de 1 a 7 dias (erros novos em `ProgramRepositoryError`). O nome padrão do dia novo é "Dia D", "Dia E" etc. (a próxima letra livre). Ao remover um dia, o histórico fica intacto (é por exercício), e sessões antigas mostram o nome gravado no snapshot.
+- UI no editor de programa: adicionar, renomear, apagar com confirmação e reordenar.
+
+### 2.5 Design — `v3/design`, `ci/v3-design`
+Pastas: `Features/DesignSystem/*` (nova; atualize ARCHITECTURE §17), e só as linhas de símbolo proibido em `Features/Session/*`, `Features/Catalog/*` e `Features/History/*` (DESIGN §8).
+- `Theme`: cores do DESIGN §3 como `Color` com variante clara/escura via `UIColor { traits in … }`, e as cores por objetivo.
+- `GoalStyle`: `extension ProgramGoal { var color; var symbolName; var subtitle; var petalIndex }` (DESIGN §4).
+- `FlowerView(activeGoal: ProgramGoal?, size: CGFloat)`: 5 pétalas em gota como no ícone (`docs/design/render-app-icon.ps1`). A pétala do objetivo ativo fica preenchida com a cor dele, as outras em contorno de 1,5 pt em `textSecondary`. Miolo areia, respeita Reduzir Movimento, `accessibilityLabel` com o objetivo.
+- `PrimaryButtonStyle` (≥ 56 pt, `accent`/`onAccent`).
+- Não mexer em Home, Root nem Settings (são do integrador).
+
+### 2.6 Integrador — `v3/integration` → `ci/v3-final`
+Depois das cinco tarefas: mescla os branches e é dono de `App/AppEnvironment*.swift`, `App/RootView.swift`, `Features/Home/*`, `Features/Settings/*` e `PreviewSupport/*` (exceto os já citados).
+- AppEnvironment: ganha `healthReader`, `coach` e `deloadDecisions`.
+- RootView: aba **Hoje** com `sun.max`, `.tint(Theme.accent)`, destaque do diálogo na abertura (`CoachHighlightSheet`), `RenewalHelpView`.
+- Home (DESIGN §9):
+  - no topo, o objetivo com a `FlowerView` (cerca de 56 pt), o nome em New York e o subtítulo;
+  - o cartão de hoje, com o banner de `PlanReason` (CA4-5);
+  - o botão **Começar** / **Retomar**;
+  - o feed do diálogo;
+  - o cartão de Saúde (`showsSuggestions: false`);
+  - a frequência semanal.
+- Ajustes:
+  - seletor por frequência (automático/ligado/desligado);
+  - semanas entre semanas leves;
+  - "Fazer semana leve agora";
+  - aviso de expiração na véspera;
+  - perfil de saúde e referências;
+  - `lastBackupAt` gravado depois de exportar.
+- Push para `ci/v3-final` até o App build ficar verde.
