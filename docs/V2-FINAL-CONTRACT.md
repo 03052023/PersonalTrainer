@@ -149,6 +149,14 @@ Chaves de `UserDefaults` (strings exatas, compartilhadas entre tarefas):
 - `lastBackupAt`: Double (`timeIntervalSince1970`), gravada pelo Ajustes depois de exportar backup com sucesso.
 - `expiryReminderEnabled`: Bool, a pessoa pediu aviso na véspera da expiração.
 
+**Ajustes vindos da onda 2 (valem sobre o texto abaixo):**
+- `dismissDeload(now:)` grava `dismissedAt = now` **e** limpa `manualRequestedAt`. Sem isso, "Seguir normal" num deload manual não teria efeito, porque `DeloadScheduler` não deixa `dismissedAt` cancelar o pedido manual.
+- Um deload já em andamento (`.active`) não se desfaz: "desfazer" só existe enquanto o status é `.pending`. A UI só oferece "Seguir normal" nesse estado.
+- `CoachDeloadState.scheduled(trigger:since:)` precisa de um `since` estável enquanto o status for `.pending`; senão a mensagem C1 volta todo dia. O `CoachService` guarda em `UserDefaults` a chave `coachPendingDeloadSince` (Double), gravada quando o status vira `.pending` e apagada quando deixa de ser. No manual, `since = manualRequestedAt`.
+- A revisão: quando `ReviewSchedule.isDue`, o `CoachService` roda `ProgramReviewer.review`, grava `CoachLog.lastReviewAt = report.generatedAt` e **persiste o `ReviewReport`** (Codable) em Application Support/PersonalTrainer/last-review.json pelo `CoachLogStoring` (`loadLastReview()` / `saveLastReview(_:)`). Ele continua passando esse relatório ao `CoachInput` até a próxima revisão; o log esconde o que já foi respondido.
+- `CoachInput.loadUnits: [UUID: LoadUnit]` existe (C6 não escreve "kg" para placas/nível): preencha com o catálogo.
+- API real do core: veja os arquivos em `Packages/TrainerCore/Sources/TrainerCore/Coach/` e `Engine/DeloadScheduler.swift`, que podem ter pequenos acréscimos em relação ao §1 (inits públicos, `CoachAction.label`, `CoachInput.balanceKey`/`mobilityKey`).
+
 ### 2.1 Saúde — `v3/health`, `ci/v3-health`
 Pastas: `Features/Health/*`, `Services/HealthKit/HealthDataReading.swift`, `Services/HealthKit/LiveHealthDataReader.swift`, `Services/HealthKit/FakeHealthDataReader.swift`, `PreviewSupport/HealthPreviewSupport.swift`, `PersonalTrainerTests/Features/HealthViewModelTests.swift`, `PersonalTrainerTests/Services/FakeHealthDataReaderTests.swift`.
 - Mescle `m5/health-reader` e `m5/health-ui` no seu branch e ajuste ao `main` atual até compilar.
