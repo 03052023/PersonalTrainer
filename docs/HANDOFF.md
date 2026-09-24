@@ -32,17 +32,21 @@ Armadilha do Swift 6.3 no Linux: listas de tuplas com membros implícitos dentro
 
 ## 4. Em andamento e fora do `main`
 
-| Branch | Estado | Conteúdo |
-|--------|--------|----------|
-| `v2/deload-scheduler` | onda 2 (workflow `wf_72a80f9b-76b`) | `DeloadScheduler`, `DeloadStatus`, `DeloadDecisions` (contrato §1.1) |
-| `v2/coach-core` | onda 2 | `TrainerCore/Coach`: `CoachFeedBuilder` C1–C8, `CoachLog`, `ReviewSchedule`, `ProvisioningProfileParser` (§1.2) |
-| `v2/seed-fullbody` | onda 2 | Completo corpo todo no `programs.v2.json` (§1.3) |
-| `v2/references` | onda 2 | `topic.sleep`, `topic.steps`, `topic.e1rm`, FRIEND, Tanaka, ACSM, OMS (§1.4) |
-| `m5/health-reader`, `m5/health-ui` | escritos, não compilados | entram na onda 3 (tarefa Saúde) |
+Onda 2 concluída e mesclada no `main` (fbdf75d): `DeloadScheduler`, `TrainerCore/Coach` (C1–C8, `CoachLog`, `ReviewSchedule`, `ProvisioningProfileParser`), Completo corpo todo com id novo (o A/B/C da M1 fica intacto e inativo no seed) e referências novas. Todos verdes no CI.
 
-**Ao retomar:** para cada branch da onda 2, veja se o último commit tem Core tests verde (API pública, §2). Mescle os verdes no `main`, na ordem references → seed → deload → coach. Depois rode a onda 3 (contrato §2) e o App build em `ci/<nome>`.
+**Onda 3 (app), workflow `wf_d47ca6cb-752`**, a partir do `main` 6d2da14. Cada agente itera no App build do seu branch `ci/v3-*`:
 
-Pendências registradas pelo corretor do M2 que não bloqueiam: C10 (blocos de intervalos do Combate e de equilíbrio/mobilidade da Longevidade viram lembretes do diálogo, C8, e não registro detalhado) e C11 (marcar exercício do seed editado pelo usuário exige um SchemaV3 antes de qualquer seed v3).
+| Branch | CI | Tarefa (contrato §2) |
+|---|---|---|
+| `v3/health` | `ci/v3-health` | 2.1 Saúde (mescla `m5/health-reader` e `m5/health-ui`) |
+| `v3/planner` | `ci/v3-planner` | 2.2 Planejador |
+| `v3/coach` | `ci/v3-coach` | 2.3 Diálogo (tem um shim temporário `Services/Coach/SessionPlanning+CoachShim.swift`, que o integrador apaga) |
+| `v3/program-days` | `ci/v3-program-days` | 2.4 Dias D/E |
+| `v3/design` | `ci/v3-design` | 2.5 Design |
+
+**Ao retomar:** para cada branch `v3/*`, confira se o último commit tem App build verde. Depois rode o **integrador** (§2.6) num worktree novo a partir do `main`: mescla os 5 branches, apaga o shim, liga Home/Root/Ajustes e itera em `ci/v3-final`. Em seguida, revisão adversarial e correção.
+
+Pendências do corretor do M2 que não bloqueiam: C10 (blocos de intervalos do Combate e de equilíbrio/mobilidade viram lembretes C8) e C11 (exercício do seed editado exige SchemaV3 antes de um seed v3). Os programas Foco inferior e Foco superior ainda usam os descansos antigos (180/120 s) e não foram revisados para 2×/semana.
 
 ## 5. Decisões do usuário (identidade)
 
