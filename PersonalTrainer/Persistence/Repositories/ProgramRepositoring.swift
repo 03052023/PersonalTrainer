@@ -35,6 +35,45 @@ protocol ProgramRepositoring: AnyObject {
     /// Atualiza parâmetros do alvo. Valida: sets 1…10, 1 ≤ repMin < repMax ≤ 50, RIR 0…5,
     /// descanso 15…600 s, startingLoad ≥ 0 e múltiplo do incremento (P8) ou `nil`.
     func updateTarget(id: UUID, sets: Int, repMin: Int, repMax: Int, targetRIR: Int, restSeconds: Int, startingLoad: Double?) throws
+
+    // MARK: - Dias do programa (T2.22, RF-36)
+
+    /// Acrescenta um dia ao fim do programa; devolve o id do dia novo. Com `name` `nil`, usa
+    /// "Dia " + a próxima letra livre (A, B, C…, olhando os nomes já usados no programa); com
+    /// `name` não vazio, usa o texto informado (aparado). Lança
+    /// `ProgramRepositoryError.tooManyDays` acima de `ProgramLimits.maxDays` (RF-36).
+    func addDay(programID: UUID, name: String?) throws -> UUID
+    /// Remove um dia; os alvos saem em cascata. O histórico é por sessão (snapshot de
+    /// `programDayName`), então sessões antigas continuam mostrando o nome gravado na hora (S2
+    /// recomeça em D1 sozinho quando o dia da última sessão some do programa). Lança
+    /// `ProgramRepositoryError.tooFewDays` abaixo de `ProgramLimits.minDays`.
+    func removeDay(id: UUID) throws
+    /// Renomeia um dia. Nome vazio (só espaços) lança `invalidParameters`.
+    func renameDay(id: UUID, to name: String) throws
+    /// Move um dia para `newIndex` (0-based) dentro do programa e renumera `order` de 0 a n-1.
+    func moveDay(id: UUID, toIndex newIndex: Int) throws
+}
+
+/// Requisito novo em protocolo existente (AGENTS §2, onda 3): implementação padrão para
+/// conformâncias de outras tarefas que ainda não conhecem dias (ex.: doubles de teste de outra
+/// feature). `ProgramRepository` e o double de preview sobrescrevem os quatro métodos; nenhum
+/// caminho de produção passa por aqui.
+extension ProgramRepositoring {
+    func addDay(programID: UUID, name: String?) throws -> UUID {
+        throw ProgramRepositoryError.invalidParameters("Este repositório não gerencia dias do programa.")
+    }
+
+    func removeDay(id: UUID) throws {
+        throw ProgramRepositoryError.invalidParameters("Este repositório não gerencia dias do programa.")
+    }
+
+    func renameDay(id: UUID, to name: String) throws {
+        throw ProgramRepositoryError.invalidParameters("Este repositório não gerencia dias do programa.")
+    }
+
+    func moveDay(id: UUID, toIndex newIndex: Int) throws {
+        throw ProgramRepositoryError.invalidParameters("Este repositório não gerencia dias do programa.")
+    }
 }
 
 enum ProgramRepositoryError: Error, Equatable {
@@ -45,6 +84,10 @@ enum ProgramRepositoryError: Error, Equatable {
     case cannotDeleteActive
     case tooManyExercises
     case tooFewExercises
+    /// RF-36: acima de `ProgramLimits.maxDays`.
+    case tooManyDays
+    /// RF-36: abaixo de `ProgramLimits.minDays`.
+    case tooFewDays
     case invalidParameters(String)
 }
 
@@ -53,4 +96,7 @@ enum ProgramLimits {
     static let minExercisesPerDay = 1
     static let maxExercisesPerDay = 10
     static let defaultExercisesPerDay = 5
+    /// Limites de dias por programa (RF-36).
+    static let minDays = 1
+    static let maxDays = 7
 }

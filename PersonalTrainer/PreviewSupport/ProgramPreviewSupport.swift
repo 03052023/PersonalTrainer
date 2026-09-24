@@ -348,6 +348,95 @@ private final class ProgramPreviewRepository: ProgramRepositoring {
         }
     }
 
+    // MARK: - Dias do programa (T2.22, RF-36)
+
+    func addDay(programID: UUID, name: String?) throws -> UUID {
+        guard let programIndex = programs.firstIndex(where: { $0.id == programID }) else {
+            throw ProgramRepositoryError.programNotFound(programID)
+        }
+        guard programs[programIndex].days.count < ProgramLimits.maxDays else {
+            throw ProgramRepositoryError.tooManyDays
+        }
+
+        let dayName: String
+        if let name {
+            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else {
+                throw ProgramRepositoryError.invalidParameters("O nome não pode ficar vazio.")
+            }
+            dayName = trimmed
+        } else {
+            dayName = Self.nextDayLabel(existingNames: programs[programIndex].days.map { $0.name })
+        }
+
+        let newID = UUID()
+        let order = (programs[programIndex].days.map { $0.order }.max() ?? -1) + 1
+        var days = programs[programIndex].days
+        days.append(ProgramDayTemplate(id: newID, name: dayName, order: order))
+        programs[programIndex] = Self.rebuild(programs[programIndex], days: days)
+        return newID
+    }
+
+    func removeDay(id: UUID) throws {
+        guard let programIndex = programs.firstIndex(where: { $0.days.contains { $0.id == id } }) else {
+            throw ProgramRepositoryError.dayNotFound(id)
+        }
+        let remaining = programs[programIndex].days.filter { $0.id != id }
+        guard remaining.count >= ProgramLimits.minDays else {
+            throw ProgramRepositoryError.tooFewDays
+        }
+        programs[programIndex] = Self.rebuild(programs[programIndex], days: Self.renumberedDays(remaining))
+    }
+
+    func renameDay(id: UUID, to name: String) throws {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw ProgramRepositoryError.invalidParameters("O nome não pode ficar vazio.")
+        }
+        guard let programIndex = programs.firstIndex(where: { $0.days.contains { $0.id == id } }) else {
+            throw ProgramRepositoryError.dayNotFound(id)
+        }
+        let days = programs[programIndex].days.map { day in
+            day.id == id ? ProgramDayTemplate(id: day.id, name: trimmed, order: day.order, exercises: day.exercises) : day
+        }
+        programs[programIndex] = Self.rebuild(programs[programIndex], days: days)
+    }
+
+    func moveDay(id: UUID, toIndex newIndex: Int) throws {
+        guard let programIndex = programs.firstIndex(where: { $0.days.contains { $0.id == id } }) else {
+            throw ProgramRepositoryError.dayNotFound(id)
+        }
+        var ordered = programs[programIndex].days.sorted { $0.order < $1.order }
+        guard newIndex >= 0, newIndex < ordered.count else {
+            throw ProgramRepositoryError.invalidParameters("Posição fora da lista de dias.")
+        }
+        guard let currentIndex = ordered.firstIndex(where: { $0.id == id }) else {
+            throw ProgramRepositoryError.dayNotFound(id)
+        }
+        let moving = ordered.remove(at: currentIndex)
+        ordered.insert(moving, at: min(max(newIndex, 0), ordered.count))
+        programs[programIndex] = Self.rebuild(programs[programIndex], days: Self.renumberedDays(ordered))
+    }
+
+    /// Reatribui `order` 0…n-1 na ordem atual, sem buracos (mesmo papel do `ProgramRepository`).
+    private static func renumberedDays(_ days: [ProgramDayTemplate]) -> [ProgramDayTemplate] {
+        days.sorted { $0.order < $1.order }.enumerated().map { index, day in
+            ProgramDayTemplate(id: day.id, name: day.name, order: index, exercises: day.exercises)
+        }
+    }
+
+    /// "Dia " + a primeira letra livre (mesma regra de `ProgramRepository.nextDayLabel`).
+    private static func nextDayLabel(existingNames: [String]) -> String {
+        let used = Set(existingNames)
+        for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" {
+            let candidate = "Dia \(letter)"
+            if !used.contains(candidate) {
+                return candidate
+            }
+        }
+        return "Dia \(existingNames.count + 1)"
+    }
+
     // MARK: - Reconstrução (os DTOs são imutáveis)
 
     private func updateProgram(_ id: UUID, _ transform: (ProgramTemplate) -> ProgramTemplate) throws {
