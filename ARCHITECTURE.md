@@ -383,6 +383,7 @@ PersonalTrainer/                        ← raiz do repo (Windows: C:\Users\leon
 │   └── TrainerCore/
 │       ├── Package.swift
 │       ├── Sources/TrainerCore/{Domain,Engine,Sync,Summary}/   (M4: Review/ · M5: Health/ — separados de Engine/ por R2)
+│       │   └── Coach/   diálogo do app (SPEC §7.11 C1–C8): CoachFeedBuilder, CoachLog, ReviewSchedule, ProvisioningProfileParser; lê Review/ e Health/, recebe o estado do deload pronto
 │       └── Tests/TrainerCoreTests/
 ├── PersonalTrainer/                     (target iOS — XcodeGen inclui a pasta inteira, exceto Support/)
 │   ├── App/            PersonalTrainerApp.swift · AppEnvironment.swift · AppEnvironment+Factories.swift · RootView.swift
