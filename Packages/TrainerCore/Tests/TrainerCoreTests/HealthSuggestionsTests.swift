@@ -105,9 +105,15 @@ func noSuggestionsWhenEverythingIsFine() {
 
 // MARK: - CA5-3 (A4): usar o Watch à noite
 
+// Casos com tipo explícito (evita o limite de inferência do compilador dentro do macro @Test).
+private let nightDataCases: [(Int, Bool)] = [(0, true), (1, true), (2, true), (3, false), (7, false)]
+private let aerobicDeficitCases: [(Double, Bool)] = [(0.0, true), (130.0, true), (131.0, false), (150.0, false), (200.0, false)]
+private let recentLowerBodyHours: [Double] = [0.0, 0.5, 2.0, 5.9, 6.0, 12.0, 17.0, 23.9]
+private let noRecentLowerBodyHours: [Double] = [24.0, 25.0, 49.0]
+
 @Test(
     "CA5-3 A4 sem HRV/sono em 5 ou mais dos últimos 7 dias → sugestão 'Use o Apple Watch à noite'",
-    arguments: [(0, true), (1, true), (2, true), (3, false), (7, false)]
+    arguments: nightDataCases
 )
 func ca53WearWatchAtNight(nightsWithData: Int, expectsSuggestion: Bool) {
     // Noites com dado nos primeiros `nightsWithData` dias; o resto só tem FC de repouso (não conta).
@@ -172,7 +178,7 @@ func ca54RecentVo2Max() {
 
 @Test(
     "A2 sugestão de completar o aeróbico só quando faltam ≥ 20 min moderados-equivalentes",
-    arguments: [(0.0, true), (130.0, true), (131.0, false), (150.0, false), (200.0, false)]
+    arguments: aerobicDeficitCases
 )
 func aerobicDeficitThreshold(done: Double, expectsSuggestion: Bool) {
     let workouts = done > 0 ? [walk(minutes: done)] : []
@@ -207,7 +213,7 @@ func aerobicDeficitOnMonday() throws {
 
 @Test(
     "CA5-5 A5 treino de inferior terminado há menos de 24 h → hoje só baixo impacto leve, nunca vigoroso",
-    arguments: [0.0, 0.5, 2, 5.9, 6, 12, 17, 23.9]
+    arguments: recentLowerBodyHours
 )
 func ca55NoVigorousWithin24hAfterLegs(hoursAgo: Double) throws {
     let end = wednesdayNoon.addingTimeInterval(-hoursAgo * 3_600)
@@ -246,7 +252,7 @@ func ca55InProgressLegSession() throws {
 
 @Test(
     "CA5-5 A5 sem treino de inferior nas últimas 24 h → hoje pode ser vigoroso",
-    arguments: [24.0, 25, 49]
+    arguments: noRecentLowerBodyHours
 )
 func ca55VigorousAllowedAfter24h(hoursAgo: Double) throws {
     let end = wednesdayNoon.addingTimeInterval(-hoursAgo * 3_600)

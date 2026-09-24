@@ -17,9 +17,11 @@ private func at(_ year: Int, _ month: Int, _ day: Int, _ hour: Int = 0, _ minute
 
 // MARK: - FCmáx
 
+private let tanakaCases: [(Int, Double)] = [(20, 194.0), (25, 190.5), (30, 187.0), (40, 180.0), (60, 166.0), (80, 152.0)]
+
 @Test(
     "A1 Tanaka: FCmáx = 208 − 0,7 × idade",
-    arguments: [(20, 194.0), (25, 190.5), (30, 187.0), (40, 180.0), (60, 166.0), (80, 152.0)]
+    arguments: tanakaCases
 )
 func tanakaMaxHeartRate(age: Int, expected: Double) {
     #expect(HeartRateZones.tanakaMaxHeartRate(ageYears: age) == expected)
@@ -61,18 +63,22 @@ func futureBirthDateHasNoAge() {
 
 // MARK: - % da FCmáx (sem FC de repouso)
 
+// Listas de casos com tipo explícito: tuplas com membros implícitos dentro do macro @Test estouram o
+// tempo de inferência do compilador ("unable to type-check this expression in reasonable time").
+private let percentOfMaxCases: [(Double, AerobicIntensity)] = [
+    (100.0, AerobicIntensity.light),
+    (127.0, AerobicIntensity.light),       // 63,5 %
+    (128.0, AerobicIntensity.moderate),    // 64 % exato: início inclusivo
+    (140.0, AerobicIntensity.moderate),    // 70 %
+    (153.0, AerobicIntensity.moderate),    // 76,5 %: "64–76 %" vai até antes de 77 %
+    (154.0, AerobicIntensity.vigorous),    // 77 % exato
+    (170.0, AerobicIntensity.vigorous),    // 85 %
+    (210.0, AerobicIntensity.vigorous),    // acima da FCmáx continua vigoroso
+]
+
 @Test(
     "A1 % FCmáx: leve < 64 % ≤ moderado < 77 % ≤ vigoroso (FCmáx 200)",
-    arguments: [
-        (100.0, AerobicIntensity.light),
-        (127.0, .light),       // 63,5 %
-        (128.0, .moderate),    // 64 % exato: início inclusivo
-        (140.0, .moderate),    // 70 %
-        (153.0, .moderate),    // 76,5 %: "64–76 %" vai até antes de 77 %
-        (154.0, .vigorous),    // 77 % exato
-        (170.0, .vigorous),    // 85 %
-        (210.0, .vigorous),    // acima da FCmáx continua vigoroso
-    ]
+    arguments: percentOfMaxCases
 )
 func percentOfMaxClassification(heartRate: Double, expected: AerobicIntensity) {
     let zones = HeartRateZones(maxHeartRate: 200)
@@ -91,15 +97,17 @@ func thresholdsExactWithTanaka() {
 
 // MARK: - % da FC de reserva (Karvonen)
 
+private let heartRateReserveCases: [(Double, AerobicIntensity)] = [
+    (109.0, AerobicIntensity.light),     // 39,3 %
+    (110.0, AerobicIntensity.moderate),  // 40 % exato
+    (138.5, AerobicIntensity.moderate),  // 59 %
+    (140.0, AerobicIntensity.vigorous),  // 60 % exato
+    (185.0, AerobicIntensity.vigorous),  // 90 %
+]
+
 @Test(
     "A1 Karvonen: leve < 40 % ≤ moderado < 60 % ≤ vigoroso da FC de reserva (FCmáx 200, repouso 50)",
-    arguments: [
-        (109.0, AerobicIntensity.light),  // 39,3 %
-        (110.0, .moderate),               // 40 % exato
-        (138.5, .moderate),               // 59 %
-        (140.0, .vigorous),               // 60 % exato
-        (185.0, .vigorous),               // 90 %
-    ]
+    arguments: heartRateReserveCases
 )
 func heartRateReserveClassification(heartRate: Double, expected: AerobicIntensity) {
     let zones = HeartRateZones(maxHeartRate: 200, restingHeartRate: 50)
@@ -137,21 +145,23 @@ func invalidHeartRateReading() {
 
 // MARK: - Intensidade padrão por tipo de treino
 
+private let defaultIntensityCases: [(AerobicActivity, AerobicIntensity)] = [
+    (AerobicActivity.walking, AerobicIntensity.moderate),
+    (AerobicActivity.running, AerobicIntensity.vigorous),
+    (AerobicActivity.cycling, AerobicIntensity.moderate),
+    (AerobicActivity.swimming, AerobicIntensity.moderate),
+    (AerobicActivity.rowing, AerobicIntensity.moderate),
+    (AerobicActivity.elliptical, AerobicIntensity.moderate),
+    (AerobicActivity.hiking, AerobicIntensity.moderate),
+    (AerobicActivity.stairs, AerobicIntensity.vigorous),
+    (AerobicActivity.hiit, AerobicIntensity.vigorous),
+    (AerobicActivity.dance, AerobicIntensity.moderate),
+    (AerobicActivity.other, AerobicIntensity.moderate),
+]
+
 @Test(
     "A1 intensidade padrão por tipo: corrida, HIIT e escada vigorosos; o resto moderado",
-    arguments: [
-        (AerobicActivity.walking, AerobicIntensity.moderate),
-        (.running, .vigorous),
-        (.cycling, .moderate),
-        (.swimming, .moderate),
-        (.rowing, .moderate),
-        (.elliptical, .moderate),
-        (.hiking, .moderate),
-        (.stairs, .vigorous),
-        (.hiit, .vigorous),
-        (.dance, .moderate),
-        (.other, .moderate),
-    ]
+    arguments: defaultIntensityCases
 )
 func defaultIntensityPerActivity(activity: AerobicActivity, expected: AerobicIntensity) {
     #expect(activity.defaultIntensity == expected)

@@ -109,17 +109,21 @@ func customTarget() {
 
 // MARK: - A1: minutos sem FC e sem zonas
 
+// Casos com tipo explícito: tuplas com membros implícitos dentro do macro @Test estouram o tempo de
+// inferência do compilador.
+private let activityDefaultCases: [(AerobicActivity, Int, Int)] = [
+    (AerobicActivity.running, 0, 30),
+    (AerobicActivity.hiit, 0, 30),
+    (AerobicActivity.stairs, 0, 30),
+    (AerobicActivity.walking, 30, 0),
+    (AerobicActivity.cycling, 30, 0),
+    (AerobicActivity.swimming, 30, 0),
+    (AerobicActivity.other, 30, 0),
+]
+
 @Test(
     "A1 treino sem FC usa o tipo: corrida/HIIT/escada vigorosos, caminhada/ciclismo moderados",
-    arguments: [
-        (AerobicActivity.running, 0, 30),
-        (.hiit, 0, 30),
-        (.stairs, 0, 30),
-        (.walking, 30, 0),
-        (.cycling, 30, 0),
-        (.swimming, 30, 0),
-        (.other, 30, 0),
-    ]
+    arguments: activityDefaultCases
 )
 func workoutWithoutHeartRateUsesActivity(activity: AerobicActivity, moderate: Int, vigorous: Int) {
     let summary = aerobic([workout(activity, start: at(2024, 1, 2, 18), minutes: 30)])
@@ -169,9 +173,11 @@ func extraHeartRateIgnored() {
     #expect(aerobic([walk]).vigorousMinutes == 30)
 }
 
+private let durationRoundingCases: [(Double, Int)] = [(29.0 + 40.0 / 60.0, 30), (29.0 + 20.0 / 60.0, 29), (0.4, 0), (-10.0, 0)]
+
 @Test(
     "A1 duração arredondada ao minuto; fim antes do início conta zero",
-    arguments: [(29.0 + 40.0 / 60, 30), (29.0 + 20.0 / 60, 29), (0.4, 0), (-10.0, 0)]
+    arguments: durationRoundingCases
 )
 func durationRounding(minutes: Double, expected: Int) {
     #expect(aerobic([workout(.walking, start: at(2024, 1, 2, 8), minutes: minutes)]).moderateMinutes == expected)

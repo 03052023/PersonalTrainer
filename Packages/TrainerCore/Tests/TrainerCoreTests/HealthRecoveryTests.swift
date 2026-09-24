@@ -131,9 +131,14 @@ func nightsCountHrvOrSleepOnly() {
 
 // MARK: - Alertas
 
+// Casos com tipo explícito (evita o limite de inferência do compilador dentro do macro @Test).
+private let hrvDropCases: [(Double, Bool)] = [(54.0, true), (55.0, false), (40.0, true), (66.0, false)]
+private let restingRiseCases: [(Double, Bool)] = [(65.0, true), (64.0, false), (70.0, true), (55.0, false)]
+private let lowSleepCases: [(Double, Double, Bool)] = [(6.0, 7.0, true), (7.0, 7.0, false), (8.5, 7.0, false), (7.5, 8.0, true)]
+
 @Test(
     "A4 alerta de HRV quando a média de 7 dias está ≥ 10 % abaixo da de 28 (fronteira inclusiva)",
-    arguments: [(54.0, true), (55.0, false), (40.0, true), (66.0, false)]
+    arguments: hrvDropCases
 )
 func hrvDropThreshold(last7: Double, expectsAlert: Bool) {
     // 7 dias em `last7` e os 7 anteriores em 66: com 54, a média de 28 dias é 60 e 54 = 0,9 × 60.
@@ -143,7 +148,7 @@ func hrvDropThreshold(last7: Double, expectsAlert: Bool) {
 
 @Test(
     "A4 alerta de FC de repouso quando a média de 7 dias está ≥ 5 bpm acima da de 28 (fronteira inclusiva)",
-    arguments: [(65.0, true), (64.0, false), (70.0, true), (55.0, false)]
+    arguments: restingRiseCases
 )
 func restingRiseThreshold(last7: Double, expectsAlert: Bool) {
     // Com 65, a média de 28 dias é 60: 65 = 60 + 5.
@@ -153,7 +158,7 @@ func restingRiseThreshold(last7: Double, expectsAlert: Bool) {
 
 @Test(
     "A4 sono médio de 7 dias abaixo da meta gera alerta",
-    arguments: [(6.0, 7.0, true), (7.0, 7.0, false), (8.5, 7.0, false), (7.5, 8.0, true)]
+    arguments: lowSleepCases
 )
 func lowSleepThreshold(sleep: Double, target: Double, expectsAlert: Bool) {
     let samples = (0..<7).map { DailyRecoverySample(day: day($0), sleepHours: sleep) }

@@ -76,21 +76,25 @@ func noBandOutsideTable() {
     #expect(Vo2MaxNorms.band(vo2Max: .nan, ageYears: 30, sex: .male) == nil)
 }
 
+// Casos com tipo explícito: tuplas com membros implícitos dentro do macro @Test estouram o tempo de
+// inferência do compilador.
+private let bandBoundaryCasesMan25: [(Double, FitnessBand)] = [
+    (32.0, FitnessBand.veryPoor),
+    (32.1, FitnessBand.poor),
+    (40.0, FitnessBand.poor),
+    (40.1, FitnessBand.fair),
+    (47.9, FitnessBand.fair),
+    (48.0, FitnessBand.good),
+    (55.1, FitnessBand.good),
+    (55.2, FitnessBand.excellent),
+    (66.2, FitnessBand.excellent),
+    (66.3, FitnessBand.superior),
+    (80.0, FitnessBand.superior),
+]
+
 @Test(
     "A3 faixas: < P10 muito baixo, P10 baixo, P25 regular, P50 bom, P75 excelente, P95 superior (homem de 25 anos)",
-    arguments: [
-        (32.0, FitnessBand.veryPoor),
-        (32.1, .poor),
-        (40.0, .poor),
-        (40.1, .fair),
-        (47.9, .fair),
-        (48.0, .good),
-        (55.1, .good),
-        (55.2, .excellent),
-        (66.2, .excellent),
-        (66.3, .superior),
-        (80.0, .superior),
-    ]
+    arguments: bandBoundaryCasesMan25
 )
 func bandBoundariesMan25(vo2Max: Double, expected: FitnessBand) {
     #expect(Vo2MaxNorms.band(vo2Max: vo2Max, ageYears: 25, sex: .male) == expected)
