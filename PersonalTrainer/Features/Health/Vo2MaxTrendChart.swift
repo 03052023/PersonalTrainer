@@ -2,7 +2,7 @@ import Charts
 import SwiftUI
 import TrainerCore
 
-/// Tendência do VO2máx estimado pelo Apple Watch nos últimos 90 dias (SPEC RF-28, §7.10 A3).
+/// Tendência do VO2máx estimado pelo relógio nos últimos 90 dias (SPEC RF-28, §7.10 A3).
 /// Com menos de duas medições não há tendência a desenhar; mostra só um texto.
 struct Vo2MaxTrendChart: View {
     private let samples: [Vo2MaxSample]

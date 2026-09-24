@@ -126,7 +126,7 @@ struct HealthDetailView: View {
         } header: {
             Text("VO2máx")
         } footer: {
-            Text("O Apple Watch estima o VO2máx em caminhadas, corridas e trilhas ao ar livre registradas no app Exercício, usando GPS e frequência cardíaca. Sem essas atividades, o valor fica desatualizado.")
+            Text("Seu relógio estima o VO2máx em caminhadas, corridas e trilhas ao ar livre, usando GPS e frequência cardíaca. Sem essas atividades, o valor fica desatualizado.")
         }
     }
 
@@ -186,7 +186,7 @@ struct HealthDetailView: View {
         } header: {
             Text("Recuperação")
         } footer: {
-            Text("Média dos últimos 7 dias comparada à das últimas 4 semanas. HRV, FC de repouso e sono ficam mais completos quando você dorme com o Apple Watch.")
+            Text("Média dos últimos 7 dias comparada à das últimas 4 semanas. HRV, FC de repouso e sono ficam mais completos quando você dorme com o seu relógio.")
         }
     }
 
@@ -297,7 +297,7 @@ struct HealthDetailView: View {
         } header: {
             Text("Passos")
         } footer: {
-            Text("Média diária dos últimos 7 dias, contada pelo iPhone e pelo Apple Watch.")
+            Text("Média diária dos últimos 7 dias, contada pelo iPhone e pelo seu relógio.")
         }
     }
 

@@ -6,7 +6,8 @@ import XCTest
 /// T5.3: `HealthViewModel` (SPEC RF-27..RF-31, §7.10) sobre um leitor espião e sobre o
 /// `FakeHealthDataReader` do contrato M5. Cobre: app Saúde indisponível, autorização só por ação
 /// do usuário (AGENTS §7), cálculo igual ao de `HealthCalculator`, mescla do perfil manual na
-/// `UserPhysiology`, sugestões dispensadas por semana e a formatação pt-BR do card.
+/// `UserPhysiology`, sugestões dispensadas pelo log do diálogo (V21-CONTRACT B3, A4/B8) e a
+/// formatação pt-BR do card.
 /// Relógio e calendário fixos (SPEC P11); cada teste usa uma suite própria de `UserDefaults`.
 @MainActor
 final class HealthViewModelTests: XCTestCase {
@@ -375,13 +376,11 @@ final class HealthViewModelTests: XCTestCase {
         XCTAssertEqual(model.profileSex, .other)
     }
 
-    // MARK: - "Ok, entendi"
+    // MARK: - "Ok, entendi" (V21-CONTRACT B3, A4/B8: fonte única é o log do diálogo)
 
-    func testDismiss_hidesSuggestionForTheRestOfTheWeek_only() async throws {
-        let (defaults, suite) = try makeDefaults()
-        defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set(true, forKey: "healthReadAuthorized")
-        // Nenhuma noite com dados: SPEC A4 exige a sugestão "use o Apple Watch para dormir".
+    /// Sem dado noturno: `HealthSpyReader` isolado para os testes de dispensa (evita reler o Saúde
+    /// duas vezes na mesma suíte). SPEC A4 exige a sugestão "use o relógio para dormir".
+    private func emptyRecoveryReader() -> HealthSpyReader {
         let empty = HealthInput(
             physiology: UserPhysiology(birthDate: nil, sex: nil, maxHeartRateOverride: nil),
             aerobicWorkouts: [],
@@ -390,8 +389,16 @@ final class HealthViewModelTests: XCTestCase {
             vo2Max: [],
             recentSessions: []
         )
-        let reader = HealthSpyReader(input: empty)
-        let model = makeModel(reader: reader, defaults: defaults)
+        return HealthSpyReader(input: empty)
+    }
+
+    func testDismiss_writesTheSameEntryTheCoachFeedWould_andHidesForTheCooldown() async throws {
+        let (defaults, suite) = try makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: "healthReadAuthorized")
+        let reader = emptyRecoveryReader()
+        let logStore = FakeCoachLogStore()
+        let model = makeModel(reader: reader, defaults: defaults, logStore: logStore)
         await model.load()
         let report = try XCTUnwrap(model.report)
         let dismissed = try XCTUnwrap(report.suggestions.first, "SPEC A4: sem dado noturno há sugestão")
@@ -399,21 +406,133 @@ final class HealthViewModelTests: XCTestCase {
 
         model.dismiss(dismissed)
 
+        XCTAssertNil(model.errorMessage)
         XCTAssertFalse(model.visibleSuggestions.contains { $0.id == dismissed.id })
         XCTAssertEqual(model.visibleSuggestions.count, report.suggestions.count - 1)
         XCTAssertEqual(model.report?.suggestions, report.suggestions, "Dispensar só esconde; o relatório não muda")
 
-        let sameWeek = makeModel(reader: reader, defaults: defaults)
-        await sameWeek.load()
-        XCTAssertFalse(sameWeek.visibleSuggestions.contains { $0.id == dismissed.id }, "Vale até o fim da semana")
+        // A entrada gravada é a mesma que o feed da Home grava para "Entendi" (SPEC §7.11 C3):
+        // regra `.health`, item = o tipo da sugestão, ação `.understood`.
+        let entry = try XCTUnwrap(logStore.log.entries.first)
+        XCTAssertEqual(entry.rule, .health)
+        XCTAssertEqual(entry.itemKey, dismissed.kind.rawValue)
+        XCTAssertEqual(entry.action, .understood)
+        XCTAssertEqual(entry.date, now)
 
-        let nextWeek = makeModel(reader: reader, defaults: defaults, now: now.addingTimeInterval(7 * 86_400))
-        await nextWeek.load()
-        XCTAssertEqual(
-            nextWeek.visibleSuggestions.map(\.id),
-            nextWeek.report?.suggestions.map(\.id),
-            "Na semana seguinte nada fica escondido"
+        // Mesmo log, um `HealthViewModel` novo (outra instância, outra tela): continua escondida.
+        let sameLogAnotherModel = makeModel(reader: reader, defaults: defaults, logStore: logStore)
+        await sameLogAnotherModel.load()
+        XCTAssertFalse(sameLogAnotherModel.visibleSuggestions.contains { $0.id == dismissed.id })
+
+        // Dentro do prazo de 3 dias (SPEC C3), ainda escondida.
+        let stillCooling = makeModel(
+            reader: reader,
+            defaults: defaults,
+            now: now.addingTimeInterval(2 * 86_400),
+            logStore: logStore
         )
+        await stillCooling.load()
+        XCTAssertFalse(stillCooling.visibleSuggestions.contains { $0.id == dismissed.id }, "Ainda dentro dos 3 dias")
+
+        // Depois de 3 dias, volta se a condição persistir.
+        let afterCooldown = makeModel(
+            reader: reader,
+            defaults: defaults,
+            now: now.addingTimeInterval(3 * 86_400),
+            logStore: logStore
+        )
+        await afterCooldown.load()
+        XCTAssertEqual(
+            afterCooldown.visibleSuggestions.map(\.id),
+            afterCooldown.report?.suggestions.map(\.id),
+            "Depois do prazo de C3 nada fica escondido"
+        )
+    }
+
+    /// A4/B8, sentido feed → detalhe: uma resposta já gravada por `CoachService` (o feed da Home)
+    /// também esconde a sugestão aqui, sem que a tela de Saúde precise dispensar de novo.
+    func testVisibleSuggestions_hidesEntryAlreadyRecordedByTheCoachFeed() async throws {
+        let (defaults, suite) = try makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: "healthReadAuthorized")
+        let reader = emptyRecoveryReader()
+        var seededLog = CoachLog()
+        seededLog.entries.append(
+            CoachLogEntry(
+                messageID: "health:wearWatchAtNight:2026-09-23",
+                rule: .health,
+                itemKey: HealthSuggestionKind.wearWatchAtNight.rawValue,
+                action: .understood,
+                date: now
+            )
+        )
+        let logStore = FakeCoachLogStore(log: seededLog)
+        let model = makeModel(reader: reader, defaults: defaults, logStore: logStore)
+
+        await model.load()
+
+        let report = try XCTUnwrap(model.report)
+        XCTAssertTrue(report.suggestions.contains { $0.kind == .wearWatchAtNight }, "Pré-condição do teste")
+        XCTAssertFalse(
+            model.visibleSuggestions.contains { $0.kind == .wearWatchAtNight },
+            "Já respondida no feed: não aparece de novo na tela de Saúde"
+        )
+    }
+
+    /// A4/B8, sentido detalhe → feed: dispensar na tela de Saúde também esconde a mensagem que
+    /// `CoachFeedBuilder` (TrainerCore) montaria para o feed da Home.
+    func testDismiss_alsoHidesTheMessageCoachFeedBuilderWouldShow() async throws {
+        let (defaults, suite) = try makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: "healthReadAuthorized")
+        let reader = emptyRecoveryReader()
+        let logStore = FakeCoachLogStore()
+        let model = makeModel(reader: reader, defaults: defaults, logStore: logStore)
+        await model.load()
+        let report = try XCTUnwrap(model.report)
+        let dismissed = try XCTUnwrap(report.suggestions.first)
+
+        let feedBefore = CoachFeedBuilder.feed(
+            input: CoachInput(healthSuggestions: report.suggestions),
+            log: logStore.load(),
+            now: now,
+            calendar: calendar
+        )
+        XCTAssertTrue(feedBefore.contains { $0.rule == .health && $0.itemKey == dismissed.kind.rawValue })
+
+        model.dismiss(dismissed)
+
+        let feedAfter = CoachFeedBuilder.feed(
+            input: CoachInput(healthSuggestions: report.suggestions),
+            log: logStore.load(),
+            now: now,
+            calendar: calendar
+        )
+        XCTAssertFalse(
+            feedAfter.contains { $0.rule == .health && $0.itemKey == dismissed.kind.rawValue },
+            "O feed da Home lê o mesmo log; a dispensa na tela de Saúde some de lá também"
+        )
+    }
+
+    func testDismiss_saveFailure_setsPortugueseErrorMessage_butStillFiltersLocally() async throws {
+        let (defaults, suite) = try makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: "healthReadAuthorized")
+        let reader = emptyRecoveryReader()
+        let logStore = FakeCoachLogStore()
+        logStore.saveError = HealthTestError.boom
+        let model = makeModel(reader: reader, defaults: defaults, logStore: logStore)
+        await model.load()
+        let report = try XCTUnwrap(model.report)
+        let dismissed = try XCTUnwrap(report.suggestions.first)
+
+        model.dismiss(dismissed)
+
+        XCTAssertEqual(logStore.saveCount, 0, "A gravação falhou: nada foi persistido")
+        XCTAssertNotNil(model.errorMessage)
+        // `visibleSuggestions` relê `logStore.load()`, que sem gravação continua sem a resposta:
+        // a sugestão volta a aparecer, coerente com o log ser a única fonte.
+        XCTAssertTrue(model.visibleSuggestions.contains { $0.id == dismissed.id })
     }
 
     // MARK: - Formatação pt-BR do card
@@ -452,7 +571,8 @@ final class HealthViewModelTests: XCTestCase {
         defaults: UserDefaults,
         sessions: [SessionSummary] = [],
         targets: HealthTargets = HealthTargets(),
-        now overrideNow: Date? = nil
+        now overrideNow: Date? = nil,
+        logStore: any CoachLogStoring = FakeCoachLogStore()
     ) -> HealthViewModel {
         let fixedNow = overrideNow ?? now
         return HealthViewModel(
@@ -461,7 +581,8 @@ final class HealthViewModelTests: XCTestCase {
             targets: targets,
             now: { fixedNow },
             calendar: calendar,
-            defaults: defaults
+            defaults: defaults,
+            logStore: logStore
         )
     }
 
