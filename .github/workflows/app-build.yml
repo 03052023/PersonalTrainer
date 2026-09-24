@@ -1,13 +1,17 @@
 # Build manual do app iPhone + companion watchOS em runner macOS padrão (ARCHITECTURE ADR 008).
 # Sem segredos e sem credenciais Apple: o IPA sai sem assinatura Apple e é reassinado localmente.
 # Antes de executar, confirmar o orçamento de US$ 0 do GitHub Actions (WINDOWS_SETUP.md).
+# Também roda em push para branches `ci/**`: o código do app é escrito sem compilador (AGENTS R11), e o agente
+# precisa do veredito do Xcode sem depender de um clique. Os erros saem como anotações (legíveis sem login).
 name: App build (manual)
 on:
   workflow_dispatch:
+  push:
+    branches: ['ci/**']
 permissions:
   contents: read
 concurrency:
-  group: app-build
+  group: app-build-${{ github.ref }}
   cancel-in-progress: true
 defaults:
   run:
@@ -116,7 +120,24 @@ jobs:
           if-no-files-found: ignore
           retention-days: 3
       - name: Build unsigned device IPA
-        run: bash Scripts/build-app.sh
+        run: bash Scripts/build-app.sh 2>&1 | tee build/app/build-app.log
+      - name: Report failures as annotations
+        # O log completo do job exige login; anotações da check-run são públicas. Mesmo formato do Core tests.
+        if: failure()
+        run: |
+          : > /tmp/errors.txt
+          for log in build/app/xcodebuild-test.log build/app/build-app.log; do
+            test -f "$log" || continue
+            grep -E "error:|: error |Test Case .* failed|XCTAssert|failed \(|Testing failed|TEST FAILED|BUILD FAILED|Fatal error|Crash:" "$log" \
+              | sed -E "s#$GITHUB_WORKSPACE/##g" >> /tmp/errors.txt || true
+          done
+          awk '!seen[$0]++' /tmp/errors.txt | head -80 > /tmp/errors-unique.txt
+          test -s /tmp/errors-unique.txt || { echo "::error title=app build::falhou sem linha de erro reconhecível (ver artefato PersonalTrainer-test-results)"; exit 0; }
+          split -l 8 /tmp/errors-unique.txt /tmp/err-chunk-
+          n=0
+          for chunk in /tmp/err-chunk-*; do [ -f "$chunk" ] || continue; n=$((n+1))
+            msg=$(sed -e 's/%/%25/g' -e 's/\r//g' "$chunk" | awk 'BEGIN{ORS="%0A"} {print}')
+            echo "::error title=app build (parte $n)::$msg"; done
       - name: Keep package for local re-signing
         uses: actions/upload-artifact@v6
         with:

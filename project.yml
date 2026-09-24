@@ -60,7 +60,7 @@ targets:
       path: PersonalTrainer/Support/Info.plist
       properties:
         CFBundleDevelopmentRegion: pt-BR
-        CFBundleDisplayName: Personal
+        CFBundleDisplayName: Magister
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         LSRequiresIPhoneOS: true
@@ -71,8 +71,8 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         # HealthKit (ARCHITECTURE §8, AR-6): strings obrigatórias definidas já em M0.
-        NSHealthShareUsageDescription: "O Personal lê do app Saúde seus treinos, frequência cardíaca, VO2máx, variabilidade da frequência cardíaca, frequência cardíaca em repouso, sono, passos e data de nascimento/sexo (opcionais) para mostrar o resumo de cada sessão, seus minutos de aeróbico e sua recuperação. Os dados ficam só neste aparelho."
-        NSHealthUpdateUsageDescription: "O Personal grava cada sessão de musculação concluída como um treino no app Saúde."
+        NSHealthShareUsageDescription: "O Magister lê do app Saúde seus treinos, frequência cardíaca, VO2máx, variabilidade da frequência cardíaca, frequência cardíaca em repouso, sono, passos e data de nascimento/sexo (opcionais) para mostrar o resumo de cada sessão, seus minutos de aeróbico e sua recuperação. Os dados ficam só neste aparelho."
+        NSHealthUpdateUsageDescription: "O Magister grava cada sessão de musculação concluída como um treino no app Saúde."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.personaltrainer.app
@@ -102,7 +102,7 @@ targets:
       path: PersonalTrainerWatch/Support/Info.plist
       properties:
         CFBundleDevelopmentRegion: pt-BR
-        CFBundleDisplayName: Personal
+        CFBundleDisplayName: Magister
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         # Companion de target único (watchOS 7+). Nunca adicionar NSExtension aqui: o instalador
@@ -113,8 +113,8 @@ targets:
         # Sessão de treino ativa em segundo plano (ARCHITECTURE §9, AR-7; CA0-4).
         WKBackgroundModes:
           - workout-processing
-        NSHealthShareUsageDescription: "O Personal lê sua frequência cardíaca durante o treino para mostrá-la ao vivo e no resumo da sessão."
-        NSHealthUpdateUsageDescription: "O Personal grava a sessão de treino em andamento como um treino no app Saúde."
+        NSHealthShareUsageDescription: "O Magister lê sua frequência cardíaca durante o treino para mostrá-la ao vivo e no resumo da sessão."
+        NSHealthUpdateUsageDescription: "O Magister grava a sessão de treino em andamento como um treino no app Saúde."
     settings:
       base:
         # Descendente do bundle ID do app iOS, separado por ponto (exigência do instalador).

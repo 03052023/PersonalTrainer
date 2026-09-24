@@ -249,6 +249,7 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 - [~] **T2.12 [CI] Escolha do objetivo na edição de programa** — Escopo: `Features/Program/GoalPicker.swift`, ajuste em T2.6. Depende de: T2.11.
 - [~] **T2.9 [CI] Substituir exercício + editar/excluir série + abandonar** — G2 — Escopo: `Features/Session/ExercisePickerSheet.swift`, `Features/Session/SetEditSheet.swift`, ajustes em `ActiveSessionViewModel`. Eventos já existem (T1.3). Depende de: T1.5, T2.5. Aceite: CA2-3, CA2-8.
 - [~] **T2.10 [CI] Resumo enriquecido + gráfico de carga por exercício** — G3 — Escopo: `Features/History/ExerciseProgressChart.swift` (Swift Charts), `SessionSummaryView` com tonelagem e FC. Depende de: T2.2, T2.3.
+- [~] **T2.23 [PROJ][CI] Build do app por push e identidade Magister** — Escopo: `.github/workflows/app-build.yml` (gatilho `push` em `ci/**`, concorrência por ref, anotações de erro públicas), `project.yml` (`CFBundleDisplayName: Magister` e textos de uso do Saúde), `Assets.xcassets/AppIcon.appiconset` (ícone final com aparências escura e tingida, DESIGN §2). Aceite: um push em `ci/<nome>` roda o App build; falha de compilação aparece em `/check-runs/<id>/annotations`; o app instalado mostra "Magister" e o ícone novo.
 
 ---
 
