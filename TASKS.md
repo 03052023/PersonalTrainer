@@ -212,6 +212,8 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 **Objetivo:** app que dá para viver com por meses sem reinstalar: FC e treino no Saúde, editar programa/catálogo no app, backup.
 
+**Estado em 2026-09-23:** as 12 partes do M2 foram mescladas, revisadas por 4 lentes adversariais e corrigidas (eab3e3b). Core tests verde (run 35945595815). **App build verde na primeira tentativa** (run 35945596092, branch `ci/app-check`, commit 29e19c5): compilação, testes no simulador e IPA. Os CAs que dependem do aparelho (HealthKit real, migração do store da M1) ficam para a instalação. Rodada final: `docs/V2-FINAL-CONTRACT.md`.
+
 **Critérios de aceitação M2**
 
 | CA | Verificação |
