@@ -162,6 +162,8 @@ private struct SubstituteRow: View {
             return "Smith"
         case .kettlebell:
             return "Kettlebell"
+        case .household:
+            return "Objetos de casa"
         }
     }
 }

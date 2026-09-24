@@ -30,7 +30,8 @@ final class SeedLoaderTests: XCTestCase {
     func testSeedV2_meetsContractMinimums() throws {
         let seed = try decodeSeed()
 
-        XCTAssertEqual(SeedLoader.currentSeedVersion, 2)
+        // 3 = versão 2.1 (exercícios de casa, RF-42); os arquivos continuam `*.v2.json`.
+        XCTAssertEqual(SeedLoader.currentSeedVersion, 3)
         XCTAssertGreaterThanOrEqual(seed.catalog.exercises.count, 70)
         XCTAssertEqual(seed.programs.programs.count, 8)
         XCTAssertEqual(seed.programs.programs.filter(\.isActive).count, 1)
@@ -139,7 +140,7 @@ final class SeedLoaderTests: XCTestCase {
         let rows = try context.fetch(FetchDescriptor<UserSettingsModel>())
         XCTAssertEqual(rows.count, 1)
         let settings = try XCTUnwrap(rows.first)
-        XCTAssertEqual(settings.schemaSeedVersion, 2)
+        XCTAssertEqual(settings.schemaSeedVersion, 3)
         XCTAssertEqual(settings.schemaSeedVersion, SeedLoader.currentSeedVersion)
         XCTAssertTrue(settings.weekStartsOnMonday)
         XCTAssertFalse(settings.healthKitEnabled)
@@ -255,6 +256,60 @@ final class SeedLoaderTests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramModel>()), seed.programs.programs.count)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramDayModel>()), dayCount(in: seed))
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramExerciseModel>()), targetCount(in: seed))
+    }
+
+    func testLoadIfNeeded_upgradeFromSeedV2_insertsOnlyMissingExercisesAndKeepsSeedEdits() throws {
+        let context = try makeContext()
+        let seed = try decodeSeed()
+        _ = try SeedLoader.loadIfNeeded(context: context, bundle: appBundle, now: now)
+
+        // Estado de uma instalação com o seed 2: os exercícios de casa da versão 2.1 ainda não
+        // existem, e o usuário editou um exercício do seed (o store ainda não marca essa edição).
+        let newSlugs = ["bodyweight-squat", "backpack-bent-over-row", "grocery-bag-carry"]
+        for slug in newSlugs {
+            let model = try XCTUnwrap(fetchExercise(slug: slug, in: context), slug)
+            context.delete(model)
+        }
+        let definition = try XCTUnwrap(seed.catalog.exercises.first)
+        let edited = try XCTUnwrap(fetchExercise(slug: definition.slug, in: context))
+        edited.name = "Supino do meu jeito"
+        edited.loadIncrement = 1
+        edited.machineNotes = "Banco 2"
+        let settings = try XCTUnwrap(context.fetch(FetchDescriptor<UserSettingsModel>()).first)
+        settings.schemaSeedVersion = 2
+        try context.save()
+        XCTAssertEqual(
+            try context.fetchCount(FetchDescriptor<ExerciseModel>()),
+            seed.catalog.exercises.count - newSlugs.count
+        )
+
+        let report = try SeedLoader.loadIfNeeded(
+            context: context,
+            bundle: appBundle,
+            now: now.addingTimeInterval(86_400)
+        )
+
+        XCTAssertEqual(
+            report,
+            SeedLoadReport(
+                insertedExercises: newSlugs.count,
+                updatedExercises: 0,
+                insertedPrograms: 0,
+                skipped: false,
+                skippedPrograms: seed.programs.programs.count
+            )
+        )
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ExerciseModel>()), seed.catalog.exercises.count)
+        for slug in newSlugs {
+            let inserted = try XCTUnwrap(fetchExercise(slug: slug, in: context), slug)
+            XCTAssertFalse(inserted.isCustom, slug)
+            XCTAssertFalse(inserted.isArchived, slug)
+        }
+        XCTAssertEqual(edited.name, "Supino do meu jeito")
+        XCTAssertEqual(edited.loadIncrement, 1)
+        XCTAssertEqual(edited.machineNotes, "Banco 2")
+        XCTAssertEqual(settings.schemaSeedVersion, SeedLoader.currentSeedVersion)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramModel>()), seed.programs.programs.count)
     }
 
     func testLoadIfNeeded_customExerciseWithSeedSlug_isNeverTouched() throws {

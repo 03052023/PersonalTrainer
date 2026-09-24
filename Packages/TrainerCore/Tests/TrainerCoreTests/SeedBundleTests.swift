@@ -12,13 +12,14 @@ import Testing
 // A/B/C antigo continua no arquivo (renomeado e inativo — renomear é seguro porque o loader
 // nunca reescreve a cópia já instalada do usuário).
 
-@Test("Seed arquivos reais v2 decodificam e passam no SeedValidator")
+@Test("Seed arquivos reais decodificam e passam no SeedValidator (versão 3: exercícios de casa da v2.1)")
 func seedFilesDecodeAndValidate() throws {
     let bundle = try loadSeedBundle()
 
     try SeedValidator.validate(bundle)
-    #expect(bundle.catalog.version == 2)
-    #expect(bundle.programs.version == 2)
+    // `SeedLoader.currentSeedVersion` sobe junto: instalações com o seed 2 recebem os exercícios novos.
+    #expect(bundle.catalog.version == 3)
+    #expect(bundle.programs.version == 3)
 }
 
 @Test("Seed catálogo tem pelo menos 70 exercícios com slugs kebab-case únicos")
@@ -64,12 +65,12 @@ func seedCatalogIncrementsFollowEquipment() throws {
     }
 }
 
-@Test("Seed catálogo cobre todos os equipamentos e marca unilaterais")
+@Test("Seed catálogo cobre todos os equipamentos, inclusive objetos de casa (RF-42), e marca unilaterais")
 func seedCatalogCoversEquipmentAndUnilateral() throws {
     let catalog = try loadSeedBundle().catalog
 
     let equipment = Set(catalog.exercises.map(\.equipment))
-    #expect(equipment == [.barbell, .dumbbell, .machine, .cable, .bodyweight, .smith, .kettlebell])
+    #expect(equipment == [.barbell, .dumbbell, .machine, .cable, .bodyweight, .smith, .kettlebell, .household])
     #expect(catalog.exercises.contains { $0.isUnilateral })
 }
 
@@ -366,6 +367,50 @@ func seedUpperFocusProgramPrioritizesUpperBody() throws {
         focusGroups: [.chest, .back, .shoulders, .biceps, .triceps],
         maintenanceGroups: [.quads, .hamstrings, .glutes, .calves]
     )
+}
+
+@Test("SPEC 7.9 foco inferior e foco superior: descanso 150 s nos compostos e 90 s nos isolados")
+func seedFocusProgramsUseHypertrophyRests() throws {
+    let bundle = try loadSeedBundle()
+    let exercisesByID = Dictionary(
+        bundle.catalog.exercises.map { ($0.id, $0) },
+        uniquingKeysWith: { first, _ in first }
+    )
+
+    for name in [lowerFocusName, upperFocusName] {
+        let program = try requireProgram(named: name, in: bundle)
+        for day in program.days {
+            for target in day.exercises {
+                let label = "\(name) / \(day.name) ordem \(target.order)"
+                let exercise = try #require(exercisesByID[target.exerciseID], "\(label)")
+                let pattern = try #require(exercise.movementPattern, "\(label)")
+                let expected = compoundPatterns.contains(pattern) ? 150 : 90
+                #expect(target.restSeconds == expected, "\(label): \(pattern.rawValue)")
+            }
+        }
+    }
+}
+
+@Test("RF-35 foco inferior e foco superior: cada grupo em foco é treinado em 2 dias da semana")
+func seedFocusProgramsTrainFocusGroupsTwiceAWeek() throws {
+    let bundle = try loadSeedBundle()
+    let formats: [(name: String, focus: Set<MuscleGroup>)] = [
+        (lowerFocusName, [.quads, .hamstrings, .glutes, .calves]),
+        (upperFocusName, [.chest, .back, .shoulders, .biceps, .triceps]),
+    ]
+
+    for format in formats {
+        let program = try requireProgram(named: format.name, in: bundle)
+        var daysByGroup: [MuscleGroup: Int] = [:]
+        for day in program.days {
+            for group in try primaryMuscles(of: day, catalog: bundle.catalog) {
+                daysByGroup[group, default: 0] += 1
+            }
+        }
+        for group in format.focus {
+            #expect(daysByGroup[group, default: 0] >= 2, "\(format.name) / \(group.rawValue): \(daysByGroup[group, default: 0]) dias")
+        }
+    }
 }
 
 @Test("SPEC 7.9 séries, faixas, RIR e descanso de cada programa seguem a tabela do objetivo")

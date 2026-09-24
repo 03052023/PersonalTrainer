@@ -24,6 +24,11 @@ enum SeedLoaderError: Error, Equatable {
 ///   esse modelo, slug incluído, em vez de inserir: ambos são `.unique` e o insert duplicado
 ///   vira upsert silencioso que zeraria `isArchived`/`machineNotes` (ARCHITECTURE §15).
 ///   Inexistente → insere via `ExerciseMapper.model(from:)` com `isCustom = false`.
+/// - Store que já tem o seed 2 ou mais novo (`refreshesExistingBelowInstalledVersion`): só insere
+///   os exercícios que faltam e não reescreve os existentes. O store ainda não marca um exercício
+///   do seed editado pelo usuário (TASKS C11, fica para um SchemaV3), então reescrever apagaria
+///   essa edição. O seed 3 (versão 2.1) só acrescenta exercícios de casa (RF-42) e não muda os
+///   campos de nenhum exercício do seed 2.
 /// - Programas: insere cada programa do seed cujo `uuid` ainda não existe no store; nunca
 ///   altera nem apaga programas existentes. Se o store já tem um programa ativo, os inseridos
 ///   entram inativos (SPEC S1: um único programa ativo). Primeiro launch: o programa marcado
@@ -39,7 +44,12 @@ enum SeedLoader {
     /// reaplicar o catálogo ou instalar programas novos, incrementar aqui (e o campo `version`
     /// dos arquivos). `SeedValidator` só exige `version >= 1` nos arquivos; a comparação com o
     /// store é feita contra esta constante, não contra o campo do JSON.
-    static let currentSeedVersion = 2
+    /// 3 = versão 2.1: exercícios de casa (RF-42) e descansos dos programas de foco (§7.9).
+    static let currentSeedVersion = 3
+
+    /// Stores com o seed abaixo desta versão (o v1 da M1, sem `movementPattern`) recebem o upsert
+    /// completo do catálogo. Daqui para cima, reaplicar o seed só insere exercícios novos.
+    static let refreshesExistingBelowInstalledVersion = 2
 
     /// Nomes dos recursos sem extensão. Os JSON ficam na RAIZ do bundle (o `project.yml`
     /// copia `Resources/Seed/*.json` sem preservar a pasta), por isso `url(forResource:
@@ -68,7 +78,12 @@ enum SeedLoader {
                 context.insert(settings)
             }
 
-            let catalog = try upsertCatalog(seed.catalog.exercises, in: context)
+            let installedVersion = existingSettings?.schemaSeedVersion ?? 0
+            let catalog = try upsertCatalog(
+                seed.catalog.exercises,
+                refreshingExisting: installedVersion < refreshesExistingBelowInstalledVersion,
+                in: context
+            )
             let programs = try insertMissingPrograms(
                 seed.programs.programs,
                 exercisesBySeedID: catalog.exercisesBySeedID,
@@ -103,9 +118,12 @@ enum SeedLoader {
         var updated = 0
     }
 
+    /// - Parameter refreshingExisting: `false` liga os existentes aos programas do seed sem
+    ///   reescrevê-los (store com seed 2 ou mais novo).
     @MainActor
     private static func upsertCatalog(
         _ definitions: [ExerciseDefinition],
+        refreshingExisting: Bool,
         in context: ModelContext
     ) throws -> CatalogResult {
         // Um fetch só em vez de um por exercício. Atribuição em laço (e não
@@ -136,7 +154,7 @@ enum SeedLoader {
             // Mesmo um exercício do usuário com slug igual serve de alvo para os programas do
             // seed: sem ele o `ProgramMapper` falharia e nenhum programa seria instalado.
             result.exercisesBySeedID[definition.id] = existing
-            guard !existing.isCustom else { continue }
+            guard !existing.isCustom, refreshingExisting else { continue }
 
             if existing.slug != definition.slug {
                 existingBySlug[existing.slug] = nil

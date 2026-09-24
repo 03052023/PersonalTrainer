@@ -45,23 +45,35 @@ public enum ExerciseSubstitution {
         let primaryGroups = Set(exercise.primaryMuscles)
         var seen: Set<UUID> = [exercise.id]
         seen.formUnion(excluding)
-        var ranked: [RankedCandidate] = []
+        var pool: [ExerciseDefinition] = []
         for candidate in catalog where candidate.movementPattern == pattern {
             // SPEC RF-11/RF-34: "mesmo grupo primário".
             guard !primaryGroups.isDisjoint(with: candidate.primaryMuscles) else { continue }
             guard seen.insert(candidate.id).inserted else { continue }
-            ranked.append(
+            pool.append(candidate)
+        }
+
+        return Array(sortedBySimilarity(pool, to: exercise).prefix(limit))
+    }
+
+    /// `pool` na ordem do tipo (pontuação, afinidade, nome, id) em relação a `exercise`, sem filtrar
+    /// nem tirar repetidos. Também ordena o equivalente por grupo do modo casa (SPEC §7.13 H2), que
+    /// segue a mesma ordem do RF-34.
+    static func sortedBySimilarity(
+        _ pool: [ExerciseDefinition],
+        to exercise: ExerciseDefinition
+    ) -> [ExerciseDefinition] {
+        pool
+            .map { candidate in
                 RankedCandidate(
                     exercise: candidate,
                     score: score(of: candidate, against: exercise),
                     affinity: equipmentAffinity(candidate.equipment, exercise.equipment),
                     foldedName: foldedName(candidate.name)
                 )
-            )
-        }
-
-        ranked.sort(by: RankedCandidate.precedes)
-        return ranked.prefix(limit).map(\.exercise)
+            }
+            .sorted(by: RankedCandidate.precedes)
+            .map(\.exercise)
     }
 
     /// Pontuação de semelhança de `candidate` com `exercise` (regras no comentário do tipo).
@@ -83,6 +95,7 @@ public enum ExerciseSubstitution {
 
     /// Desempate por equipamento parecido: 2 = mesma família (peso livre, carga guiada ou peso
     /// corporal), 1 = famílias diferentes mas ambos com carga externa, 0 = só um deles é peso corporal.
+    /// Objetos de casa (`household`) contam na família do peso corporal (SPEC §7.13).
     static func equipmentAffinity(_ lhs: Equipment, _ rhs: Equipment) -> Int {
         let lhsFamily = EquipmentFamily(lhs)
         let rhsFamily = EquipmentFamily(rhs)
@@ -102,13 +115,14 @@ private enum EquipmentFamily: Equatable {
     case freeWeight
     /// Máquina, polia e smith: a trajetória é guiada.
     case guided
+    /// Peso do corpo e objetos de casa (mochila, garrafas, sacolas): o que se usa sem academia.
     case bodyweight
 
     init(_ equipment: Equipment) {
         switch equipment {
         case .barbell, .dumbbell, .kettlebell: self = .freeWeight
         case .machine, .cable, .smith: self = .guided
-        case .bodyweight: self = .bodyweight
+        case .bodyweight, .household: self = .bodyweight
         }
     }
 }

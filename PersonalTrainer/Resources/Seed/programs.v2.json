@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "programs": [
     {
       "id": "14E3FAC0-8424-4360-AF9D-20D18DCB0E45",
@@ -411,7 +411,7 @@
               "repMin": 6,
               "repMax": 10,
               "targetRIR": 2,
-              "restSeconds": 180,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -422,7 +422,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -433,7 +433,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -444,7 +444,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             },
             {
@@ -455,7 +455,7 @@
               "repMin": 12,
               "repMax": 15,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             }
           ]
@@ -473,7 +473,7 @@
               "repMin": 6,
               "repMax": 10,
               "targetRIR": 2,
-              "restSeconds": 180,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -484,7 +484,7 @@
               "repMin": 6,
               "repMax": 10,
               "targetRIR": 2,
-              "restSeconds": 180,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -495,7 +495,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -506,7 +506,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             },
             {
@@ -517,7 +517,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             }
           ]
@@ -535,7 +535,7 @@
               "repMin": 6,
               "repMax": 10,
               "targetRIR": 2,
-              "restSeconds": 180,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -546,7 +546,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -557,7 +557,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             },
             {
@@ -568,7 +568,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -579,7 +579,7 @@
               "repMin": 12,
               "repMax": 15,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             }
           ]
@@ -597,7 +597,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -608,7 +608,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -619,7 +619,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             },
             {
@@ -630,7 +630,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             },
             {
@@ -641,7 +641,7 @@
               "repMin": 12,
               "repMax": 15,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             }
           ]
@@ -668,7 +668,7 @@
               "repMin": 6,
               "repMax": 10,
               "targetRIR": 2,
-              "restSeconds": 180,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -679,7 +679,7 @@
               "repMin": 6,
               "repMax": 10,
               "targetRIR": 2,
-              "restSeconds": 180,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -690,7 +690,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -701,7 +701,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             },
             {
@@ -712,7 +712,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             }
           ]
@@ -730,7 +730,7 @@
               "repMin": 6,
               "repMax": 10,
               "targetRIR": 2,
-              "restSeconds": 180,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -741,7 +741,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             },
             {
@@ -752,7 +752,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             },
             {
@@ -763,7 +763,7 @@
               "repMin": 12,
               "repMax": 15,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             },
             {
@@ -774,7 +774,7 @@
               "repMin": 12,
               "repMax": 15,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             }
           ]
@@ -792,7 +792,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -803,7 +803,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -814,7 +814,7 @@
               "repMin": 12,
               "repMax": 15,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             },
             {
@@ -825,7 +825,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             },
             {
@@ -836,7 +836,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             }
           ]
@@ -854,7 +854,7 @@
               "repMin": 6,
               "repMax": 10,
               "targetRIR": 2,
-              "restSeconds": 180,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -865,7 +865,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 150,
               "startingLoad": null
             },
             {
@@ -876,7 +876,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             },
             {
@@ -887,7 +887,7 @@
               "repMin": 12,
               "repMax": 15,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             },
             {
@@ -898,7 +898,7 @@
               "repMin": 8,
               "repMax": 12,
               "targetRIR": 2,
-              "restSeconds": 120,
+              "restSeconds": 90,
               "startingLoad": null
             }
           ]
