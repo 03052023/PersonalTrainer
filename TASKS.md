@@ -295,6 +295,19 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 **Entra na versão 2 (2026-09-23), junto com M2 e M5.** Inclui o diálogo do app (SPEC §7.11 C1–C8, RF-37..RF-39). Parte de cálculo (TrainerCore) começa em paralelo; telas e integração na rodada final.
 
+**Estado em 2026-09-24:** cálculo (DeloadPolicy, DeloadScheduler com rearme, FrequencyAwareSelector, ProgramReviewer, PersonalRecordDetector, Coach C1–C8) verde no Core tests. App (planejador com semana leve e seletor, diálogo com feed, destaque, revisão aplicável e aviso de expiração) integrado, revisado por 2 lentes adversariais e corrigido. App build verde em `ci/v3-final`. Falta a verificação no aparelho.
+
+### Pendências para a versão 2.1 (achados da revisão final, não bloqueiam)
+
+- [ ] **A5** Importar backup mantém decisões de semana leve, o log e a revisão do diálogo tomados sobre os dados antigos; esses JSON também não entram no backup. Decidir o que o import zera.
+- [ ] **B7** Duração estimada no cartão da sessão (DESIGN §9.2).
+- [ ] **B10** "Fazer backup" (C7) deveria abrir a exportação direto, não só a aba Ajustes.
+- [ ] **B11** Motivo do C1 com os números do gatilho (quantos exercícios baixaram; N semanas): exige campos no `CoachDeloadState`.
+- [ ] **A4/B8** Dispensar uma sugestão de saúde no feed deveria escondê-la também no detalhe de Saúde (hoje só o sentido inverso funciona).
+- [ ] Programas Foco inferior e Foco superior: revisar para 2×/semana no grupo em foco e alinhar os descansos ao §7.9 (150/90 s).
+- [ ] C10 (corretor do M2): blocos de intervalos do Combate e de equilíbrio/mobilidade com registro próprio; hoje são lembretes C8.
+- [ ] C11 (corretor do M2): marcar exercício do seed editado pelo usuário (SchemaV3) antes de qualquer seed v3.
+
 - [~] **T4.8 [CI] Diálogo do app (SPEC §7.11)** — `Services/Coach/CoachFeedBuilder.swift` (junta revisão, deload, saúde, validade da instalação, retomada, marcos, backup, longevidade), `Services/Coach/CoachLogStore.swift` (decisões em JSON, cadência/silêncio), `Services/Coach/ProvisioningExpiryReader.swift` (lê ExpirationDate do embedded.mobileprovision; notificação na véspera), `Features/Coach/*` (feed na Home, destaque na abertura, ações).
 
 **Objetivo:** seleção por frequência, deload automático, troca de programa ao fim do mesociclo. Tudo em `TrainerCore` com testes; UI mínima.
@@ -323,6 +336,8 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 ## M5 — Saúde aeróbica e recuperação (SPEC §7.10)
 
 **Antecipado em 2026-09-23 a pedido do usuário:** construído em paralelo com o M2 e entregue na mesma versão (antes de M3 e M4). Depende do HealthKit funcionar no aparelho com a instalação pelo Impactor (verificado no primeiro treino finalizado).
+
+**Estado em 2026-09-24:** TrainerCore/Health verde no CI. Leitor do HealthKit, cartão e detalhe de Saúde integrados à Home, com App build verde. As sugestões de saúde aparecem no feed do diálogo (C3). Falta a leitura real no aparelho: o simulador não tem HealthKit.
 
 **Objetivo:** o app lê do HealthKit o que o Watch já mede (treinos aeróbicos, FC, VO2max, HRV, FC de repouso, sono) e devolve três coisas: minutos aeróbicos da semana contra a meta, tendência de VO2max e recuperação, e sugestões práticas ("use o Watch à noite", "caminhe 20 min ao ar livre", "faça o aeróbico na quinta, não na véspera de pernas"). Sem IA. Nada aqui grava no HealthKit nem altera a musculação.
 
