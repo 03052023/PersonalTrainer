@@ -20,7 +20,7 @@ final class FullLoopTests: XCTestCase {
 
     // MARK: - SPEC P4 + S2: rotação completa e subida de carga
 
-    func testP4_threeSetsAtRepMax_afterFullRotation_dayAIncreasesByOneIncrement() throws {
+    func testP4_workingSetsAtRepMax_afterFullRotation_dayAIncreasesByOneIncrement() throws {
         let harness = try makeHarness()
         let days = try programDays(in: harness)
         XCTAssertEqual(days.count, 3, "o seed padrão tem Dia A, B e C")
@@ -35,11 +35,15 @@ final class FullLoopTests: XCTestCase {
         XCTAssertEqual(first.prescription.note, .calibrate)
         XCTAssertNil(first.prescription.load)
         let increment = first.exercise.loadIncrement
+        // SPEC 7.9 decisão 8: compostos do Completo corpo todo têm 4 séries (não 3 como no
+        // A/B/C legado) — P4 exige "nº de séries de trabalho ≥ S", então o script precisa
+        // do S da própria prescrição, não de um literal.
+        let firstSets = first.prescription.sets
 
-        // 3 séries no topo da faixa a 40 kg, RIR 2 → sucesso (P4) na próxima vez que A voltar.
+        // `firstSets` séries no topo da faixa a 40 kg, RIR 2 → sucesso (P4) na próxima vez que A voltar.
         let sessionA = try performSession(
             planA,
-            firstExercise: FirstExerciseScript(sets: 3, reps: first.prescription.repMax, load: 40, rir: 2),
+            firstExercise: FirstExerciseScript(sets: firstSets, reps: first.prescription.repMax, load: 40, rir: 2),
             in: harness
         )
         let storedA = try XCTUnwrap(harness.coordinator.session(withID: sessionA))
@@ -206,10 +210,14 @@ final class FullLoopTests: XCTestCase {
         let planA = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
         let first = try XCTUnwrap(planA.exercises.first)
         let repMax = first.prescription.repMax
+        // SPEC 7.9 decisão 8: no Completo corpo todo os compostos têm 4 séries e os isolados
+        // 3 (não sempre 3 como no A/B/C legado), então o nº de séries de trabalho para o
+        // primeiro exercício vem da prescrição, não de um literal.
+        let firstSets = first.prescription.sets
 
         let sessionID = try performSession(
             planA,
-            firstExercise: FirstExerciseScript(sets: 3, reps: repMax, load: 40, rir: 2),
+            firstExercise: FirstExerciseScript(sets: firstSets, reps: repMax, load: 40, rir: 2),
             in: harness
         )
 
@@ -231,18 +239,18 @@ final class FullLoopTests: XCTestCase {
         let entry = try XCTUnwrap(entries.first)
         XCTAssertEqual(entry.sessionID, sessionID)
         XCTAssertFalse(entry.wasDeload)
-        XCTAssertEqual(entry.sets.count, 3)
-        XCTAssertEqual(entry.sets.map(\.load), [40, 40, 40])
-        XCTAssertEqual(entry.sets.map(\.reps), [repMax, repMax, repMax])
-        XCTAssertEqual(entry.sets.map(\.rir), [2, 2, 2])
+        XCTAssertEqual(entry.sets.count, firstSets)
+        XCTAssertEqual(entry.sets.map(\.load), Array(repeating: 40, count: firstSets))
+        XCTAssertEqual(entry.sets.map(\.reps), Array(repeating: repMax, count: firstSets))
+        XCTAssertEqual(entry.sets.map(\.rir), Array(repeating: 2, count: firstSets))
         XCTAssertTrue(entry.sets.allSatisfy { !$0.isWarmup })
 
-        // Resumo do seletor e totais do resumo de sessão (RF-12): 3 séries no primeiro
-        // exercício + 1 em cada um dos demais, todas de trabalho.
+        // Resumo do seletor e totais do resumo de sessão (RF-12): `firstSets` séries no
+        // primeiro exercício + 1 em cada um dos demais, todas de trabalho.
         let otherCount = planA.exercises.count - 1
         let summary = try SessionSummaryMapper.summary(from: session)
         XCTAssertEqual(summary.status, .completed)
-        XCTAssertEqual(summary.workingSetCount, 3 + otherCount)
+        XCTAssertEqual(summary.workingSetCount, firstSets + otherCount)
 
         let stats = SessionStats.compute(
             startedAt: session.startedAt,
@@ -255,13 +263,13 @@ final class FullLoopTests: XCTestCase {
                         .map { HistoryMapper.setResult(from: $0) }
                 }
         )
-        XCTAssertEqual(stats.workingSetCount, 3 + otherCount)
+        XCTAssertEqual(stats.workingSetCount, firstSets + otherCount)
         XCTAssertEqual(stats.warmupSetCount, 0)
         XCTAssertEqual(stats.exerciseCount, planA.exercises.count)
         let othersTonnage = planA.exercises.dropFirst().reduce(0.0) { partial, planned in
             partial + 20 * Double(planned.prescription.repMin)
         }
-        XCTAssertEqual(stats.tonnage, 3 * 40 * Double(repMax) + othersTonnage, accuracy: 0.001)
+        XCTAssertEqual(stats.tonnage, Double(firstSets) * 40 * Double(repMax) + othersTonnage, accuracy: 0.001)
         XCTAssertNotNil(stats.duration)
 
         // O histórico da UI mostra a sessão (não é `inProgress`), o próximo plano é o Dia B e
