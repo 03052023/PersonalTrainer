@@ -1,11 +1,10 @@
 import SwiftUI
 import TrainerCore
 
-/// Stepper do número da série (SPEC RF-03): repetições, ou segundos e passos conforme a medida do
-/// exercício (SPEC RF-43), com o título "Repetições", "Segundos" ou "Passos". O valor fica na cor
-/// de destaque enquanto está dentro da faixa prescrita (`highlightRange`), para o usuário ver de
-/// relance se cumpriu a meta sem ler o cabeçalho. Botões de 56 × 56 pt (RNF-06); toque longo
-/// repete o passo.
+/// Stepper do número da série em "Corrigir série" (SPEC RF-19, RF-03): repetições, ou segundos e
+/// passos conforme a medida do exercício (SPEC RF-43), com o título "Repetições", "Segundos" ou
+/// "Passos". O valor fica em `accent` enquanto está dentro da faixa prescrita (`highlightRange`).
+/// Botões de 56 × 56 pt (RNF-06); toque longo repete o passo.
 struct RepsStepper: View {
     @Binding var value: Int
     let range: ClosedRange<Int>
@@ -28,7 +27,7 @@ struct RepsStepper: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(MeasureText.title(measure))
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.textSecondary)
 
             HStack(spacing: 12) {
                 stepButton(
@@ -42,7 +41,7 @@ struct RepsStepper: View {
                 Text(String(value))
                     .font(.system(.largeTitle, design: .rounded, weight: .bold))
                     .monospacedDigit()
-                    .foregroundStyle(isInHighlightRange ? Color.accentColor : Color.primary)
+                    .foregroundStyle(isInHighlightRange ? Theme.accent : Theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                     .frame(maxWidth: .infinity)
@@ -85,6 +84,12 @@ struct RepsStepper: View {
     nonisolated static func stepped(_ value: Int, by delta: Int, in range: ClosedRange<Int>) -> Int {
         min(range.upperBound, max(range.lowerBound, value + delta))
     }
+
+    /// `ClosedRange` exige `lowerBound <= upperBound` e aborta caso contrário; um programa com
+    /// faixa invertida não pode derrubar a sessão ativa, então normalizamos aqui.
+    nonisolated static func highlightRange(repMin: Int, repMax: Int) -> ClosedRange<Int> {
+        min(repMin, repMax)...max(repMin, repMax)
+    }
 }
 
 /// Só decora: fundo circular de 56 pt e escurece ao pressionar. O `Button` cuida do toque,
@@ -93,10 +98,10 @@ private struct RepsStepperButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 26, weight: .bold))
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(Theme.accent)
             .frame(width: 56, height: 56)
             .background(
-                Color.accentColor.opacity(configuration.isPressed ? 0.35 : 0.15),
+                configuration.isPressed ? Theme.accent.opacity(0.35) : Theme.accentSoft,
                 in: Circle()
             )
     }
@@ -136,10 +141,6 @@ private struct RepsStepperPreviewHost: View {
 
 #Preview("Segundos") {
     RepsStepperPreviewHost(value: 30, highlightRange: 20...40, measure: .seconds)
-}
-
-#Preview("Passos") {
-    RepsStepperPreviewHost(value: 24, highlightRange: 20...40, measure: .steps)
 }
 
 #Preview("Dynamic Type AX5") {

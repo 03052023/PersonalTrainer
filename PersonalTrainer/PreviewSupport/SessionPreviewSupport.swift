@@ -2,14 +2,15 @@ import Foundation
 import SwiftData
 import TrainerCore
 
-/// Dados e doubles para os `#Preview` da feature Sessão: uma sessão em andamento com um
-/// exercício completo, um no meio (aquecimento + 1 série), um por fazer e um pulado — o
-/// bastante para ver todos os estados dos chips e do painel. O catálogo tem dois exercícios
-/// fora da sessão para a folha "Trocar" (RF-34) ter o que sugerir.
+/// Dados e doubles para os `#Preview` da ficha da sessão (SPEC RF-44): uma sessão em andamento com
+/// um exercício feito (com um aquecimento antigo), um pulado, um no meio, um de peso do corpo sem
+/// carga (RF-46) e um de primeira vez sem carga (RF-44 c) — o bastante para ver todos os estados
+/// dos cartões. O catálogo tem dois exercícios fora da sessão para a folha "Trocar" (RF-34) ter o
+/// que sugerir.
 ///
-/// Os doubles (coordinator, planner, catálogo) são `private` e prefixados pela feature para não
-/// colidir com os das outras tarefas. Só previews usam `Date()` aqui: não é ViewModel nem
-/// serviço, e o timer de descanso precisa do relógio real para contar na tela do Xcode.
+/// Os doubles (coordinator, planner) são `private` e prefixados pela feature para não colidir com
+/// os das outras tarefas. Só previews usam `Date()` aqui: não é ViewModel nem serviço, e o timer de
+/// descanso precisa do relógio real para contar na tela do Xcode.
 ///
 /// Vive em `PreviewSupport/`, fora de `Features/`, porque grava direto no `ModelContext` (só
 /// para montar a fixture); assim o grep de AGENTS R4 sobre `Features/` continua limpo.
@@ -18,10 +19,8 @@ enum SessionPreviewSupport {
     struct Fixture {
         let viewModel: ActiveSessionViewModel
         let session: WorkoutSessionModel
-        /// Séries do exercício já completo, para o preview de `CompletedSetRow`.
-        let completedSets: [SetLogModel]
         let skippedExercise: SessionExerciseModel?
-        /// Exercício sem nenhuma série (calibração): o único em que "Trocar" aparece.
+        /// Exercício de primeira vez, sem nenhuma série: o único em que "Trocar" aparece.
         let untouchedExercise: SessionExerciseModel?
     }
 
@@ -64,6 +63,16 @@ enum SessionPreviewSupport {
             loadIncrement: 1,
             machineNotes: "Encosto 4"
         )
+        let pullUpCatalog = makeCatalogExercise(
+            slug: "barra-fixa",
+            name: "Barra fixa",
+            primary: [.back],
+            secondary: [.biceps],
+            equipment: .bodyweight,
+            loadUnit: .kilograms,
+            loadIncrement: 2.5,
+            machineNotes: nil
+        )
         let curlCatalog = makeCatalogExercise(
             slug: "mesa-flexora",
             name: "Mesa flexora",
@@ -95,7 +104,10 @@ enum SessionPreviewSupport {
             loadIncrement: 5,
             machineNotes: nil
         )
-        for catalogItem in [legPressCatalog, squatCatalog, extensionCatalog, curlCatalog, seatedCurlCatalog, hackCatalog] {
+        let catalogItems = [
+            legPressCatalog, squatCatalog, extensionCatalog, pullUpCatalog, curlCatalog, seatedCurlCatalog, hackCatalog,
+        ]
+        for catalogItem in catalogItems {
             context.insert(catalogItem)
         }
 
@@ -115,7 +127,7 @@ enum SessionPreviewSupport {
         )
         context.insert(session)
 
-        // 1. Leg press: completo (aquecimento + 3 de trabalho).
+        // 1. Leg press: feito (um aquecimento antigo + 3 de trabalho) → linha compacta.
         let legPress = makeSessionExercise(
             order: 0,
             catalog: legPressCatalog,
@@ -127,12 +139,10 @@ enum SessionPreviewSupport {
             in: context,
             session: session
         )
-        let legPressSets = [
-            makeSet(index: 0, load: 80, reps: 12, rir: nil, isWarmup: true, at: startedAt.addingTimeInterval(120), in: context, exercise: legPress),
-            makeSet(index: 1, load: 140, reps: 10, rir: 2, isWarmup: false, at: startedAt.addingTimeInterval(300), in: context, exercise: legPress),
-            makeSet(index: 2, load: 140, reps: 10, rir: 2, isWarmup: false, at: startedAt.addingTimeInterval(480), in: context, exercise: legPress),
-            makeSet(index: 3, load: 140, reps: 9, rir: 1, isWarmup: false, at: startedAt.addingTimeInterval(660), in: context, exercise: legPress),
-        ]
+        makeSet(index: 0, load: 80, reps: 12, rir: nil, isWarmup: true, at: startedAt.addingTimeInterval(120), in: context, exercise: legPress)
+        makeSet(index: 1, load: 140, reps: 10, rir: 2, isWarmup: false, at: startedAt.addingTimeInterval(300), in: context, exercise: legPress)
+        makeSet(index: 2, load: 140, reps: 10, rir: 2, isWarmup: false, at: startedAt.addingTimeInterval(480), in: context, exercise: legPress)
+        makeSet(index: 3, load: 140, reps: 9, rir: 1, isWarmup: false, at: startedAt.addingTimeInterval(660), in: context, exercise: legPress)
 
         // 2. Agachamento: pulado (barra ocupada).
         let squat = makeSessionExercise(
@@ -148,8 +158,7 @@ enum SessionPreviewSupport {
         )
         squat.wasSkipped = true
 
-        // 3. Cadeira extensora: no meio (aquecimento + 1 de trabalho) → é o selecionado inicial.
-        // Meta de reps do motor gravada no snapshot (SPEC P5, SchemaV2).
+        // 3. Cadeira extensora: no meio (1 de 3) → é o exercício atual. Meta gravada (SPEC P5).
         let legExtension = makeSessionExercise(
             order: 2,
             catalog: extensionCatalog,
@@ -162,13 +171,25 @@ enum SessionPreviewSupport {
             session: session
         )
         legExtension.prescribedTargetReps = 8
-        makeSet(index: 0, load: 5, reps: 12, rir: nil, isWarmup: true, at: startedAt.addingTimeInterval(900), in: context, exercise: legExtension)
-        makeSet(index: 1, load: 9, reps: 8, rir: 2, isWarmup: false, at: startedAt.addingTimeInterval(1_080), in: context, exercise: legExtension)
+        makeSet(index: 0, load: 9, reps: 8, rir: nil, isWarmup: false, at: startedAt.addingTimeInterval(1_080), in: context, exercise: legExtension)
 
-        // 4. Mesa flexora: por fazer, sem carga inicial (SPEC P2: calibrar). Sem séries, então
-        // "Trocar" aparece e "Concluir série" com 0 kg pede confirmação.
-        let legCurl = makeSessionExercise(
+        // 4. Barra fixa: peso do corpo sem carga (SPEC RF-46) → sem carga na meta.
+        let pullUp = makeSessionExercise(
             order: 3,
+            catalog: pullUpCatalog,
+            prescribedLoad: nil,
+            prescribedSets: 3,
+            prescribedRIR: 2,
+            restSeconds: 120,
+            note: .hold,
+            in: context,
+            session: session
+        )
+        pullUp.prescribedTargetReps = 6
+
+        // 5. Mesa flexora: primeira vez sem carga (SPEC P2) → dica e campo de carga quando for a atual.
+        let legCurl = makeSessionExercise(
+            order: 4,
             catalog: curlCatalog,
             prescribedLoad: nil,
             prescribedSets: 3,
@@ -190,7 +211,6 @@ enum SessionPreviewSupport {
             sessionID: session.uuid,
             coordinator: coordinator,
             planner: ActiveSessionPreviewPlanner(context: context),
-            catalog: ActiveSessionPreviewCatalog(context: context),
             restTimer: RestTimer(notifications: notifications),
             notifications: notifications,
             now: { Date() }
@@ -198,7 +218,6 @@ enum SessionPreviewSupport {
         return Fixture(
             viewModel: viewModel,
             session: session,
-            completedSets: legPressSets,
             skippedExercise: squat,
             untouchedExercise: legCurl
         )
@@ -360,35 +379,10 @@ private final class ActiveSessionPreviewPlanner: SessionPlanning {
         )
         return PlannedExercise(id: sessionExerciseID, exercise: exercise, target: target, prescription: prescription)
     }
-}
 
-/// `CatalogRepositoring` de preview: só leitura (a sessão não cria nem edita exercícios).
-@MainActor
-private final class ActiveSessionPreviewCatalog: CatalogRepositoring {
-    private let context: ModelContext
-
-    init(context: ModelContext) {
-        self.context = context
-    }
-
-    func allExercises(includeArchived: Bool) throws -> [ExerciseDefinition] {
-        activeSessionPreviewDefinitions(in: context)
-    }
-
-    func exercise(id: UUID) throws -> ExerciseDefinition? {
-        activeSessionPreviewDefinitions(in: context).first { $0.id == id }
-    }
-
-    func createExercise(_ draft: ExerciseDraft) throws -> UUID {
-        throw CatalogRepositoryError.invalidDraft
-    }
-
-    func updateExercise(id: UUID, with draft: ExerciseDraft) throws {
-        throw CatalogRepositoryError.exerciseNotFound(id)
-    }
-
-    func setArchived(id: UUID, _ archived: Bool) throws {
-        throw CatalogRepositoryError.exerciseNotFound(id)
+    /// Flor do resumo nos previews.
+    func activeProgramGoal() throws -> ProgramGoal? {
+        .hypertrophy
     }
 }
 

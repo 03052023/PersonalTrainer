@@ -3,72 +3,76 @@ import Observation
 import os
 import TrainerCore
 
-/// Estado em memória da sessão ativa (SPEC F2/F3, RF-02..RF-06, RF-10, RF-19, RF-34).
+/// Estado da ficha da sessão (SPEC RF-44, RF-04, RF-46, RF-10, RF-19, RF-34; docs/V22-CONTRACT.md
+/// §3.1).
 ///
-/// O estado vem do próprio `WorkoutSessionModel`: `@Model` é `Observable`, então SwiftUI
-/// atualiza a tela quando o coordinator grava uma série. Nada aqui escreve no
-/// `ModelContext` (AGENTS R4): toda mutação passa por `SessionCoordinating`, que salva
-/// imediatamente (RF-06). A tela não usa `@Query` (ARCHITECTURE §15, "re-renderiza").
+/// A ficha mostra todos os exercícios; cada toque grava pelo `SessionCoordinating` (AGENTS R4),
+/// que salva na hora (RF-06): a bolinha vazia grava uma série com a meta de hoje (`markSet`),
+/// "Feito" grava as séries que faltam (`markExerciseDone`) e "Marcar como feitos, como previsto"
+/// faz o mesmo em cada pendente que tem carga (`markRemainingAsPrescribed`). Toda série nova grava
+/// `rir = nil` e `isWarmup = false` (SPEC RF-03, RF-41, decisão 18); a correção de uma série
+/// regrava o `rir` que ela já tinha.
+///
+/// O estado vem do próprio `WorkoutSessionModel`: `@Model` é `Observable`, então a tela se
+/// atualiza quando o coordinator grava. Só a carga digitada no teclado fica em memória
+/// (`setWorkingLoad`, P10): ela não é dado de treino até uma bolinha ser marcada.
 ///
 /// Datas vêm sempre do closure `now` injetado (SPEC P11), nunca de `Date()`. O serviço de
-/// notificações só entra para pedir permissão na primeira série concluída (AGENTS §7).
-/// `planner` e `catalog` só servem ao botão "Trocar" (RF-34): substitutos, lista completa e a
-/// prescrição do exercício novo. `traits` diz a medida de cada exercício pelo `slug` (SPEC RF-43),
-/// para o rascunho e a prescrição mostrarem segundos ou passos; é o mesmo catálogo que a raiz
-/// injeta em `\.exerciseTraits`.
+/// notificações só entra para pedir permissão na primeira série gravada (AGENTS §7).
 @Observable
 @MainActor
 final class ActiveSessionViewModel {
-    /// Série em edição na `EditSetSheet` (RF-19). É uma cópia de valores: a folha edita a
-    /// cópia e só grava ao salvar, pelo coordinator.
+    /// Série aberta em "Corrigir série" (RF-19). Cópia de valores: a folha edita a cópia e só grava
+    /// ao salvar, pelo coordinator.
     struct SetEdit: Identifiable, Hashable {
         let setID: UUID
-        /// Posição 1-based entre as séries do exercício, para o título "Corrigir série 2".
+        /// Posição 1-based entre as séries de trabalho do exercício ("Corrigir série 2").
         let number: Int
         var load: Double
         var reps: Int
-        var rir: Int?
-        let isWarmup: Bool
+        /// RIR já gravado na série. Não aparece na folha; salvar regrava o mesmo valor
+        /// (SPEC RF-41; contrato V22 §1.5).
+        let rir: Int?
         let loadIncrement: Double
         let loadUnit: LoadUnit
         let repMin: Int
         let repMax: Int
-        /// Medida do exercício (SPEC RF-43): o stepper da correção vira "Segundos" ou "Passos".
+        /// Medida do exercício (SPEC RF-43): o stepper vira "Segundos" ou "Passos".
         var measure: ExerciseMeasure = .reps
+        /// Peso do corpo (SPEC RF-46): o stepper de carga vira "Carga extra".
+        var isBodyweight: Bool = false
+        /// "Agachamento livre · previsto: 3 repetições · 62,5 kg"; vazio nos previews.
+        var plannedLine: String = ""
 
         var id: UUID { setID }
     }
 
-    /// Exposto para `RestTimerView`. Começa a contar ao concluir uma série de trabalho (RF-05).
+    /// Exposto para `RestTimerView`. Começa a contar quando uma bolinha é marcada (RF-05).
     let restTimer: RestTimer
 
     private(set) var session: WorkoutSessionModel?
-    private(set) var selectedExerciseID: UUID? = nil
-    /// Próxima série do exercício selecionado, pré-preenchida (RF-04). `nil` quando não há
-    /// exercício selecionado ou quando ele foi pulado (não há série a registrar).
-    var currentDraft: SetDraft? = nil
     var errorMessage: String? = nil
     private(set) var isFinished: Bool = false
-
-    /// `true` enquanto a tela deve perguntar "Registrar com 0 kg?": calibração sem carga
-    /// prescrita (SPEC P2) em que o usuário tocou "Concluir série" sem digitar a carga, num
-    /// exercício que não é de peso corporal (SPEC P8: carga 0 só vale para `bodyweight`).
-    /// Fechar o aviso sem confirmar equivale a `cancelZeroLoadSet()`.
-    var needsZeroLoadConfirmation: Bool = false
+    /// Quantas marcações deram certo: gatilho do `.sensoryFeedback(.success)` (DESIGN §10).
+    private(set) var markCount: Int = 0
 
     /// Folha "Trocar exercício" (RF-34) aberta.
     var isShowingSubstituteSheet: Bool = false
     /// Substitutos do mesmo padrão de movimento, carregados ao abrir a folha.
     private(set) var substituteSuggestions: [ExerciseDefinition] = []
-    /// Catálogo não arquivado para "Ver todos os exercícios", sem o exercício atual.
-    private(set) var substitutionCatalog: [ExerciseDefinition] = []
+    /// Exercício que a folha "Trocar" vai substituir.
+    private(set) var substitutingExerciseID: UUID? = nil
 
     /// Série aberta na folha de correção; `nil` = folha fechada.
     var editingSet: SetEdit? = nil
 
+    /// Carga digitada no teclado, por `SessionExerciseModel.uuid` (SPEC RF-04, P10). Só memória.
+    private var chosenLoads: [UUID: Double] = [:]
+    /// Exercício cuja bolinha iniciou o descanso atual: base do "A seguir" do descanso.
+    private var restSourceExerciseID: UUID? = nil
+
     private let coordinator: any SessionCoordinating
     private let planner: any SessionPlanning
-    private let catalog: any CatalogRepositoring
     private let notifications: any NotificationScheduling
     private let now: () -> Date
     private let traits: ExerciseTraitsCatalog
@@ -76,7 +80,7 @@ final class ActiveSessionViewModel {
         subsystem: Bundle.main.bundleIdentifier ?? "PersonalTrainer",
         category: "ActiveSessionViewModel"
     )
-    /// A permissão de notificação é pedida uma vez por instância, na primeira série concluída
+    /// A permissão de notificação é pedida uma vez por instância, na primeira série gravada
     /// (AGENTS §7: nunca no launch). Estado interno, não de tela.
     @ObservationIgnored private var hasRequestedNotificationAuthorization = false
     /// Erro de uma ação feita dentro de uma folha (trocar, corrigir, apagar). Só vira
@@ -88,7 +92,6 @@ final class ActiveSessionViewModel {
         sessionID: UUID,
         coordinator: any SessionCoordinating,
         planner: any SessionPlanning,
-        catalog: any CatalogRepositoring,
         restTimer: RestTimer,
         notifications: any NotificationScheduling,
         now: @escaping () -> Date,
@@ -96,7 +99,6 @@ final class ActiveSessionViewModel {
     ) {
         self.coordinator = coordinator
         self.planner = planner
-        self.catalog = catalog
         self.restTimer = restTimer
         self.notifications = notifications
         self.now = now
@@ -112,9 +114,6 @@ final class ActiveSessionViewModel {
         } else {
             errorMessage = "Sessão não encontrada."
         }
-
-        selectInitialExercise()
-        refreshDraft()
     }
 
     // MARK: - Estado derivado
@@ -124,14 +123,7 @@ final class ActiveSessionViewModel {
         (session?.exercises ?? []).sorted { $0.order < $1.order }
     }
 
-    var selectedExercise: SessionExerciseModel? {
-        guard let selectedExerciseID else {
-            return nil
-        }
-        return exercises.first { $0.uuid == selectedExerciseID }
-    }
-
-    /// Totais da sessão (duração, séries de trabalho, tonelagem). Sem sessão, tudo zero.
+    /// Totais da sessão (duração, séries de trabalho, exercícios feitos). Sem sessão, tudo zero.
     var stats: SessionStats {
         guard let session else {
             return SessionStats(duration: nil, workingSetCount: 0, warmupSetCount: 0, tonnage: 0, exerciseCount: 0)
@@ -158,26 +150,22 @@ final class ActiveSessionViewModel {
         }
     }
 
-    /// "Trocar" só vale antes da 1ª série do exercício (RF-34): o histórico de cada exercício é
-    /// separado (P3) e o coordinator recusa a troca de um exercício que já tem séries.
-    var canSubstituteSelectedExercise: Bool {
-        guard !isFinished, session != nil, let exercise = selectedExercise else {
+    /// Sessão aberta para marcar: carregada, em andamento e não encerrada nesta tela.
+    var isOpen: Bool {
+        guard let session, !isFinished else {
             return false
         }
-        return !exercise.wasSkipped && exercise.sets.isEmpty
+        return session.status == .inProgress
     }
 
-    /// Texto da prescrição do exercício ("3 × 8–12 · 60 kg · RIR 2"), sempre a partir da
-    /// prescrição gravada no snapshot, independente do que o usuário editou na série atual.
-    /// Carga prescrita `nil` (SPEC P2) aparece como "—", igual à Home e ao histórico.
-    func prescriptionSummary(for exercise: SessionExerciseModel) -> String {
-        makeDraft(for: exercise, sortedSets: []).prescriptionSummary
+    /// Exercícios não pulados com menos séries de trabalho que o prescrito (SPEC P1), na ordem.
+    var pendingExercises: [SessionExerciseModel] {
+        exercises.filter { isPending($0) }
     }
 
-    /// Leitura por voz da mesma prescrição (SPEC RF-41 d): "3 séries de 8 a 12 repetições,
-    /// 100 kg, parar com 2 repetições de reserva".
-    func prescriptionSpokenText(for exercise: SessionExerciseModel) -> String {
-        makeDraft(for: exercise, sortedSets: []).prescriptionSpokenText
+    /// O exercício "atual" da ficha: o primeiro pendente, com borda `accent` (SPEC RF-44 a).
+    var currentExerciseID: UUID? {
+        exercises.first { isPending($0) }?.uuid
     }
 
     /// Medida do exercício pelo `slug` do catálogo do seed (SPEC RF-43). Personalizado ou sem
@@ -186,96 +174,271 @@ final class ActiveSessionViewModel {
         MeasureText.measure(of: exercise.exercise, in: traits)
     }
 
-    /// Séries de trabalho registradas (SPEC P1) — o "2" de "2/3" nos chips.
+    /// Séries de trabalho (SPEC P1), na ordem de `index`. Aquecimentos antigos ficam de fora.
+    func workingSets(of exercise: SessionExerciseModel) -> [SetLogModel] {
+        exercise.sets
+            .filter { !$0.isWarmup }
+            .sorted { $0.index < $1.index }
+    }
+
     func workingSetCount(of exercise: SessionExerciseModel) -> Int {
         exercise.sets.filter { !$0.isWarmup }.count
     }
 
-    // MARK: - Registrar série
+    /// Pendente = não pulado e com menos séries de trabalho que o prescrito (SPEC P1).
+    func isPending(_ exercise: SessionExerciseModel) -> Bool {
+        !exercise.wasSkipped && workingSetCount(of: exercise) < exercise.prescribedSets
+    }
 
-    /// "Concluir série". Na calibração sem carga (SPEC P2) com a carga ainda em 0, pede
-    /// confirmação antes de gravar (`needsZeroLoadConfirmation`); nos demais casos grava direto.
-    func completeSet() {
-        guard session != nil, let exercise = selectedExercise, let draft = currentDraft else {
+    /// Feito = não pulado e com todas as séries prescritas (a linha compacta da ficha).
+    func isDone(_ exercise: SessionExerciseModel) -> Bool {
+        !exercise.wasSkipped && !isPending(exercise)
+    }
+
+    /// Peso do corpo (SPEC RF-46, P8). Sem catálogo relacionado, trata como exercício com carga.
+    func isBodyweight(_ exercise: SessionExerciseModel) -> Bool {
+        exercise.exercise?.equipment == .bodyweight
+    }
+
+    // MARK: - Meta e carga de hoje (SPEC RF-04, RF-44, RF-46)
+
+    /// Meta de repetições (ou segundos, passos) de hoje: o que cada bolinha grava (RF-04).
+    func goal(for exercise: SessionExerciseModel) -> Int {
+        TodayTargetText.goal(targetReps: exercise.prescribedTargetReps, repMin: exercise.prescribedRepMin)
+    }
+
+    /// A carga que a próxima bolinha grava (RF-04): a escolhida no teclado; senão, a da última
+    /// série de trabalho deste exercício nesta sessão; senão, a prescrita; em peso do corpo sem
+    /// nada disso, 0 (P8). `nil` = primeira vez com carga, ainda sem carga (P2): não dá para marcar.
+    func workingLoad(for exercise: SessionExerciseModel) -> Double? {
+        if let chosen = chosenLoads[exercise.uuid] {
+            return chosen
+        }
+        if let last = workingSets(of: exercise).last {
+            return last.load
+        }
+        if let prescribed = exercise.prescribedLoad {
+            return prescribed
+        }
+        return isBodyweight(exercise) ? 0 : nil
+    }
+
+    /// Como a carga aparece na ficha, já com a carga escolhida (RF-46): peso do corpo sem carga
+    /// não mostra nada; primeira vez sem carga, "escolha a carga".
+    func loadDisplay(for exercise: SessionExerciseModel) -> TodayTargetText.LoadDisplay {
+        TodayTargetText.loadDisplay(
+            load: workingLoad(for: exercise),
+            unit: loadUnit(of: exercise),
+            equipment: exercise.exercise?.equipment
+        )
+    }
+
+    /// Unidade da carga do exercício; sem catálogo relacionado, kg.
+    func loadUnit(of exercise: SessionExerciseModel) -> LoadUnit {
+        exercise.exercise?.loadUnit ?? .kilograms
+    }
+
+    /// Carga digitada no teclado para o exercício, se houver.
+    func chosenLoad(for sessionExerciseID: UUID) -> Double? {
+        chosenLoads[sessionExerciseID]
+    }
+
+    /// Primeira vez com carga (SPEC RF-44 c): sem carga prescrita (P2), não é peso do corpo e ainda
+    /// sem nenhuma série de trabalho. A ficha mostra a dica e o campo de carga no lugar da meta.
+    func isFirstTimeWithLoad(_ exercise: SessionExerciseModel) -> Bool {
+        exercise.prescribedLoad == nil && !isBodyweight(exercise) && workingSets(of: exercise).isEmpty
+    }
+
+    /// Falta escolher a carga (RF-44 c): primeira vez sem carga, não é peso do corpo, e nenhuma
+    /// carga maior que 0 escolhida ou já gravada neste exercício.
+    func needsLoadChoice(_ exercise: SessionExerciseModel) -> Bool {
+        guard exercise.prescribedLoad == nil, !isBodyweight(exercise) else {
+            return false
+        }
+        guard let load = workingLoad(for: exercise) else {
+            return true
+        }
+        return load <= 0
+    }
+
+    /// Bolinhas e "Feito" funcionam: sessão aberta, exercício não pulado e com carga (RF-44 c).
+    func canMark(_ exercise: SessionExerciseModel) -> Bool {
+        isOpen && !exercise.wasSkipped && !needsLoadChoice(exercise)
+    }
+
+    /// Teclado da carga (RF-44 b, P10): vale para as próximas bolinhas do exercício, sem gravar
+    /// nada. Aceita de 0 (só peso do corpo, carga extra) ou mais de 0 até 1.000; fora disso, a
+    /// escolha é desfeita e a ficha volta à carga de antes.
+    func setWorkingLoad(_ load: Double, for sessionExerciseID: UUID) {
+        guard let exercise = findExercise(id: sessionExerciseID) else {
             return
         }
-        if requiresZeroLoadConfirmation(draft: draft, exercise: exercise) {
-            needsZeroLoadConfirmation = true
+        if SessionSheetText.isValidLoad(load, allowsZero: isBodyweight(exercise)) {
+            chosenLoads[sessionExerciseID] = load
+        } else {
+            chosenLoads[sessionExerciseID] = nil
+        }
+    }
+
+    /// Campo de carga apagado: volta à carga de antes (última série ou prescrita).
+    func clearWorkingLoad(for sessionExerciseID: UUID) {
+        chosenLoads[sessionExerciseID] = nil
+    }
+
+    // MARK: - Marcar (SPEC RF-44 b)
+
+    /// Bolinha vazia: grava 1 série com a meta de hoje e a carga de `workingLoad`, `rir = nil`,
+    /// `isWarmup = false`, e inicia o descanso do exercício (RF-05). Só com série faltando.
+    func markSet(sessionExerciseID: UUID) {
+        guard
+            let session,
+            let exercise = findExercise(id: sessionExerciseID),
+            canMark(exercise),
+            isPending(exercise)
+        else {
             return
         }
-        logCurrentDraft()
+        let timestamp = now()
+        guard logPrescribedSet(for: exercise, sessionID: session.uuid, now: timestamp) else {
+            return
+        }
+        markCount += 1
+        requestNotificationAuthorizationIfNeeded()
+        if exercise.restSeconds > 0 {
+            restSourceExerciseID = exercise.uuid
+            restTimer.start(seconds: exercise.restSeconds, now: timestamp)
+        }
     }
 
-    /// "Registrar" no aviso de 0 kg: grava a série como está. Não depende do valor atual de
-    /// `needsZeroLoadConfirmation`, porque o SwiftUI pode fechar o aviso antes da ação.
-    func confirmZeroLoadSet() {
-        needsZeroLoadConfirmation = false
-        logCurrentDraft()
+    /// "Feito": uma série como a da bolinha para cada série que falta até `prescribedSets`. Nada
+    /// se o exercício já está completo. Não inicia descanso (o exercício acabou).
+    func markExerciseDone(sessionExerciseID: UUID) {
+        guard
+            let session,
+            let exercise = findExercise(id: sessionExerciseID),
+            canMark(exercise)
+        else {
+            return
+        }
+        let missing = exercise.prescribedSets - workingSetCount(of: exercise)
+        guard missing > 0 else {
+            return
+        }
+        let timestamp = now()
+        var logged = 0
+        for _ in 0..<missing {
+            guard logPrescribedSet(for: exercise, sessionID: session.uuid, now: timestamp) else {
+                break
+            }
+            logged += 1
+        }
+        guard logged > 0 else {
+            return
+        }
+        markCount += 1
+        requestNotificationAuthorizationIfNeeded()
     }
 
-    /// Fecha o aviso sem gravar; o rascunho fica como estava para o usuário ajustar a carga.
-    func cancelZeroLoadSet() {
-        needsZeroLoadConfirmation = false
+    /// "Marcar como feitos, como previsto" (RF-44 e): "Feito" em cada pendente que dá para marcar;
+    /// os de primeira vez sem carga ficam de fora, e os pulados não são pendentes.
+    func markRemainingAsPrescribed() {
+        for exercise in pendingExercises where canMark(exercise) {
+            markExerciseDone(sessionExerciseID: exercise.uuid)
+        }
     }
 
-    /// Máquina ocupada (SPEC F3, RF-10): marca o exercício como pulado e avança.
-    func skipCurrentExercise() {
-        guard let session, let exercise = selectedExercise else {
+    /// "A seguir" do descanso (RF-44 f): a próxima série do exercício que iniciou o descanso; se
+    /// ele acabou, o próximo pendente; sem nenhum, "Tudo marcado". `nil` sem descanso marcado.
+    var restNextUpText: String? {
+        guard let sourceID = restSourceExerciseID, let source = findExercise(id: sourceID) else {
+            return nil
+        }
+        if isPending(source) {
+            return SessionSheetText.nextSet(number: workingSetCount(of: source) + 1, exerciseName: source.exerciseName)
+        }
+        if let next = nextPendingExercise(after: source) {
+            return SessionSheetText.nextExercise(next.exerciseName)
+        }
+        return SessionSheetText.allMarked
+    }
+
+    // MARK: - Informações, pular e trocar (SPEC RF-47, RF-10, RF-34)
+
+    /// Conteúdo da folha "Informações do exercício", a partir do snapshot. "Da última vez" vem do
+    /// planner; uma falha só esconde essa seção (fica no log).
+    func infoContent(for exercise: SessionExerciseModel) -> ExerciseInfoContent {
+        let lastSession: ExerciseLastSession?
+        do {
+            lastSession = try planner.lastSession(forExerciseID: exercise.exerciseUUID)
+        } catch {
+            logger.error("Falha ao ler a última sessão do exercício: \(String(describing: error), privacy: .public)")
+            lastSession = nil
+        }
+        return ExerciseInfoContent(sessionExercise: exercise, measure: measure(for: exercise), lastSession: lastSession)
+    }
+
+    /// "Pular" da folha de informações: vale enquanto a sessão está aberta e o exercício não foi pulado.
+    func canSkip(_ exercise: SessionExerciseModel) -> Bool {
+        isOpen && !exercise.wasSkipped
+    }
+
+    /// Máquina ocupada (SPEC F3, RF-10): marca o exercício como pulado. A própria folha de
+    /// informações já é a confirmação. Séries já feitas são mantidas.
+    func skip(sessionExerciseID: UUID) {
+        guard let session, let exercise = findExercise(id: sessionExerciseID), canSkip(exercise) else {
             return
         }
         do {
             try coordinator.skipExercise(sessionID: session.uuid, sessionExerciseID: exercise.uuid, now: now())
         } catch {
             errorMessage = message(for: error, fallback: "Não foi possível pular o exercício.")
-            return
         }
-        selectedExerciseID = nextPendingExercise(after: exercise)?.uuid ?? exercise.uuid
-        refreshDraft()
     }
 
-    /// Seleção manual pelo chip. Ignora ids que não pertencem à sessão.
-    func select(exerciseID: UUID) {
-        guard exercises.contains(where: { $0.uuid == exerciseID }) else {
-            return
-        }
-        selectedExerciseID = exerciseID
-        refreshDraft()
+    /// "Trocar" só vale antes da 1ª série do exercício (RF-34): o histórico de cada exercício é
+    /// separado (P3) e o coordinator recusa a troca de um exercício que já tem séries.
+    func canSubstitute(_ exercise: SessionExerciseModel) -> Bool {
+        isOpen && !exercise.wasSkipped && exercise.sets.isEmpty
     }
 
-    // MARK: - Trocar exercício (RF-34)
+    /// Nome do exercício na folha "Trocar".
+    var substitutingExerciseName: String {
+        guard let substitutingExerciseID, let exercise = findExercise(id: substitutingExerciseID) else {
+            return ""
+        }
+        return exercise.exerciseName
+    }
 
-    /// Abre a folha "Trocar": substitutos do planner (mesmo padrão de movimento, até 5) sem os
-    /// exercícios que já estão nesta sessão, e o catálogo completo para "Ver todos". Falha ao
-    /// carregar uma das listas só deixa essa lista vazia (a folha continua útil com a outra).
-    func beginSubstitution() {
-        guard canSubstituteSelectedExercise, let exercise = selectedExercise else {
+    /// Abre a folha "Trocar": substitutos do planner (mesmo padrão de movimento) sem os
+    /// exercícios que já estão nesta sessão. Falha ao carregar só deixa a lista vazia.
+    func beginSubstitution(sessionExerciseID: UUID) {
+        guard let exercise = findExercise(id: sessionExerciseID), canSubstitute(exercise) else {
             return
         }
         let inSession = Set(exercises.map(\.exerciseUUID))
         do {
-            // RF-34: a folha mostra só os substitutos deste exercício, do mais ao menos parecido,
-            // sem o catálogo inteiro; o limite alto cobre todos os candidatos de um padrão.
+            // RF-34: só os substitutos deste exercício, do mais ao menos parecido; o limite alto
+            // cobre todos os candidatos de um padrão.
             substituteSuggestions = try planner.substitutes(for: exercise.exerciseUUID, limit: 20)
                 .filter { !inSession.contains($0.id) }
         } catch {
             logger.error("Falha ao buscar substitutos: \(String(describing: error), privacy: .public)")
             substituteSuggestions = []
         }
-        do {
-            substitutionCatalog = try catalog.allExercises(includeArchived: false)
-                .filter { $0.id != exercise.exerciseUUID }
-        } catch {
-            logger.error("Falha ao ler o catálogo: \(String(describing: error), privacy: .public)")
-            substitutionCatalog = []
-        }
+        substitutingExerciseID = exercise.uuid
         isShowingSubstituteSheet = true
     }
 
-    /// Troca o exercício selecionado por `newExercise` só nesta sessão: o planner calcula a
+    /// Troca o exercício da folha por `newExercise` só nesta sessão: o planner calcula a
     /// prescrição do novo mantendo o alvo do original, e o coordinator substitui o snapshot.
-    /// O novo exercício tem histórico próprio (P3); sem histórico, calibra (P2).
+    /// O novo exercício tem histórico próprio (P3); sem histórico, é primeira vez (P2).
     func substituteSelectedExercise(with newExercise: ExerciseDefinition) {
-        guard let session, canSubstituteSelectedExercise, let exercise = selectedExercise else {
+        guard
+            let session,
+            let substitutingExerciseID,
+            let exercise = findExercise(id: substitutingExerciseID),
+            canSubstitute(exercise)
+        else {
             closeSubstitution()
             return
         }
@@ -299,8 +462,9 @@ final class ActiveSessionViewModel {
             closeSubstitution()
             return
         }
+        // A carga digitada era do exercício antigo.
+        chosenLoads[exercise.uuid] = nil
         closeSubstitution()
-        refreshDraft()
     }
 
     func cancelSubstitution() {
@@ -309,36 +473,45 @@ final class ActiveSessionViewModel {
 
     // MARK: - Corrigir / apagar série (RF-19)
 
-    /// Abre a folha de correção para a série `setID` de qualquer exercício da sessão.
+    /// Abre "Corrigir série" para a série `setID` de qualquer exercício da sessão.
     func beginEditingSet(id setID: UUID) {
-        guard !isFinished else {
+        guard isOpen else {
             return
         }
         for exercise in exercises {
-            let sortedSets = exercise.sets.sorted { $0.index < $1.index }
-            guard let position = sortedSets.firstIndex(where: { $0.uuid == setID }) else {
+            guard let setLog = exercise.sets.first(where: { $0.uuid == setID }) else {
                 continue
             }
-            let setLog = sortedSets[position]
+            // Posição entre as séries do mesmo tipo: as bolinhas só mostram as de trabalho.
+            let siblings: [SetLogModel] = setLog.isWarmup
+                ? exercise.sets.sorted(by: { $0.index < $1.index })
+                : workingSets(of: exercise)
+            let position = siblings.firstIndex(where: { $0.uuid == setID }) ?? 0
+            let headline = TodayTargetText.headline(
+                goal: goal(for: exercise),
+                measure: measure(for: exercise),
+                load: loadDisplay(for: exercise)
+            )
             editingSet = SetEdit(
                 setID: setLog.uuid,
                 number: position + 1,
                 load: setLog.load,
                 reps: setLog.reps,
                 rir: setLog.rir,
-                isWarmup: setLog.isWarmup,
                 loadIncrement: exercise.exercise?.loadIncrement ?? 2.5,
-                loadUnit: exercise.exercise?.loadUnit ?? .kilograms,
+                loadUnit: loadUnit(of: exercise),
                 repMin: exercise.prescribedRepMin,
                 repMax: exercise.prescribedRepMax,
-                measure: measure(for: exercise)
+                measure: measure(for: exercise),
+                isBodyweight: isBodyweight(exercise),
+                plannedLine: SessionSheetText.plannedLine(exerciseName: exercise.exerciseName, headline: headline)
             )
             return
         }
     }
 
-    /// Grava a correção (evento `setUpdated`) e refaz o rascunho: a próxima série copia a
-    /// anterior já corrigida (RF-04).
+    /// Grava a correção (evento `setUpdated`) com o `rir` que a série já tinha. A próxima bolinha
+    /// passa a copiar a carga corrigida, se ela for a última série (RF-04).
     func saveEditedSet(_ edit: SetEdit) {
         editingSet = nil
         guard let session else {
@@ -355,13 +528,10 @@ final class ActiveSessionViewModel {
             )
         } catch {
             deferredErrorMessage = message(for: error, fallback: "Não foi possível corrigir a série.")
-            return
         }
-        refreshDraft()
     }
 
-    /// Apaga a série (evento `setDeleted`). O exercício pode voltar a ficar pendente; a
-    /// seleção não muda, só o rascunho.
+    /// Apaga a série (evento `setDeleted`). O exercício volta a ficar pendente.
     func deleteSet(id setID: UUID) {
         editingSet = nil
         guard let session else {
@@ -371,9 +541,7 @@ final class ActiveSessionViewModel {
             try coordinator.deleteSet(sessionID: session.uuid, setID: setID, now: now())
         } catch {
             deferredErrorMessage = message(for: error, fallback: "Não foi possível apagar a série.")
-            return
         }
-        refreshDraft()
     }
 
     func cancelEditingSet() {
@@ -389,10 +557,22 @@ final class ActiveSessionViewModel {
         errorMessage = deferredErrorMessage
     }
 
-    // MARK: - Encerrar
+    // MARK: - Concluir (SPEC RF-44 e, F4)
+
+    /// "Concluir": sem pendentes, conclui direto (`.finished`); com pendentes, devolve os nomes
+    /// para a tela perguntar uma vez, e não grava nada.
+    func requestFinish() -> SessionFinishRequest {
+        let pending = pendingExercises
+        guard !pending.isEmpty else {
+            finish()
+            return .finished
+        }
+        let hasAnySet = exercises.contains { workingSetCount(of: $0) > 0 }
+        return .needsConfirmation(pendingNames: pending.map(\.exerciseName), hasAnySet: hasAnySet)
+    }
 
     /// SPEC F4 / RF-02: `status = completed`. O descanso pendente é cancelado junto com a
-    /// notificação (não faz sentido avisar "descanso terminou" depois do treino).
+    /// notificação (não faz sentido avisar "descanso terminou" depois da sessão).
     func finish() {
         guard let session else {
             return
@@ -400,14 +580,15 @@ final class ActiveSessionViewModel {
         do {
             try coordinator.finishSession(sessionID: session.uuid, now: now())
         } catch {
-            errorMessage = message(for: error, fallback: "Não foi possível finalizar o treino.")
+            errorMessage = message(for: error, fallback: "Não foi possível concluir a sessão.")
             return
         }
         restTimer.skip()
         isFinished = true
     }
 
-    /// `status = abandoned`; as séries registradas continuam no histórico (SPEC P3/S2).
+    /// "Sair sem registrar": `status = abandoned`. Séries que existirem continuam no histórico
+    /// (SPEC P3/S2).
     func abandon() {
         guard let session else {
             return
@@ -415,78 +596,64 @@ final class ActiveSessionViewModel {
         do {
             try coordinator.abandonSession(sessionID: session.uuid, now: now())
         } catch {
-            errorMessage = message(for: error, fallback: "Não foi possível abandonar o treino.")
+            errorMessage = message(for: error, fallback: "Não foi possível encerrar a sessão.")
             return
         }
         restTimer.skip()
         isFinished = true
     }
 
-    // MARK: - Gravação da série
+    // MARK: - Resumo (SPEC RF-44 h)
 
-    /// Grava a série do rascunho atual (RF-03, RF-06), inicia o descanso se for série de
-    /// trabalho (RF-05) e prepara a próxima série (RF-04). Se o exercício completou as séries
-    /// prescritas, a seleção avança para o próximo exercício pendente.
-    private func logCurrentDraft() {
-        guard let session, let exercise = selectedExercise, let draft = currentDraft else {
-            return
+    /// Objetivo do programa ativo, para a flor do resumo. Falha → sem pétala preenchida (log).
+    func activeGoal() -> ProgramGoal? {
+        do {
+            return try planner.activeProgramGoal()
+        } catch {
+            logger.error("Falha ao ler o objetivo ativo: \(String(describing: error), privacy: .public)")
+            return nil
         }
-        let timestamp = now()
+    }
+
+    /// Nome do dia da próxima sessão ("Dia B — …"). Falha → a linha some do resumo (log).
+    func nextSessionName() -> String? {
+        do {
+            return try planner.nextPlan(now: now())?.programDayName
+        } catch {
+            logger.error("Falha ao calcular a próxima sessão: \(String(describing: error), privacy: .public)")
+            return nil
+        }
+    }
+
+    // MARK: - Privado
+
+    private func findExercise(id: UUID) -> SessionExerciseModel? {
+        exercises.first { $0.uuid == id }
+    }
+
+    /// Grava uma série como prevista (RF-04, RF-44 b). `index` = maior índice gravado + 1
+    /// (aquecimentos antigos incluídos), único mesmo depois de apagar uma série do meio (RF-19).
+    private func logPrescribedSet(for exercise: SessionExerciseModel, sessionID: UUID, now timestamp: Date) -> Bool {
+        let index = (exercise.sets.map(\.index).max() ?? -1) + 1
         do {
             try coordinator.logSet(
-                sessionID: session.uuid,
+                sessionID: sessionID,
                 sessionExerciseID: exercise.uuid,
-                index: draft.setIndex,
-                load: draft.load,
-                reps: draft.reps,
-                rir: draft.rir,
-                isWarmup: draft.isWarmup,
+                index: index,
+                load: workingLoad(for: exercise) ?? 0,
+                reps: goal(for: exercise),
+                rir: nil,
+                isWarmup: false,
                 now: timestamp
             )
+            return true
         } catch {
             errorMessage = message(for: error, fallback: "Não foi possível registrar a série.")
-            return
-        }
-
-        requestNotificationAuthorizationIfNeeded()
-
-        // Aquecimento não inicia descanso: o usuário segue direto para a próxima série.
-        if !draft.isWarmup, exercise.restSeconds > 0 {
-            restTimer.start(seconds: exercise.restSeconds, now: timestamp)
-        }
-
-        if !isPending(exercise) {
-            selectedExerciseID = nextPendingExercise(after: exercise)?.uuid ?? exercise.uuid
-        }
-        refreshDraft()
-    }
-
-    /// SPEC P2 + P8: sem carga prescrita, 0 quase sempre é "esqueci de digitar"; só o peso
-    /// corporal puro aceita 0 sem perguntar. Sem catálogo relacionado, pergunta (é inofensivo).
-    private func requiresZeroLoadConfirmation(draft: SetDraft, exercise: SessionExerciseModel) -> Bool {
-        guard draft.prescribedLoad == nil, draft.load == 0 else {
             return false
         }
-        return exercise.exercise?.equipment != .bodyweight
     }
 
-    // MARK: - Seleção
-
-    /// Pendente = não pulado e com menos séries de trabalho que o prescrito (SPEC P1).
-    private func isPending(_ exercise: SessionExerciseModel) -> Bool {
-        !exercise.wasSkipped && workingSetCount(of: exercise) < exercise.prescribedSets
-    }
-
-    /// Primeiro pendente na ordem; se a sessão já está toda feita (ou pulada), o último,
-    /// para que ao retomar o usuário caia onde parou.
-    private func selectInitialExercise() {
-        let all = exercises
-        let initial = all.first { isPending($0) } ?? all.last
-        selectedExerciseID = initial?.uuid
-    }
-
-    /// Próximo pendente depois de `exercise`, dando a volta ao início: quem pulou adiante por
-    /// máquina ocupada volta ao exercício que ficou para trás. `nil` se não resta nenhum.
+    /// Próximo pendente depois de `exercise`, dando a volta ao início. `nil` se não resta nenhum.
     private func nextPendingExercise(after exercise: SessionExerciseModel) -> SessionExerciseModel? {
         let all = exercises
         guard let position = all.firstIndex(where: { $0.uuid == exercise.uuid }) else {
@@ -496,22 +663,20 @@ final class ActiveSessionViewModel {
         return following.first { isPending($0) }
     }
 
-    // MARK: - Troca
-
     private func closeSubstitution() {
         isShowingSubstituteSheet = false
         substituteSuggestions = []
-        substitutionCatalog = []
+        substitutingExerciseID = nil
     }
 
-    /// Alvo do exercício original reconstruído do snapshot (RF-34: a troca mantém séries,
-    /// faixa, RIR e descanso). `exerciseID` já é o do exercício novo porque o motor copia
-    /// `target.exerciseID` para a prescrição; `startingLoad` fica `nil` porque a carga inicial
-    /// do original não vale para outro exercício (P3 é por exercício; sem histórico, P2).
+    /// Alvo do exercício original reconstruído do snapshot (RF-34: a troca mantém séries, faixa,
+    /// RIR e descanso). `exerciseID` já é o do exercício novo porque o motor copia
+    /// `target.exerciseID` para a prescrição; `startingLoad` fica `nil` porque a carga inicial do
+    /// original não vale para outro exercício (P3 é por exercício; sem histórico, P2).
     private func substitutionTarget(for exercise: SessionExerciseModel, newExerciseID: UUID) -> ExerciseTarget {
         var targetRIR = exercise.prescribedRIR
-        // SPEC P2: calibrar sem carga grava RIR alvo = T + 1. Sem desfazer aqui, um substituto
-        // que também calibre sem carga receberia T + 2.
+        // SPEC P2: primeira vez sem carga grava RIR alvo = T + 1. Sem desfazer aqui, um substituto
+        // que também comece sem carga receberia T + 2.
         if exercise.note == .calibrate, exercise.prescribedLoad == nil {
             targetRIR = max(0, targetRIR - 1)
         }
@@ -527,69 +692,9 @@ final class ActiveSessionViewModel {
         )
     }
 
-    // MARK: - Rascunho da série
-
-    private func refreshDraft() {
-        guard let exercise = selectedExercise, !exercise.wasSkipped else {
-            currentDraft = nil
-            return
-        }
-        let sortedSets = exercise.sets.sorted { $0.index < $1.index }
-        currentDraft = makeDraft(for: exercise, sortedSets: sortedSets)
-    }
-
-    /// RF-04: a 1ª série vem da prescrição; as seguintes copiam carga/reps/RIR da anterior
-    /// (inclusive quando a anterior foi aquecimento: o usuário ajusta no stepper).
-    ///
-    /// Índice = maior índice gravado + 1 (aquecimento incluído): continua único depois de
-    /// apagar uma série do meio (RF-19). O número exibido é a posição, sem lacunas.
-    ///
-    /// Meta de reps: `prescribedTargetReps` do snapshot quando conhecido (> 0; em `hold` a SPEC
-    /// P5 sobe a meta para min(repMax, menor reps + 1)). Sessões gravadas antes do campo existir
-    /// têm 0 e caem em `prescribedRepMin`, a meta de P2/P4/P6/P9 e o piso de P5.
-    /// Sem `prescribedLoad` (SPEC P2 sem `startingLoad`) a carga começa em 0 e o usuário digita;
-    /// `prescribedLoad` segue `nil` no rascunho para o texto da prescrição mostrar "—".
-    private func makeDraft(for exercise: SessionExerciseModel, sortedSets: [SetLogModel]) -> SetDraft {
-        let targetReps = exercise.prescribedTargetReps > 0 ? exercise.prescribedTargetReps : exercise.prescribedRepMin
-        let load: Double
-        let reps: Int
-        let rir: Int?
-        if let previous = sortedSets.last {
-            load = previous.load
-            reps = previous.reps
-            rir = previous.rir
-        } else {
-            load = exercise.prescribedLoad ?? 0
-            reps = targetReps
-            rir = exercise.prescribedRIR
-        }
-        let nextIndex = (sortedSets.map(\.index).max() ?? -1) + 1
-
-        return SetDraft(
-            load: load,
-            reps: reps,
-            rir: rir,
-            isWarmup: false,
-            setIndex: nextIndex,
-            setNumber: sortedSets.count + 1,
-            plannedSets: exercise.prescribedSets,
-            prescribedLoad: exercise.prescribedLoad,
-            loadIncrement: exercise.exercise?.loadIncrement ?? 2.5,
-            loadUnit: exercise.exercise?.loadUnit ?? .kilograms,
-            repMin: exercise.prescribedRepMin,
-            repMax: exercise.prescribedRepMax,
-            targetReps: targetReps,
-            targetRIR: exercise.prescribedRIR,
-            note: exercise.note ?? .hold,
-            measure: measure(for: exercise)
-        )
-    }
-
-    // MARK: - Notificações
-
     /// AGENTS §7: a permissão é pedida na primeira ação que precisa dela — a primeira série
-    /// concluída, a partir da qual o timer de descanso passa a agendar avisos (RF-05) —, nunca
-    /// no launch. Só depois de a série estar gravada, para o pedido nunca atrasar o registro
+    /// gravada, a partir da qual o timer de descanso passa a agendar avisos (RF-05) —, nunca no
+    /// launch. Só depois de a série estar gravada, para o pedido nunca atrasar o registro
     /// (RNF-02). O resultado não muda o fluxo: sem permissão o timer segue em primeiro plano.
     private func requestNotificationAuthorizationIfNeeded() {
         guard !hasRequestedNotificationAuthorization else {
@@ -601,8 +706,6 @@ final class ActiveSessionViewModel {
             _ = await notifications.requestAuthorization()
         }
     }
-
-    // MARK: - Erros
 
     /// Mensagem pt-BR para o `.alert`. Erros do coordinator têm texto próprio; o resto usa o
     /// texto da ação (o `localizedDescription` de um enum Swift não serve para o usuário).

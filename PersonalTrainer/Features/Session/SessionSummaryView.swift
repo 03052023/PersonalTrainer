@@ -2,110 +2,124 @@ import SwiftData
 import SwiftUI
 import TrainerCore
 
-/// Resumo exibido ao encerrar o treino (SPEC F4, RF-12; T1.8, T2.10): situação, dia do programa,
-/// duração, séries de trabalho, exercícios realizados e pulados, tonelagem, FC média/máx quando
-/// disponível, e o aviso de que o próximo treino já foi recalculado — a Home relê o plano quando o
-/// fluxo fecha.
+/// "Sessão concluída" (SPEC F4, RF-44 h, RF-12; DESIGN §13 e §10; mockup "Sessão concluída"): a flor
+/// do objetivo com a pétala se enchendo devagar, o nome do dia, Duração, "Exercícios X de Y" (feitos =
+/// com ao menos uma série de trabalho), Séries (de trabalho), FC média/máx só quando houver e "A
+/// próxima sessão já está pronta: Dia B — …". Sem tonelagem (fica no detalhe do Histórico), sem verde
+/// nem laranja do sistema.
 ///
 /// Só leitura: recebe a `WorkoutSessionModel` já `completed`/`abandoned` e formata; nada aqui
 /// escreve no `ModelContext` (AGENTS R4). A FC chega do HealthKit pelo gravador logo depois de
-/// finalizar; como o modelo é observável, a linha aparece sozinha quando o resumo é aplicado, e
-/// sem FC ela simplesmente não aparece (SPEC F4: "se disponível").
-///
-/// A tonelagem soma só os exercícios medidos em repetições (SPEC RF-12 com RF-43): carga × segundos
-/// ou carga × passos não é "kg levantados". A medida vem de `\.exerciseTraits` pelo `slug`.
+/// concluir; como o modelo é observável, a linha aparece sozinha. O resumo não mantém a tela acesa
+/// (RF-44 g).
 struct SessionSummaryView: View {
     private let session: WorkoutSessionModel
+    private let activeGoal: ProgramGoal?
+    private let nextDayName: String?
     private let onClose: () -> Void
 
-    @Environment(\.exerciseTraits) private var traits
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Objetivo mostrado na flor: começa vazio e se enche ao aparecer (DESIGN §10).
+    @State private var shownGoal: ProgramGoal? = nil
 
-    init(session: WorkoutSessionModel, onClose: @escaping () -> Void) {
+    init(
+        session: WorkoutSessionModel,
+        activeGoal: ProgramGoal?,
+        nextDayName: String?,
+        onClose: @escaping () -> Void
+    ) {
         self.session = session
+        self.activeGoal = activeGoal
+        self.nextDayName = nextDayName
         self.onClose = onClose
     }
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 20) {
                 header
                 totals
-                Text("O próximo treino já foi recalculado.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                if let nextDayName, !nextDayName.isEmpty {
+                    Text(SessionSheetText.nextSession(nextDayName))
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 4)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 32)
+            .padding(.bottom, 16)
         }
+        .background(Theme.background.ignoresSafeArea())
         .safeAreaInset(edge: .bottom) {
             closeButton
+        }
+        .onAppear {
+            fillPetal(with: activeGoal)
+        }
+        .onChange(of: activeGoal) { _, newGoal in
+            fillPetal(with: newGoal)
         }
     }
 
     // MARK: - Seções
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: isAbandoned ? "xmark.circle.fill" : "checkmark.circle.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(isAbandoned ? Color.orange : Color.green)
-            Text(isAbandoned ? "Treino abandonado" : "Treino concluído")
-                .font(.largeTitle.weight(.bold))
+        VStack(spacing: 10) {
+            FlowerView(activeGoal: shownGoal, size: 92)
+            Text(SessionSheetText.summaryTitle(abandoned: isAbandoned))
+                .font(.system(.largeTitle, design: .serif, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .multilineTextAlignment(.center)
             Text(session.programDayName)
-                .font(.title3)
-                .foregroundStyle(.secondary)
+                .font(.subheadline)
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
         }
-        .accessibilityElement(children: .combine)
+        .frame(maxWidth: .infinity)
     }
 
     private var totals: some View {
         VStack(spacing: 0) {
-            summaryRow("Duração", value: DateFormatting.duration(stats.duration))
+            summaryRow("Duração", value: SessionSheetText.duration(stats.duration))
             Divider()
-            summaryRow("Séries de trabalho", value: "\(stats.workingSetCount)")
+            summaryRow("Exercícios", value: SessionSheetText.exercisesDone(stats.exerciseCount, of: orderedExercises.count))
             Divider()
-            summaryRow("Exercícios realizados", value: "\(stats.exerciseCount) de \(orderedExercises.count)")
-            Divider()
-            summaryRow("Exercícios pulados", value: "\(skippedCount)")
-            Divider()
-            summaryRow("Tonelagem", value: tonnageText)
-            if hasHeartRate {
+            summaryRow("Séries", value: "\(stats.workingSetCount)")
+            if let heartRate = SessionSheetText.heartRate(average: session.avgHeartRate, maximum: session.maxHeartRate) {
                 Divider()
-                summaryRow(
-                    "FC média / máx",
-                    value: SessionDetailView.heartRateText(average: session.avgHeartRate, maximum: session.maxHeartRate)
-                )
+                summaryRow("FC média / máx", value: heartRate)
             }
         }
         .padding(.horizontal, 16)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private func summaryRow(_ title: String, value: String) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
+                .foregroundStyle(Theme.textPrimary)
             Spacer(minLength: 12)
             Text(value)
-                .font(.body.weight(.semibold).monospacedDigit())
+                .font(.system(.body, design: .rounded, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(Theme.textPrimary)
                 .multilineTextAlignment(.trailing)
         }
         .padding(.vertical, 12)
         .accessibilityElement(children: .combine)
     }
 
-    /// Botão principal ≥ 56 pt, como o da Home (uso na academia, RNF-06).
+    /// Botão principal ≥ 56 pt (`PrimaryButtonStyle`), como o "Começar" da tela Hoje.
     private var closeButton: some View {
-        Button {
+        Button("Fechar") {
             onClose()
-        } label: {
-            Text("Fechar")
-                .font(.title3.weight(.semibold))
-                .frame(maxWidth: .infinity, minHeight: 56)
         }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(.primary)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(.bar)
+        .background(Theme.background)
     }
 
     // MARK: - Dados derivados
@@ -118,20 +132,8 @@ struct SessionSummaryView: View {
         session.exercises.sorted { $0.order < $1.order }
     }
 
-    private var skippedCount: Int {
-        orderedExercises.filter { $0.wasSkipped }.count
-    }
-
-    /// Mesmo critério de `SessionDetailView.heartRateText`: só leitura real (> 0) conta.
-    private var hasHeartRate: Bool {
-        guard let average = session.avgHeartRate else {
-            return false
-        }
-        return average.isFinite && average > 0
-    }
-
-    /// Duração, séries de trabalho, exercícios realizados (≥ 1 série de trabalho) e tonelagem
-    /// (RF-12); aquecimentos ficam fora (SPEC P1). Mesmo cálculo do detalhe do histórico.
+    /// Duração, séries de trabalho e exercícios feitos (≥ 1 série de trabalho); aquecimentos
+    /// antigos ficam fora (SPEC P1). Mesmo cálculo do detalhe do Histórico.
     private var stats: SessionStats {
         SessionStats.compute(
             startedAt: session.startedAt,
@@ -144,21 +146,19 @@ struct SessionSummaryView: View {
         )
     }
 
-    /// Só exercícios medidos em repetições (SPEC RF-43); os demais totais contam todos.
-    private var tonnage: Double {
-        MeasureText.tonnage(of: orderedExercises, traits: traits)
-    }
-
-    /// "3.450 kg" (agrupamento pt-BR; até uma casa decimal para cargas de 2,5 kg).
-    private var tonnageText: String {
-        let formatter = NumberFormatter()
-        formatter.locale = Locale(identifier: "pt_BR")
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 1
-        let value = tonnage
-        let number = formatter.string(from: NSNumber(value: value)) ?? "\(value)"
-        return "\(number) kg"
+    /// A pétala se enche devagar (DESIGN §10). Com Reduzir Movimento, a `FlowerView` troca o
+    /// crescimento por uma mudança direta.
+    private func fillPetal(with goal: ProgramGoal?) {
+        guard shownGoal != goal else {
+            return
+        }
+        if reduceMotion {
+            shownGoal = goal
+        } else {
+            withAnimation(.easeInOut(duration: 0.6).delay(0.2)) {
+                shownGoal = goal
+            }
+        }
     }
 }
 
@@ -186,7 +186,7 @@ private enum SessionSummaryPreviewData {
         }
 
         for (position, planned) in plan.exercises.enumerated() {
-            // O último exercício fica pulado para o resumo mostrar essa contagem.
+            // O último exercício fica pulado.
             if position == plan.exercises.count - 1 {
                 try? coordinator.skipExercise(sessionID: sessionID, sessionExerciseID: planned.id, now: clock)
                 continue
@@ -199,7 +199,7 @@ private enum SessionSummaryPreviewData {
                     index: index,
                     load: planned.prescription.load ?? 40,
                     reps: planned.prescription.repMax,
-                    rir: 2,
+                    rir: nil,
                     isWarmup: false,
                     now: clock
                 )
@@ -219,19 +219,26 @@ private enum SessionSummaryPreviewData {
     }
 }
 
-#Preview("Treino concluído") {
+#Preview("Sessão concluída") {
     if let fixture = SessionSummaryPreviewData.make(abandoned: false) {
-        SessionSummaryView(session: fixture.session, onClose: {})
-            .modelContainer(fixture.environment.modelContainer)
+        SessionSummaryView(
+            session: fixture.session,
+            activeGoal: .combat,
+            nextDayName: "Dia B — Salto, terra e supino",
+            onClose: {}
+        )
+        .modelContainer(fixture.environment.modelContainer)
+        .tint(Theme.accent)
     } else {
         Text("Preview indisponível")
     }
 }
 
-#Preview("Treino abandonado") {
+#Preview("Sessão encerrada") {
     if let fixture = SessionSummaryPreviewData.make(abandoned: true) {
-        SessionSummaryView(session: fixture.session, onClose: {})
+        SessionSummaryView(session: fixture.session, activeGoal: nil, nextDayName: nil, onClose: {})
             .modelContainer(fixture.environment.modelContainer)
+            .tint(Theme.accent)
     } else {
         Text("Preview indisponível")
     }

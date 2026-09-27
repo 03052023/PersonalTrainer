@@ -7,6 +7,10 @@ import XCTest
 /// (SPEC RF-43: "3 × 20–40 s", "30 passos", stepper "Segundos") e RIR explicado (SPEC RF-41:
 /// significado de cada valor, escala e leitura acessível "parar com 2 repetições de reserva").
 /// Só funções puras; a parte visual fica para o simulador.
+///
+/// Versão 2.2: a sessão não mostra mais RIR (SPEC RF-41, decisão 18) e o rascunho `SetDraft` saiu
+/// com o seletor. `RIRText` e `PrescriptionSpeech` continuam enquanto outras pastas os usarem
+/// (docs/V22-CONTRACT.md §2.4); o integrador apaga o que ficar sem uso.
 @MainActor
 final class MeasureAndRIRTextTests: XCTestCase {
 
@@ -92,51 +96,6 @@ final class MeasureAndRIRTextTests: XCTestCase {
         XCTAssertEqual(MeasureText.tonnage(of: []), 0)
     }
 
-    // MARK: - RF-43 SetDraft
-
-    func testRF43_setDraft_prescriptionSummary_usesMeasure() {
-        XCTAssertEqual(makeDraft(measure: .reps).prescriptionSummary, "3 × 8–12 · 60 kg · RIR 2", "repetições: formato de sempre")
-        XCTAssertEqual(
-            makeDraft(prescribedLoad: 0, repMin: 20, repMax: 40, measure: .seconds).prescriptionSummary,
-            "3 × 20–40 s · 0 kg · RIR 2"
-        )
-        XCTAssertEqual(
-            makeDraft(prescribedLoad: nil, repMin: 20, repMax: 40, measure: .steps).prescriptionSummary,
-            "3 × 20–40 passos · — · RIR 2"
-        )
-    }
-
-    func testRF43_setDraft_defaultsToReps() {
-        let draft = SetDraft(
-            load: 60,
-            reps: 8,
-            rir: 2,
-            setIndex: 0,
-            plannedSets: 3,
-            prescribedLoad: 60,
-            loadIncrement: 2.5,
-            loadUnit: .kilograms,
-            repMin: 8,
-            repMax: 12,
-            targetReps: 8,
-            targetRIR: 2,
-            note: .hold
-        )
-
-        XCTAssertEqual(draft.measure, .reps)
-    }
-
-    func testRF41_setDraft_prescriptionSpokenText_readsRIRTarget() {
-        XCTAssertEqual(
-            makeDraft(measure: .reps).prescriptionSpokenText,
-            "3 séries de 8 a 12 repetições, 60 kg, parar com 2 repetições de reserva"
-        )
-        XCTAssertEqual(
-            makeDraft(prescribedLoad: nil, repMin: 20, repMax: 40, targetRIR: 1, measure: .seconds).prescriptionSpokenText,
-            "3 séries de 20 a 40 segundos, carga a definir na primeira série, parar com 1 repetição de reserva"
-        )
-    }
-
     // MARK: - RF-41 RIRText
 
     func testRF41_meaning_eachValue() {
@@ -150,12 +109,6 @@ final class MeasureAndRIRTextTests: XCTestCase {
 
     func testRF41_scale_matchesSpecLabels() {
         XCTAssertEqual(RIRText.scale, ["0 · nenhuma a mais", "1 · mais uma", "2 · mais duas", "3+ · com folga"])
-    }
-
-    func testRF41_explainerScale_pairsRPE() {
-        XCTAssertEqual(RIRExplainerSheet.scaleRows.map(\.label), RIRText.scale)
-        XCTAssertEqual(RIRExplainerSheet.scaleRows.map(\.rpe), ["RPE 10", "RPE 9", "RPE 8", "RPE 7 ou menos"], "RPE = 10 − RIR")
-        XCTAssertEqual(RIRExplainerSheet.topic, "topic.rir")
     }
 
     func testRF41_spokenTarget_accessibleReading() {
@@ -224,32 +177,5 @@ final class MeasureAndRIRTextTests: XCTestCase {
         // O mesmo caminho que `PrescriptionRow` usa para achar a medida.
         XCTAssertEqual(traits.traits(for: seedPlank).measure, .seconds)
         XCTAssertEqual(traits.traits(for: customPlank).measure, .reps, "SPEC RF-43: personalizado usa reps")
-    }
-
-    // MARK: - Fixtures
-
-    private func makeDraft(
-        prescribedLoad: Double? = 60,
-        repMin: Int = 8,
-        repMax: Int = 12,
-        targetRIR: Int = 2,
-        measure: ExerciseMeasure
-    ) -> SetDraft {
-        SetDraft(
-            load: prescribedLoad ?? 0,
-            reps: repMin,
-            rir: targetRIR,
-            setIndex: 0,
-            plannedSets: 3,
-            prescribedLoad: prescribedLoad,
-            loadIncrement: 2.5,
-            loadUnit: .kilograms,
-            repMin: repMin,
-            repMax: repMax,
-            targetReps: repMin,
-            targetRIR: targetRIR,
-            note: .hold,
-            measure: measure
-        )
     }
 }

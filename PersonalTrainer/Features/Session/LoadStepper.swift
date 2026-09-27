@@ -1,25 +1,28 @@
 import SwiftUI
 import TrainerCore
 
-/// Stepper de carga da série (SPEC RF-03): passo = `loadIncrement` do exercício, mínimo 0.
-/// Botões de 56 × 56 pt e valor grande porque o uso é na academia, com mãos suadas (RNF-06).
-/// O toque longo repete o passo (`buttonRepeatBehavior`) para percorrer cargas distantes.
+/// Stepper de carga de "Corrigir série" (SPEC RF-19, RF-03): passo = `loadIncrement` do exercício,
+/// mínimo 0. Botões de 56 × 56 pt e valor grande porque o uso é na academia, com mãos suadas
+/// (RNF-06). O toque longo repete o passo (`buttonRepeatBehavior`) para percorrer cargas distantes.
+/// Em peso do corpo o título é "Carga extra" (SPEC RF-46).
 struct LoadStepper: View {
     @Binding var value: Double
     let increment: Double
     let unit: LoadUnit
+    let title: String
 
-    init(value: Binding<Double>, increment: Double, unit: LoadUnit) {
+    init(value: Binding<Double>, increment: Double, unit: LoadUnit, title: String = "Carga") {
         self._value = value
         self.increment = increment
         self.unit = unit
+        self.title = title
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Carga")
+            Text(title)
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.textSecondary)
 
             HStack(spacing: 12) {
                 stepButton(
@@ -33,6 +36,7 @@ struct LoadStepper: View {
                 Text(LoadStepper.displayText(for: value, unit: unit))
                     .font(.system(.largeTitle, design: .rounded, weight: .bold))
                     .monospacedDigit()
+                    .foregroundStyle(Theme.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                     .frame(maxWidth: .infinity)
@@ -70,8 +74,7 @@ struct LoadStepper: View {
 
     // MARK: - Helpers puros (testáveis sem UI)
 
-    /// Texto do valor na unidade do exercício. Mesmo formato de `SetDraft.prescriptionSummary`,
-    /// para a série e a prescrição lerem igual na mesma tela.
+    /// Texto do valor na unidade do exercício: "62,5 kg", "12 placas", "nível 7".
     nonisolated static func displayText(for value: Double, unit: LoadUnit) -> String {
         switch unit {
         case .kilograms:
@@ -97,10 +100,10 @@ private struct LoadStepperButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 26, weight: .bold))
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(Theme.accent)
             .frame(width: 56, height: 56)
             .background(
-                Color.accentColor.opacity(configuration.isPressed ? 0.35 : 0.15),
+                configuration.isPressed ? Theme.accent.opacity(0.35) : Theme.accentSoft,
                 in: Circle()
             )
     }
@@ -112,15 +115,17 @@ private struct LoadStepperPreviewHost: View {
     @State private var value: Double
     private let increment: Double
     private let unit: LoadUnit
+    private let title: String
 
-    init(value: Double, increment: Double, unit: LoadUnit) {
+    init(value: Double, increment: Double, unit: LoadUnit, title: String = "Carga") {
         self._value = State(initialValue: value)
         self.increment = increment
         self.unit = unit
+        self.title = title
     }
 
     var body: some View {
-        LoadStepper(value: $value, increment: increment, unit: unit)
+        LoadStepper(value: $value, increment: increment, unit: unit, title: title)
             .padding()
     }
 }
@@ -133,11 +138,11 @@ private struct LoadStepperPreviewHost: View {
     LoadStepperPreviewHost(value: 12, increment: 1, unit: .plates)
 }
 
-#Preview("Nível") {
-    LoadStepperPreviewHost(value: 7, increment: 1, unit: .level)
+#Preview("Carga extra") {
+    LoadStepperPreviewHost(value: 0, increment: 2.5, unit: .kilograms, title: "Carga extra")
 }
 
-#Preview("Zero · Dynamic Type AX5") {
-    LoadStepperPreviewHost(value: 0, increment: 2.5, unit: .kilograms)
+#Preview("Nível · Dynamic Type AX5") {
+    LoadStepperPreviewHost(value: 7, increment: 1, unit: .level)
         .dynamicTypeSize(.accessibility5)
 }
