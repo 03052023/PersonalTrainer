@@ -519,42 +519,43 @@ final class HomeViewModelTests: XCTestCase {
         )
     }
 
-    // MARK: - PrescriptionRow (CA1-1)
+    // MARK: - PrescriptionRow (CA1-1, RF-01, RF-45, RF-46; docs/V22-CONTRACT.md §3.3)
 
-    func testPrescriptionRow_summary_matchesSpecFormat() {
+    /// A linha da Home mostra a meta de hoje em palavras, nunca a faixa nem o RIR: quem grava a
+    /// série é a ficha, e ela grava a meta (`TodayTargetText.goal`), não `repMin`–`repMax`.
+    func testRF01_row_goalInWords_perLoadKind() {
         let plan = makePlan()
-        let squat = plan.exercises[0]
-        let bench = plan.exercises[1]
-        let row = plan.exercises[2]
+        let squat = plan.exercises[0] // carga em kg, nota .calibrate
+        let bench = plan.exercises[1] // carga nil (P2): "escolha a carga"
+        let row = plan.exercises[2] // carga em nível de máquina
 
-        XCTAssertEqual(PrescriptionRow.summary(for: squat), "3 × 8–12 · 60 kg · RIR 2 · 2 min")
-        XCTAssertEqual(PrescriptionRow.summary(for: bench), "3 × 8–12 · — · RIR 3 · 1 min 30 s")
-        XCTAssertEqual(PrescriptionRow.summary(for: row), "4 × 10–15 · nível 7 · RIR 2 · 45 s")
+        XCTAssertEqual(PrescriptionRow.rowText(for: squat), "3 séries de 8 · 60 kg")
+        XCTAssertEqual(PrescriptionRow.rowText(for: bench), "3 séries de 8 · escolha a carga")
+        XCTAssertEqual(PrescriptionRow.rowText(for: row), "4 séries de 12 · nível 7")
+
+        XCTAssertEqual(
+            PrescriptionRow.spokenRowText(for: squat),
+            "3 séries de 8 repetições, 60 kg"
+        )
     }
 
-    func testPrescriptionRow_loadText_perUnit() {
-        XCTAssertEqual(PrescriptionRow.loadText(nil, unit: .kilograms), "—")
-        XCTAssertEqual(PrescriptionRow.loadText(62.5, unit: .kilograms), "62,5 kg")
-        XCTAssertEqual(PrescriptionRow.loadText(1, unit: .plates), "1 placa")
-        XCTAssertEqual(PrescriptionRow.loadText(4, unit: .plates), "4 placas")
-        XCTAssertEqual(PrescriptionRow.loadText(7, unit: .level), "nível 7")
+    /// SPEC RF-46: peso do corpo sem carga extra não mostra carga nenhuma; com carga extra
+    /// (P4/H4 no topo da faixa), "+ 2,5 kg extra".
+    func testRF46_row_bodyweightHidesLoad_extraShowsIt() {
+        let bare = makePlannedExercise(equipment: .bodyweight, load: nil, sets: 3, targetReps: 5)
+        let extra = makePlannedExercise(equipment: .bodyweight, load: 2.5, sets: 3, targetReps: 5)
+
+        XCTAssertEqual(PrescriptionRow.rowText(for: bare), "3 séries de 5")
+        XCTAssertEqual(PrescriptionRow.rowText(for: extra), "3 séries de 5 · + 2,5 kg extra")
     }
 
-    func testPrescriptionRow_restText() {
-        XCTAssertEqual(PrescriptionRow.restText(seconds: 120), "2 min")
-        XCTAssertEqual(PrescriptionRow.restText(seconds: 90), "1 min 30 s")
-        XCTAssertEqual(PrescriptionRow.restText(seconds: 45), "45 s")
-        XCTAssertEqual(PrescriptionRow.restText(seconds: 0), "sem descanso")
-    }
+    /// SPEC RF-43: segundos e passos usam a medida do exercício (a linha lê `\.exerciseTraits`;
+    /// a função pura recebe a medida já resolvida).
+    func testRF43_row_perMeasure() {
+        let plank = makePlannedExercise(equipment: .bodyweight, load: nil, sets: 2, targetReps: 15)
 
-    func testPrescriptionRow_noteText_isPortuguese() {
-        XCTAssertEqual(PrescriptionRow.noteText(.calibrate), "Calibrar")
-        XCTAssertEqual(PrescriptionRow.noteText(.increase), "Subir")
-        XCTAssertEqual(PrescriptionRow.noteText(.hold), "Manter")
-        XCTAssertEqual(PrescriptionRow.noteText(.retry), "Repetir")
-        XCTAssertEqual(PrescriptionRow.noteText(.decrease), "Reduzir")
-        XCTAssertEqual(PrescriptionRow.noteText(.returning), "Retorno")
-        XCTAssertEqual(PrescriptionRow.noteText(.deload), "Semana leve", "DESIGN §6: semana leve, nunca deload")
+        XCTAssertEqual(PrescriptionRow.rowText(for: plank, measure: .seconds), "2 séries de 15 s")
+        XCTAssertEqual(PrescriptionRow.rowText(for: plank, measure: .steps), "2 séries de 15 passos")
     }
 
     func testPlanCard_exerciseCountText() {
@@ -639,7 +640,100 @@ final class HomeViewModelTests: XCTestCase {
         XCTAssertEqual(planner.nextPlanCalls.count, 1, "Só Aplicar e Seguir normal mudam o plano")
     }
 
+    // MARK: - Topo da Home (SPEC RF-45; docs/V22-CONTRACT.md §3.3)
+
+    /// O botão "Trocar" do topo fica desabilitado com sessão em andamento: trocar de objetivo no
+    /// meio de uma sessão não teria efeito nela.
+    func testRF45_header_disabledWithActiveSession() throws {
+        let planner = HomeTestPlanner(planToReturn: makePlan())
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+        model.refresh()
+        XCTAssertFalse(model.isSessionInProgress)
+
+        let container = try ModelContainerFactory.make(.inMemory)
+        let session = try insertInProgressSession(into: container.mainContext)
+        let coordinator = HomeTestCoordinator(activeSession: session)
+        let busyModel = makeModel(planner: HomeTestPlanner(planToReturn: makePlan()), coordinator: coordinator)
+        busyModel.refresh()
+
+        XCTAssertTrue(busyModel.isSessionInProgress)
+        withExtendedLifetime(container) {}
+    }
+
+    // MARK: - infoContent (SPEC RF-47; docs/V22-CONTRACT.md §2.1, §3.3)
+
+    /// Tocar numa linha da Home monta a folha de informações a partir do plano, com "Da última
+    /// vez" pelo `planner.lastSession(forExerciseID:)`.
+    func testRF47_home_infoContentUsesLastSession() {
+        let plan = makePlan()
+        let squat = plan.exercises[0]
+        let planner = HomeTestPlanner(planToReturn: plan)
+        let lastSession = ExerciseLastSession(
+            sessionID: UUID(),
+            date: now.addingTimeInterval(-86_400),
+            sets: [SetResult(load: 57.5, reps: 8, isWarmup: false, completedAt: now.addingTimeInterval(-86_400))],
+            wasDeload: false
+        )
+        planner.lastSessionsByExerciseID[squat.exercise.id] = lastSession
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+        model.refresh()
+
+        let content = model.infoContent(for: squat, measure: .reps)
+
+        XCTAssertEqual(content.exerciseID, squat.exercise.id)
+        XCTAssertEqual(content.lastSession, lastSession)
+        XCTAssertEqual(planner.lastSessionCalls, [squat.exercise.id])
+    }
+
+    /// Falha ao ler "da última vez" some da folha (fica só no log), em vez de travar a tela.
+    func testRF47_home_infoContentIgnoresLastSessionFailure() {
+        let plan = makePlan()
+        let squat = plan.exercises[0]
+        let planner = HomeTestPlanner(planToReturn: plan)
+        planner.lastSessionError = HomeTestError.boom
+        let model = makeModel(planner: planner, coordinator: HomeTestCoordinator())
+        model.refresh()
+
+        let content = model.infoContent(for: squat, measure: .reps)
+
+        XCTAssertNil(content.lastSession)
+    }
+
     // MARK: - Fixtures
+
+    /// Exercício isolado (sem o resto do plano) para os testes de `PrescriptionRow` que variam
+    /// equipamento, carga e medida (RF-46, RF-43).
+    private func makePlannedExercise(
+        equipment: Equipment,
+        load: Double?,
+        sets: Int,
+        targetReps: Int
+    ) -> PlannedExercise {
+        let exercise = ExerciseDefinition(
+            slug: "fixture",
+            name: "Exercício fixture",
+            primaryMuscles: [.core],
+            equipment: equipment,
+            loadUnit: .kilograms,
+            loadIncrement: 2.5
+        )
+        return PlannedExercise(
+            id: UUID(),
+            exercise: exercise,
+            target: ExerciseTarget(exerciseID: exercise.id, order: 0, sets: sets, repMin: targetReps, repMax: targetReps + 4),
+            prescription: ExercisePrescription(
+                exerciseID: exercise.id,
+                load: load,
+                sets: sets,
+                repMin: targetReps,
+                repMax: targetReps + 4,
+                targetReps: targetReps,
+                targetRIR: 2,
+                restSeconds: 60,
+                note: .hold
+            )
+        )
+    }
 
     private func makeModel(planner: HomeTestPlanner, coordinator: HomeTestCoordinator) -> HomeViewModel {
         let fixedNow = now
@@ -833,9 +927,13 @@ private final class HomeTestPlanner: SessionPlanning {
     var daysError: (any Error)?
     var goalToReturn: ProgramGoal?
     var goalError: (any Error)?
+    /// SPEC RF-47: "da última vez" por `ExerciseDefinition.id`.
+    var lastSessionsByExerciseID: [UUID: ExerciseLastSession] = [:]
+    var lastSessionError: (any Error)?
     private(set) var nextPlanCalls: [Date] = []
     private(set) var planForDayCalls: [(dayID: UUID, now: Date)] = []
     private(set) var startedPlans: [(plan: SessionPlan, now: Date)] = []
+    private(set) var lastSessionCalls: [UUID] = []
 
     init(planToReturn: SessionPlan?) {
         self.planToReturn = planToReturn
@@ -881,6 +979,14 @@ private final class HomeTestPlanner: SessionPlanning {
             throw goalError
         }
         return goalToReturn
+    }
+
+    func lastSession(forExerciseID exerciseID: UUID) throws -> ExerciseLastSession? {
+        lastSessionCalls.append(exerciseID)
+        if let lastSessionError {
+            throw lastSessionError
+        }
+        return lastSessionsByExerciseID[exerciseID]
     }
 }
 

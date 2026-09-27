@@ -1,21 +1,23 @@
 import SwiftUI
 import TrainerCore
 
-/// Cartão "Sessão de hoje" da Home (SPEC F1, RF-01; DESIGN §9.2): dia em destaque (menu para
-/// escolher outro dia, SPEC S4 / T2.14), nome do programa, número de exercícios e duração
-/// estimada ("≈ 45 min", B7), o interruptor "Em casa" (SPEC RF-42), a faixa que diz por que esta
-/// sessão (`PlanBanner`, CA4-5), a faixa "Em casa" com os avisos do modo casa (§7.13 H2), selo do
-/// objetivo com o símbolo dele (DESIGN §8) e "Por quê?" (SPEC §7.9, RF-32), e uma
+/// Cartão "Hoje" da Home (SPEC RF-01, RF-45, RF-46; DESIGN §9.2; docs/V22-CONTRACT.md §3.3): o
+/// rótulo pequeno "Hoje" ("Sessão escolhida" quando o dia foi escolhido à mão), o dia em destaque
+/// (menu para escolher outro, SPEC S4), "5 exercícios · ≈ 55 min" com a chave "Em casa" na mesma
+/// linha (`ViewThatFits`, para caber em Dynamic Type grande), a faixa que diz por que esta sessão
+/// (`PlanBanner`, CA4-5) e a faixa "Em casa" só quando há avisos (§7.13 H2), e uma
 /// `PrescriptionRow` por exercício, na ordem do plano.
 ///
-/// View pura: a escolha de dia e o interruptor saem pelos fechamentos e quem planeja é o
-/// `HomeViewModel`.
+/// Sem selo do objetivo nem nome do programa: o objetivo já está no topo da Home (SPEC RF-45), e
+/// só cada tela responde a uma pergunta (DESIGN §9).
+///
+/// View pura: a escolha de dia, o interruptor e a linha tocada saem pelos fechamentos; quem
+/// planeja é o `HomeViewModel`.
 struct PlanCard: View {
     let plan: SessionPlan
     let days: [ProgramDayTemplate]
     /// `nil` = próximo da rotação; senão, o dia escolhido à mão.
     let selectedDayID: UUID?
-    let goal: ProgramGoal?
     let references: ReferenceCatalog
     /// Falso com treino em andamento: o botão só retoma, então trocar o dia não teria efeito.
     let canChooseDay: Bool
@@ -25,41 +27,40 @@ struct PlanCard: View {
     let onToggleHomeMode: ((Bool) -> Void)?
     let onSelectDay: (UUID) -> Void
     let onSelectAutomatic: () -> Void
+    /// Tocar no nome ou na meta de um exercício (SPEC RF-47): abre "Informações do exercício".
+    let onSelectExercise: (PlannedExercise) -> Void
 
     init(
         plan: SessionPlan,
         days: [ProgramDayTemplate],
         selectedDayID: UUID?,
-        goal: ProgramGoal?,
         references: ReferenceCatalog,
         canChooseDay: Bool = true,
         isHomeModeOn: Bool = false,
         onToggleHomeMode: ((Bool) -> Void)? = nil,
         onSelectDay: @escaping (UUID) -> Void,
-        onSelectAutomatic: @escaping () -> Void
+        onSelectAutomatic: @escaping () -> Void,
+        onSelectExercise: @escaping (PlannedExercise) -> Void = { _ in }
     ) {
         self.plan = plan
         self.days = days
         self.selectedDayID = selectedDayID
-        self.goal = goal
         self.references = references
         self.canChooseDay = canChooseDay
         self.isHomeModeOn = isHomeModeOn
         self.onToggleHomeMode = onToggleHomeMode
         self.onSelectDay = onSelectDay
         self.onSelectAutomatic = onSelectAutomatic
+        self.onSelectExercise = onSelectExercise
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
-            if onToggleHomeMode != nil {
-                homeModeToggle
-            }
             if let banner = PlanBanner.make(for: plan) {
                 bannerView(banner)
             }
-            if plan.isHomeMode {
+            if !plan.homeNotices.isEmpty {
                 homeModeBand
             }
             if plan.exercises.isEmpty {
@@ -77,7 +78,7 @@ struct PlanCard: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(selectedDayID == nil ? "Sessão de hoje" : "Sessão escolhida")
+            Text(selectedDayID == nil ? "Hoje" : "Sessão escolhida")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
@@ -89,31 +90,37 @@ struct PlanCard: View {
                 onSelectDay: onSelectDay,
                 onSelectAutomatic: onSelectAutomatic
             )
-            Text(Self.detailText(for: plan))
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                // "≈" não tem leitura boa no VoiceOver; a versão falada diz "cerca de".
-                .accessibilityLabel(Text(Self.detailAccessibilityText(for: plan)))
-            if let goal {
-                goalBadge(goal)
-                    .padding(.top, 4)
-            }
+            detailLine
         }
     }
 
-    /// Selo do objetivo do programa (SPEC §7.9) com o símbolo e a cor dele (DESIGN §4, §8: nada
-    /// de `target`) e o "Por quê?" do objetivo (RF-32).
-    private func goalBadge(_ goal: ProgramGoal) -> some View {
-        HStack(spacing: 8) {
-            Label(goal.displayName, systemImage: goal.symbolName)
-                .font(.caption.weight(.semibold))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(goal.color.opacity(0.15), in: Capsule())
-                .foregroundStyle(goal.color)
-                .accessibilityLabel(Text("Objetivo: \(goal.displayName)"))
-            WhyButton(topic: goal.referenceTopic, catalog: references)
+    /// "5 exercícios · ≈ 55 min" e "Em casa" na mesma linha (DESIGN §9.2); em Dynamic Type
+    /// grande, a chave desce para a linha de baixo (`ViewThatFits`, docs/V22-CONTRACT.md §3.3).
+    @ViewBuilder
+    private var detailLine: some View {
+        if onToggleHomeMode != nil {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    detailText
+                    Spacer(minLength: 8)
+                    homeModeToggle
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    detailText
+                    homeModeToggle
+                }
+            }
+        } else {
+            detailText
         }
+    }
+
+    private var detailText: some View {
+        Text(Self.detailText(for: plan))
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            // "≈" não tem leitura boa no VoiceOver; a versão falada diz "cerca de".
+            .accessibilityLabel(Text(Self.detailAccessibilityText(for: plan)))
     }
 
     /// Faixa calma em `accentSoft` (DESIGN §3, §9.3): semana leve e frequência fazem parte do
@@ -145,11 +152,12 @@ struct PlanCard: View {
         }
         .tint(Theme.accent)
         .disabled(!canChooseDay)
+        .fixedSize()
         .accessibilityHint(Text("Troca os exercícios da sessão por equivalentes que dá para fazer em casa. O programa não muda."))
     }
 
-    /// Faixa "Em casa" (SPEC RF-42: "o cartão do dia mostra 'Em casa'") com os avisos de
-    /// exercícios que saíram da sessão (§7.13 H2). Mesmo tom calmo da faixa do motivo.
+    /// Faixa "Em casa" (SPEC RF-42) com os avisos de exercícios que saíram da sessão (§7.13 H2).
+    /// Só aparece quando há aviso: o interruptor já mostra o modo ligado na linha de cima.
     private var homeModeBand: some View {
         VStack(alignment: .leading, spacing: 6) {
             Label("Em casa", systemImage: "house")
@@ -186,18 +194,18 @@ struct PlanCard: View {
         minutes > 0 ? "≈ \(minutes) min" : nil
     }
 
-    /// "Completo · 5 exercícios · ≈ 45 min".
+    /// "5 exercícios · ≈ 55 min", sem o nome do programa (SPEC RF-45: o objetivo já é o plano).
     static func detailText(for plan: SessionPlan) -> String {
-        var parts = [plan.programName, exerciseCountText(plan.exercises.count)]
+        var parts = [exerciseCountText(plan.exercises.count)]
         if let duration = durationText(minutes: plan.estimatedMinutes) {
             parts.append(duration)
         }
         return parts.joined(separator: " · ")
     }
 
-    /// Leitura do VoiceOver: "Completo, 5 exercícios, cerca de 45 minutos".
+    /// Leitura do VoiceOver: "5 exercícios, cerca de 55 minutos".
     static func detailAccessibilityText(for plan: SessionPlan) -> String {
-        var parts = [plan.programName, exerciseCountText(plan.exercises.count)]
+        var parts = [exerciseCountText(plan.exercises.count)]
         if plan.estimatedMinutes == 1 {
             parts.append("cerca de 1 minuto")
         } else if plan.estimatedMinutes > 1 {
@@ -212,8 +220,13 @@ struct PlanCard: View {
                 if index > 0 {
                     Divider()
                 }
-                PrescriptionRow(exercise: exercise, references: references)
-                    .padding(.vertical, 10)
+                PrescriptionRow(
+                    index: index,
+                    exercise: exercise,
+                    references: references,
+                    onSelect: { onSelectExercise(exercise) }
+                )
+                .padding(.vertical, 10)
             }
         }
     }
