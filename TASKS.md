@@ -297,6 +297,21 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 **Estado em 2026-09-24:** cálculo (DeloadPolicy, DeloadScheduler com rearme, FrequencyAwareSelector, ProgramReviewer, PersonalRecordDetector, Coach C1–C8) verde no Core tests. App (planejador com semana leve e seletor, diálogo com feed, destaque, revisão aplicável e aviso de expiração) integrado, revisado por 2 lentes adversariais e corrigido. App build verde em `ci/v3-final`. Falta a verificação no aparelho.
 
+### Versão 2.2: simplificação (pedido do dono, 2026-09-27, depois de usar a 2.1 no aparelho)
+
+O app está rodando no iPhone do dono (prints de 2026-09-27: sessão e tela Hoje). Pedidos, na redação dele:
+- [ ] **S1** Mudar o subtítulo "Saber se defender" do Combate.
+- [ ] **S2** Poder mudar de programa com facilidade.
+- [ ] **S3** "Objetivo e programa está confuso, devem ser uma coisa só."
+- [ ] **S4** "Muito complexo, simplifique." Vale para o app inteiro.
+- [ ] **S5** Avaliar se o RIR é indispensável; se ficar, que seja mais simples.
+- [ ] **S6** Flexão e agachamento são peso do corpo: não mostrar carga.
+- [ ] **S7** Qual a função da chave "Aquecimento"? Esclarecer ou tirar.
+- [ ] **S8** Clicar menos na tela durante o treino.
+- [ ] **S9** "Ele quer mais consultar as infos": a sessão como consulta, com o registro mais leve.
+- [ ] **S10** Flor/ícone com pétalas com mais movimento, irregularidade, organicidade e vivacidade. Referências enviadas: pinwheel arredondado colorido, asterisco orgânico irregular, espiral de gotas.
+- Continuam valendo: "Como fazer" (RF-40, T6.1 e T6.4–T6.9) e as pendências da revisão da 2.1 (logo abaixo).
+
 ### Versão 2.1 (entregue em 2026-09-24, App build 36037123014) e pendências
 
 - [x] **Modo casa (RF-42, §7.13)**, **medida (RF-43)**, **RIR explicado (RF-41)**, saúde para qualquer relógio (A3/A4), B7 duração estimada, B10 backup direto, A4/B8 dispensa nos dois sentidos, A5 importar limpa decisões — contrato `docs/V21-CONTRACT.md`; revisão adversarial com 8 achados (3 major corrigidos: import de backup 2.0 reaplica o seed, revisão antiga some após importar, equivalente de casa com a mesma medida).
