@@ -3,47 +3,17 @@ import TrainerCore
 import XCTest
 @testable import PersonalTrainer
 
-/// v2.1 B1 (docs/V21-CONTRACT.md) no Ajustes:
-/// - "Treinar em casa" grava a mesma chave do interruptor da Home (SPEC RF-42);
+/// v2.1 B1 (docs/V21-CONTRACT.md) e v2.2 (RF-42) no Ajustes:
 /// - A5: importar um backup apaga as decisões de semana leve, a última revisão e o
 ///   `coachPendingDeloadSince`, e mantém o log do diálogo;
 /// - B10: o "Fazer backup" do diálogo usa o mesmo `prepareExport()` (a apresentação na raiz é do
 ///   `RootView`; aqui só o estado que ele observa).
+/// Desde a 2.2, "Treinar em casa" saiu do Ajustes (só a Home grava `PlannerSettings.homeModeKey`),
+/// por isso os testes de modo casa que dependiam do `SettingsViewModel` saíram daqui.
 /// Cada teste usa uma suite própria de `UserDefaults` e uma pasta temporária.
 @MainActor
 final class SettingsHomeModeImportTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_790_175_600)
-
-    // MARK: - Treinar em casa (RF-42)
-
-    func testRF42_homeMode_defaultsOff_persistsAndNotifiesHome() throws {
-        let (defaults, suite) = try makeDefaults()
-        defer { defaults.removePersistentDomain(forName: suite) }
-        let counter = SettingsHomeCallCounter()
-        let model = try makeModel(defaults: defaults, onDataChanged: { counter.count += 1 })
-        XCTAssertFalse(model.homeModeEnabled)
-
-        model.setHomeModeEnabled(true)
-
-        XCTAssertTrue(model.homeModeEnabled)
-        XCTAssertTrue(defaults.bool(forKey: "homeModeEnabled"))
-        XCTAssertTrue(PlannerSettings.load(from: defaults).homeModeEnabled, "O planner lê o que o Ajustes gravou")
-        XCTAssertEqual(counter.count, 1, "A Home relê o plano")
-        XCTAssertTrue(try makeModel(defaults: defaults).homeModeEnabled, "Um Ajustes novo mostra a escolha gravada")
-    }
-
-    func testRF42_reloadHomeMode_picksUpTheHomeToggle() throws {
-        let (defaults, suite) = try makeDefaults()
-        defer { defaults.removePersistentDomain(forName: suite) }
-        let model = try makeModel(defaults: defaults)
-        XCTAssertFalse(model.homeModeEnabled)
-
-        // O interruptor "Em casa" da Home grava a mesma chave.
-        defaults.set(true, forKey: PlannerSettings.homeModeKey)
-        model.reloadHomeMode()
-
-        XCTAssertTrue(model.homeModeEnabled)
-    }
 
     // MARK: - A5: importar zera o que foi decidido sobre os dados antigos
 
