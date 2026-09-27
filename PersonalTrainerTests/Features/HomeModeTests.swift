@@ -88,7 +88,7 @@ final class HomeModeTests: XCTestCase {
         let empty = makePlan(exercises: [])
         XCTAssertEqual(
             HomeViewModel.emptyDayMessage(for: empty),
-            "Este dia ainda não tem exercícios. Escolha os exercícios dele na aba Programa."
+            "Este dia ainda não tem exercícios. Escolha os exercícios dele na aba Plano."
         )
         // Modo casa sem nenhum exercício que saiu: o dia já era vazio no programa.
         let emptyHome = makePlan(exercises: [], isHomeMode: true)
@@ -98,17 +98,18 @@ final class HomeModeTests: XCTestCase {
     // MARK: - Cartão: duração estimada (B7) e textos
 
     func testB7_planCardDetail_showsEstimatedDuration() {
+        // SPEC RF-45: sem o nome do programa (o objetivo já é o plano; docs/V22-CONTRACT.md §3.3).
         let plan = makePlan(estimatedMinutes: 45)
-        XCTAssertEqual(PlanCard.detailText(for: plan), "Programa ABC · 1 exercício · ≈ 45 min")
-        XCTAssertEqual(PlanCard.detailAccessibilityText(for: plan), "Programa ABC, 1 exercício, cerca de 45 minutos")
+        XCTAssertEqual(PlanCard.detailText(for: plan), "1 exercício · ≈ 45 min")
+        XCTAssertEqual(PlanCard.detailAccessibilityText(for: plan), "1 exercício, cerca de 45 minutos")
 
         let noEstimate = makePlan(exercises: [], estimatedMinutes: 0)
-        XCTAssertEqual(PlanCard.detailText(for: noEstimate), "Programa ABC · 0 exercícios")
-        XCTAssertEqual(PlanCard.detailAccessibilityText(for: noEstimate), "Programa ABC, 0 exercícios")
+        XCTAssertEqual(PlanCard.detailText(for: noEstimate), "0 exercícios")
+        XCTAssertEqual(PlanCard.detailAccessibilityText(for: noEstimate), "0 exercícios")
 
         XCTAssertEqual(PlanCard.durationText(minutes: 1), "≈ 1 min")
         XCTAssertNil(PlanCard.durationText(minutes: 0))
-        XCTAssertEqual(PlanCard.detailAccessibilityText(for: makePlan(estimatedMinutes: 1)), "Programa ABC, 1 exercício, cerca de 1 minuto")
+        XCTAssertEqual(PlanCard.detailAccessibilityText(for: makePlan(estimatedMinutes: 1)), "1 exercício, cerca de 1 minuto")
     }
 
     func testRF42_homeBandSummary_isCalmPortuguese() {

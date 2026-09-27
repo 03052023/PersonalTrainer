@@ -1,46 +1,74 @@
 import SwiftUI
 import TrainerCore
 
-/// Uma linha do card da Home (SPEC F1, RF-01; CA1-1): nome do exercício, resumo
-/// "S × min–max · carga · RIR T · descanso", a nota da prescrição em pt-BR e o botão
-/// "Por quê?" da nota (SPEC RF-32).
+/// Uma linha do cartão da Home (SPEC RF-01, RF-45, RF-46; DESIGN §9; docs/V22-CONTRACT.md §3.3):
+/// número, nome, o selo leigo da nota (botão próprio, que abre o "Por quê?") e a meta de hoje em
+/// palavras ("3 séries de 3 · 62,5 kg"; peso do corpo sem carga). Sem RIR nem descanso: eles
+/// ficam só na ficha da sessão e na folha "Informações do exercício".
 ///
-/// A faixa sai na medida do exercício (SPEC RF-43, lida de `\.exerciseTraits` pelo `slug`):
-/// "3 × 20–40 s", "3 × 20–40 passos". O VoiceOver lê o resumo por extenso, com "RIR 2" como
-/// "parar com 2 repetições de reserva" (SPEC RF-41 d).
+/// Tocar na linha (nome + meta) abre a folha de informações, por `onSelect`; quem apresenta a
+/// folha é a `HomeView` (`.sheet(item:)`), com `HomeViewModel.infoContent(for:measure:)`. O selo é
+/// um botão separado, lado a lado com o resto da linha — nunca dentro do rótulo de outro botão,
+/// porque botões aninhados não funcionam no SwiftUI (docs/V22-CONTRACT.md §1.4) — para continuar
+/// acionável sozinho no VoiceOver.
 /// View pura: só formata o `PlannedExercise`; nada de coordinator ou SwiftData.
 struct PrescriptionRow: View {
+    /// Posição no plano (0-based); a linha mostra `index + 1`.
+    let index: Int
     let exercise: PlannedExercise
     let references: ReferenceCatalog
+    let onSelect: () -> Void
 
     @Environment(\.exerciseTraits) private var traits
 
-    init(exercise: PlannedExercise, references: ReferenceCatalog) {
+    init(
+        index: Int,
+        exercise: PlannedExercise,
+        references: ReferenceCatalog,
+        onSelect: @escaping () -> Void
+    ) {
+        self.index = index
         self.exercise = exercise
         self.references = references
+        self.onSelect = onSelect
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(exercise.exercise.name)
-                        .font(.body.weight(.medium))
-                    Spacer(minLength: 0)
-                    PrescriptionNoteBadge(note: exercise.prescription.note)
-                }
-                Text(Self.summary(for: exercise, measure: measure))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel(Self.spokenSummary(for: exercise, measure: measure))
-            }
-            // Só o texto é combinado: o botão "Por quê?" fica fora para continuar acionável
-            // sozinho no VoiceOver.
-            .accessibilityElement(children: .combine)
+        HStack(alignment: .top, spacing: 10) {
+            Text("\(index + 1)")
+                .font(.system(.subheadline, design: .rounded).weight(.bold))
+                .foregroundStyle(Theme.textSecondary)
+                .frame(minWidth: 18, alignment: .leading)
+                // O número é só ordem visual; o rótulo falado já diz "Exercício N".
+                .accessibilityHidden(true)
 
-            // Esconde-se sozinho quando o catálogo não tem referências para a nota.
-            WhyButton(topic: ReferenceCatalog.topic(for: exercise.prescription.note), catalog: references)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(exercise.exercise.name)
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(Theme.textPrimary)
+                Text(Self.rowText(for: exercise, measure: measure))
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(Text(Self.spokenRowLabel(index: index, exercise: exercise, measure: measure)))
+            .accessibilityAddTraits(.isButton)
+            .accessibilityHint(Text("Abre as informações do exercício"))
+
+            Spacer(minLength: 8)
+
+            if let badgeText = exercise.prescription.note.badgeText {
+                NoteBadgeButton(
+                    text: badgeText,
+                    topic: ReferenceCatalog.topic(for: exercise.prescription.note),
+                    catalog: references
+                )
+            }
         }
+        // O alvo de toque é a linha inteira (menos o selo, que é o próprio botão do "Por quê?"):
+        // o selo, por estar mais dentro na árvore, continua ganhando o toque sobre ele.
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onSelect)
     }
 
     /// Repetições, segundos ou passos (SPEC RF-43). Personalizado sempre em repetições.
@@ -48,100 +76,79 @@ struct PrescriptionRow: View {
         traits.traits(for: exercise.exercise).measure
     }
 
-    // MARK: - Formatação (pt-BR)
+    // MARK: - Formatação (pt-BR, docs/V22-CONTRACT.md §2.3)
 
-    /// Ex.: "3 × 8–12 · 60 kg · RIR 2 · 2 min" ou "3 × 20–40 s · 0 kg · RIR 2 · 1 min";
-    /// carga `nil` (SPEC P2) vira "—".
-    static func summary(for exercise: PlannedExercise, measure: ExerciseMeasure = .reps) -> String {
-        let prescription = exercise.prescription
-        let range = MeasureText.range(min: prescription.repMin, max: prescription.repMax, measure: measure)
-        let load = loadText(prescription.load, unit: exercise.exercise.loadUnit)
-        let rest = restText(seconds: prescription.restSeconds)
-        return "\(prescription.sets) × \(range) · \(load) · RIR \(prescription.targetRIR) · \(rest)"
-    }
-
-    /// Leitura por voz do resumo (SPEC RF-41 d): "3 séries de 8 a 12 repetições, 60 kg, parar
-    /// com 2 repetições de reserva, descanso de 2 minutos".
-    static func spokenSummary(for exercise: PlannedExercise, measure: ExerciseMeasure = .reps) -> String {
-        let prescription = exercise.prescription
-        return PrescriptionSpeech.text(
-            sets: prescription.sets,
-            repMin: prescription.repMin,
-            repMax: prescription.repMax,
+    /// "3 séries de 3 · 62,5 kg", peso do corpo sem carga "3 séries de 5" (SPEC RF-46).
+    static func rowText(for exercise: PlannedExercise, measure: ExerciseMeasure = .reps) -> String {
+        TodayTargetText.row(
+            sets: exercise.prescription.sets,
+            goal: goal(for: exercise),
             measure: measure,
-            loadText: prescription.load.map { loadText($0, unit: exercise.exercise.loadUnit) },
-            targetRIR: prescription.targetRIR,
-            restSeconds: prescription.restSeconds
+            load: loadDisplay(for: exercise)
         )
     }
 
-    /// Mesma convenção de `SetDraft.prescriptionSummary`: kg via `LoadFormatter`, placas e nível
-    /// como inteiros.
-    static func loadText(_ load: Double?, unit: LoadUnit) -> String {
-        guard let load else { return "—" }
-        switch unit {
-        case .kilograms:
-            return LoadFormatter.kilograms(load)
-        case .plates:
-            let count = Int(load.rounded())
-            return count == 1 ? "1 placa" : "\(count) placas"
-        case .level:
-            return "nível \(Int(load.rounded()))"
-        }
+    /// Leitura por voz da meta: "3 séries de 3 repetições, 62,5 kg".
+    static func spokenRowText(for exercise: PlannedExercise, measure: ExerciseMeasure = .reps) -> String {
+        TodayTargetText.spokenRow(
+            sets: exercise.prescription.sets,
+            goal: goal(for: exercise),
+            measure: measure,
+            load: loadDisplay(for: exercise)
+        )
     }
 
-    /// "2 min", "90 s" abaixo de um minuto vira "45 s", e valores quebrados "1 min 30 s".
-    static func restText(seconds: Int) -> String {
-        guard seconds > 0 else { return "sem descanso" }
-        let minutes = seconds / 60
-        let remainder = seconds % 60
-        if minutes == 0 {
-            return "\(remainder) s"
-        }
-        if remainder == 0 {
-            return "\(minutes) min"
-        }
-        return "\(minutes) min \(remainder) s"
+    private static func goal(for exercise: PlannedExercise) -> Int {
+        TodayTargetText.goal(targetReps: exercise.prescription.targetReps, repMin: exercise.prescription.repMin)
     }
 
-    /// Rótulos fixos acordados para o M1 (AGENTS §4: textos de UI em pt-BR no código). A nota de
-    /// semana leve segue o vocabulário do DESIGN §6 ("semana leve", nunca "deload").
-    static func noteText(_ note: PrescriptionNote) -> String {
-        switch note {
-        case .calibrate: return "Calibrar"
-        case .increase: return "Subir"
-        case .hold: return "Manter"
-        case .retry: return "Repetir"
-        case .decrease: return "Reduzir"
-        case .returning: return "Retorno"
-        case .deload: return "Semana leve"
-        }
+    private static func loadDisplay(for exercise: PlannedExercise) -> TodayTargetText.LoadDisplay {
+        TodayTargetText.loadDisplay(
+            load: exercise.prescription.load,
+            unit: exercise.exercise.loadUnit,
+            equipment: exercise.exercise.equipment
+        )
+    }
+
+    /// "Exercício 2, Agachamento livre. 3 séries de 3 repetições, 62,5 kg."
+    private static func spokenRowLabel(index: Int, exercise: PlannedExercise, measure: ExerciseMeasure) -> String {
+        "Exercício \(index + 1), \(exercise.exercise.name). \(spokenRowText(for: exercise, measure: measure))."
     }
 }
 
-/// Selo colorido da nota. Privado ao arquivo: só a linha o usa.
-private struct PrescriptionNoteBadge: View {
-    let note: PrescriptionNote
+/// Selo leigo da nota (DESIGN §7, §9.5): pílula em `accentSoft`/`accent` que já é o botão do
+/// "Por quê?" — sem link separado. Some quando o catálogo não tem referência para a nota
+/// (inclusive `ReferenceCatalog.empty`), igual ao `WhyButton`, para nunca abrir uma folha vazia.
+/// Privado ao arquivo: só a linha o usa.
+private struct NoteBadgeButton: View {
+    let text: String
+    let topic: String
+    let catalog: ReferenceCatalog
+
+    @State private var isShowingSheet = false
 
     var body: some View {
-        Text(PrescriptionRow.noteText(note))
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(tint.opacity(0.15), in: Capsule())
-            .foregroundStyle(tint)
-            .fixedSize(horizontal: true, vertical: false)
-    }
-
-    private var tint: Color {
-        switch note {
-        case .calibrate: return .blue
-        case .increase: return .green
-        case .hold: return .gray
-        case .retry: return .yellow
-        case .decrease: return .orange
-        case .returning: return .teal
-        case .deload: return .purple
+        if !catalog.references(for: topic).isEmpty {
+            Button {
+                isShowingSheet = true
+            } label: {
+                HStack(spacing: 3) {
+                    Text(text)
+                    Image(systemName: "questionmark.circle")
+                }
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Theme.accentSoft, in: Capsule())
+                .foregroundStyle(Theme.accent)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(Text("Novidade: \(text)"))
+            .accessibilityHint(Text("Mostra a explicação e as referências científicas"))
+            .sheet(isPresented: $isShowingSheet) {
+                WhySheet(topic: topic, catalog: catalog)
+                    .presentationDetents([.medium, .large])
+            }
         }
     }
 }

@@ -72,6 +72,12 @@ final class HomeViewModel {
         }
     }
 
+    /// SPEC RF-45: com sessão em andamento, trocar de objetivo não teria efeito (a sessão já
+    /// começou com o programa antigo). O topo da Home e o menu de dias usam o mesmo critério.
+    var isSessionInProgress: Bool {
+        activeSessionID != nil
+    }
+
     /// Relê sessão ativa, dias, objetivo e o plano (o do dia escolhido, se houver; senão o da
     /// rotação). Em falha do plano, ele é descartado (nunca iniciar a partir de um plano
     /// possivelmente desatualizado) e a mensagem vai para `errorMessage`.
@@ -179,6 +185,21 @@ final class HomeViewModel {
         }
     }
 
+    /// Conteúdo da folha "Informações do exercício" (SPEC RF-47; docs/V22-CONTRACT.md §2.2) a
+    /// partir do plano, antes de a sessão existir. `measure` vem de `\.exerciseTraits` (SPEC
+    /// RF-43): a view lê o ambiente, porque o ViewModel não guarda esse catálogo. Falha ao ler
+    /// "da última vez" some da folha em vez de travar a tela (fica só no log).
+    func infoContent(for planned: PlannedExercise, measure: ExerciseMeasure) -> ExerciseInfoContent {
+        let lastSession: ExerciseLastSession?
+        do {
+            lastSession = try planner.lastSession(forExerciseID: planned.exercise.id)
+        } catch {
+            lastSession = nil
+            Self.logger.error("Falha ao ler a última sessão do exercício: \(String(describing: error), privacy: .public)")
+        }
+        return ExerciseInfoContent(planned: planned, measure: measure, lastSession: lastSession)
+    }
+
     // MARK: - Leitura
 
     /// Dias e objetivo são complementares ao plano: uma falha aqui só esconde o menu de dias e o
@@ -219,7 +240,7 @@ final class HomeViewModel {
         if plan.isHomeMode && !plan.homeNotices.isEmpty {
             return "Nenhum exercício deste dia tem opção em casa. Desligue Em casa ou escolha outro dia."
         }
-        return "Este dia ainda não tem exercícios. Escolha os exercícios dele na aba Programa."
+        return "Este dia ainda não tem exercícios. Escolha os exercícios dele na aba Plano."
     }
 
     private static func message(for error: any Error, fallback: String) -> String {
