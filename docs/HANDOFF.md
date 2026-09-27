@@ -47,6 +47,16 @@ Escopo e contrato em `docs/V21-CONTRACT.md`: modo casa (RF-42, §7.13), medida (
 - Integração, revisão (8 achados, 3 major) e correção: `main` 7a60541. App build 36037123014 (IPA para instalar, disponível até 2026-09-27) e Core tests 36038514976, os dois verdes.
 - Página de instalação da Amanda: `docs/install/instalar-magister.html`, publicada como artifact privado https://claude.ai/artifact/YExae7s4NkzJqLzSQuHrvH (o dono compartilha pelo menu Share). Próximo: "Como fazer" (RF-40, T6.1 e T6.4–T6.9) e as pendências da 2.1 no TASKS.
 
+## 5c. Versão 2.2 (simplificação) em andamento (2026-09-27)
+
+O dono usou a 2.1 no aparelho (instalação e migração funcionaram) e pediu os pontos S1–S10 (TASKS, seção Versão 2.2). A proposta foi aprovada com as telas de exemplo em `docs/design/v22/mockup.html` (artifact NAhQznJgc8DJNaiThpm2SZ). Decisões dele em `docs/design/v22/proposal.json` → `ownerAnswers`:
+- flor 6 · Brisa;
+- RIR interno e invisível ao usuário;
+- Combate = "Potência e resistência";
+- proposta inteira aprovada: ficha de consulta com Feito, objetivo = plano, Hoje enxuta, peso do corpo sem carga, sem a chave de aquecimento.
+
+Construção: workflow `wf_fdd53fa1-c8f` (arquiteto → `docs/V22-CONTRACT.md` e worktrees `pt-wt/w5-*` → implementadores `v5/*` → `v5/integration` → `ci/v5-final` → revisão e correção). **Ao retomar:** veja quais `v5/*` estão verdes, termine a integração em `ci/v5-final`, mescle no `main`, gere o IPA e atualize a página e o PDF da Amanda (o link da 2.1 expirou em 2026-09-27).
+
 ## 6. Próximos passos
 
 1. O usuário instala o IPA do run 35997614062 por cima do app atual, pelo Impactor, e testa.
