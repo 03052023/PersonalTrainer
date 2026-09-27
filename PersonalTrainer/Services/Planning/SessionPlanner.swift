@@ -216,6 +216,26 @@ final class SessionPlanner: SessionPlanning {
         try candidates(for: exerciseID, limit: limit, homeOnly: false)
     }
 
+    // MARK: - SessionPlanning (v2.2)
+
+    /// SPEC RF-47 (docs/V22-CONTRACT.md §2.1): a sessão `completed`/`abandoned` mais recente com
+    /// série de trabalho, na mesma ordenação de `history(forExerciseUUID:)` (mais recente
+    /// primeiro, empate por `sessionID`, SPEC P11). Sem `@Query`, sem `Date()`: `now` nem entra,
+    /// porque a ordenação é só sobre datas já gravadas.
+    func lastSession(forExerciseID exerciseID: UUID) throws -> ExerciseLastSession? {
+        let entries = try history(forExerciseUUID: exerciseID)
+        guard let entry = entries.first(where: { entry in entry.sets.contains { !$0.isWarmup } }) else {
+            return nil
+        }
+        let workingSets = entry.sets.filter { !$0.isWarmup }
+        return ExerciseLastSession(
+            sessionID: entry.sessionID,
+            date: entry.date,
+            sets: workingSets,
+            wasDeload: entry.wasDeload
+        )
+    }
+
     // MARK: - SessionPlanning (M4)
 
     func deloadStatus(now: Date) throws -> DeloadStatus {
