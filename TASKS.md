@@ -299,18 +299,29 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 ### Versão 2.2: simplificação (pedido do dono, 2026-09-27, depois de usar a 2.1 no aparelho)
 
-O app está rodando no iPhone do dono (prints de 2026-09-27: sessão e tela Hoje). Pedidos, na redação dele:
-- [ ] **S1** Mudar o subtítulo "Saber se defender" do Combate.
-- [ ] **S2** Poder mudar de programa com facilidade.
-- [ ] **S3** "Objetivo e programa está confuso, devem ser uma coisa só."
-- [ ] **S4** "Muito complexo, simplifique." Vale para o app inteiro.
-- [ ] **S5** Avaliar se o RIR é indispensável; se ficar, que seja mais simples.
-- [ ] **S6** Flexão e agachamento são peso do corpo: não mostrar carga.
-- [ ] **S7** Qual a função da chave "Aquecimento"? Esclarecer ou tirar.
-- [ ] **S8** Clicar menos na tela durante o treino.
-- [ ] **S9** "Ele quer mais consultar as infos": a sessão como consulta, com o registro mais leve.
-- [ ] **S10** Flor/ícone com pétalas com mais movimento, irregularidade, organicidade e vivacidade. Referências enviadas: pinwheel arredondado colorido, asterisco orgânico irregular, espiral de gotas.
-- Continuam valendo: "Como fazer" (RF-40, T6.1 e T6.4–T6.9) e as pendências da revisão da 2.1 (logo abaixo).
+O app está rodando no iPhone do dono (prints de 2026-09-27: sessão e tela Hoje). Pedidos, na redação dele, com a tarefa do contrato `docs/V22-CONTRACT.md` que resolve cada um (respostas do dono na SPEC, decisão 18):
+- [ ] **S1** Mudar o subtítulo "Saber se defender" do Combate. → "Potência e resistência" (DESIGN §4): **T7.6 `flower`**.
+- [ ] **S2** Poder mudar de programa com facilidade. → topo da tela Hoje com "Trocar" (**T7.3 `home`**) e a folha "Seu objetivo" (**T7.4 `goal-plan`**, RF-45).
+- [ ] **S3** "Objetivo e programa está confuso, devem ser uma coisa só." → objetivo = plano, Hipertrofia com 3 formatos, aba Plano, primeiro uso em um passo: **T7.4 `goal-plan`** (RF-35, RF-45).
+- [ ] **S4** "Muito complexo, simplifique." Vale para o app inteiro. → tela Hoje enxuta (**T7.3 `home`**, RF-01), ficha da sessão (**T7.1 `session`**), aba Plano (**T7.4**), Ajustes com "Mais opções" (**T7.5 `settings`**), "Esta semana" e Histórico sem RIR (**T7.7 `history`**), vocabulário leigo (DESIGN §7).
+- [ ] **S5** Avaliar se o RIR é indispensável; se ficar, que seja mais simples. → RIR interno e invisível (RF-41): **T7.1 `session`**, **T7.3 `home`**, **T7.4 `goal-plan`** (editor sem RIR), **T7.7 `history`**; textos do "Por quê?" sem a sigla em **T7.2 `exercise-info`**.
+- [ ] **S6** Flexão e agachamento são peso do corpo: não mostrar carga. → RF-46, com os textos compartilhados de **T7.2 `exercise-info`** (`TodayTargetText`), usados por **T7.1**, **T7.3** e **T7.7**.
+- [ ] **S7** Qual a função da chave "Aquecimento"? Esclarecer ou tirar. → a chave sai e vira a dica fixa da ficha (RF-44 d): **T7.1 `session`**.
+- [ ] **S8** Clicar menos na tela durante o treino. → bolinhas, "Feito", concluir com pendentes e tela acesa (RF-44): **T7.1 `session`**.
+- [ ] **S9** "Ele quer mais consultar as infos": a sessão como consulta, com o registro mais leve. → ficha (**T7.1 `session`**) e "Informações do exercício" com "Da última vez" (**T7.2 `exercise-info`**, RF-47).
+- [ ] **S10** Flor/ícone com pétalas com mais movimento, irregularidade, organicidade e vivacidade. Referências enviadas: pinwheel arredondado colorido, asterisco orgânico irregular, espiral de gotas. → candidato 6 · Brisa no ícone (padrão, escuro e tingido) e na `FlowerView`: **T7.6 `flower`** (DESIGN §2, §4).
+- Continuam valendo: "Como fazer" (RF-40, T6.1 e T6.4–T6.9) e as pendências da revisão da 2.1 (logo abaixo). A folha de informações (RF-47) é onde o "Como fazer" vai entrar.
+
+Tarefas da versão 2.2 (contrato `docs/V22-CONTRACT.md`; worktrees `C:\Users\leona\Developer\pt-wt\w5-<key>`, branches `v5/<key>`, CI em `ci/v5-<key>`):
+- [x] **T7.0 Documentos e andaime** (arquiteto): SPEC (RF-01, RF-03, RF-04, RF-12, RF-16, RF-17, RF-35, RF-39, RF-41, RF-42, RF-44 a RF-47, decisão 18), DESIGN (§2, §4, §7, §8, §9, §13), ARCHITECTURE §17, este TASKS, e o andaime compartilhado (`SessionPlanning.lastSession`, `ExerciseLastSession`, `Features/ExerciseInfo/*`).
+- [ ] **T7.1 [CI] `session`** — ficha da sessão (RF-44, RF-04, RF-46), resumo "Sessão concluída", tela acesa, paleta da sessão.
+- [ ] **T7.2 [CI] `exercise-info`** — folha "Informações do exercício" (RF-47), `SessionPlanner.lastSession`, textos das notas no "Por quê?" sem a sigla RIR.
+- [ ] **T7.3 [CI] `home`** — tela Hoje enxuta (RF-01), topo que troca de objetivo, linhas com a meta de hoje.
+- [ ] **T7.4 [CI] `goal-plan`** — objetivo = plano (RF-45): folha "Seu objetivo", aba Plano, primeiro uso, editor sem RIR.
+- [ ] **T7.5 [CI] `settings`** — Ajustes com "Mais opções"; sai "Onde treinar".
+- [ ] **T7.6 [CI] `flower`** — flor Brisa no ícone e na `FlowerView`; subtítulo do Combate.
+- [ ] **T7.7 [CI] `history`** — "Esta semana" no Histórico; Histórico sem RIR e com os selos leigos.
+- [ ] **T7.8 [CI] Integração** — `v5/integration`: RootView (aba Plano, folha "Seu objetivo", parâmetros novos), limpeza do código morto, `ci/v5-final`, revisão adversarial e correção.
 
 ### Versão 2.1 (entregue em 2026-09-24, App build 36037123014) e pendências
 
