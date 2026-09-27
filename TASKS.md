@@ -314,14 +314,14 @@ O app está rodando no iPhone do dono (prints de 2026-09-27: sessão e tela Hoje
 
 Tarefas da versão 2.2 (contrato `docs/V22-CONTRACT.md`; worktrees `C:\Users\leona\Developer\pt-wt\w5-<key>`, branches `v5/<key>`, CI em `ci/v5-<key>`):
 - [x] **T7.0 Documentos e andaime** (arquiteto): SPEC (RF-01, RF-03, RF-04, RF-12, RF-16, RF-17, RF-35, RF-39, RF-41, RF-42, RF-44 a RF-47, decisão 18), DESIGN (§2, §4, §7, §8, §9, §13), ARCHITECTURE §17, este TASKS, e o andaime compartilhado (`SessionPlanning.lastSession`, `ExerciseLastSession`, `Features/ExerciseInfo/*`).
-- [ ] **T7.1 [CI] `session`** — ficha da sessão (RF-44, RF-04, RF-46), resumo "Sessão concluída", tela acesa, paleta da sessão.
-- [ ] **T7.2 [CI] `exercise-info`** — folha "Informações do exercício" (RF-47), `SessionPlanner.lastSession`, textos das notas no "Por quê?" sem a sigla RIR.
-- [ ] **T7.3 [CI] `home`** — tela Hoje enxuta (RF-01), topo que troca de objetivo, linhas com a meta de hoje.
-- [ ] **T7.4 [CI] `goal-plan`** — objetivo = plano (RF-45): folha "Seu objetivo", aba Plano, primeiro uso, editor sem RIR.
-- [ ] **T7.5 [CI] `settings`** — Ajustes com "Mais opções"; sai "Onde treinar".
-- [ ] **T7.6 [CI] `flower`** — flor Brisa no ícone e na `FlowerView`; subtítulo do Combate.
-- [ ] **T7.7 [CI] `history`** — "Esta semana" no Histórico; Histórico sem RIR e com os selos leigos.
-- [ ] **T7.8 [CI] Integração** — `v5/integration`: RootView (aba Plano, folha "Seu objetivo", parâmetros novos), limpeza do código morto, `ci/v5-final`, revisão adversarial e correção.
+- [x] **T7.1 [CI] `session`** — ficha da sessão (RF-44, RF-04, RF-46), resumo "Sessão concluída", tela acesa, paleta da sessão.
+- [x] **T7.2 [CI] `exercise-info`** — folha "Informações do exercício" (RF-47), `SessionPlanner.lastSession`, textos das notas no "Por quê?" sem a sigla RIR. (Os testes dela só compilaram na integração: ordem dos argumentos.)
+- [x] **T7.3 [CI] `home`** — tela Hoje enxuta (RF-01), topo que troca de objetivo, linhas com a meta de hoje.
+- [x] **T7.4 [CI] `goal-plan`** — objetivo = plano (RF-45): folha "Seu objetivo", aba Plano, primeiro uso, editor sem RIR.
+- [x] **T7.5 [CI] `settings`** — Ajustes com "Mais opções"; sai "Onde treinar".
+- [x] **T7.6 [CI] `flower`** — flor Brisa no ícone e na `FlowerView`; subtítulo do Combate.
+- [x] **T7.7 [CI] `history`** — "Esta semana" no Histórico; Histórico sem RIR e com os selos leigos.
+- [~] integrador · v5/integration — **T7.8 [CI] Integração** — `v5/integration`: RootView (aba Plano, folha "Seu objetivo", parâmetros novos), limpeza do código morto, `ci/v5-final`, revisão adversarial e correção.
 
 ### Versão 2.1 (entregue em 2026-09-24, App build 36037123014) e pendências
 

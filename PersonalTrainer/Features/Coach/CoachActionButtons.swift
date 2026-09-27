@@ -64,7 +64,7 @@ struct CoachActionButtons: View {
             }
             Button("Cancelar", role: .cancel) {}
         } message: {
-            Text(applyDetail ?? "A mudança vale a partir da próxima sessão, e você pode ajustar de novo na aba Programa.")
+            Text(applyDetail ?? "A mudança vale a partir da próxima sessão, e você pode ajustar de novo na aba Plano.")
         }
     }
 

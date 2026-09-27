@@ -84,6 +84,6 @@ struct CoachHighlightSheet: View {
         message: CoachPreviewData.review,
         references: WhySheet.previewCatalog,
         onAction: { _ in },
-        applyDetail: "Supino reto e Crucifixo passam a ter 4 séries por sessão. Faixa, RIR e descanso continuam iguais."
+        applyDetail: "Supino reto e Crucifixo passam a ter 4 séries por sessão. Repetições e descanso continuam iguais."
     )
 }

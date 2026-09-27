@@ -69,7 +69,7 @@ extension CoachService {
     /// - swapExercise: `replaceExercise` pelo primeiro de `SessionPlanning.programSubstitutes`
     ///   que ainda não está no dia (`swapReplacements`);
     /// - switchProgram: `activate` do próximo programa com o mesmo objetivo (as cargas ficam, o
-    ///   histórico é por exercício); sem outro, a pessoa escolhe na aba Programa;
+    ///   histórico é por exercício); sem outro, a pessoa escolhe na folha "Seu objetivo" (RF-45);
     /// - deload: `SessionPlanning.requestDeload`;
     /// - reduceDays: só informa (contrato), nada muda.
     func applySuggestion(of message: CoachMessage, now: Date) throws -> FollowUp? {
@@ -242,7 +242,7 @@ extension CoachService {
                 return nil
             }
             let setsText = sets == 1 ? "1 série" : "\(sets) séries"
-            return "\(subject) \(verb) a ter \(setsText) por sessão. Faixa, RIR e descanso continuam iguais."
+            return "\(subject) \(verb) a ter \(setsText) por sessão. Repetições e descanso continuam iguais."
         case .changeRepRange:
             guard let range = suggestion.proposedRepRange, !subject.isEmpty else {
                 return nil
@@ -272,11 +272,11 @@ extension CoachService {
             if let candidate = try? switchCandidate() {
                 return "O programa ativo passa a ser \(candidate.name). As cargas de cada exercício são mantidas."
             }
-            return "Você escolhe o novo programa na aba Programa. As cargas de cada exercício são mantidas."
+            return "Você escolhe o novo plano em seguida. As cargas de cada exercício são mantidas."
         case .deload:
             return "As próximas sessões, uma de cada dia do programa, ficam mais leves: cerca de 60% das séries, com cargas 15% menores."
         case .reduceDays:
-            return "Nada muda sozinho: para treinar em menos dias, ajuste o programa na aba Programa."
+            return "Nada muda sozinho: para treinar em menos dias, ajuste o plano na aba Plano."
         }
     }
 
@@ -302,6 +302,6 @@ extension CoachService {
                 return "Não há um exercício parecido no catálogo para a troca; nada foi alterado."
             }
         }
-        return "Não foi possível aplicar a mudança agora. Tente de novo ou ajuste pela aba Programa."
+        return "Não foi possível aplicar a mudança agora. Tente de novo ou ajuste pela aba Plano."
     }
 }

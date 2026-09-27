@@ -8,9 +8,8 @@ import XCTest
 /// significado de cada valor, escala e leitura acessível "parar com 2 repetições de reserva").
 /// Só funções puras; a parte visual fica para o simulador.
 ///
-/// Versão 2.2: a sessão não mostra mais RIR (SPEC RF-41, decisão 18) e o rascunho `SetDraft` saiu
-/// com o seletor. `RIRText` e `PrescriptionSpeech` continuam enquanto outras pastas os usarem
-/// (docs/V22-CONTRACT.md §2.4); o integrador apaga o que ficar sem uso.
+/// Versão 2.2: a sessão não mostra mais RIR (SPEC RF-41, decisão 18). O rascunho `SetDraft`, o
+/// `RIRText` e o `PrescriptionSpeech` saíram, com os testes deles (docs/V22-CONTRACT.md §4.6).
 @MainActor
 final class MeasureAndRIRTextTests: XCTestCase {
 
@@ -94,61 +93,6 @@ final class MeasureAndRIRTextTests: XCTestCase {
 
         XCTAssertEqual(tonnage, 1_080, accuracy: 0.0001, "60 × 10 + 60 × 8; aquecimento, passos e segundos fora")
         XCTAssertEqual(MeasureText.tonnage(of: []), 0)
-    }
-
-    // MARK: - RF-41 RIRText
-
-    func testRF41_meaning_eachValue() {
-        XCTAssertEqual(RIRText.meaning(for: 0), "0 · nenhuma a mais")
-        XCTAssertEqual(RIRText.meaning(for: 1), "1 · mais uma")
-        XCTAssertEqual(RIRText.meaning(for: 2), "2 · mais duas")
-        XCTAssertEqual(RIRText.meaning(for: 3), "3 · com folga")
-        XCTAssertEqual(RIRText.meaning(for: 5), "5 · com folga", "RF-03: o seletor vai até 5; de 3 em diante é folga")
-        XCTAssertEqual(RIRText.meaning(for: nil), "Não informado")
-    }
-
-    func testRF41_scale_matchesSpecLabels() {
-        XCTAssertEqual(RIRText.scale, ["0 · nenhuma a mais", "1 · mais uma", "2 · mais duas", "3+ · com folga"])
-    }
-
-    func testRF41_spokenTarget_accessibleReading() {
-        XCTAssertEqual(RIRText.spokenTarget(2), "parar com 2 repetições de reserva")
-        XCTAssertEqual(RIRText.spokenTarget(1), "parar com 1 repetição de reserva")
-        XCTAssertEqual(RIRText.spokenTarget(0), "parar sem repetições de reserva")
-        XCTAssertEqual(RIRText.spokenTarget(4), "parar com 4 repetições de reserva")
-    }
-
-    func testRF41_spokenOption_perSegment() {
-        XCTAssertEqual(RIRText.spokenOption(nil), "RIR não informado")
-        XCTAssertEqual(RIRText.spokenOption(0), "RIR 0, nenhuma repetição a mais")
-        XCTAssertEqual(RIRText.spokenOption(2), "RIR 2, mais duas repetições")
-        XCTAssertEqual(RIRText.spokenOption(4), "RIR 4, com folga")
-    }
-
-    // MARK: - RF-41 PrescriptionSpeech
-
-    func testRF41_prescriptionSpeech_withRest() {
-        XCTAssertEqual(
-            PrescriptionSpeech.text(
-                sets: 3,
-                repMin: 8,
-                repMax: 12,
-                measure: .reps,
-                loadText: "60 kg",
-                targetRIR: 2,
-                restSeconds: 120
-            ),
-            "3 séries de 8 a 12 repetições, 60 kg, parar com 2 repetições de reserva, descanso de 2 minutos"
-        )
-    }
-
-    func testRF41_prescriptionSpeech_restWords() {
-        XCTAssertEqual(PrescriptionSpeech.rest(seconds: 120), "descanso de 2 minutos")
-        XCTAssertEqual(PrescriptionSpeech.rest(seconds: 60), "descanso de 1 minuto")
-        XCTAssertEqual(PrescriptionSpeech.rest(seconds: 90), "descanso de 1 minuto e 30 segundos")
-        XCTAssertEqual(PrescriptionSpeech.rest(seconds: 45), "descanso de 45 segundos")
-        XCTAssertEqual(PrescriptionSpeech.rest(seconds: 61), "descanso de 1 minuto e 1 segundo")
-        XCTAssertEqual(PrescriptionSpeech.rest(seconds: 0), "sem descanso")
     }
 
     // Os testes da `PrescriptionRow` (Home) foram para `Home/PrescriptionRowMeasureTests.swift`

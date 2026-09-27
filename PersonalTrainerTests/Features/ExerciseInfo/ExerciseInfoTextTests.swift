@@ -80,7 +80,7 @@ final class ExerciseInfoTextTests: XCTestCase {
 
     func testRF47_why_sentencePerNote() {
         let increase = makeContent(
-            note: .increase, repMin: 3, repMax: 5, load: 62.5,
+            note: .increase, load: 62.5, repMin: 3, repMax: 5,
             lastSession: lastSession(sets: [(60, 5), (60, 5), (60, 5)])
         )
         XCTAssertEqual(
@@ -90,7 +90,7 @@ final class ExerciseInfoTextTests: XCTestCase {
         )
 
         let hold = makeContent(
-            note: .hold, repMin: 8, repMax: 12, targetReps: 10,
+            note: .hold, targetReps: 10, repMin: 8, repMax: 12,
             lastSession: lastSession(sets: [(60, 9), (60, 9), (60, 9)])
         )
         XCTAssertEqual(
@@ -110,7 +110,7 @@ final class ExerciseInfoTextTests: XCTestCase {
         )
 
         let decrease = makeContent(
-            note: .decrease, repMin: 8, load: 54,
+            note: .decrease, load: 54, repMin: 8,
             lastSession: lastSession(sets: [(60, 6), (60, 6), (60, 6)])
         )
         XCTAssertEqual(
@@ -130,7 +130,7 @@ final class ExerciseInfoTextTests: XCTestCase {
         )
 
         let deload = makeContent(
-            note: .deload, sets: 2, load: 51,
+            note: .deload, load: 51, sets: 2,
             lastSession: lastSession(sets: [(60, 8), (60, 8)])
         )
         XCTAssertEqual(
@@ -153,7 +153,7 @@ final class ExerciseInfoTextTests: XCTestCase {
         )
 
         let toChooseReps = makeContent(
-            note: .calibrate, equipment: .barbell, load: nil, measure: .reps, targetReps: 8, targetRIR: 3
+            note: .calibrate, equipment: .barbell, measure: .reps, load: nil, targetReps: 8, targetRIR: 3
         )
         XCTAssertEqual(
             ExerciseInfoText.why(toChooseReps),
@@ -161,7 +161,7 @@ final class ExerciseInfoTextTests: XCTestCase {
         )
 
         let toChooseSeconds = makeContent(
-            note: .calibrate, equipment: .barbell, load: nil, measure: .seconds, targetReps: 15
+            note: .calibrate, equipment: .barbell, measure: .seconds, load: nil, targetReps: 15
         )
         XCTAssertEqual(
             ExerciseInfoText.why(toChooseSeconds),

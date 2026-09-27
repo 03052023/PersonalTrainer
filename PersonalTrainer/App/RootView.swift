@@ -1,13 +1,14 @@
 import SwiftData
 import SwiftUI
 import TrainerCore
+import UIKit
 import UniformTypeIdentifiers
 
 /// Raiz da navegação (T1.1, M2-CONTRACT §7; SPEC F1/F4/F5; DESIGN §8): abas "Hoje" (Home),
-/// "Histórico", "Programa" e "Ajustes", com a sessão ativa apresentada por cima em
-/// `fullScreenCover`, o onboarding do primeiro launch em `.sheet` e o destaque do diálogo
-/// (SPEC §7.11) numa folha própria. Cada aba traz a própria `NavigationStack`, então nada aqui
-/// as aninha em outra.
+/// "Histórico", "Plano" e "Ajustes", com a sessão ativa apresentada por cima em
+/// `fullScreenCover`, o onboarding do primeiro launch em `.sheet`, a troca de objetivo pelo topo
+/// da tela Hoje (SPEC RF-45) em `.sheet` e o destaque do diálogo (SPEC §7.11) numa folha própria.
+/// Cada aba traz a própria `NavigationStack`, então nada aqui as aninha em outra.
 ///
 /// O `AppEnvironment` chega pelo ambiente (`PersonalTrainerApp` injeta com `.environment`).
 /// Como `@Environment` só é legível depois do `init`, quem guarda o `HomeViewModel` e o
@@ -101,8 +102,9 @@ private enum CoachDestination: Identifiable {
 /// resultado aparece onde a pessoa está.
 ///
 /// Uma folha de cada vez: o destaque do diálogo só aparece quando nada mais está na tela
-/// (`blocksCoachSheet`, liberado nos `onDismiss` do onboarding e da sessão, depois que a
-/// animação de saída termina), porque o SwiftUI não abre uma folha sobre outra apresentação.
+/// (`blocksCoachSheet`, liberado nos `onDismiss` do onboarding, da sessão e da troca de
+/// objetivo, depois que a animação de saída termina), porque o SwiftUI não abre uma folha sobre
+/// outra apresentação.
 @MainActor
 private struct RootTabs: View {
     /// Item do `fullScreenCover(item:)`: só o `uuid` da sessão; a view do fluxo busca o resto.
@@ -113,7 +115,7 @@ private struct RootTabs: View {
     private enum RootTab: Hashable {
         case today
         case history
-        case program
+        case plan
         case settings
     }
 
@@ -136,6 +138,8 @@ private struct RootTabs: View {
     /// fecha (duas apresentações ao mesmo tempo não abrem).
     @State private var isHighlightOnScreen = false
     @State private var isShowingCoachError = false
+    /// Folha "Seu objetivo" (SPEC RF-45) aberta pelo topo da tela Hoje ou pelo diálogo (C2).
+    @State private var isShowingGoalSheet = false
     @Environment(\.scenePhase) private var scenePhase
 
     /// Marca gravada pelo `OnboardingView` ao tocar "Começar" ou "Pular" (UserDefaults, sem
@@ -203,6 +207,9 @@ private struct RootTabs: View {
         // sessão recalculada (SPEC F4) e trocar Retomar → Começar. O diálogo relê ao fechar a
         // sessão (marcos pessoais, C6).
         .fullScreenCover(item: $presentedSession, onDismiss: {
+            // RF-44 g: a ficha liga a tela acesa e desliga ao sumir; isto só garante que ela
+            // nunca fica ligada fora da sessão, mesmo se o `onDisappear` da ficha não vier.
+            UIApplication.shared.isIdleTimerDisabled = false
             blocksCoachSheet = false
             homeModel.refresh()
             refreshCoach()
@@ -211,16 +218,42 @@ private struct RootTabs: View {
                 presentedSession = nil
             })
         }
-        // Primeiro launch (T2.21, RF-35): escolher objetivo e programa. O onboarding desliga o
+        // Primeiro launch (RF-45): um passo só, escolher o objetivo. O onboarding desliga o
         // gesto de dispensa; toda saída passa por "Começar" ou "Pular", que gravam a marca.
         .sheet(isPresented: $isShowingOnboarding, onDismiss: {
             blocksCoachSheet = false
             refreshCoach()
         }) {
-            OnboardingView(programs: environment.programs, references: environment.references, onDone: {
-                isShowingOnboarding = false
-                homeModel.refresh()
-            })
+            OnboardingView(
+                programs: environment.programs,
+                references: environment.references,
+                catalog: environment.catalog,
+                onDone: {
+                    isShowingOnboarding = false
+                    homeModel.refresh()
+                }
+            )
+        }
+        // RF-45: trocar de objetivo pelo topo da tela Hoje (ou pelo diálogo, C2). A folha só
+        // chama `onFinish`; quem fecha é daqui. Com sessão em andamento, "Trocar" fica bloqueado
+        // dentro da folha. O destaque do diálogo espera ela fechar.
+        .sheet(isPresented: $isShowingGoalSheet, onDismiss: {
+            blocksCoachSheet = false
+        }) {
+            GoalSheet(
+                programs: environment.programs,
+                catalog: environment.catalog,
+                references: environment.references,
+                mode: .change,
+                isSessionInProgress: homeModel.activeSessionID != nil,
+                onFinish: { didChange in
+                    isShowingGoalSheet = false
+                    if didChange {
+                        homeModel.refresh()
+                        refreshCoach()
+                    }
+                }
+            )
         }
         // SPEC §7.11: destaque na abertura quando há algo novo e importante (C4, C1, C5, C2).
         // `highlightDidDismiss` no `onDismiss` é obrigatório: é ele que faz a navegação pedida na
@@ -320,6 +353,9 @@ private struct RootTabs: View {
                 references: environment.references,
                 onOpenSession: { sessionID in
                     openSession(sessionID)
+                },
+                onChangeGoal: {
+                    openGoalSheet()
                 }
             )
             .tabItem {
@@ -338,16 +374,20 @@ private struct RootTabs: View {
             }
             .tag(RootTab.history)
 
+            // RF-45: a aba "Plano" mostra o plano do objetivo; o planner marca a "próxima" e o
+            // coordinator bloqueia a troca com sessão em andamento.
             ProgramTabView(
                 programs: environment.programs,
                 catalog: environment.catalog,
                 references: environment.references,
-                now: environment.now
+                now: environment.now,
+                planner: environment.planner,
+                coordinator: environment.coordinator
             )
             .tabItem {
-                Label("Programa", systemImage: "list.bullet.rectangle")
+                Label("Plano", systemImage: "list.bullet.rectangle")
             }
-            .tag(RootTab.program)
+            .tag(RootTab.plan)
 
             // O modelo é daqui (a Home relê pelo `onDataChanged` dele); a exportação e os alertas
             // do Ajustes são apresentados logo abaixo, na raiz.
@@ -413,6 +453,14 @@ private struct RootTabs: View {
         presentedSession = PresentedSession(id: sessionID)
     }
 
+    // MARK: - Objetivo
+
+    /// Abre "Seu objetivo" (RF-45) por cima das abas; o destaque do diálogo espera ela fechar.
+    private func openGoalSheet() {
+        blocksCoachSheet = true
+        isShowingGoalSheet = true
+    }
+
     // MARK: - Diálogo
 
     /// Refresh depois de uma mudança na tela: atualiza o feed sem abrir destaque novo.
@@ -446,6 +494,7 @@ private struct RootTabs: View {
         let destination = $coachDestination
         let session = $presentedSession
         let blocks = $blocksCoachSheet
+        let goalSheet = $isShowingGoalSheet
         let home = homeModel
         let settings = settingsModel
         let catalog = environment.catalog
@@ -473,9 +522,12 @@ private struct RootTabs: View {
             let name = (try? catalog.exercise(id: exerciseID))?.name ?? "Evolução"
             destination.wrappedValue = .progress(exerciseID: exerciseID, name: name)
         }
-        // C2 "Trocar de programa" sem outro do mesmo objetivo: a pessoa escolhe.
+        // C2 "Trocar de programa" sem outro do mesmo objetivo: a pessoa escolhe na mesma folha
+        // "Seu objetivo" do topo da tela Hoje (RF-45). Do destaque, o `CoachService` só chama
+        // isto depois que a folha dele fecha.
         coach.onChooseProgramRequested = {
-            tab.wrappedValue = .program
+            blocks.wrappedValue = true
+            goalSheet.wrappedValue = true
         }
     }
 
