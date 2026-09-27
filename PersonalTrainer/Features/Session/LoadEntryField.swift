@@ -4,6 +4,8 @@ import SwiftUI
 /// carga e quando a pessoa toca na carga sublinhada da ficha. Aceita vírgula ou ponto; cada valor
 /// válido vai para `onChange` na hora (as bolinhas acordam assim que há carga) e um campo vazio ou
 /// inválido devolve `nil`. Nada é gravado aqui: a carga só vira dado quando uma bolinha é marcada.
+/// Ao trocar a carga, o campo começa vazio com a carga atual como `placeholder`: basta digitar a
+/// nova, e fechar sem digitar mantém a de antes.
 ///
 /// O foco é da ficha (`FocusState<UUID?>`), para o botão "OK" da barra do teclado fechar qualquer
 /// campo. `autoFocus` abre o teclado ao aparecer (troca de carga); na primeira vez, a pessoa toca
