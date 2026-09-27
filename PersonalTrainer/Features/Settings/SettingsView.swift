@@ -2,17 +2,17 @@ import SwiftUI
 import TrainerCore
 import UniformTypeIdentifiers
 
-/// Aba Ajustes (T2.4, SPEC RF-18, RF-32, RF-39, RF-42, §7.5, §7.10, §7.11; contratos V2-FINAL
-/// §2.6 e V21 B1): modo casa ("Treinar em casa"), planejamento (seletor por frequência, semanas
-/// entre semanas leves, "Fazer semana leve agora"), avisos (véspera da validade da instalação),
-/// perfil de saúde, backup, referências científicas e versão do app.
+/// Aba Ajustes (T7.5, SPEC RF-39, RF-42, §7.10, §7.11; contrato V22 §3.5): à vista, "Fazer semana
+/// leve agora", Backup, Perfil de saúde e Avisos (véspera da validade da instalação); em
+/// "Mais opções", o seletor por frequência, as semanas entre semanas leves, as referências
+/// científicas e a versão do app. Desde a 2.2 (RF-42), "Treinar em casa" saiu do Ajustes: a chave
+/// fica só no cartão da tela Hoje, que a grava e a lê.
 ///
 /// Traz a própria `NavigationStack`; quem a coloca numa aba não deve aninhá-la em outra.
 /// Nenhuma escrita no `ModelContext` (AGENTS R4): backup por `BackupServicing` e semana leve por
 /// `SessionPlanning`, via `SettingsViewModel`; o aviso de validade pelo `CoachService`, que pede a
-/// permissão de notificação só quando a pessoa liga o interruptor (AGENTS §7). Depois de importar,
-/// de programar uma semana leve ou de mudar o modo casa, `onDataChanged` avisa o integrador para
-/// reler a Home.
+/// permissão de notificação só quando a pessoa liga o interruptor (AGENTS §7). Depois de importar
+/// ou de programar uma semana leve, `onDataChanged` avisa o integrador para reler a Home.
 ///
 /// Duas formas de montar:
 /// - `init(backup:planner:…)`: a tela é dona do `SettingsViewModel` e apresenta a exportação e os
@@ -79,19 +79,13 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                homeSection
-                planningSection
-                remindersSection
-                healthSection
+                deloadSection
                 backupSection
-                scienceSection
-                aboutSection
+                healthSection
+                remindersSection
+                moreOptionsSection
             }
             .navigationTitle("Ajustes")
-            // O interruptor "Em casa" da Home grava a mesma chave.
-            .onAppear {
-                model.reloadHomeMode()
-            }
             // Rótulo `onCompletion:` explícito: o iOS 17 acrescentou sobrecargas com
             // `onCancellation:` e o fechamento final poderia ficar ambíguo.
             .fileExporter(
@@ -160,58 +154,10 @@ struct SettingsView: View {
 
     // MARK: - Seções
 
-    /// SPEC RF-42: "chave 'Treinar em casa' em Ajustes e na tela Hoje", a mesma
-    /// `PlannerSettings.homeModeKey`.
-    private var homeSection: some View {
-        let isOn = model.homeModeEnabled
-        return Section {
-            Toggle(
-                "Treinar em casa",
-                isOn: Binding<Bool>(
-                    get: { isOn },
-                    set: { enabled in
-                        model.setHomeModeEnabled(enabled)
-                    }
-                )
-            )
-        } header: {
-            Text("Onde treinar")
-        } footer: {
-            Text("Ligado, cada exercício da sessão vira um equivalente que dá para fazer em casa, com o peso do corpo ou objetos como mochila, garrafas de água e uma cadeira firme. O programa não muda: desligue para voltar aos exercícios dele.")
-        }
-    }
-
-    /// SPEC RF-39 (seletor por frequência, chave `plannerFrequencySelector`) e §7.5 (semanas
-    /// entre semanas leves, `plannerDeloadWeeks`; pedido manual).
-    private var planningSection: some View {
-        // Valores lidos aqui, no corpo: a view depende deles e os `Binding`s abaixo ficam em dia.
-        let mode = model.frequencySelector
-        let weeks = model.deloadWeeks
-        return Section {
-            Picker(
-                "Seletor por frequência",
-                selection: Binding<PlannerSettings.FrequencySelectorMode>(
-                    get: { mode },
-                    set: { newMode in
-                        model.setFrequencySelector(newMode)
-                    }
-                )
-            ) {
-                Text("Automático").tag(PlannerSettings.FrequencySelectorMode.auto)
-                Text("Ligado").tag(PlannerSettings.FrequencySelectorMode.on)
-                Text("Desligado").tag(PlannerSettings.FrequencySelectorMode.off)
-            }
-            Stepper(
-                value: Binding<Int>(
-                    get: { weeks },
-                    set: { newWeeks in
-                        model.setDeloadWeeks(newWeeks)
-                    }
-                ),
-                in: SettingsViewModel.deloadWeeksRange
-            ) {
-                Text(Self.deloadWeeksText(weeks))
-            }
+    /// SPEC §7.5 (c): pedido manual de semana leve, sem esperar o intervalo automático
+    /// ("Mais opções").
+    private var deloadSection: some View {
+        Section {
             Button {
                 model.requestDeload()
             } label: {
@@ -230,9 +176,21 @@ struct SettingsView: View {
                 Text("As próximas sessões, uma de cada dia do programa, vêm com menos séries e carga um pouco menor. Depois tudo volta ao normal.")
             }
         } header: {
-            Text("Planejamento")
+            Text("Semana leve")
         } footer: {
-            Text("Com o seletor por frequência, o próximo dia é o que treina os grupos mais abaixo da meta da semana. No automático, ele liga em programas com 4 dias ou mais. A semana leve reduz o volume por uma passagem pelo programa para você recuperar; o app a programa sozinho no intervalo escolhido.")
+            Text("Não precisa esperar o intervalo automático: peça quando sentir que precisa de um alívio no volume e na carga.")
+        }
+    }
+
+    /// "Mais opções" (SPEC RF-39, §7.5 b): seletor por frequência, semanas entre semanas leves,
+    /// referências científicas e versão.
+    private var moreOptionsSection: some View {
+        Section {
+            NavigationLink {
+                MoreOptionsView(model: model, references: references)
+            } label: {
+                Label("Mais opções", systemImage: "ellipsis.circle")
+            }
         }
     }
 
@@ -292,28 +250,6 @@ struct SettingsView: View {
             Text("Backup")
         } footer: {
             Text("Os dados ficam só neste iPhone. Exporte um backup para o app Arquivos antes de reinstalar ou apagar o app. Importar substitui tudo o que está aqui.")
-        }
-    }
-
-    private var scienceSection: some View {
-        Section {
-            NavigationLink {
-                ReferenceListView(catalog: references)
-            } label: {
-                Label("Referências científicas", systemImage: "book")
-            }
-        } header: {
-            Text("Ciência")
-        } footer: {
-            Text("As fontes por trás das regras de progressão, volume, descanso e objetivos.")
-        }
-    }
-
-    private var aboutSection: some View {
-        Section {
-            LabeledContent("Versão", value: model.appVersion)
-        } header: {
-            Text("Sobre")
         }
     }
 
