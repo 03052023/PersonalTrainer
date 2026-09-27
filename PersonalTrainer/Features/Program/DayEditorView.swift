@@ -1,8 +1,8 @@
 import SwiftUI
 import TrainerCore
 
-/// Editor de um dia do programa (T2.6, T2.20; SPEC RF-16, RF-33, RF-34): reordenar, remover,
-/// adicionar, trocar e editar exercícios. Usa o `ProgramDetailViewModel` da tela do programa,
+/// Editor de um dia do plano (T2.6, T2.20; SPEC RF-16, RF-33, RF-34), dentro de "Ajustar
+/// exercícios": reordenar, remover, adicionar, trocar e editar exercícios. Usa o `ProgramDetailViewModel` da tela do programa,
 /// que faz todas as escritas pelo repositório (AGENTS R4).
 ///
 /// Seletores e editor abrem em `.sheet`; a escrita correspondente roda no `onDismiss`, depois
@@ -42,6 +42,9 @@ struct DayEditorView: View {
     /// Referências do "Por quê?" na folha de substitutos (RF-32).
     private let references: ReferenceCatalog
 
+    /// Medida de cada exercício ("3 × 20–40 s"), injetada na raiz (SPEC RF-43).
+    @Environment(\.exerciseTraits) private var traits
+
     @State private var pickerRequest: PickerRequest? = nil
     @State private var editRequest: EditRequest? = nil
     @State private var pendingChange: PendingChange? = nil
@@ -60,7 +63,7 @@ struct DayEditorView: View {
                 ContentUnavailableView(
                     "Dia não encontrado",
                     systemImage: "calendar.badge.exclamationmark",
-                    description: Text("Este dia não existe mais no programa.")
+                    description: Text("Este dia não existe mais no plano.")
                 )
             }
         }
@@ -166,14 +169,14 @@ struct DayEditorView: View {
         }
     }
 
-    /// Nome, resumo "3 × 8–12 · RIR 2 · 2 min" e menu com Trocar/Editar.
+    /// Nome, resumo "3 × 8–12 · 2 min" (sem RIR, RF-41) e menu com Trocar/Editar.
     private func row(for target: ExerciseTarget) -> some View {
         let name = model.exerciseName(for: target)
         return HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(name)
                     .font(.body.weight(.medium))
-                Text(model.summary(for: target))
+                Text(model.summary(for: target, traits: traits))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -210,7 +213,7 @@ struct DayEditorView: View {
     }
 
     private func requestEdit(of target: ExerciseTarget, name: String) {
-        guard let draft = model.makeDraft(forTargetID: target.id, inDay: dayID) else { return }
+        guard let draft = model.makeDraft(forTargetID: target.id, inDay: dayID, traits: traits) else { return }
         editRequest = EditRequest(id: target.id, exerciseName: name, draft: draft)
     }
 

@@ -1,81 +1,233 @@
 import SwiftUI
 import TrainerCore
 
-/// Raiz da aba Programa (T2.6): lista de programas com o ativo no topo, objetivo e resumo.
-/// Tocar abre o `ProgramDetailView`; deslizar ou tocar e segurar oferece Ativar, Duplicar e
-/// Apagar (este só para inativos). A barra leva ao catálogo de exercícios (`CatalogListView`).
+/// Aba Plano (SPEC RF-45; DESIGN §7, §8; mockup "Plano"), a antiga aba Programa: no topo o
+/// objetivo com "Trocar objetivo"; "Sua semana" com um cartão por dia (o próximo marcado) para
+/// consultar; por último, "Ajustar exercícios" (dias, exercícios e parâmetros, RF-16, RF-33,
+/// RF-36) e o catálogo. Não lista programas: renomear, duplicar, apagar e trocar o objetivo de um
+/// programa saíram da interface (o repositório continua com eles para o backup e o diálogo).
 ///
 /// Nada aqui lê o `AppEnvironment` do ambiente nem escreve no `ModelContext` (AGENTS R4): os
-/// repositórios chegam por `init`. `now` só carimba cópias; o padrão existe para o integrador
-/// poder chamar `ProgramTabView(programs:catalog:references:)` e é o único relógio real da aba
-/// (os ViewModels recebem o closure, SPEC P11).
+/// serviços chegam por `init`. `now` é o único relógio real da aba (SPEC P11) e só serve para
+/// perguntar ao planejador qual é o próximo dia; os parâmetros novos têm padrão para o integrador
+/// poder chamar `ProgramTabView(programs:catalog:references:now:)`.
 struct ProgramTabView: View {
-    @State private var model: ProgramListViewModel
+    @State private var model: PlanTabModel
+    @State private var isShowingGoalSheet = false
+    /// Copiado ao abrir a folha: com sessão em andamento a troca fica bloqueada (RF-45).
+    @State private var goalSheetBlocked = false
     private let programs: any ProgramRepositoring
     private let catalog: any CatalogRepositoring
     private let references: ReferenceCatalog
+
+    /// DESIGN §9.1: a flor do topo tem cerca de 56 pt.
+    private static let flowerSize: CGFloat = 56
 
     init(
         programs: any ProgramRepositoring,
         catalog: any CatalogRepositoring,
         references: ReferenceCatalog,
-        now: @escaping () -> Date = { Date() }
+        now: @escaping () -> Date = { Date() },
+        planner: (any SessionPlanning)? = nil,
+        coordinator: (any SessionCoordinating)? = nil
     ) {
         self.programs = programs
         self.catalog = catalog
         self.references = references
-        self._model = State(initialValue: ProgramListViewModel(programs: programs, now: now))
+        self._model = State(initialValue: PlanTabModel(
+            programs: programs,
+            catalog: catalog,
+            planner: planner,
+            coordinator: coordinator,
+            now: now
+        ))
     }
 
     var body: some View {
         NavigationStack {
-            content
-                .navigationTitle("Programa")
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        NavigationLink("Exercícios") {
-                            CatalogListView(catalog: catalog)
-                        }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    content
+                    links
+                }
+                .padding(16)
+            }
+            .background {
+                Theme.background.ignoresSafeArea()
+            }
+            .navigationTitle("Plano")
+            // Também dispara ao voltar de "Ajustar exercícios": a semana mostra o que foi gravado.
+            .onAppear {
+                model.refresh()
+            }
+            .sheet(isPresented: $isShowingGoalSheet, onDismiss: {
+                model.refresh()
+            }) {
+                GoalSheet(
+                    programs: programs,
+                    catalog: catalog,
+                    references: references,
+                    mode: .change,
+                    isSessionInProgress: goalSheetBlocked,
+                    onFinish: { _ in
+                        isShowingGoalSheet = false
                     }
-                }
-                // Também dispara ao voltar do detalhe: a lista reflete nome, objetivo e ativo.
-                .onAppear {
-                    model.refresh()
-                }
-                .alert("Não foi possível continuar", isPresented: $model.isPresentingError) {
-                    Button("OK", role: .cancel) {}
-                } message: {
-                    Text(model.errorMessage ?? "")
-                }
+                )
+            }
+            .alert("Não foi possível continuar", isPresented: $model.isPresentingError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(model.errorMessage ?? "")
+            }
         }
     }
+
+    // MARK: - Conteúdo
 
     @ViewBuilder
     private var content: some View {
-        if model.programs.isEmpty {
-            if !model.hasLoaded {
-                ProgressView()
-            } else if model.didFailToLoad {
-                ContentUnavailableView(
-                    "Não foi possível carregar os programas",
-                    systemImage: "exclamationmark.triangle",
-                    description: Text("Saia da aba e volte para tentar de novo.")
-                )
-            } else {
-                ContentUnavailableView(
-                    "Nenhum programa",
-                    systemImage: "list.bullet.rectangle",
-                    description: Text("Os programas prontos aparecem aqui.")
-                )
-            }
+        if let program = model.activeProgram {
+            header(for: program)
+            week
+        } else if !model.hasLoaded {
+            ProgressView()
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+        } else if model.didFailToLoad {
+            messageCard(
+                title: "Não foi possível carregar o plano",
+                text: "Saia da aba e volte para tentar de novo.",
+                showsChooseButton: false
+            )
         } else {
-            programList
+            messageCard(
+                title: "Escolha um objetivo",
+                text: "Cada objetivo tem o seu plano, com os dias e os exercícios de cada sessão.",
+                showsChooseButton: true
+            )
         }
     }
 
-    private var programList: some View {
-        List {
-            ForEach(model.programs, id: \.id) { program in
+    /// Flor, nome do objetivo, "3 dias por semana" e "Trocar objetivo".
+    private func header(for program: ProgramTemplate) -> some View {
+        let goal = program.effectiveGoal
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 14) {
+                FlowerView(activeGoal: goal, size: Self.flowerSize)
+                    // O texto ao lado já diz o objetivo.
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(goal.displayName)
+                        .font(.system(.title2, design: .serif, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(model.subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(Text("Objetivo: \(goal.displayName). \(model.subtitle)."))
+                Spacer(minLength: 0)
+            }
+            changeGoalButton(title: "Trocar objetivo")
+        }
+    }
+
+    private func changeGoalButton(title: String) -> some View {
+        Button {
+            openGoalSheet()
+        } label: {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Theme.accentSoft, in: Capsule())
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Abre a lista de objetivos")
+    }
+
+    /// "Sua semana": um cartão por dia, com o próximo marcado.
+    private var week: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Sua semana")
+                .font(.system(.title3, design: .serif, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+            if model.days.isEmpty {
+                Text("Este plano ainda não tem dias.")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            ForEach(model.days, id: \.id) { day in
+                dayCard(day)
+            }
+        }
+    }
+
+    private func dayCard(_ day: ProgramDayTemplate) -> some View {
+        let exercises = model.exerciseList(for: day)
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(day.name)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                if model.isNext(day) {
+                    Text("próxima")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Theme.accent)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Theme.accentSoft, in: Capsule())
+                }
+            }
+            if !exercises.isEmpty {
+                Text(exercises)
+                    .font(.footnote)
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(model.accessibilityText(for: day)))
+    }
+
+    /// Sem plano ativo (ou falha de leitura): texto e, quando dá, o botão que abre a folha.
+    private func messageCard(title: String, text: String, showsChooseButton: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 14) {
+                FlowerView(activeGoal: nil, size: Self.flowerSize)
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(.system(.title2, design: .serif, weight: .semibold))
+                    .foregroundStyle(Theme.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if showsChooseButton {
+                changeGoalButton(title: "Escolher objetivo")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// "Ajustar exercícios" (só com plano ativo) e "Catálogo de exercícios", por último.
+    private var links: some View {
+        VStack(spacing: 0) {
+            if let program = model.activeProgram {
                 NavigationLink {
                     ProgramDetailView(
                         programID: program.id,
@@ -84,99 +236,42 @@ struct ProgramTabView: View {
                         references: references
                     )
                 } label: {
-                    row(for: program)
+                    linkRow("Ajustar exercícios")
                 }
-                .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                    if !program.isActive {
-                        Button {
-                            model.activate(program.id)
-                        } label: {
-                            Label("Ativar", systemImage: "checkmark.circle")
-                        }
-                        .tint(.green)
-                    }
-                }
-                // Sem `role: .destructive`: a exclusão pede confirmação, e o papel destrutivo
-                // anima a saída da linha antes da resposta.
-                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                    if !program.isActive {
-                        Button {
-                            model.requestDeletion(of: program.id)
-                        } label: {
-                            Label("Apagar", systemImage: "trash")
-                        }
-                        .tint(.red)
-                    }
-                    Button {
-                        model.duplicate(program.id)
-                    } label: {
-                        Label("Duplicar", systemImage: "plus.square.on.square")
-                    }
-                    .tint(.blue)
-                }
-                .contextMenu {
-                    if !program.isActive {
-                        Button {
-                            model.activate(program.id)
-                        } label: {
-                            Label("Ativar", systemImage: "checkmark.circle")
-                        }
-                    }
-                    Button {
-                        model.duplicate(program.id)
-                    } label: {
-                        Label("Duplicar", systemImage: "plus.square.on.square")
-                    }
-                    if !program.isActive {
-                        Button(role: .destructive) {
-                            model.requestDeletion(of: program.id)
-                        } label: {
-                            Label("Apagar", systemImage: "trash")
-                        }
-                    }
-                }
+                .buttonStyle(.plain)
+                Divider()
+                    .padding(.leading, 14)
             }
-        }
-        .confirmationDialog(
-            "Apagar programa?",
-            isPresented: $model.isConfirmingDeletion,
-            titleVisibility: .visible,
-            presenting: model.pendingDeletion
-        ) { program in
-            Button("Apagar \(program.name)", role: .destructive) {
-                model.confirmDeletion()
+            NavigationLink {
+                CatalogListView(catalog: catalog)
+            } label: {
+                linkRow("Catálogo de exercícios")
             }
-            Button("Cancelar", role: .cancel) {}
-        } message: { _ in
-            Text("O histórico de treinos continua salvo; só o programa é removido.")
+            .buttonStyle(.plain)
         }
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
-    private func row(for program: ProgramTemplate) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
-                Text(program.name)
-                    .font(.headline)
-                if program.isActive {
-                    Text("Ativo")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.green.opacity(0.15), in: Capsule())
-                        .foregroundStyle(.green)
-                }
-            }
-            Text("\(program.effectiveGoal.displayName) · \(ProgramListViewModel.dayCountText(program.days.count))")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            if let summary = program.summary, !summary.isEmpty {
-                Text(summary)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(3)
-            }
+    private func linkRow(_ title: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.body)
+                .foregroundStyle(Theme.textPrimary)
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .accessibilityHidden(true)
         }
-        .padding(.vertical, 2)
-        .accessibilityElement(children: .combine)
+        .padding(.horizontal, 14)
+        .frame(minHeight: 48)
+        .contentShape(Rectangle())
+    }
+
+    // MARK: - Ações
+
+    private func openGoalSheet() {
+        goalSheetBlocked = model.isSessionInProgress
+        isShowingGoalSheet = true
     }
 }

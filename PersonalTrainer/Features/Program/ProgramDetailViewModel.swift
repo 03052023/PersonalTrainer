@@ -3,9 +3,11 @@ import Observation
 import os
 import TrainerCore
 
-/// Estado da edição de um programa (T2.6, T2.12, T2.20; SPEC RF-16, RF-33, RF-34).
+/// Estado de "Ajustar exercícios" (T2.6, T2.20, T2.22; SPEC RF-16, RF-33, RF-34, RF-36, RF-45).
 ///
-/// Compartilhado por `ProgramDetailView` (nome, objetivo, dias) e `DayEditorView` (alvos do dia).
+/// Compartilhado por `ProgramDetailView` (dias) e `DayEditorView` (alvos do dia). Desde a 2.2 não
+/// renomeia o programa nem troca o objetivo dele (RF-45), e o RIR alvo não aparece nem é editável
+/// (RF-16, RF-41): salvar devolve ao repositório o valor já gravado.
 /// Toda escrita passa pelo `ProgramRepositoring` e cada escrita termina relendo o programa: a UI
 /// mostra sempre o que foi gravado, nunca uma cópia local otimista (AGENTS R4).
 ///
@@ -64,11 +66,6 @@ final class ProgramDetailViewModel {
         }
     }
 
-    /// Objetivo efetivo do programa (`nil` em arquivos v1 = hipertrofia).
-    var goal: ProgramGoal {
-        program?.effectiveGoal ?? .hypertrophy
-    }
-
     /// Dias na ordem de `order` (SPEC S1).
     var days: [ProgramDayTemplate] {
         (program?.days ?? []).sorted { $0.order < $1.order }
@@ -94,7 +91,7 @@ final class ProgramDetailViewModel {
         } catch {
             didFailToLoad = true
             Self.logger.error("Program detail load failed: \(String(describing: error), privacy: .public)")
-            let message = Self.message(for: error, fallback: "Não foi possível carregar o programa.")
+            let message = Self.message(for: error, fallback: "Não foi possível carregar o plano.")
             if onDayScreen {
                 dayErrorMessage = message
             } else {
@@ -120,32 +117,20 @@ final class ProgramDetailViewModel {
         exercisesByID[target.exerciseID]?.name ?? "Exercício removido do catálogo"
     }
 
-    /// Texto da linha do alvo, com a unidade de carga do exercício.
-    func summary(for target: ExerciseTarget) -> String {
-        Self.targetSummary(target, unit: exercisesByID[target.exerciseID]?.loadUnit ?? .kilograms)
+    /// Medida da série do exercício do alvo (SPEC RF-43): repetições, segundos ou passos.
+    /// Exercício personalizado, desconhecido ou removido mede em repetições.
+    func measure(for target: ExerciseTarget, traits: ExerciseTraitsCatalog) -> ExerciseMeasure {
+        guard let exercise = exercisesByID[target.exerciseID] else { return .reps }
+        return traits.traits(for: exercise).measure
     }
 
-    // MARK: - Programa (nome e objetivo)
-
-    /// Renomeia. Nome vazio (só espaços) é recusado antes de ir ao repositório.
-    func rename(to newName: String) {
-        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            errorMessage = "O nome do programa não pode ficar vazio."
-            return
-        }
-        guard trimmed != program?.name else { return }
-        perform(fallback: "Não foi possível renomear o programa.", onDayScreen: false) {
-            try programs.rename(programID: programID, to: trimmed)
-        }
-    }
-
-    /// Troca o objetivo (T2.12). Com `applyDefaults`, o repositório reescreve faixa, RIR e
-    /// descanso de todos os exercícios conforme `ProgramGoal.defaults` (SPEC §7.9).
-    func setGoal(_ newGoal: ProgramGoal, applyDefaults: Bool) {
-        perform(fallback: "Não foi possível trocar o objetivo.", onDayScreen: false) {
-            try programs.setGoal(programID: programID, goal: newGoal, applyDefaults: applyDefaults)
-        }
+    /// Texto da linha do alvo, com a unidade de carga e a medida do exercício ("3 × 20–40 s · 1 min").
+    func summary(for target: ExerciseTarget, traits: ExerciseTraitsCatalog = .empty) -> String {
+        Self.targetSummary(
+            target,
+            unit: exercisesByID[target.exerciseID]?.loadUnit ?? .kilograms,
+            measure: measure(for: target, traits: traits)
+        )
     }
 
     // MARK: - Dias do programa (T2.22, RF-36)
@@ -256,7 +241,7 @@ final class ProgramDetailViewModel {
         }
     }
 
-    /// RF-34 na edição: troca o exercício do alvo mantendo séries, faixa, RIR e descanso.
+    /// RF-34 na edição: troca o exercício do alvo mantendo séries, faixa, esforço e descanso.
     func replaceExercise(targetID: UUID, with exerciseID: UUID) {
         perform(fallback: "Não foi possível trocar o exercício.", onDayScreen: true) {
             try programs.replaceExercise(targetID: targetID, with: exerciseID)
@@ -281,8 +266,13 @@ final class ProgramDetailViewModel {
         )
     }
 
-    /// Rascunho pré-preenchido para `TargetEditorSheet`.
-    func makeDraft(forTargetID targetID: UUID, inDay dayID: UUID) -> TargetDraft? {
+    /// Rascunho pré-preenchido para `TargetEditorSheet`, com o RIR alvo gravado guardado para
+    /// voltar igual ao salvar (RF-16).
+    func makeDraft(
+        forTargetID targetID: UUID,
+        inDay dayID: UUID,
+        traits: ExerciseTraitsCatalog = .empty
+    ) -> TargetDraft? {
         guard let target = targets(inDay: dayID).first(where: { $0.id == targetID }) else {
             return nil
         }
@@ -291,11 +281,13 @@ final class ProgramDetailViewModel {
             target: target,
             loadUnit: exercise?.loadUnit ?? .kilograms,
             loadIncrement: exercise?.loadIncrement ?? 2.5,
-            isBodyweight: exercise?.equipment == .bodyweight
+            isBodyweight: exercise?.equipment == .bodyweight,
+            measure: measure(for: target, traits: traits)
         )
     }
 
-    /// Grava séries/faixa/RIR/descanso/carga inicial (RF-16). O rascunho é validado antes.
+    /// Grava séries/faixa/descanso/carga inicial (RF-16) e devolve o RIR alvo que já estava
+    /// gravado (a tela não o mostra, RF-41). O rascunho é validado antes.
     func updateTarget(id targetID: UUID, with draft: TargetDraft) {
         if let problem = draft.validationMessage {
             dayErrorMessage = problem
@@ -378,9 +370,11 @@ final class ProgramDetailViewModel {
         return steps
     }
 
-    /// "3 × 8–12 · RIR 2 · 2 min", mais "· inicial 60 kg" quando há carga inicial (SPEC P2).
-    static func targetSummary(_ target: ExerciseTarget, unit: LoadUnit) -> String {
-        var text = "\(target.sets) × \(target.repMin)–\(target.repMax) · RIR \(target.targetRIR) · \(restText(seconds: target.restSeconds))"
+    /// "3 × 8–12 · 2 min", "3 × 20–40 s · 1 min", "3 × 20–40 passos · 1 min 30 s", mais
+    /// "· inicial 60 kg" quando há carga inicial (SPEC P2). Sem RIR (RF-41).
+    static func targetSummary(_ target: ExerciseTarget, unit: LoadUnit, measure: ExerciseMeasure = .reps) -> String {
+        let range = MeasureText.range(min: target.repMin, max: target.repMax, measure: measure)
+        var text = "\(target.sets) × \(range) · \(restText(seconds: target.restSeconds))"
         if let startingLoad = target.startingLoad {
             text += " · inicial \(loadText(startingLoad, unit: unit))"
         }
@@ -425,23 +419,23 @@ final class ProgramDetailViewModel {
         }
         switch repositoryError {
         case .programNotFound:
-            return "Programa não encontrado."
+            return "Plano não encontrado."
         case .dayNotFound:
-            return "Dia não encontrado no programa."
+            return "Dia não encontrado no plano."
         case .targetNotFound:
             return "Exercício não encontrado no dia."
         case .exerciseNotFound:
             return "Exercício não encontrado no catálogo."
         case .cannotDeleteActive:
-            return "O programa ativo não pode ser apagado."
+            return "O plano ativo não pode ser apagado."
         case .tooManyExercises:
             return "Cada dia pode ter no máximo \(ProgramLimits.maxExercisesPerDay) exercícios."
         case .tooFewExercises:
             return "Cada dia precisa de pelo menos \(ProgramLimits.minExercisesPerDay) exercício."
         case .tooManyDays:
-            return "O programa pode ter no máximo \(ProgramLimits.maxDays) dias."
+            return "O plano pode ter no máximo \(ProgramLimits.maxDays) dias."
         case .tooFewDays:
-            return "O programa precisa de pelo menos \(ProgramLimits.minDays) dia."
+            return "O plano precisa de pelo menos \(ProgramLimits.minDays) dia."
         case .invalidParameters(let detail):
             return detail.isEmpty ? "Valores inválidos." : "Valores inválidos: \(detail)"
         }
@@ -452,8 +446,12 @@ final class ProgramDetailViewModel {
 
 extension ProgramDetailViewModel {
     /// Parâmetros editáveis de um alvo, com os limites do `ProgramRepositoring.updateTarget`:
-    /// séries 1…10, 1 ≤ repMin < repMax ≤ 50, RIR 0…5, descanso 15…600 s em passos de 15 s,
-    /// carga inicial ≥ 0 e múltipla do incremento (SPEC P8) ou `nil`.
+    /// séries 1…10, 1 ≤ repMin < repMax ≤ 50, descanso 15…600 s em passos de 15 s, carga inicial
+    /// ≥ 0 e múltipla do incremento (SPEC P8) ou `nil`.
+    ///
+    /// `targetRIR` não é editável nem aparece (RF-16, RF-41): é o valor gravado, que volta igual
+    /// em `updateTarget`. Só um valor antigo fora de 0…5 (que o repositório recusaria) é trazido
+    /// para dentro da faixa.
     struct TargetDraft: Sendable, Hashable {
         static let setsRange = 1...10
         static let repMinLimit = 1
@@ -465,7 +463,8 @@ extension ProgramDetailViewModel {
         var sets: Int
         var repMin: Int
         var repMax: Int
-        var targetRIR: Int
+        /// Gravado, nunca editado pela tela (RF-16, RF-41).
+        let targetRIR: Int
         var restSeconds: Int
         var startingLoad: Double?
 
@@ -473,10 +472,18 @@ extension ProgramDetailViewModel {
         let loadIncrement: Double
         /// Peso corporal aceita carga 0 (SPEC P8); os demais começam em um incremento.
         let isBodyweight: Bool
+        /// O que o número da série conta (SPEC RF-43): só muda os rótulos do editor.
+        let measure: ExerciseMeasure
 
         /// Normaliza valores fora dos limites (dados antigos) para os steppers nunca receberem
         /// um intervalo inválido.
-        init(target: ExerciseTarget, loadUnit: LoadUnit, loadIncrement: Double, isBodyweight: Bool) {
+        init(
+            target: ExerciseTarget,
+            loadUnit: LoadUnit,
+            loadIncrement: Double,
+            isBodyweight: Bool,
+            measure: ExerciseMeasure = .reps
+        ) {
             let safeIncrement = loadIncrement.isFinite && loadIncrement > 0 ? loadIncrement : 1
             let repMax = min(max(target.repMax, Self.repMinLimit + 1), Self.repMaxLimit)
             self.sets = min(max(target.sets, Self.setsRange.lowerBound), Self.setsRange.upperBound)
@@ -488,6 +495,7 @@ extension ProgramDetailViewModel {
             self.loadUnit = loadUnit
             self.loadIncrement = safeIncrement
             self.isBodyweight = isBodyweight
+            self.measure = measure
         }
 
         /// Faixas dos steppers de repetições; nunca vazias porque `repMin < repMax` é mantido.
@@ -521,9 +529,6 @@ extension ProgramDetailViewModel {
             }
             if repMin < Self.repMinLimit || repMax > Self.repMaxLimit || repMin >= repMax {
                 return "A faixa de repetições deve ter mínimo menor que o máximo, entre 1 e 50."
-            }
-            if !Self.rirRange.contains(targetRIR) {
-                return "O RIR alvo deve ficar entre 0 e 5."
             }
             if !Self.restRange.contains(restSeconds) {
                 return "O descanso deve ficar entre 15 s e 10 min."

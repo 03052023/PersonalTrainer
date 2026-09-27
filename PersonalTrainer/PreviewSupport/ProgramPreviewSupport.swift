@@ -2,22 +2,32 @@ import Foundation
 import SwiftUI
 import TrainerCore
 
-// Doubles e fixtures só para os #Preview da feature Programa (AGENTS R9: previews usam fakes).
+// Doubles e fixtures só para os #Preview da feature Plano (AGENTS R9: previews usam fakes).
 // Tudo privado ao arquivo e prefixado por "Program" para não colidir com doubles de outras
-// features; por isso os previews da aba Programa vivem aqui, e não em cada arquivo de view.
+// features; por isso os previews da aba Plano vivem aqui, e não em cada arquivo de view.
 
 // MARK: - Previews
 
-#Preview("Programa — lista") {
+#Preview("Plano") {
     ProgramTabView(
         programs: ProgramPreviewRepository.make(),
+        catalog: ProgramPreviewCatalog(),
+        references: ProgramPreviewFixture.references,
+        now: { ProgramPreviewFixture.referenceDate },
+        planner: ProgramPreviewPlanner(nextDayID: ProgramPreviewFixture.fullBodyDayBID)
+    )
+}
+
+#Preview("Plano — sem objetivo ativo") {
+    ProgramTabView(
+        programs: ProgramPreviewRepository(programs: ProgramPreviewFixture.makePrograms(activeID: nil)),
         catalog: ProgramPreviewCatalog(),
         references: ProgramPreviewFixture.references,
         now: { ProgramPreviewFixture.referenceDate }
     )
 }
 
-#Preview("Programa — detalhe") {
+#Preview("Ajustar exercícios") {
     NavigationStack {
         ProgramDetailView(
             programID: ProgramPreviewFixture.fullBodyID,
@@ -28,7 +38,7 @@ import TrainerCore
     }
 }
 
-#Preview("Programa — dia") {
+#Preview("Ajustar exercícios — dia") {
     NavigationStack {
         DayEditorView(
             model: ProgramPreviewFixture.makeDetailModel(),
@@ -37,7 +47,7 @@ import TrainerCore
     }
 }
 
-#Preview("Programa — editar exercício") {
+#Preview("Editar exercício") {
     TargetEditorSheet(
         exerciseName: "Supino reto com barra",
         draft: ProgramDetailViewModel.TargetDraft(
@@ -60,20 +70,54 @@ import TrainerCore
     )
 }
 
-#Preview("Programa — objetivo") {
-    NavigationStack {
-        GoalPickerView(
-            selected: .hypertrophy,
-            references: ProgramPreviewFixture.references,
-            onChoose: { _, _ in }
-        )
-    }
+#Preview("Editar exercício — segundos") {
+    TargetEditorSheet(
+        exerciseName: "Prancha",
+        draft: ProgramDetailViewModel.TargetDraft(
+            target: ExerciseTarget(
+                exerciseID: ProgramPreviewFixture.benchID,
+                order: 0,
+                sets: 3,
+                repMin: 20,
+                repMax: 40,
+                targetRIR: 2,
+                restSeconds: 60
+            ),
+            loadUnit: .kilograms,
+            loadIncrement: 2.5,
+            isBodyweight: true,
+            measure: .seconds
+        ),
+        onSave: { _ in },
+        onCancel: {}
+    )
 }
 
-#Preview("Onboarding") {
+#Preview("Seu objetivo") {
+    GoalSheet(
+        programs: ProgramPreviewRepository(programs: ProgramPreviewFixture.makePrograms(activeID: ProgramPreviewFixture.combatID)),
+        catalog: ProgramPreviewCatalog(),
+        references: ProgramPreviewFixture.references,
+        onFinish: { _ in }
+    )
+}
+
+#Preview("Seu objetivo — sessão em andamento") {
+    GoalSheet(
+        programs: ProgramPreviewRepository.make(),
+        catalog: ProgramPreviewCatalog(),
+        references: ProgramPreviewFixture.references,
+        mode: .change,
+        isSessionInProgress: true,
+        onFinish: { _ in }
+    )
+}
+
+#Preview("Primeiro uso") {
     OnboardingView(
         programs: ProgramPreviewRepository.make(),
         references: ProgramPreviewFixture.references,
+        catalog: ProgramPreviewCatalog(),
         onDone: {}
     )
 }
@@ -81,15 +125,20 @@ import TrainerCore
 // MARK: - Fixtures
 
 /// Só valores `Sendable`, sem isolamento; o que cria objetos `@MainActor` é marcado à parte.
+/// Os programas usam os ids do seed para o `GoalPlanCatalog` reconhecer os formatos.
 private enum ProgramPreviewFixture {
     /// Data fixa (SPEC P11): previews determinísticos.
     static let referenceDate = Date(timeIntervalSince1970: 1_758_600_000)
 
-    static let fullBodyID = UUID(uuidString: "00000000-0000-0000-0000-00000000A001") ?? UUID()
-    static let lowerFocusID = UUID(uuidString: "00000000-0000-0000-0000-00000000A002") ?? UUID()
-    static let upperFocusID = UUID(uuidString: "00000000-0000-0000-0000-00000000A003") ?? UUID()
-    static let combatID = UUID(uuidString: "00000000-0000-0000-0000-00000000A004") ?? UUID()
+    static let fullBodyID = GoalPlanCatalog.hypertrophyFullBodyID
+    static let lowerFocusID = GoalPlanCatalog.hypertrophyLowerFocusID
+    static let upperFocusID = GoalPlanCatalog.hypertrophyUpperFocusID
+    static let strengthID = GoalPlanCatalog.strengthID
+    static let enduranceID = GoalPlanCatalog.enduranceID
+    static let longevityID = GoalPlanCatalog.longevityID
+    static let combatID = GoalPlanCatalog.combatID
     static let fullBodyDayAID = UUID(uuidString: "00000000-0000-0000-0000-00000000D001") ?? UUID()
+    static let fullBodyDayBID = UUID(uuidString: "00000000-0000-0000-0000-00000000D002") ?? UUID()
 
     static let benchID = UUID(uuidString: "00000000-0000-0000-0000-00000000E001") ?? UUID()
 
@@ -106,53 +155,101 @@ private enum ProgramPreviewFixture {
         ExerciseDefinition(slug: "elevacao-lateral", name: "Elevação lateral", primaryMuscles: [.shoulders], equipment: .dumbbell, loadUnit: .kilograms, loadIncrement: 1, movementPattern: .shoulderIsolation),
         ExerciseDefinition(slug: "rosca-direta", name: "Rosca direta", primaryMuscles: [.biceps], equipment: .barbell, loadUnit: .kilograms, loadIncrement: 2, movementPattern: .elbowFlexion),
         ExerciseDefinition(slug: "triceps-corda", name: "Tríceps na corda", primaryMuscles: [.triceps], equipment: .cable, loadUnit: .level, loadIncrement: 1, movementPattern: .elbowExtension),
-        ExerciseDefinition(slug: "farmer-walk", name: "Farmer's walk", primaryMuscles: [.core], equipment: .dumbbell, loadUnit: .kilograms, loadIncrement: 2, movementPattern: .carry),
+        ExerciseDefinition(slug: "farmer-walk", name: "Caminhada do fazendeiro com halteres", primaryMuscles: [.core], equipment: .dumbbell, loadUnit: .kilograms, loadIncrement: 2, movementPattern: .carry),
     ]
 
     static func exerciseID(_ slug: String) -> UUID {
         exercises.first { $0.slug == slug }?.id ?? benchID
     }
 
+    /// Os programas do app, com o Completo ativo.
     static var programs: [ProgramTemplate] {
+        makePrograms(activeID: fullBodyID)
+    }
+
+    /// Mesmos programas com `activeID` ativo (`nil`: nenhum ativo).
+    static func makePrograms(activeID: UUID?) -> [ProgramTemplate] {
         [
             ProgramTemplate(
                 id: fullBodyID,
-                name: "Hipertrofia — completo",
+                name: "Hipertrofia — Completo",
                 days: [
-                    day(id: fullBodyDayAID, "Dia A — Superior", order: 0, slugs: ["supino-reto-barra", "remada-baixa", "elevacao-lateral", "rosca-direta", "triceps-corda"], startingLoads: [40, nil, nil, nil, 6]),
-                    day("Dia B — Inferior", order: 1, slugs: ["agachamento-livre", "leg-press-45", "stiff"]),
-                    day("Dia C — Superior", order: 2, slugs: ["supino-halteres", "puxada-frente", "elevacao-lateral"]),
+                    day(id: fullBodyDayAID, "Dia A — Corpo todo", order: 0, slugs: ["supino-reto-barra", "agachamento-livre", "remada-baixa", "elevacao-lateral", "triceps-corda"], startingLoads: [40, nil, nil, nil, 6]),
+                    day(id: fullBodyDayBID, "Dia B — Corpo todo", order: 1, slugs: ["leg-press-45", "supino-halteres", "puxada-frente", "stiff", "rosca-direta"]),
+                    day("Dia C — Corpo todo", order: 2, slugs: ["agachamento-livre", "chest-press", "remada-baixa", "elevacao-lateral", "farmer-walk"]),
                 ],
-                isActive: true,
+                isActive: activeID == fullBodyID,
                 goal: .hypertrophy,
-                summary: "Corpo inteiro equilibrado em três dias (ABC)."
+                summary: "Corpo inteiro equilibrado em três dias."
             ),
             ProgramTemplate(
                 id: lowerFocusID,
-                name: "Hipertrofia — foco inferior",
+                name: "Hipertrofia — Foco inferior",
                 days: [
-                    day("Dia A — Pernas e glúteos", order: 0, slugs: ["agachamento-livre", "leg-press-45", "stiff"]),
+                    day("Dia A — Inferior (quadríceps e glúteos)", order: 0, slugs: ["agachamento-livre", "leg-press-45", "stiff"]),
                     day("Dia B — Superior (manutenção)", order: 1, slugs: ["supino-reto-barra", "remada-baixa"]),
+                    day("Dia C — Inferior (posteriores e glúteos)", order: 2, slugs: ["stiff", "leg-press-45"]),
+                    day("Dia D — Superior (manutenção)", order: 3, slugs: ["supino-halteres", "puxada-frente"]),
                 ],
+                isActive: activeID == lowerFocusID,
                 goal: .hypertrophy,
                 summary: "Glúteos e pernas com mais volume; superior em manutenção."
             ),
             ProgramTemplate(
                 id: upperFocusID,
-                name: "Hipertrofia — foco superior",
+                name: "Hipertrofia — Foco superior",
                 days: [
-                    day("Dia A — Peito e costas", order: 0, slugs: ["supino-reto-barra", "remada-baixa", "puxada-frente"]),
+                    day("Dia A — Superior", order: 0, slugs: ["supino-reto-barra", "remada-baixa", "puxada-frente"]),
                     day("Dia B — Inferior (manutenção)", order: 1, slugs: ["agachamento-livre", "stiff"]),
+                    day("Dia C — Superior", order: 2, slugs: ["supino-halteres", "remada-baixa", "rosca-direta"]),
+                    day("Dia D — Inferior (manutenção)", order: 3, slugs: ["leg-press-45", "stiff"]),
                 ],
+                isActive: activeID == upperFocusID,
                 goal: .hypertrophy,
                 summary: "Peito, ombros, braços e costas com mais volume; inferior em manutenção."
+            ),
+            ProgramTemplate(
+                id: strengthID,
+                name: "Força",
+                days: [
+                    day("Dia A — Agachamento e supino", order: 0, slugs: ["agachamento-livre", "supino-reto-barra", "remada-baixa"]),
+                    day("Dia B — Levantamento terra", order: 1, slugs: ["stiff", "puxada-frente"]),
+                    day("Dia C — Agachamento e supino", order: 2, slugs: ["agachamento-livre", "supino-halteres"]),
+                ],
+                isActive: activeID == strengthID,
+                goal: .strength
+            ),
+            ProgramTemplate(
+                id: enduranceID,
+                name: "Resistência muscular",
+                days: [
+                    day("Dia A — Corpo inteiro", order: 0, slugs: ["leg-press-45", "chest-press", "puxada-frente"]),
+                    day("Dia B — Corpo inteiro", order: 1, slugs: ["agachamento-livre", "flexao", "remada-baixa"]),
+                    day("Dia C — Corpo inteiro", order: 2, slugs: ["stiff", "supino-halteres", "elevacao-lateral"]),
+                ],
+                isActive: activeID == enduranceID,
+                goal: .endurance
+            ),
+            ProgramTemplate(
+                id: longevityID,
+                name: "Longevidade",
+                days: [
+                    day("Dia A — Corpo inteiro", order: 0, slugs: ["leg-press-45", "chest-press", "farmer-walk"]),
+                    day("Dia B — Corpo inteiro", order: 1, slugs: ["agachamento-livre", "remada-baixa"]),
+                    day("Dia C — Corpo inteiro", order: 2, slugs: ["stiff", "puxada-frente"]),
+                ],
+                isActive: activeID == longevityID,
+                goal: .longevity
             ),
             ProgramTemplate(
                 id: combatID,
                 name: "Combate",
                 days: [
-                    day("Dia A — Força e pegada", order: 0, slugs: ["agachamento-livre", "remada-baixa", "farmer-walk"]),
+                    day("Dia A — Potência, agachamento e pegada", order: 0, slugs: ["agachamento-livre", "remada-baixa", "farmer-walk"]),
+                    day("Dia B — Salto, terra e supino", order: 1, slugs: ["stiff", "supino-reto-barra"]),
+                    day("Dia C — Potência rotacional e ombros", order: 2, slugs: ["elevacao-lateral", "farmer-walk"]),
                 ],
+                isActive: activeID == combatID,
                 goal: .combat,
                 summary: "Força máxima, potência, pegada e tronco."
             ),
@@ -203,7 +300,7 @@ private enum ProgramPreviewFixture {
     }()
 
     /// ViewModel já lido, para o preview do editor de dia (quem chama `refresh()` no app é a
-    /// tela do programa).
+    /// tela "Ajustar exercícios").
     @MainActor
     static func makeDetailModel() -> ProgramDetailViewModel {
         let model = ProgramDetailViewModel(
@@ -518,6 +615,35 @@ private final class ProgramPreviewRepository: ProgramRepositoring {
             restSeconds: target.restSeconds,
             startingLoad: target.startingLoad
         )
+    }
+}
+
+/// Planejador mínimo: `nextPlan` devolve o dia `nextDayID` do Completo (a marca "próxima").
+@MainActor
+private final class ProgramPreviewPlanner: SessionPlanning {
+    private let nextDayID: UUID
+
+    init(nextDayID: UUID) {
+        self.nextDayID = nextDayID
+    }
+
+    func nextPlan(now: Date) throws -> SessionPlan? {
+        SessionPlan(
+            programID: ProgramPreviewFixture.fullBodyID,
+            programName: "Hipertrofia — Completo",
+            programDayID: nextDayID,
+            programDayName: "Dia B — Corpo todo",
+            exercises: [],
+            generatedAt: now
+        )
+    }
+
+    func plan(forDayID dayID: UUID, now: Date) throws -> SessionPlan? {
+        nil
+    }
+
+    func startSession(from plan: SessionPlan, now: Date) throws -> UUID {
+        UUID()
     }
 }
 
