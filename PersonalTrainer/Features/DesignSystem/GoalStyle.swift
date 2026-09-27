@@ -35,13 +35,16 @@ extension ProgramGoal {
         case .longevity: return "Viver bem por mais tempo"
         case .hypertrophy: return "Ganhar massa muscular"
         case .strength: return "Ficar mais forte"
-        case .combat: return "Saber se defender"
+        // SPEC decisão 18 (2026-09-27): troca "Saber se defender", que prometia técnica de defesa
+        // que o app não ensina (SPEC §7.9).
+        case .combat: return "Potência e resistência"
         case .endurance: return "Aguentar mais"
         }
     }
 
     /// Posição na flor de 5 pétalas (DESIGN §4), no sentido horário a partir do topo (índice 0).
-    /// `FlowerView` gira cada pétala em `72° × petalIndex`.
+    /// `FlowerView` usa este índice para escolher a pétala Brisa certa (`PetalShape(petalIndex:)`),
+    /// que já nasce na posição e no giro certos — nada de rotacionar por fora.
     var petalIndex: Int {
         switch self {
         case .longevity: return 0
