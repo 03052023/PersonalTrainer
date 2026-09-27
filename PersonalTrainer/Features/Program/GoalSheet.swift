@@ -261,7 +261,7 @@ struct GoalSheet: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(Text("Formato: \(GoalPlanCatalog.chipText(format))"))
+        .accessibilityLabel(Text("Formato: \(GoalPlanCatalog.spokenChipText(format))"))
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 

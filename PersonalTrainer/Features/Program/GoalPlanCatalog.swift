@@ -264,6 +264,11 @@ struct GoalPlanCatalog: Sendable, Hashable {
         "\(format.title) · \(dayCountText(format.dayCount))"
     }
 
+    /// Leitura do VoiceOver do chip, sem o "·": "Corpo todo, 3 dias".
+    static func spokenChipText(_ format: Format) -> String {
+        "\(format.title), \(dayCountText(format.dayCount))"
+    }
+
     /// "Dia A — Corpo todo" → "Dia A". Nome sem travessão fica inteiro.
     static func shortDayName(_ name: String) -> String {
         guard let range = name.range(of: " — ") else {

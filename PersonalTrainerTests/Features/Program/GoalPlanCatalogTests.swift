@@ -182,5 +182,6 @@ final class GoalPlanCatalogTests: XCTestCase {
         XCTAssertEqual(GoalPlanCatalog.shortDayName("Pernas"), "Pernas")
         let format = GoalPlanCatalog.Format(id: UUID(), title: "Mais pernas e glúteos", dayCount: 4, isActive: false, isExtra: false)
         XCTAssertEqual(GoalPlanCatalog.chipText(format), "Mais pernas e glúteos · 4 dias")
+        XCTAssertEqual(GoalPlanCatalog.spokenChipText(format), "Mais pernas e glúteos, 4 dias")
     }
 }

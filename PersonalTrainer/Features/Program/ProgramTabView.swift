@@ -127,7 +127,7 @@ struct ProgramTabView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel(Text("Objetivo: \(goal.displayName). \(model.subtitle)."))
+                .accessibilityLabel(Text("Objetivo: \(goal.displayName). \(model.spokenSubtitle)."))
                 Spacer(minLength: 0)
             }
             changeGoalButton(title: "Trocar objetivo")

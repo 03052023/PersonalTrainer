@@ -24,6 +24,7 @@ final class PlanTabModelTests: XCTestCase {
         XCTAssertEqual(model.goal, .combat)
         XCTAssertEqual(model.days.map(\.order), [0, 1, 2], "Dias na ordem de `order` (S1)")
         XCTAssertEqual(model.subtitle, "3 dias por semana")
+        XCTAssertEqual(model.spokenSubtitle, "3 dias por semana")
         let firstDay = try XCTUnwrap(model.days.first)
         XCTAssertEqual(model.exerciseList(for: firstDay), "Supino reto com barra · Supino máquina antiga · Remada baixa")
         XCTAssertTrue(repository.calls.isEmpty, "Só lê")
@@ -94,6 +95,7 @@ final class PlanTabModelTests: XCTestCase {
         model.refresh()
 
         XCTAssertEqual(model.subtitle, "Mais pernas e glúteos · 4 dias por semana")
+        XCTAssertEqual(model.spokenSubtitle, "Mais pernas e glúteos, 4 dias por semana", "VoiceOver sem o \"·\"")
     }
 
     func testRF45_plan_noActiveProgram() {

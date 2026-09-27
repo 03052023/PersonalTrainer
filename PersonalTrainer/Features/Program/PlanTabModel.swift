@@ -121,9 +121,18 @@ final class PlanTabModel {
 
     /// "3 dias por semana"; na Hipertrofia com formatos, "Mais pernas e glúteos · 4 dias por semana".
     var subtitle: String {
+        formattedSubtitle(separator: " · ")
+    }
+
+    /// Leitura do VoiceOver do subtítulo, sem o "·": "Mais pernas e glúteos, 4 dias por semana".
+    var spokenSubtitle: String {
+        formattedSubtitle(separator: ", ")
+    }
+
+    private func formattedSubtitle(separator: String) -> String {
         let weekly = GoalPlanCatalog.weeklyText(activeProgram?.days.count ?? 0)
         if let format = plans.activeFormat {
-            return "\(format.title) · \(weekly)"
+            return "\(format.title)\(separator)\(weekly)"
         }
         return weekly
     }
