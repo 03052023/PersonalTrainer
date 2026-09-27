@@ -1,30 +1,28 @@
 import SwiftUI
 import TrainerCore
 
-/// Correção de uma série já registrada (SPEC RF-19, P10): carga, repetições (ou segundos e
-/// passos, SPEC RF-43) e RIR, ou apagar.
+/// "Corrigir série" (SPEC RF-19, RF-44 b; DESIGN §13): uma folha pequena só com carga ("Carga
+/// extra" em peso do corpo, SPEC RF-46), repetições (ou segundos e passos, SPEC RF-43) e "Apagar
+/// série". Abre ao tocar numa bolinha cheia da ficha.
 ///
 /// Edita uma cópia local (`@State`) e só devolve os valores em "Salvar"; quem grava é o
-/// `ActiveSessionViewModel`, pelo coordinator (AGENTS R4). Aquecimento/trabalho não muda aqui:
-/// o evento `setUpdated` só carrega carga, reps e RIR.
+/// `ActiveSessionViewModel`, pelo coordinator (AGENTS R4), com o RIR que a série já tinha (SPEC
+/// RF-41: a folha não mostra nem muda o RIR).
 struct EditSetSheet: View {
     @State private var edit: ActiveSessionViewModel.SetEdit
     @State private var isConfirmingDelete = false
 
-    private let references: ReferenceCatalog
     private let onSave: (ActiveSessionViewModel.SetEdit) -> Void
     private let onDelete: () -> Void
     private let onCancel: () -> Void
 
     init(
         edit: ActiveSessionViewModel.SetEdit,
-        references: ReferenceCatalog = .empty,
         onSave: @escaping (ActiveSessionViewModel.SetEdit) -> Void,
         onDelete: @escaping () -> Void,
         onCancel: @escaping () -> Void
     ) {
         self._edit = State(initialValue: edit)
-        self.references = references
         self.onSave = onSave
         self.onDelete = onDelete
         self.onCancel = onCancel
@@ -34,22 +32,26 @@ struct EditSetSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    if edit.isWarmup {
-                        Label("Série de aquecimento", systemImage: "thermometer.medium")
+                    if !edit.plannedLine.isEmpty {
+                        Text(edit.plannedLine)
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    LoadStepper(value: $edit.load, increment: edit.loadIncrement, unit: edit.loadUnit)
+                    LoadStepper(
+                        value: $edit.load,
+                        increment: edit.loadIncrement,
+                        unit: edit.loadUnit,
+                        title: edit.isBodyweight ? "Carga extra" : "Carga"
+                    )
 
                     RepsStepper(
                         value: $edit.reps,
                         range: MeasureText.stepperRange(edit.measure),
-                        highlightRange: SetEntryView.highlightRange(repMin: edit.repMin, repMax: edit.repMax),
+                        highlightRange: RepsStepper.highlightRange(repMin: edit.repMin, repMax: edit.repMax),
                         measure: edit.measure
                     )
-
-                    RIRPicker(selection: $edit.rir, references: references)
 
                     Button(role: .destructive) {
                         isConfirmingDelete = true
@@ -62,6 +64,7 @@ struct EditSetSheet: View {
                 }
                 .padding()
             }
+            .background(Theme.background.ignoresSafeArea())
             .navigationTitle("Corrigir série \(edit.number)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -74,6 +77,7 @@ struct EditSetSheet: View {
                     Button("Salvar") {
                         onSave(edit)
                     }
+                    .fontWeight(.semibold)
                 }
             }
             .confirmationDialog(
@@ -86,25 +90,26 @@ struct EditSetSheet: View {
                 }
                 Button("Cancelar", role: .cancel) {}
             } message: {
-                Text("Ela sai deste treino e do histórico do exercício.")
+                Text("Ela sai desta sessão e do histórico do exercício.")
             }
         }
+        .tint(Theme.accent)
     }
 }
 
-#Preview("Série de trabalho") {
+#Preview("Série com carga") {
     EditSetSheet(
         edit: ActiveSessionViewModel.SetEdit(
             setID: UUID(),
-            number: 2,
+            number: 3,
             load: 62.5,
-            reps: 9,
-            rir: 1,
-            isWarmup: false,
+            reps: 2,
+            rir: nil,
             loadIncrement: 2.5,
             loadUnit: .kilograms,
-            repMin: 8,
-            repMax: 12
+            repMin: 3,
+            repMax: 5,
+            plannedLine: "Agachamento livre · previsto: 3 repetições · 62,5 kg"
         ),
         onSave: { _ in },
         onDelete: {},
@@ -112,15 +117,36 @@ struct EditSetSheet: View {
     )
 }
 
-#Preview("Carregada em passos") {
+#Preview("Peso do corpo") {
     EditSetSheet(
         edit: ActiveSessionViewModel.SetEdit(
             setID: UUID(),
             number: 1,
-            load: 20,
-            reps: 32,
-            rir: 2,
-            isWarmup: false,
+            load: 0,
+            reps: 5,
+            rir: nil,
+            loadIncrement: 2.5,
+            loadUnit: .kilograms,
+            repMin: 5,
+            repMax: 8,
+            isBodyweight: true,
+            plannedLine: "Barra fixa · previsto: 5 repetições"
+        ),
+        onSave: { _ in },
+        onDelete: {},
+        onCancel: {}
+    )
+    .dynamicTypeSize(.accessibility3)
+}
+
+#Preview("Passos") {
+    EditSetSheet(
+        edit: ActiveSessionViewModel.SetEdit(
+            setID: UUID(),
+            number: 1,
+            load: 22.5,
+            reps: 30,
+            rir: nil,
             loadIncrement: 2,
             loadUnit: .kilograms,
             repMin: 20,
@@ -131,25 +157,4 @@ struct EditSetSheet: View {
         onDelete: {},
         onCancel: {}
     )
-}
-
-#Preview("Aquecimento em placas") {
-    EditSetSheet(
-        edit: ActiveSessionViewModel.SetEdit(
-            setID: UUID(),
-            number: 1,
-            load: 5,
-            reps: 12,
-            rir: nil,
-            isWarmup: true,
-            loadIncrement: 1,
-            loadUnit: .plates,
-            repMin: 8,
-            repMax: 12
-        ),
-        onSave: { _ in },
-        onDelete: {},
-        onCancel: {}
-    )
-    .dynamicTypeSize(.accessibility3)
 }
