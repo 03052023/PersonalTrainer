@@ -2,13 +2,19 @@ import SwiftUI
 import TrainerCore
 
 /// Uma `Section` de `SessionDetailView` por exercício da sessão (SPEC F5, CA1-7):
-/// cabeçalho com nome, prescrição ("3 × 8–12 · 60 kg · RIR 2"), nota com "Por quê?" (RF-32)
-/// e badge "Pulado"; uma linha por série ("1 · 60 kg × 10 · RIR 2"), aquecimento marcado,
-/// ordenadas por `index`; e por fim o link para a evolução de carga do exercício (T2.10).
+/// cabeçalho com nome, a meta de hoje em palavras ("3 séries de 10 · 60 kg", RF-41, RF-46), o
+/// selo leigo da nota com "Por quê?" (RF-32, só com novidade) e badge "Pulado"; uma linha por
+/// série ("1 · 60 kg × 10"; peso do corpo sem carga: "1 · 10 repetições"), aquecimentos antigos
+/// marcados "Aquecimento", ordenadas por `index`; e por fim o link para a evolução de carga do
+/// exercício (T2.10).
+///
+/// Desde a 2.2 (`docs/V22-CONTRACT.md` §3.7): nada de RIR em texto nem na leitura do VoiceOver
+/// (SPEC RF-41, decisão 18) — o dado continua na série (`SetLogModel.rir`), só não aparece aqui.
+/// A prescrição e o selo vêm das funções compartilhadas `TodayTargetText` e `PrescriptionNote.badgeText`
+/// (`docs/V22-CONTRACT.md` §2.3), as mesmas da Home, da ficha da sessão e da folha de informações.
 ///
 /// A medida do exercício (SPEC RF-43), lida de `\.exerciseTraits` pelo `slug`, dá a unidade da
-/// faixa e das séries ("3 × 20–40 s", "1 · 0 kg × 30 s"); o VoiceOver lê a prescrição por extenso,
-/// com "RIR 2" como "parar com 2 repetições de reserva" (SPEC RF-41 d).
+/// faixa e das séries ("3 séries de 20–40 s", "1 · 30 s").
 ///
 /// Só leitura: recebe o snapshot da prescrição e as séries; nada aqui escreve (R4).
 @MainActor
@@ -60,9 +66,10 @@ struct SessionExerciseSection: View {
                 Text(prescriptionText)
                     .font(.subheadline)
                     .accessibilityLabel(prescriptionSpokenText)
-                if let note = sessionExercise.note {
+                // Selo leigo (RF-41, decisão 18): some sozinho em `hold` ("Manter" não tem selo).
+                if let note = sessionExercise.note, let badge = note.badgeText {
                     HStack(spacing: 8) {
-                        Text(Self.noteText(note))
+                        Text(badge)
                             .font(.caption)
                         // Esconde-se sozinho quando o catálogo não tem referências para a nota.
                         WhyButton(topic: ReferenceCatalog.topic(for: note), catalog: references)
@@ -95,57 +102,69 @@ struct SessionExerciseSection: View {
 
     // MARK: - Textos
 
-    /// "1 · 60 kg × 10 · RIR 2" ou "1 · 20 kg × 30 passos · RIR 2". `index` é 0-based
-    /// (`SessionCoordinating.logSet`); o usuário conta a partir de 1.
+    /// "1 · 60 kg × 10", "1 · 20 kg × 30 passos"; peso do corpo sem carga extra (SPEC RF-46):
+    /// "1 · 10 repetições", por extenso, sem "0 kg" nem "—". `index` é 0-based
+    /// (`SessionCoordinating.logSet`); o usuário conta a partir de 1. Nada de RIR (SPEC RF-41,
+    /// decisão 18): o valor gravado na série continua intacto, só não aparece aqui.
+    static func setLineText(
+        index: Int,
+        load: Double,
+        reps: Int,
+        measure: ExerciseMeasure,
+        unit: LoadUnit,
+        equipment: Equipment?
+    ) -> String {
+        let display = TodayTargetText.loadDisplay(load: load, unit: unit, equipment: equipment)
+        guard let label = TodayTargetText.loadLabel(display) else {
+            return "\(index + 1) · \(TodayTargetText.amount(reps, measure: measure))"
+        }
+        return "\(index + 1) · \(label) × \(MeasureText.amount(reps, measure: measure))"
+    }
+
     private func setLine(_ set: SetLogModel) -> String {
-        "\(set.index + 1) · \(loadText(set.load)) × \(MeasureText.amount(set.reps, measure: measure)) · \(rirText(set.rir))"
+        Self.setLineText(index: set.index, load: set.load, reps: set.reps, measure: measure, unit: loadUnit, equipment: equipment)
     }
 
-    /// "3 × 8–12 · 60 kg · RIR 2" ou "3 × 20–40 s · 0 kg · RIR 2"; carga `nil` (calibração,
-    /// SPEC P2) vira "—".
+    /// Meta de hoje em palavras, via `TodayTargetText.row` (a mesma função da Home, da ficha da
+    /// sessão e da folha de informações; `docs/V22-CONTRACT.md` §2.3): "3 séries de 10 · 60 kg",
+    /// "3 séries de 5" (peso do corpo sem carga, SPEC RF-46), "2 séries de 15 s". Carga `nil`
+    /// (calibração, SPEC P2) mostra "escolha a carga". Nada de RIR (SPEC RF-41).
+    static func prescriptionRowText(
+        sets: Int,
+        targetReps: Int,
+        repMin: Int,
+        measure: ExerciseMeasure,
+        load: Double?,
+        unit: LoadUnit,
+        equipment: Equipment?
+    ) -> String {
+        let goal = TodayTargetText.goal(targetReps: targetReps, repMin: repMin)
+        let display = TodayTargetText.loadDisplay(load: load, unit: unit, equipment: equipment)
+        return TodayTargetText.row(sets: sets, goal: goal, measure: measure, load: display)
+    }
+
     private var prescriptionText: String {
-        let range = MeasureText.range(
-            min: sessionExercise.prescribedRepMin,
-            max: sessionExercise.prescribedRepMax,
-            measure: measure
-        )
-        return "\(sessionExercise.prescribedSets) × \(range) · \(prescribedLoadText ?? "—") · RIR \(sessionExercise.prescribedRIR)"
-    }
-
-    /// Leitura por voz da prescrição (SPEC RF-41 d).
-    private var prescriptionSpokenText: String {
-        PrescriptionSpeech.text(
+        Self.prescriptionRowText(
             sets: sessionExercise.prescribedSets,
+            targetReps: sessionExercise.prescribedTargetReps,
             repMin: sessionExercise.prescribedRepMin,
-            repMax: sessionExercise.prescribedRepMax,
             measure: measure,
-            loadText: prescribedLoadText,
-            targetRIR: sessionExercise.prescribedRIR
+            load: sessionExercise.prescribedLoad,
+            unit: loadUnit,
+            equipment: equipment
         )
     }
 
-    /// Carga prescrita na unidade do exercício; `nil` na calibração sem carga (SPEC P2).
-    private var prescribedLoadText: String? {
-        sessionExercise.prescribedLoad.map { loadText($0) }
+    /// Leitura do VoiceOver da meta de hoje, sem RIR (SPEC RF-41 d, desde a 2.2).
+    private var prescriptionSpokenText: String {
+        let goal = TodayTargetText.goal(targetReps: sessionExercise.prescribedTargetReps, repMin: sessionExercise.prescribedRepMin)
+        let display = TodayTargetText.loadDisplay(load: sessionExercise.prescribedLoad, unit: loadUnit, equipment: equipment)
+        return TodayTargetText.spokenRow(sets: sessionExercise.prescribedSets, goal: goal, measure: measure, load: display)
     }
 
     /// Repetições, segundos ou passos (SPEC RF-43); sem relação com o catálogo, repetições.
     private var measure: ExerciseMeasure {
         MeasureText.measure(of: sessionExercise.exercise, in: traits)
-    }
-
-    /// Nota da prescrição em pt-BR. Raw desconhecido nem chega aqui (`note == nil` esconde a
-    /// linha: não inventa padrão).
-    static func noteText(_ note: PrescriptionNote) -> String {
-        switch note {
-        case .calibrate: return "Calibrar"
-        case .increase: return "Subir"
-        case .hold: return "Manter"
-        case .retry: return "Repetir"
-        case .decrease: return "Reduzir"
-        case .returning: return "Retorno"
-        case .deload: return "Semana leve"
-        }
     }
 
     /// A unidade vem do catálogo relacionado; se a relação foi anulada, assume kg
@@ -154,18 +173,9 @@ struct SessionExerciseSection: View {
         sessionExercise.exercise?.loadUnit ?? .kilograms
     }
 
-    private func loadText(_ load: Double) -> String {
-        switch loadUnit {
-        case .kilograms: return LoadFormatter.kilograms(load)
-        case .plates: return "\(Int(load.rounded())) placas"
-        case .level: return "nível \(Int(load.rounded()))"
-        }
-    }
-
-    private func rirText(_ rir: Int?) -> String {
-        guard let rir else {
-            return "RIR —"
-        }
-        return "RIR \(rir)"
+    /// `nil` quando a relação com o catálogo foi anulada; `TodayTargetText.loadDisplay` trata
+    /// como exercício com carga (não peso do corpo), a mesma convenção de `loadUnit`.
+    private var equipment: Equipment? {
+        sessionExercise.exercise?.equipment
     }
 }
