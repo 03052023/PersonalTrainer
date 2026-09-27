@@ -45,6 +45,19 @@ protocol SessionPlanning: AnyObject {
 
     // v2.1 (docs/V21-CONTRACT.md B1) — padrão na extensão abaixo.
     func programSubstitutes(for exerciseID: UUID, limit: Int) throws -> [ExerciseDefinition]
+
+    // v2.2 (docs/V22-CONTRACT.md §2.1) — padrão na extensão abaixo.
+    func lastSession(forExerciseID exerciseID: UUID) throws -> ExerciseLastSession?
+}
+
+// MARK: - Operações da versão 2.2
+
+extension SessionPlanning {
+    /// "Da última vez" (SPEC RF-47): a sessão `completed` ou `abandoned` mais recente em que o
+    /// exercício `exerciseID` (`ExerciseDefinition.id`) teve ao menos uma série de trabalho, de
+    /// qualquer programa, com semana leve incluída. A sessão em andamento nunca entra. `nil` sem
+    /// nenhuma. O padrão devolve `nil`, para doubles de preview e de teste.
+    func lastSession(forExerciseID exerciseID: UUID) throws -> ExerciseLastSession? { nil }
 }
 
 // MARK: - Operações do M2 (contrato; implementadas por `SessionPlanner` em T2.9/T2.14)
