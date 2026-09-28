@@ -120,7 +120,8 @@ func guideKinematicsAnchorStaysPut() throws {
     var guides = catalog.guides
     guides.append(try KinematicsFixture.guide(KinematicsFixture.hangJSON))
     guides.append(try KinematicsFixture.guide(KinematicsFixture.attachJSON))
-    for guide in guides {
+    // Com "anchor": "none" (saltos e carregadas do bundle) não há ponto parado; o teste de baixo cobre o root.
+    for guide in guides where !guide.anchor.isNone {
         let joint = try #require(guide.anchor.point, "\(guide.slug)")
         let at = try #require(guide.anchor.at, "\(guide.slug)")
         let last = Double(guide.frames.count - 1)
@@ -325,8 +326,14 @@ func guideKinematicsCuePath() throws {
     let catalog = try GuideTestSupport.bundleCatalog()
     for guide in catalog.guides {
         let path = GuideMotion.cuePath(of: guide)
-        #expect(path.count == 41, "\(guide.slug)")
-        #expect(path.allSatisfy { $0.isFinite }, "\(guide.slug)")
+        // A seta é obrigatória em "loop" e opcional em "static" (§2.5): sem cue, o caminho é vazio.
+        if guide.cue == nil {
+            #expect(guide.motion == .still, "\(guide.slug): loop sem seta")
+            #expect(path.isEmpty, "\(guide.slug)")
+        } else {
+            #expect(path.count == 41, "\(guide.slug)")
+            #expect(path.allSatisfy { $0.isFinite }, "\(guide.slug)")
+        }
     }
     // o agachamento segue o quadril, com offset [-0,082, 0] e span [0, 0,97]: o primeiro ponto é o quadril em t = 0
     let squat = try GuideTestSupport.bundleGuide("barbell-back-squat")
