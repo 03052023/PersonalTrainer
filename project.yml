@@ -64,7 +64,15 @@ targets:
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         LSRequiresIPhoneOS: true
-        UILaunchScreen: {}
+        # Abertura (SPEC RF-50; docs/V23-UI-CONTRACT.md §4.2, ponto 1): a tela de lançamento repete o
+        # ícone — o azul do meio do degradê dele (LaunchBackground.colorset) e a flor Brisa com o halo
+        # (LaunchFlower.imageset, gerados por docs/design/v23-animation/render-launch-assets.ps1).
+        # UIStatusBarHidden esconde a barra já na tela de lançamento; a `LaunchOverlay` a mostra de
+        # volta em `t = 0,45 s` (`.statusBar(hidden:)`).
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+          UIImageName: LaunchFlower
+        UIStatusBarHidden: true
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
           UISceneConfigurations: {}
