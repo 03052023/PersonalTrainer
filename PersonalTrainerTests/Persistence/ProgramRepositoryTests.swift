@@ -79,6 +79,64 @@ final class ProgramRepositoryTests: XCTestCase {
         XCTAssertTrue(fixture.program.isActive)
     }
 
+    // MARK: - Vários planos (SPEC §7.15 M1, M8)
+
+    func testM1_addActivePlan_rules() throws {
+        let fixture = try makeFixture()
+        let cardio = insertProgram(name: "Cardio", isActive: false, exercise: fixture.squat, into: fixture.context)
+        cardio.goalRaw = ProgramGoal.endurance.rawValue
+        let longevity = insertProgram(name: "Longevidade", isActive: false, exercise: fixture.squat, into: fixture.context)
+        longevity.goalRaw = ProgramGoal.longevity.rawValue
+        try fixture.context.save()
+
+        // "Força" do fixture tem o objetivo padrão (hipertrofia), o mesmo do ativo: recusado.
+        assertInvalidParameters(try fixture.repository.addActivePlan(programID: fixture.strengthProgram.uuid))
+        XCTAssertFalse(fixture.strengthProgram.isActive)
+
+        try fixture.repository.addActivePlan(programID: cardio.uuid)
+        XCTAssertTrue(fixture.program.isActive, "O outro plano continua ativo")
+        XCTAssertTrue(cardio.isActive)
+        // Já ativo: nada muda.
+        try fixture.repository.addActivePlan(programID: cardio.uuid)
+        XCTAssertEqual(try fixture.repository.allPrograms().filter { $0.isActive }.count, 2)
+
+        // No máximo dois, mesmo de outro objetivo.
+        assertInvalidParameters(try fixture.repository.addActivePlan(programID: longevity.uuid))
+        XCTAssertFalse(longevity.isActive)
+
+        let unknown = UUID()
+        assertThrows(try fixture.repository.addActivePlan(programID: unknown), .programNotFound(unknown))
+
+        // `activate` continua deixando um só (a troca de objetivo, M8).
+        try fixture.repository.activate(programID: longevity.uuid)
+        XCTAssertEqual(try fixture.repository.allPrograms().filter { $0.isActive }.map { $0.id }, [longevity.uuid])
+    }
+
+    func testM1_removeActivePlan_neverTheLast() throws {
+        let fixture = try makeFixture()
+        let cardio = insertProgram(name: "Cardio", isActive: false, exercise: fixture.squat, into: fixture.context)
+        cardio.goalRaw = ProgramGoal.endurance.rawValue
+        try fixture.context.save()
+
+        assertInvalidParameters(try fixture.repository.removeActivePlan(programID: fixture.program.uuid))
+        XCTAssertTrue(fixture.program.isActive, "Sempre fica ao menos um")
+
+        try fixture.repository.addActivePlan(programID: cardio.uuid)
+        try fixture.repository.removeActivePlan(programID: fixture.program.uuid)
+        XCTAssertFalse(fixture.program.isActive)
+        XCTAssertTrue(cardio.isActive)
+        // Inativo: nada muda.
+        try fixture.repository.removeActivePlan(programID: fixture.program.uuid)
+        XCTAssertFalse(fixture.program.isActive)
+        assertInvalidParameters(try fixture.repository.removeActivePlan(programID: cardio.uuid))
+        XCTAssertTrue(cardio.isActive)
+
+        let unknown = UUID()
+        assertThrows(try fixture.repository.removeActivePlan(programID: unknown), .programNotFound(unknown))
+        // Nada disso apaga o programa (RF-45).
+        XCTAssertEqual(try fixture.context.fetchCount(FetchDescriptor<ProgramModel>()), 3)
+    }
+
     // MARK: - rename
 
     func testRename_trimsAndPersists() throws {
@@ -1015,6 +1073,21 @@ final class ProgramRepositoryTests: XCTestCase {
     }
 
     // MARK: - Asserções
+
+    /// Qualquer `invalidParameters` com mensagem; o texto é para a pessoa e pode mudar.
+    private func assertInvalidParameters(
+        _ expression: @autoclosure () throws -> Void,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertThrowsError(try expression(), file: file, line: line) { error in
+            guard case .invalidParameters(let message)? = error as? ProgramRepositoryError else {
+                XCTFail("Esperava invalidParameters, veio \(error)", file: file, line: line)
+                return
+            }
+            XCTAssertFalse(message.isEmpty, file: file, line: line)
+        }
+    }
 
     private func assertThrows<T>(
         _ expression: @autoclosure () throws -> T,

@@ -25,6 +25,9 @@ struct PlannerSettings: Sendable, Hashable {
     /// `Bool`: modo casa (SPEC RF-42, §7.13; docs/V21-CONTRACT.md B1). Ausente vale `false`. A Home
     /// (interruptor "Em casa") e o Ajustes ("Treinar em casa") gravam a mesma chave.
     static let homeModeKey = "homeModeEnabled"
+    /// `Data` (JSON de `WeekPreferences`): os dias e as escolhas da semana com dois planos (SPEC §7.15 M9).
+    /// Fica no aparelho, fora do backup, como o modo casa. Ausente ou ilegível vale `WeekPreferences.default`.
+    static let weekPreferencesKey = "weekPreferences"
     /// SPEC RF-39: "padrão: ligado quando o programa tem ≥ 4 dias".
     static let autoFrequencyMinimumDays = 4
     /// SPEC §7.5 (b): "a cada N semanas de treino (padrão 6)".
@@ -36,18 +39,24 @@ struct PlannerSettings: Sendable, Hashable {
     /// SPEC RF-42: ligado, o plano troca cada exercício pelo equivalente de casa (§7.13 H1–H4) e o
     /// "Trocar" da sessão oferece só alternativas de casa. O programa não muda.
     var homeModeEnabled: Bool
+    /// SPEC §7.15 M9, como gravado. Ids de planos que não estão ativos são ignorados por quem lê
+    /// (`SessionPlanner.weekPreferences()`), não aqui: o fluxo de adicionar grava as preferências antes de
+    /// ativar o segundo plano.
+    var weekPreferences: WeekPreferences
 
     init(
         frequencySelector: FrequencySelectorMode = .auto,
         deloadWeeks: Int = PlannerSettings.defaultDeloadWeeks,
-        homeModeEnabled: Bool = false
+        homeModeEnabled: Bool = false,
+        weekPreferences: WeekPreferences = .default
     ) {
         self.frequencySelector = frequencySelector
         self.deloadWeeks = deloadWeeks
         self.homeModeEnabled = homeModeEnabled
+        self.weekPreferences = weekPreferences
     }
 
-    /// Lê as três chaves. `integer(forKey:)` devolve 0 para chave ausente, o que desligaria (b)
+    /// Lê as quatro chaves. `integer(forKey:)` devolve 0 para chave ausente, o que desligaria (b)
     /// em quem nunca abriu o Ajustes; por isso a ausência é conferida antes. Um valor negativo
     /// gravado por engano vira 0 (desligado), o mesmo efeito que `DeloadScheduler` já daria.
     static func load(from defaults: UserDefaults) -> PlannerSettings {
@@ -61,7 +70,30 @@ struct PlannerSettings: Sendable, Hashable {
         }
         // `bool(forKey:)` devolve `false` para chave ausente, que é o padrão do modo casa.
         let homeMode = defaults.bool(forKey: homeModeKey)
-        return PlannerSettings(frequencySelector: mode, deloadWeeks: weeks, homeModeEnabled: homeMode)
+        return PlannerSettings(
+            frequencySelector: mode,
+            deloadWeeks: weeks,
+            homeModeEnabled: homeMode,
+            weekPreferences: loadWeekPreferences(from: defaults)
+        )
+    }
+
+    /// SPEC §7.15 M9: o JSON de `weekPreferencesKey`; ausente ou ilegível → `.default`.
+    static func loadWeekPreferences(from defaults: UserDefaults) -> WeekPreferences {
+        guard
+            let data = defaults.data(forKey: weekPreferencesKey),
+            let decoded = try? JSONDecoder().decode(WeekPreferences.self, from: data)
+        else {
+            return .default
+        }
+        return decoded
+    }
+
+    /// Grava `preferences` em `weekPreferencesKey` (JSON). Lança se a codificação falhar; nesse caso nada
+    /// é gravado.
+    static func saveWeekPreferences(_ preferences: WeekPreferences, to defaults: UserDefaults) throws {
+        let data = try JSONEncoder().encode(preferences)
+        defaults.set(data, forKey: weekPreferencesKey)
     }
 
     /// `true` quando o próximo dia sai do `FrequencyAwareSelector` (S5–S7) em vez da rotação.

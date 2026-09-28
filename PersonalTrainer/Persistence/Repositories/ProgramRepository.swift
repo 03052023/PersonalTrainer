@@ -65,6 +65,46 @@ final class ProgramRepository: ProgramRepositoring {
         try save()
     }
 
+    // MARK: - Vários planos (SPEC §7.15 M1, M8)
+
+    /// M1: até `ActivePlanOrder.maxActivePlans` ativos, de objetivos efetivos diferentes. Já ativo: nada
+    /// muda. Os outros ativos continuam como estão, e a rotação de cada um segue as sessões dos dias dele
+    /// (S8).
+    func addActivePlan(programID: UUID) throws {
+        guard let program = try fetchProgram(uuid: programID) else {
+            throw ProgramRepositoryError.programNotFound(programID)
+        }
+        guard !program.isActive else {
+            return
+        }
+        let actives = try activePrograms()
+        guard actives.count < ActivePlanOrder.maxActivePlans else {
+            throw ProgramRepositoryError.invalidParameters("Já há dois planos ativos. Tire um antes de acrescentar outro.")
+        }
+        let goal = Self.effectiveGoal(of: program)
+        guard !actives.contains(where: { Self.effectiveGoal(of: $0) == goal }) else {
+            throw ProgramRepositoryError.invalidParameters("Já há um plano ativo com este objetivo.")
+        }
+        program.isActive = true
+        try save()
+    }
+
+    /// M1, M8: sempre fica ao menos um plano ativo. Inativo: nada muda.
+    func removeActivePlan(programID: UUID) throws {
+        guard let program = try fetchProgram(uuid: programID) else {
+            throw ProgramRepositoryError.programNotFound(programID)
+        }
+        guard program.isActive else {
+            return
+        }
+        let others = try activePrograms().filter { $0.uuid != programID }
+        guard !others.isEmpty else {
+            throw ProgramRepositoryError.invalidParameters("Sempre fica ao menos um plano ativo.")
+        }
+        program.isActive = false
+        try save()
+    }
+
     func rename(programID: UUID, to name: String) throws {
         guard let program = try fetchProgram(uuid: programID) else {
             throw ProgramRepositoryError.programNotFound(programID)
@@ -546,6 +586,18 @@ final class ProgramRepository: ProgramRepositoring {
             modelContext.rollback()
             throw error
         }
+    }
+
+    private func activePrograms() throws -> [ProgramModel] {
+        let descriptor = FetchDescriptor<ProgramModel>(
+            predicate: #Predicate<ProgramModel> { $0.isActive == true }
+        )
+        return try modelContext.fetch(descriptor)
+    }
+
+    /// SPEC §7.9: `goalRaw` desconhecido vale hipertrofia, como `ProgramTemplate.effectiveGoal`.
+    private static func effectiveGoal(of program: ProgramModel) -> ProgramGoal {
+        program.goal ?? .hypertrophy
     }
 
     private func fetchProgram(uuid: UUID) throws -> ProgramModel? {

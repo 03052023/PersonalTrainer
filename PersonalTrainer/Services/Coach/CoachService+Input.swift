@@ -38,9 +38,23 @@ extension CoachService {
             loadUnits: exercises.mapValues { $0.loadUnit },
             lastBackupAt: lastBackupAt,
             completedSessionCount: completedCount,
-            goal: activeGoal(),
+            goal: reminderGoal(),
             longevityDoneThisWeek: longevityDone
         )
+    }
+
+    /// O objetivo que o `CoachInput` recebe. Só o C8 o lê, e desde a 2.3 ele vale quando qualquer plano
+    /// ativo é de Longevidade, principal ou não (SPEC §7.15 M2). Fora disso, o objetivo do principal.
+    func reminderGoal() -> ProgramGoal? {
+        do {
+            if try planner.activeProgramGoals().contains(.longevity) {
+                return .longevity
+            }
+        } catch {
+            let reason = String(describing: error)
+            Self.logger.error("Objetivos dos planos ativos indisponíveis: \(reason, privacy: .public)")
+        }
+        return activeGoal()
     }
 
     // MARK: - Fontes

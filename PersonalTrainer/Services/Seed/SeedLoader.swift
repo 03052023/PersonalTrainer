@@ -45,9 +45,12 @@ enum SeedLoader {
     /// dos arquivos). `SeedValidator` só exige `version >= 1` nos arquivos; a comparação com o
     /// store é feita contra esta constante, não contra o campo do JSON.
     /// 3 = versão 2.1: exercícios de casa (RF-42) e descansos dos programas de foco (§7.9).
-    /// 4 = versão 2.3: os 10 aeróbicos (RF-48), o Equilibrado (RF-35) e o Fôlego (§7.14). Quem já tem
+    /// 4 = versão 2.3: os 10 aeróbicos (RF-48), o Equilibrado (RF-35) e o Cardio (§7.14). Quem já tem
     /// o seed 3 recebe os dois programas inativos e mantém o ativo e os antigos (Corpo todo,
     /// Resistência muscular), porque o loader nunca altera nem apaga um programa existente.
+    /// O Cardio mudou na onda de telas da 2.3 (o plano do VO2máx: base contínua, 4 × 4 e longo e leve,
+    /// sem complementos de força) sem subir a versão: o plano do núcleo só existiu em IPAs de teste que
+    /// não foram entregues, e quem instalou um deles fica com o programa já gravado (nada é reescrito).
     static let currentSeedVersion = 4
 
     /// Stores com o seed abaixo desta versão (o v1 da M1, sem `movementPattern`) recebem o upsert

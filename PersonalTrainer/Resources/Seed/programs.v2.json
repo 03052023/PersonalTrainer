@@ -1362,11 +1362,11 @@
       "name": "Cardio",
       "isActive": false,
       "goal": "endurance",
-      "summary": "Para ganhar fôlego e disposição: três sessões simples por semana (contínua, intervalos e uma longa e leve), medidas em minutos, com exercícios leves de força.",
+      "summary": "Para um coração mais forte e mais condicionamento: três sessões por semana, uma contínua, uma de intervalos 4 × 4 e uma longa e leve, medidas em minutos.",
       "days": [
         {
           "id": "F5F17962-8804-4FAA-A327-22DFE80063A9",
-          "name": "Dia A — Contínuo",
+          "name": "Dia A — Base contínua",
           "order": 0,
           "exercises": [
             {
@@ -1374,30 +1374,8 @@
               "exerciseID": "FF3602F0-7208-40EE-88D6-E77A4C9C4EED",
               "order": 0,
               "sets": 1,
-              "repMin": 20,
+              "repMin": 30,
               "repMax": 45,
-              "targetRIR": 3,
-              "restSeconds": 60,
-              "startingLoad": null
-            },
-            {
-              "id": "3FBDA235-ECED-4BC9-8F53-A60C34CC77F6",
-              "exerciseID": "8F12A38E-B5BB-43EE-9797-F4F792C0E340",
-              "order": 1,
-              "sets": 2,
-              "repMin": 12,
-              "repMax": 20,
-              "targetRIR": 3,
-              "restSeconds": 60,
-              "startingLoad": null
-            },
-            {
-              "id": "72409E69-1131-4540-82F8-7C6C28B3927F",
-              "exerciseID": "70F15AC6-A7D8-42A8-87C6-F41BF0C5DB05",
-              "order": 2,
-              "sets": 2,
-              "repMin": 12,
-              "repMax": 20,
               "targetRIR": 3,
               "restSeconds": 60,
               "startingLoad": null
@@ -1406,7 +1384,7 @@
         },
         {
           "id": "C7B85C1B-A1A6-4B47-9828-B0AB7A5B7C62",
-          "name": "Dia B — Intervalos",
+          "name": "Dia B — Intervalos 4 × 4",
           "order": 1,
           "exercises": [
             {
@@ -1414,21 +1392,10 @@
               "exerciseID": "732DE545-F908-43F8-A7AA-9D41D6CA7B0E",
               "order": 0,
               "sets": 4,
-              "repMin": 2,
+              "repMin": 3,
               "repMax": 4,
               "targetRIR": 3,
               "restSeconds": 180,
-              "startingLoad": null
-            },
-            {
-              "id": "2ADA3AD9-9C4F-41DC-9965-ADC8583D827E",
-              "exerciseID": "E7C98312-CD82-467C-B355-7C0B93FB7ECA",
-              "order": 1,
-              "sets": 2,
-              "repMin": 15,
-              "repMax": 20,
-              "targetRIR": 3,
-              "restSeconds": 60,
               "startingLoad": null
             }
           ]
@@ -1443,19 +1410,8 @@
               "exerciseID": "24B71417-E6AD-41D6-AAA5-D88873A17EDA",
               "order": 0,
               "sets": 1,
-              "repMin": 30,
-              "repMax": 60,
-              "targetRIR": 3,
-              "restSeconds": 60,
-              "startingLoad": null
-            },
-            {
-              "id": "899F925D-A20C-4F8D-AD9B-6084D2AF9102",
-              "exerciseID": "C9ACE1EB-4963-4564-97B0-2EBC2EC0BBCA",
-              "order": 1,
-              "sets": 2,
-              "repMin": 15,
-              "repMax": 20,
+              "repMin": 45,
+              "repMax": 75,
               "targetRIR": 3,
               "restSeconds": 60,
               "startingLoad": null

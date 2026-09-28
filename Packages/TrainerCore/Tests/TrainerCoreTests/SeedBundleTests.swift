@@ -14,10 +14,12 @@ import Testing
 //
 // Versão 2.3 (seed 4, decisão 19): pela mesma regra, o padrão novo é o Equilibrado (id novo,
 // 4 dias Superior/Inferior) e o Corpo todo fica no arquivo, inativo e com o mesmo conteúdo. O
-// "Resistência muscular" sai do arquivo (quem já o tem, mantém) e entra o Fôlego, cardio simples
-// em minutos, com os 10 aeróbicos novos no catálogo.
+// "Resistência muscular" sai do arquivo (quem já o tem, mantém) e entra o Cardio (o antigo Fôlego), em
+// minutos, com os 10 aeróbicos novos no catálogo. Na onda de telas (T9.5), o Cardio vira o plano do VO2máx
+// (base contínua, 4 × 4 e longo e leve), sem complementos de força; o seed continua na versão 4, porque o
+// plano do núcleo não foi entregue a nenhum aparelho.
 
-@Test("Seed arquivos reais decodificam e passam no SeedValidator (versão 4: aeróbicos, Equilibrado e Fôlego da 2.3)")
+@Test("Seed arquivos reais decodificam e passam no SeedValidator (versão 4: aeróbicos, Equilibrado e Cardio da 2.3)")
 func seedFilesDecodeAndValidate() throws {
     let bundle = try loadSeedBundle()
 
@@ -187,7 +189,7 @@ func seedCatalogHasGoalSpecificExercises() throws {
 func seedProgramFileHasNineProgramsWithOneActive() throws {
     let programs = try loadSeedBundle().programs.programs
 
-    // 2.3: entram o Equilibrado e o Fôlego, sai o "Resistência muscular" (8 + 2 − 1).
+    // 2.3: entram o Equilibrado e o Cardio, sai o "Resistência muscular" (8 + 2 − 1).
     #expect(programs.count == 9)
     let active = programs.filter(\.isActive)
     #expect(active.count == 1)
@@ -207,14 +209,14 @@ func seedProgramsCoverAllGoals() throws {
     #expect(Set(programs.compactMap(\.goal)) == Set(ProgramGoal.allCases))
 }
 
-@Test("SPEC 7.9 todo dia tem 5 exercícios em ordem 0..4; a exceção documentada é o Fôlego, com 2 ou 3 (§7.14)")
+@Test("SPEC 7.9 todo dia tem 5 exercícios em ordem 0..4; a exceção documentada é o Cardio, com 1 aeróbico por dia (§7.14)")
 func seedEveryDayHasFiveOrderedExercises() throws {
     let programs = try loadSeedBundle().programs.programs
 
     for program in programs {
         #expect(program.days.map(\.order) == Array(0..<program.days.count), "\(program.name)")
-        // SPEC §7.9 e §7.14 F2: no Fôlego, 1 aeróbico e 1 ou 2 complementos por dia.
-        let allowed: ClosedRange<Int> = program.effectiveGoal == .endurance ? 2...3 : 5...5
+        // SPEC §7.9 e §7.14 F2: no Cardio, 1 aeróbico por dia, sem complementos de força (§7.15).
+        let allowed: ClosedRange<Int> = program.effectiveGoal == .endurance ? 1...1 : 5...5
         for day in program.days {
             #expect(allowed.contains(day.exercises.count), "\(program.name) / \(day.name)")
             #expect(day.exercises.map(\.order) == Array(0..<day.exercises.count), "\(program.name) / \(day.name)")
@@ -447,7 +449,7 @@ func seedProgramParametersFollowGoalTable() throws {
                 #expect(target.startingLoad == nil, "\(label)")
                 #expect(rule.repsInReserve.contains(target.targetRIR), "\(label): RIR \(target.targetRIR)")
                 // Exceção documentada (SPEC §7.14 F2): os aeróbicos medem minutos, com séries e
-                // descanso próprios; `seedFolegoProgramFollowsCardioPlan` fixa os valores.
+                // descanso próprios; `seedCardioProgramFollowsTheVO2maxPlan` fixa os valores.
                 guard pattern != .cardio else { continue }
                 #expect(rule.sets.contains(target.sets), "\(label): \(target.sets) séries")
                 #expect(rule.restSeconds.contains(target.restSeconds), "\(label): \(target.restSeconds) s")
@@ -616,21 +618,12 @@ private let balancedDays: [(name: String, targets: [TargetRow])] = [
     ]),
 ]
 
-/// O Fôlego de docs/V23-CORE-CONTRACT.md §2.3 (o aeróbico em minutos vem primeiro em cada dia).
-private let folegoDays: [(name: String, targets: [TargetRow])] = [
-    ("Dia A — Contínuo", [
-        TargetRow("brisk-walk", 1, 20, 45, 60),
-        TargetRow("box-squat", 2, 12, 20, 60),
-        TargetRow("knee-push-up", 2, 12, 20, 60),
-    ]),
-    ("Dia B — Intervalos", [
-        TargetRow("run-intervals", 4, 2, 4, 180),
-        TargetRow("dead-bug", 2, 15, 20, 60),
-    ]),
-    ("Dia C — Longo e leve", [
-        TargetRow("stationary-bike", 1, 30, 60, 60),
-        TargetRow("bird-dog", 2, 15, 20, 60),
-    ]),
+/// O Cardio do VO2máx de docs/V23-UI-CONTRACT.md §4.5 (SPEC RF-48, §7.14 F2): um aeróbico em minutos por dia,
+/// com os ids de dia de antes.
+private let cardioDays: [(id: String, name: String, targets: [TargetRow])] = [
+    ("F5F17962-8804-4FAA-A327-22DFE80063A9", "Dia A — Base contínua", [TargetRow("brisk-walk", 1, 30, 45, 60)]),
+    ("C7B85C1B-A1A6-4B47-9828-B0AB7A5B7C62", "Dia B — Intervalos 4 × 4", [TargetRow("run-intervals", 4, 3, 4, 180)]),
+    ("06B5194C-74BA-453C-B053-ADC878FAAFDA", "Dia C — Longo e leve", [TargetRow("stationary-bike", 1, 45, 75, 60)]),
 ]
 
 private let upperBodyGroups: Set<MuscleGroup> = [.chest, .back, .shoulders, .biceps, .triceps]
@@ -745,11 +738,11 @@ func seedHidesFullBodyAndRetiresMuscularEndurance() throws {
     #expect(!bundle.programs.programs.contains { $0.name == "Resistência muscular" })
 }
 
-@Test("F2 o Fôlego tem 3 dias, um aeróbico em minutos por dia e 1 ou 2 complementos de força")
-func seedFolegoProgramFollowsCardioPlan() throws {
+@Test("RF-48 o Cardio é o plano do VO2máx: base contínua, 4 × 4 e longo e leve, um aeróbico por dia, sem força")
+func seedCardioProgramFollowsTheVO2maxPlan() throws {
     let bundle = try loadSeedBundle()
     let traits = try SeedTestFiles.traits()
-    let program = try requireProgram(id: folegoProgramID, in: bundle)
+    let program = try requireProgram(id: cardioProgramID, in: bundle)
     let exercisesByID = Dictionary(bundle.catalog.exercises.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
     #expect(program.name == "Cardio")
@@ -758,22 +751,22 @@ func seedFolegoProgramFollowsCardioPlan() throws {
     let summary = try #require(program.summary)
     #expect(
         summary
-            == "Para ganhar fôlego e disposição: três sessões simples por semana (contínua, intervalos e "
-            + "uma longa e leve), medidas em minutos, com exercícios leves de força."
+            == "Para um coração mais forte e mais condicionamento: três sessões por semana, uma contínua, uma de "
+            + "intervalos 4 × 4 e uma longa e leve, medidas em minutos."
     )
     let days = program.days.sorted { $0.order < $1.order }
-    #expect(days.map(\.name) == folegoDays.map(\.name))
-    for (day, expected) in zip(days, folegoDays) {
+    #expect(days.map(\.name) == cardioDays.map(\.name))
+    #expect(days.map(\.id.uuidString) == cardioDays.map(\.id))
+    for (day, expected) in zip(days, cardioDays) {
         let targets = day.exercises.sorted { $0.order < $1.order }
         let dayExercises = try targets.map { target in
             try #require(exercisesByID[target.exerciseID], "\(day.name) ordem \(target.order)")
         }
         #expect(dayExercises.map(\.slug) == expected.targets.map(\.slug), "\(day.name)")
 
-        let cardio = dayExercises.filter { $0.movementPattern == .cardio }
-        #expect(cardio.count == 1, "\(day.name)")
-        #expect(cardio.allSatisfy { traits.traits(for: $0).measure == .minutes }, "\(day.name)")
-        #expect((1...2).contains(dayExercises.count - cardio.count), "\(day.name)")
+        // §7.15 M3: sem complementos de força, o plano combina com os outros.
+        #expect(dayExercises.allSatisfy { $0.movementPattern == .cardio }, "\(day.name)")
+        #expect(dayExercises.allSatisfy { traits.traits(for: $0).measure == .minutes }, "\(day.name)")
 
         for (target, row) in zip(targets, expected.targets) {
             let label = "\(day.name) / \(row.slug)"
@@ -787,10 +780,10 @@ func seedFolegoProgramFollowsCardioPlan() throws {
     }
 }
 
-@Test("F3 no topo das faixas, o Fôlego soma perto dos 150 min moderados-equivalentes da OMS")
-func seedFolegoWeekIsNearTheWHOTarget() throws {
+@Test("RF-48 F3 no topo das faixas, o Cardio soma 45 + 2 × 16 + 75 ≈ 152 min moderados-equivalentes (OMS: 150)")
+func seedCardioWeekIsNearTheWHOTarget() throws {
     let bundle = try loadSeedBundle()
-    let program = try requireProgram(id: folegoProgramID, in: bundle)
+    let program = try requireProgram(id: cardioProgramID, in: bundle)
     let exercisesByID = Dictionary(bundle.catalog.exercises.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
     // SPEC §7.14 F3: contínuo e longo contam como moderado; os intervalos, como vigoroso (× 2).
@@ -803,7 +796,7 @@ func seedFolegoWeekIsNearTheWHOTarget() throws {
             moderateEquivalent += exercise.slug == "run-intervals" ? 2 * minutes : minutes
         }
     }
-    #expect(moderateEquivalent == 137)
+    #expect(moderateEquivalent == 152)
 }
 
 @Test("Seed SeedBundle faz round-trip Codable")
@@ -1218,8 +1211,8 @@ private let programFileName = "programs.v2.json"
 /// O padrão desde a 2.3 (D1): 4 dias Superior/Inferior.
 private let balancedProgramID = "9FE0818F-1417-4953-B357-43D757054FCC"
 private let balancedName = "Hipertrofia — Equilibrado"
-/// O Fôlego (2.3, D2): cardio simples em minutos.
-private let folegoProgramID = "09AB286E-D2B2-49C6-8C9F-400D118D8D03"
+/// O Cardio (2.3, D2; o plano do VO2máx da onda de telas, RF-48): cardio em minutos.
+private let cardioProgramID = "09AB286E-D2B2-49C6-8C9F-400D118D8D03"
 /// O antigo "Resistência muscular", que saiu do seed na 2.3.
 private let retiredEnduranceProgramID = "CBE66162-1F29-41BE-9FF6-7A9E34C179BA"
 /// O Corpo todo (decisão 8): padrão até a 2.2, escondido desde a 2.3.
@@ -1329,7 +1322,7 @@ private struct GoalParameterRule: Sendable {
 /// ranges from 2 (foco maintenance days, RF-35) to 4 (foco focus days, RF-35; Completo corpo
 /// todo compostos, decisão 8 — `seedCompletoUsesFullBodySpecificationParameters` pins the
 /// exact 4/3 split; Equilibrado, pinned by `seedBalancedProgramMatchesContract`); longevity
-/// uses 2 (TASKS T2.16). Endurance (Fôlego, 2.3) is the strength complements' row; the aerobic
+/// uses 2 (TASKS T2.16). Endurance (Cardio, 2.3) is the row of strength exercises a person adds; the aerobic
 /// exercises follow SPEC §7.14 instead.
 private let goalParameterRules: [ProgramGoal: GoalParameterRule] = [
     .hypertrophy: GoalParameterRule(
