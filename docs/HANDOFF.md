@@ -77,7 +77,7 @@ Workflow `wf_b80f610e-930`:
 
 - **Estética:** 3 direções em `docs/design/v23-aesthetics/directions.html` (artifact LBdKARcqRc6rfFvRE3qRjf). A · Tinta e papel (mais budista), B · Pórtico pintado (mais estoica), C · Jardim de pedra (recomendada). **Esperando o dono escolher.**
 - **Animação de abertura:** protótipo em `docs/design/v23-animation/launch.html` (artifact 3TBNBgXpsETDCSiFp1ouY4). Detalhes sutis no workflow `wf_033bc874-622`, retomado; o crítico mandou cortar pólen, fio de luz e pétalas vivas, e manter amanhecer quente (areia) e pétala do objetivo. O dono disse que o gosto dele é só sinal: não sobrepor o crítico.
-- **Núcleo 2.3:** contrato `docs/V23-CORE-CONTRACT.md`; `v6/core` e `v6/guide-engine` prontos. Lotes de desenhos `v6/guides-N` e a junção foram retomados no workflow `wf_b80f610e-930`.
+- **Núcleo 2.3 pronto:** `v6/core` (3d6745d, verde) mesclado em `v6/guide-engine` (dc4c6f4, Core tests 36386958543 verde), com 55 guias em `exercise-guides.v1.json`, uma por exercício dos programas. Folhas de revisão em `docs/design/exercise-guides/sheet-grupo-*.png` (no worktree `pt-wt/w6-guide-engine`), enviadas ao dono (T6.8). **Falta:** o dono escolher a estética; depois a onda de telas sobre `v6/guide-engine` (sessão guiada, estética, UI do Como fazer, Cardio, vários planos, abertura) e o IPA.
 - **Decisões do dono para a onda de telas:** `docs/design/v23-owner-notes.md` (Cardio "Coração forte e mais condicionamento", carga opcional com sugestão delicada, vários planos com encaixe e consequências, plano Cardio VO2máx 4×4, sem cardio base). **Copiar essas notas para o contrato da onda de telas.**
 
 ## 6. Próximos passos
