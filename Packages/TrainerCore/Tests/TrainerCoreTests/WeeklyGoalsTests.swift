@@ -237,13 +237,13 @@ func weeklyGoalsReferenceTopicsExistInRealCatalog() throws {
         #expect(!catalog.references(for: topic).isEmpty, "tópico sem referência: \(topic)")
     }
     for goal in ProgramGoal.allCases {
-        #expect(!catalog.references(for: goal.referenceTopic).isEmpty, goal.referenceTopic)
+        #expect(!catalog.references(for: goal.referenceTopic).isEmpty, "\(goal.referenceTopic)")
     }
 }
 
 // MARK: - W7: steps only with Longevity or Cardio
 
-private struct StepsVisibilityCase: Sendable, CustomTestStringConvertible {
+struct StepsVisibilityCase: Sendable, CustomTestStringConvertible {
     let activeGoals: [ProgramGoal]
     let expected: Bool
 
@@ -252,7 +252,7 @@ private struct StepsVisibilityCase: Sendable, CustomTestStringConvertible {
     }
 }
 
-private let stepsVisibilityCases: [StepsVisibilityCase] = [
+let stepsVisibilityCases: [StepsVisibilityCase] = [
     StepsVisibilityCase(activeGoals: [], expected: false),
     StepsVisibilityCase(activeGoals: [.hypertrophy], expected: false),
     StepsVisibilityCase(activeGoals: [.strength], expected: false),
