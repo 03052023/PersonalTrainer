@@ -386,8 +386,9 @@ PersonalTrainer/                        ← raiz do repo (Windows: C:\Users\leon
 ├── Packages/
 │   └── TrainerCore/
 │       ├── Package.swift
-│       ├── Sources/TrainerCore/{Domain,Engine,Sync,Summary}/   (M4: Review/ · M5: Health/ — separados de Engine/ por R2)
+│       ├── Sources/TrainerCore/{Domain,Engine,Sync,Summary}/   (M4: Review/ · M5: Health/ — separados de Engine/ por R2; 2.3: Summary/WeeklyGoals, as Metas da semana, SPEC §7.16)
 │       │   ├── Coach/   diálogo do app (SPEC §7.11 C1–C8): CoachFeedBuilder, CoachLog, ReviewSchedule, ProvisioningProfileParser; lê Review/ e Health/, recebe o estado do deload pronto
+│       │   ├── Plans/   (2.3, onda de telas) vários planos (SPEC §7.15 M1–M9): PlanDemand, WeeklyFit (encaixe semanal), PlanCombination (consequências), ActivePlanOrder, WeekPreferences, PlanWeekProgress; só Foundation, sem Date(), sem FC
 │       │   └── Guide/   (2.3) "Como fazer" (SPEC §7.12 E1–E10): formato das guias (ExerciseGuide, ExerciseGuideCatalog, GuideFrame, GuidePose…), cinemática (GuideKinematics, GuideSkeleton, GuideRig), partes que se movem e seta (GuideMotion), tempo (GuideTiming) e ExerciseGuideValidator; só Foundation, sem Date(), função pura de t
 │       └── Tests/TrainerCoreTests/
 │           └── Fixtures/   goldens do "Como fazer" gravados por docs/design/exercise-guides/merge-guides.ps1 (exercise-guides-golden.v1.json, exercise-guides-vocabulary-golden.v1.json); fora do alvo (exclude no Package.swift), lidos por #filePath
@@ -396,7 +397,8 @@ PersonalTrainer/                        ← raiz do repo (Windows: C:\Users\leon
 │   ├── Features/       Home/ · Session/ · History/ · (M2) Catalog/ · Program/ · Settings/ ·
 │   │                   DesignSystem/ (Theme, GoalStyle, FlowerView, PrimaryButtonStyle — DESIGN.md §3/§4/§9) ·
 │   │                   (v2.2) ExerciseInfo/ (folha "Informações do exercício" e textos da meta de hoje, usados pela Home, pela Sessão e pelo Histórico — SPEC RF-47) ·
-│   │                   (2.3, onda de telas) ExerciseGuide/ (GuideIllustrationView com TimelineView + Canvas, GuideStaticFramesView, folha e botão "Como fazer" — SPEC §7.12)
+│   │                   (2.3, onda de telas) ExerciseGuide/ (GuideIllustrationView com TimelineView + Canvas, GuideStaticFramesView, folha e botão "Como fazer" — SPEC §7.12) ·
+│   │                   (2.3, onda de telas) Landing/ (Início e Metas da semana — SPEC RF-49, RF-52) · Launch/ (abertura com a flor, LaunchTimeline e LaunchOverlay — SPEC RF-50)
 │   ├── PreviewSupport/ doubles privados de SessionPlanning/SessionCoordinating para #Preview (fora de Features/ para o grep R4 ficar limpo)
 │   ├── Services/       Planning/ · Session/ · RestTimer/ · Seed/ · Notifications/ · HealthKit/ · WatchSync/ · (M2) Backup/ · References/ ·
 │   │                   (M4) Decisions/ (decisões de semana leve em JSON) · Coach/ (diálogo, SPEC §7.11: CoachService, log em JSON, validade da instalação) ·

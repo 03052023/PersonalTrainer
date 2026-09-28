@@ -311,13 +311,40 @@ Pedidos, na redação do dono, com a tarefa que resolve cada um. As decisões es
 
 Tarefas do núcleo (contrato `docs/V23-CORE-CONTRACT.md`; worktrees `C:\Users\leona\Developer\pt-wt\w6-<key>`, branches `v6/<key>`):
 - [x] **T8.0 Documentos** (arquiteto): contrato do núcleo; na SPEC, RF-04, RF-35, RF-40, RF-43, RF-44 c, RF-45, RF-46, RF-48 (novo), P2/P4/P6/P8, §7.4, §7.5, R8 (novo), §7.9, §7.10, §7.12 (E2, E5–E10), H1/H2, §7.14 (novo) e as decisões 8, 14 e 19; DESIGN §1, §3 e §4 (nome Fôlego); este TASKS.
-- [~] core · v6/core — **T8.1 [CI] `core`**: carga opcional no motor (P8 D3), `ExerciseMeasure.minutes`, `MovementPattern.cardio`, 10 aeróbicos, os programas Equilibrado e Fôlego (seed 4), "Fôlego" no `ProgramGoal`, no `GoalStyle` e no `GoalPlanCatalog`, R8 na revisão e o texto da R5 (pendência da 2.2).
-- [~] guide-engine · v6/guide-engine — **T8.2 `guide-engine`** (= T6.1 + T6.4): `TrainerCore/Guide` com o validador E1–E10, as 4 guias do protótipo (lote 0), a ferramenta de autoria (`-Check`, `-Sheet`, `-Golden`, `-Vocabulary`), a junção dos lotes e o teste de paridade.
-- [ ] **T8.3 Conteúdo em lotes** (substitui T6.6 e T6.9): lotes 1 a 6 de `docs/V23-CORE-CONTRACT.md` §4, em `v6/guides-N`, depois de T8.4 passo 1.
-- [ ] **T8.4 Integração do núcleo**: `v6/core` em `v6/guide-engine`, a base da onda de conteúdo, a junção dos lotes e o teste de cobertura ligado. Nada vai para o `main` antes da onda de telas.
-- [ ] **T8.5+ Onda de telas** (contrato próprio): sessão guiada e D3 na ficha, o Fôlego na ficha e na Hoje, a folha "Como fazer" (T6.5) e os botões (T6.7), HealthKit do Fôlego (F5), semana leve no cardio e passada estética. Depois, IPA novo e a página da Amanda.
+- [x] **T8.1 [CI] `core`**: carga opcional no motor (P8 D3), `ExerciseMeasure.minutes`, `MovementPattern.cardio`, 10 aeróbicos, os programas Equilibrado e Fôlego (seed 4), "Fôlego" no `ProgramGoal`, no `GoalStyle` e no `GoalPlanCatalog`, R8 na revisão e o texto da R5 (pendência da 2.2).
+- [x] **T8.2 `guide-engine`** (= T6.1 + T6.4): `TrainerCore/Guide` com o validador E1–E10, as 4 guias do protótipo (lote 0), a ferramenta de autoria (`-Check`, `-Sheet`, `-Golden`, `-Vocabulary`), a junção dos lotes e o teste de paridade.
+- [x] **T8.3 Conteúdo em lotes** (55 guias, uma por exercício dos programas; desenhos aprovados pelo dono em 2026-09-28) (substitui T6.6 e T6.9): lotes 1 a 6 de `docs/V23-CORE-CONTRACT.md` §4, em `v6/guides-N`, depois de T8.4 passo 1.
+- [x] **T8.4 Integração do núcleo**: `v6/core` em `v6/guide-engine`, a junção dos lotes e o teste de cobertura ligado. Mesclado no `main` em 2026-09-28 (`f0bcce4`, Core tests 36388566363 e App build 36388568579 verdes), como base da onda de telas.
+- [x] **T8.5+ Onda de telas** → virou a seção "Versão 2.3: onda de telas" logo abaixo (T9.x). O HealthKit do Cardio (F5) e a semana leve no cardio ficam para depois dela.
 
 **Critérios de aceitação da 2.3 (núcleo):** CA8-1 a CA8-8, em `docs/V23-CORE-CONTRACT.md` §6.
+
+### Versão 2.3: onda de telas (pedidos do dono, 2026-09-27 e 2026-09-28)
+
+Decisões do dono em `docs/design/v23-owner-notes.md` (itens 1 a 18) e na SPEC (decisão 20); contrato `docs/V23-UI-CONTRACT.md`. Os itens 15 a 18 prevalecem sobre os anteriores.
+- [ ] **Cardio** "Coração forte e mais condicionamento", com o plano focado no VO2máx: base contínua, 4 × 4, longo e leve (itens 1 e 8; RF-48, §7.14) → **T9.5 `plans-core`** (seed, referências) e **T9.4 `session`** (ficha).
+- [ ] **Carga opcional com sugestão delicada** (item 2; RF-44 c, RF-46) → **T9.4 `session`**.
+- [ ] **Abertura** com a flor, amanhecer de areia, pétala do objetivo e pólen discreto; sem vibração (itens 3, 6, 13 e 14; RF-50) → **T9.2 `launch`**.
+- [ ] **Vários planos** com encaixe, saídas e consequências (itens 4, 9, 10, 11 e 12; RF-51, §7.15, S8) → **T9.5 `plans-core`** e **T9.6 `plans-ui`**.
+- [x] **Sem cardio base** nos outros planos (item 7): nada muda.
+- [ ] **Direção A · Tinta e papel**, só no visual (item 14; DESIGN §3, §14) → **T9.1 `ink`**; desenhos do "Como fazer" aprovados → folha e botões em **T9.4 `session`**.
+- [ ] **Início** antes do treino do dia, sem mensagem (itens 14 e 15; RF-49) e **Metas da semana** (item 17; RF-52, §7.16) → **T9.3 `home`**.
+- [ ] **Sem mensagens em nenhum lugar do app** (item 16; decisão 20; DESIGN §6) → regra de todas as tarefas e conferência na **T9.7**.
+- [ ] **Passos só com Longevidade ou Cardio** (item 18; §7.16 W7) → **T9.3 `home`**.
+- [ ] "Deixe ainda mais simples a interação quando ele aperta Começar" → sessão guiada (RF-44 i): **T9.4 `session`**.
+
+Tarefas (worktrees `C:\Users\leona\Developer\pt-wt\w7-<key>`, branches `v7/<key>`, CI em `ci/v7-<key>`):
+- [x] **T9.0 Documentos e andaime** (arquiteto): contrato `docs/V23-UI-CONTRACT.md`; na SPEC, P-1, F1, RF-01, RF-17, RF-31, RF-44 (c, i), RF-45, RF-47, RF-48, RF-49 a RF-52 (novos), S8, §7.9, §7.10, §7.14 (Cardio VO2máx), §7.15 (M1–M9, novo), §7.16 (W1–W7, novo), §7.7 e as decisões 14, 19 e 20; DESIGN 1.4 (§1, §3, §4, §6, §7, §8, §9, §10, §11, §13 e §14 novo); ARCHITECTURE §17; este TASKS; o andaime (`473345a`, `29d1256`, `cfb6b39`: `TrainerCore/Plans`, requisitos novos do `SessionPlanning` e do `ProgramRepositoring`, DTOs da tela Hoje, stubs do DesignSystem e o nome Cardio).
+- [ ] **T9.1 [CI] `ink`** — Tinta e papel: tokens, papel, cartões, flor em aguada, ensō, marca de tinta, aguada de montanha, folhas de conferência e a pele de Ajustes, Diálogo e Referências.
+- [ ] **T9.2 [CI][PROJ] `launch`** — tela de lançamento (`project.yml`, assets) e a abertura com o pólen (RF-50).
+- [ ] **T9.3 [CI] `home`** — Início (RF-49), Metas da semana (RF-52, W1–W7 no TrainerCore), Histórico sem o painel (RF-17) e passos só com Longevidade ou Cardio no Saúde (W7).
+- [ ] **T9.4 [CI] `session`** — sessão guiada, carga opcional com a sugestão, Cardio na ficha e na tela Hoje, "Como fazer" (T6.5, T6.7), descanso em ensō.
+- [ ] **T9.5 [CI] `plans-core`** — `WeeklyFit` (M4, M5), `PlanCombination` (M7), Cardio VO2máx no seed, referências, vários planos no repositório, no backup, no planejador (S8, M6, W2) e no diálogo (C2, C8).
+- [ ] **T9.6 [CI] `plans-ui`** — folha "Seu objetivo" com Adicionar, aba Plano com a semana e os dias, tela Hoje com as sessões do dia.
+- [ ] **T9.7 [CI] Integração** — `v7/integration`: aba Início, abertura, guias no ambiente, passos (W7), conferência de mensagens, `ci/v7-final`, revisão adversarial e correção. Depois, IPA novo, HANDOFF e a página e o PDF da Amanda.
+- [ ] **Para depois da onda:** HealthKit do Cardio e semana leve em minutos (F5); o 4 × 4 que cresce em blocos; o dia D de tiros curtos; zonas de FC no Cardio; registro próprio de equilíbrio e mobilidade (C10).
+
+**Critérios de aceitação da onda de telas:** CA9-1 a CA9-13, em `docs/V23-UI-CONTRACT.md` §6.
 
 ### Versão 2.2: simplificação (pedido do dono, 2026-09-27, depois de usar a 2.1 no aparelho)
 

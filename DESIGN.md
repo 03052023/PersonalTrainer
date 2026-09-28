@@ -1,6 +1,6 @@
 # Guia de design: Magister
 
-Versão 1.3 · 2026-09-27. Vale para iPhone e Apple Watch. Decisões do dono registradas na SPEC (decisões 15, 16 e 18): nome **Magister**, ícone de cinco pétalas creme separadas com miolo areia sobre **azul-marinho**, desde a 2.2 no desenho **Brisa** (pétalas com giro leve e feitas à mão), nada de cultura de academia, e uma interface simples: cada tela responde a uma pergunta.
+Versão 1.4 · 2026-09-28. Vale para iPhone e Apple Watch. Decisões do dono registradas na SPEC (decisões 15, 16, 18 e 20): nome **Magister**, ícone de cinco pétalas creme separadas com miolo areia sobre **azul-marinho**, desde a 2.2 no desenho **Brisa** (pétalas com giro leve e feitas à mão), nada de cultura de academia, uma interface simples (cada tela responde a uma pergunta) e, desde a 2.3, a direção visual **A · Tinta e papel** (§3, §14), só no visual: nenhuma mensagem de efeito em tela alguma (§6).
 
 ## 0. O nome
 
@@ -8,7 +8,7 @@ Versão 1.3 · 2026-09-27. Vale para iPhone e Apple Watch. Decisões do dono reg
 
 ## 1. Princípios
 
-1. **Os objetivos ficam no centro.** O app existe para cinco objetivos: Hipertrofia, Força, Fôlego, Longevidade e Combate. Cada tela responde "para qual objetivo isto serve?" antes de mostrar números.
+1. **Os objetivos ficam no centro.** O app existe para cinco objetivos: Hipertrofia, Força, Cardio, Longevidade e Combate. Cada tela responde "para qual objetivo isto serve?" antes de mostrar números.
 2. **Calma no lugar de euforia.** Superfícies claras e quentes, pouco movimento, nenhum grito. Descanso e semana leve fazem parte do plano e nunca aparecem como fracasso.
 3. **A ciência fica à vista.** Toda sugestão tem um "Por quê?" com autor, ano e nível de evidência. A referência é a autoridade, não um coach motivacional.
 4. **Nada de cultura de academia.** Sem preto com neon, cromado, halteres, silhuetas musculosas, raios, chamas, troféus, fontes condensadas em itálico ou linguagem militar.
@@ -38,30 +38,34 @@ Arquivos: `PersonalTrainer/Resources/Assets.xcassets/AppIcon.appiconset/` com `A
 
 ## 3. Paleta
 
-Superfícies claras e quentes (bege-linho); um azul da família do ícone é a cor de ação; tons terrosos identificam os objetivos. O acento fica um tom acima do marinho do ícone (`#355A7C`, não `#2B3F58`). O marinho puro ficaria escuro demais e se confundiria com o texto marrom-escuro, e o botão deixaria de parecer tocável. Contraste WCAG de cada cor contra o fundo e contra a superfície (vale o menor valor); AA exige 4,5:1 para texto e 3:1 para gráficos.
+Desde a 2.3, a paleta é a da direção **A · Tinta e papel** (SPEC decisão 20; `docs/design/v23-aesthetics/directions.html`): papel washi quente, tinta sumi em tons de uma tinta só, um índigo (ai) como única cor de ação e pigmentos terrosos para os objetivos. O acento continua um tom acima do marinho do ícone, para o botão parecer tocável e não se confundir com o texto. Contraste WCAG de cada cor contra o fundo e contra a superfície (vale o menor valor), calculado sobre os hexadecimais; AA exige 4,5:1 para texto e 3:1 para gráficos.
 
 | Token | Uso | Claro | Escuro | Contraste mínimo (claro / escuro) |
 |---|---|---|---|---|
-| `background` | fundo das telas | `#F2EBE0` | `#1C1714` | — |
-| `surface` | cartões, folhas, listas | `#FAF6F0` | `#29221C` | — |
-| `textPrimary` | texto e números | `#33281F` | `#F0E7DA` | 12,11 / 12,80 |
-| `textSecondary` | legendas, rótulos | `#6B5A4C` | `#BCAB98` | 5,56 / 7,03 |
-| `accent` | botão principal, links, seleção, tint global (AccentColor) — azul profundo | `#355A7C` | `#9DBAD6` | 6,11 / 7,78 |
-| `onAccent` | texto sobre `accent` | `#FAF6F0` | `#1C1714` | 6,71 / 8,82 |
-| `accentSoft` | fundo de item selecionado, chips (não é texto) | `#DDE5EC` | `#26323E` | texto primário sobre ele: 11,27 / 10,66 |
-| `goalHypertrophy` | Hipertrofia (terracota) | `#904C36` | `#E0927A` | 5,42 / 6,39 |
-| `goalStrength` | Força (argila) | `#7A583C` | `#C9A27F` | 5,39 / 6,69 |
-| `goalEndurance` | Fôlego (ardósia) | `#4F6170` | `#9FB2C2` | 5,41 / 7,18 |
-| `goalLongevity` | Longevidade (sálvia) | `#56654A` | `#A9B98F` | 5,28 / 7,48 |
-| `goalCombat` | Combate (ameixa) | `#74506A` | `#C9A0BC` | 5,72 / 6,89 |
-| `health` | saúde e aeróbico (ocre) | `#7A5B1A` | `#D4B062` | 5,31 / 7,60 |
+| `background` | fundo das telas (washi) | `#F4EEE4` | `#191715` | — |
+| `surface` | cartões, folhas, listas (papel novo) | `#FCF9F3` | `#25211E` | — |
+| `textPrimary` | texto e números (sumi) | `#27221F` | `#EEE7DC` | 13,63 / 13,00 |
+| `textSecondary` | legendas, rótulos (tinta diluída) | `#635850` | `#B2A595` | 5,98 / 6,62 |
+| `accent` | botão principal, links, seleção, tint global (índigo) | `#2B4D6B` | `#A4BDD6` | 7,66 / 8,23 |
+| `onAccent` | texto sobre `accent` | `#FCF9F3` | `#191715` | 8,41 / 9,22 (sobre `accent`) |
+| `accentSoft` | fundo de item selecionado, chips (não é texto) | `#DEE5EA` | `#27313B` | texto primário sobre ele: 12,36 / 10,76 |
+| `inkMuted` | ícones e traços junto do texto (tinta 2); decorativo | `#4A4139` | `#CFC4B5` | — |
+| `line` | fios, divisórias, borda fina dos cartões, trilho do ensō (tinta 5); decorativo, nunca texto | `#DAD1C4` | `#3A332D` | — |
+| `goalHypertrophy` | Hipertrofia (terra vermelha, bengara) | `#8E3E2C` | `#E09A82` | 6,33 / 6,93 |
+| `goalStrength` | Força (chá torrado) | `#6F5238` | `#CDAA86` | 6,19 / 7,37 |
+| `goalEndurance` | Cardio (celadon profundo) | `#3A6765` | `#93C2BE` | 5,50 / 8,14 |
+| `goalLongevity` | Longevidade (verde pinheiro) | `#50613F` | `#AFC194` | 5,83 / 8,27 |
+| `goalCombat` | Combate (uva acinzentada) | `#6C4862` | `#CFA6C3` | 6,64 / 7,53 |
+| `health` | saúde e aeróbico (folha seca) | `#775816` | `#D7B568` | 5,70 / 8,14 |
+| `flowerCenter` | miolo da flor (areia); decorativo | `#E7D9C2` | `#CDBEA4` | — |
 | `destructive` | apagar, erro | vermelho do sistema | vermelho do sistema | — |
 
-- As cores de objetivo e o acento sobre `accentSoft` também passam AA: no claro, o menor valor é 5,03:1 (Fôlego); no escuro, 5,32:1 (Hipertrofia).
+- Os tons `inkMuted` e `line` são decorativos: nunca levam texto que precise ser lido.
 - **A cor nunca identifica sozinha:** todo objetivo aparece com nome, símbolo e posição da pétala (HIG).
-- Vermelho é só para erro ou ação destrutiva, nunca "cor de esforço".
-- Com Aumentar Contraste ligado, `textSecondary` passa a usar `textPrimary` e cartões ganham borda de 1 pt em `textSecondary`.
+- Vermelho é só para erro ou ação destrutiva, nunca "cor de esforço" nem meta não cumprida.
+- Com Aumentar Contraste ligado, `textSecondary` passa a usar `textPrimary`, cartões ganham borda de 1 pt em `textSecondary` e a fibra do papel some (§14).
 - A escolha é por coerência e legibilidade. O efeito emocional das cores tem evidência fraca, então não o usamos como argumento.
+- A paleta da 2.2 (bege-linho, acento `#355A7C`) fica registrada no histórico do Git; os nomes dos tokens não mudaram.
 
 ## 4. Os objetivos e a flor dentro do app
 
@@ -73,11 +77,13 @@ A mesma flor do ícone é o sistema de identidade. No app, a pétala do objetivo
 | 2 | Hipertrofia | Ganhar massa muscular | `leaf` |
 | 3 | Força | Ficar mais forte | `mountain.2` |
 | 4 | Combate | Potência e resistência | `shield` |
-| 5 | Fôlego | Mais fôlego e disposição | `wind` |
+| 5 | Cardio | Coração forte e mais condicionamento | `wind` |
 
-O subtítulo do Combate foi decidido pelo dono em 2026-09-27 (SPEC decisão 18): o antigo "Saber se defender" prometia técnica de defesa, que o app não ensina (SPEC §7.9). Na 2.3 (SPEC decisão 19), "Resistência muscular" virou **Fôlego**, cardiovascular, com o símbolo `wind` (o vento da flor Brisa). O token de cor e a pétala não mudam.
+O subtítulo do Combate foi decidido pelo dono em 2026-09-27 (SPEC decisão 18): o antigo "Saber se defender" prometia técnica de defesa, que o app não ensina (SPEC §7.9). Na 2.3, "Resistência muscular" virou cardiovascular (SPEC decisão 19), com o símbolo `wind` (o vento da flor Brisa), e o dono deu o nome **Cardio** e o subtítulo "Coração forte e mais condicionamento" (decisão 20; o núcleo usava "Fôlego"). O token de cor e a pétala não mudam.
 
-Com essa ordem, cada par de pétalas vizinhas é uma afinidade real: Longevidade e Hipertrofia (massa muscular contra sarcopenia), Hipertrofia e Força, Força e Combate (potência), Combate e Fôlego (condicionamento), Fôlego e Longevidade (o VO2máx prediz a longevidade). **A ordem é decisão do dono.** No ícone as pétalas são todas creme; no app, cada uma ganha a cor do seu objetivo (§3). \*Confirmar nomes e disponibilidade no app SF Symbols (iOS 18 / watchOS 11).
+**Vários planos (2.3):** com dois planos ativos, as duas pétalas ficam cheias, cada uma na cor do seu objetivo; o primeiro de `activeGoals` é o do plano principal (SPEC §7.15 M1), o que cora na abertura.
+
+Com essa ordem, cada par de pétalas vizinhas é uma afinidade real: Longevidade e Hipertrofia (massa muscular contra sarcopenia), Hipertrofia e Força, Força e Combate (potência), Combate e Cardio (condicionamento), Cardio e Longevidade (o VO2máx prediz a longevidade). **A ordem é decisão do dono.** No ícone as pétalas são todas creme; no app, cada uma ganha a cor do seu objetivo (§3). \*Confirmar nomes e disponibilidade no app SF Symbols (iOS 18 / watchOS 11).
 
 ## 5. Tipografia (só fontes do sistema, sempre com Dynamic Type)
 
@@ -104,7 +110,9 @@ Trate por "você". Explique o porquê em uma frase e mostre a referência. Use f
 | deload | semana leve |
 | PR, recorde | melhor marca |
 | queimar calorias | gasto de energia |
-| você perdeu a sequência | "Voltar também é progresso." |
+| você perdeu a sequência | (não usar; mostre só o fato: "1 sessão nesta semana.") |
+
+**Sem mensagens de efeito** (SPEC decisão 20, itens 15 e 16 do dono, 2026-09-28). Nenhuma tela tem citação, frase inspiracional, mensagem estoica ou budista, "mensagem do dia", elogio ou frase de efeito: nem o Início, nem a abertura, nem a sessão, nem o resumo, nem os estados vazios, nem o Ajustes. Os textos dizem o que é e o que fazer, com números quando houver ("Hoje é dia de descanso.", "3 de 4 sessões"). A calma vem do visual (§14), não de frases. Os avisos funcionais do diálogo (SPEC §7.11 C1–C8: semana leve, revisão, saúde, validade da instalação, backup) continuam, porque são recursos.
 
 ## 7. Vocabulário da interface
 
@@ -130,6 +138,8 @@ Selos da nota da prescrição (2.2), só quando há novidade:
 
 Outras palavras da 2.2: "Informações do exercício", "Da última vez", "Por que esta carga", "Marcar como feitos, como previsto", "Encerrar só com o que marquei", "Sair sem registrar", "Voltar ao treino", "escolha a carga", "+ 2,5 kg extra", "Trocar" (objetivo), "Ajustar exercícios", "Mais opções".
 
+Palavras da 2.3: "Início", "Metas da semana", "Ver a sessão de hoje", "Retomar a sessão", "Ver o dia", "Marcar série", "Marcar como feito", "Concluir a sessão", "Agora: …", "A seguir: …", "sem carga", "Anotar carga", "Agora não", "Como fazer", "Recuperação andando", "Adicionar X ao seu plano", "Tirar este plano", "Sua semana", "Seus dias", "Aceito 2 sessões no mesmo dia", "Cardio leve depois da força", "Treinar mesmo assim", "Ganha", "Fica igual", "Custa", "sem dados". Intensidade do Cardio pelo teste da fala: "Leve: a conversa é fácil", "Moderado: dá para conversar, mas não para cantar", "Forte: só dá para dizer poucas palavras".
+
 Termos técnicos úteis ficam, com explicação no primeiro uso ou no "Por quê?":
 - **série**: um bloco de repetições seguidas;
 - **repetições**;
@@ -144,6 +154,7 @@ Termos técnicos úteis ficam, com explicação no primeiro uso ou no "Por quê?
 
 | Aba | Título | SF Symbol | Substitui |
 |---|---|---|---|
+| landing | Início (2.3; a primeira, aberta no lançamento) | `house` | (nova) |
 | today | Hoje | `sun.max` | `figure.strengthtraining.traditional` |
 | history | Histórico | `clock.arrow.circlepath` | (mantém) |
 | program | Plano (2.2; antes "Programa") | `list.bullet.rectangle` | (mantém) |
@@ -156,28 +167,48 @@ Termos técnicos úteis ficam, com explicação no primeiro uso ou no "Por quê?
   - `flame` na série de aquecimento → `thermometer.medium`;
   - `target` no cartão do plano → símbolo do objetivo (§4).
 
-## 9. Home: regras
+## 9. Hoje, Início e Metas da semana: regras
 
 Tela Hoje da 2.2 em `docs/design/v22/mockup.html` ("Hoje"). Critério: a tela responde "o que eu faço hoje?" e nada mais.
 
 1. **No topo, o objetivo ativo, que é um botão:** a flor (cerca de 56 pt) com a pétala do objetivo preenchida, o nome em New York, o subtítulo humano ("Potência e resistência") e a pílula **"Trocar ›"** (`accentSoft` com texto `accent`). O toque abre a folha "Seu objetivo" (SPEC RF-45). Com sessão em andamento, fica desabilitado. Nada fica acima disso.
 2. **Logo abaixo, a sessão de hoje:** cartão em `surface` com o rótulo pequeno "Hoje", o nome do dia (menu para escolher outro), "5 exercícios · ≈ 55 min" e a chave "Em casa" na mesma linha. As faixas de motivo (semana leve, frequência) e os avisos do modo casa só aparecem quando existem. Cada exercício é uma linha com número, nome e a meta de hoje em palavras ("3 séries de 3 · 62,5 kg"; peso do corpo sem carga). Não aparecem RIR, descanso, nome do programa nem o selo repetido do objetivo. O único botão proeminente da tela é **Começar**, em `accent`.
-3. **Dia de descanso ou semana leve** aparecem no lugar da sessão como parte do plano: "Hoje é dia de descanso. Recuperar também faz você progredir." Nunca em vermelho nem com tom de alerta.
-4. **Do diálogo, só a mensagem principal**, com "Ver todas (N)" quando houver mais. **Saúde vem depois** (sono, HRV, VO2max, aeróbico), em cartões discretos com cor `health`. Nunca acima do objetivo. O painel "Esta semana" fica no Histórico.
+3. **Dia de descanso ou semana leve** aparecem no lugar da sessão como parte do plano: "Hoje é dia de descanso." (2.3: sem frase de efeito depois, §6), com "Treinar mesmo assim" quando há dois planos. Nunca em vermelho nem com tom de alerta.
+4. **Do diálogo, só a mensagem principal**, com "Ver todas (N)" quando houver mais. **Saúde vem depois** (sono, HRV, VO2max, aeróbico), em cartões discretos com cor `health`. Nunca acima do objetivo. O painel "Esta semana" fica no Histórico (desde a 2.3, nas Metas da semana, §9.2 abaixo).
 5. O **"Por quê?"** (referências) fica a um toque de qualquer sugestão. Na linha do exercício, **o próprio selo da nota abre o "Por quê?"** (sem link separado); o selo só aparece quando há novidade (§7). Tocar na linha abre "Informações do exercício" (§13).
 6. **Proibido na Home:** anéis concêntricos (a estética do app Fitness), sequências punitivas, confete, fotos ou silhuetas de corpo, números gigantes de calorias.
+7. **Dois planos (2.3, SPEC §7.15 M6):** o topo mostra os dois objetivos ("Hipertrofia + Cardio") com a flor de duas pétalas cheias; em cima dos cartões, a linha "Hoje: Superior + Cardio leve 25 min"; um cartão por sessão, a força antes do aeróbico. **Começar** continua o único botão proeminente (a primeira sessão pendente); o segundo cartão tem "Começar esta", menor. Sessão feita hoje vira "✓ Feito hoje" com "A seguir: …". Com um plano só, a tela fica como na 2.2.
+
+### 9.1 Início (2.3, SPEC RF-49)
+
+A primeira aba responde "como eu estou?" antes de "o que eu faço hoje?". É a tela mais vazia do app (ma, §14): o vazio pesa tanto quanto o cheio.
+1. De cima para baixo: a aguada de montanha no canto de cima, atrás de tudo (cerca de 55 % da largura e 140 pt de altura); a data em `textSecondary` ("segunda-feira, 28 de setembro"); a flor pintada grande (168 pt), centralizada; a saudação em New York ("Bom dia", "Boa tarde", "Boa noite"); os objetivos ativos em `textSecondary`.
+2. "Esta semana": 7 marcas de tinta, de segunda a domingo (cheia nos dias com sessão concluída com ao menos uma série; hoje com um fio fino em volta), e uma frase de fato ("2 sessões nesta semana."). O bloco inteiro é um botão que abre as **Metas da semana** (§9.2), com um "›" discreto.
+3. O caminho para hoje, num cartão de papel com o rótulo pequeno "Hoje", o nome da sessão ("Dia A — Superior + Dia B — Contínuo") e o **único botão proeminente**: "Ver a sessão de hoje", "Retomar a sessão", "Ver o dia" ou "Escolher um objetivo".
+4. Sem mensagem, sem diálogo, sem Saúde, sem números grandes, sem anéis. A florzinha da abertura pousa na flor desta tela (§10).
+
+### 9.2 Metas da semana (2.3, SPEC RF-52 e §7.16)
+
+Responde "como está a minha semana?" sem cobrar.
+1. Título "Metas da semana" em New York e o intervalo da semana ("22 set. – 28 set.") em `textSecondary`.
+2. Uma linha por meta, na ordem de W2: nome, o número em palavras ("3 de 4 sessões", "95 de 150 min", "média de 6.200 por dia", "média de 7 h 20 min"), o "Por quê?" e a **marca de tinta**: um traço de pincel horizontal que se pinta da esquerda para a direita conforme a fração (o mesmo pincel do ensō, §14), em `inkMuted` sobre o trilho `line`; a meta cumprida fica com o traço inteiro e "✓". As sessões de cada plano usam a cor do objetivo dele. A linha de passos só existe com um plano de Longevidade ou de Cardio (SPEC §7.16 W7), e o mesmo vale para os passos do cartão e do detalhe de Saúde.
+3. Músculos: a linha dos grupos e, embaixo, os 10 grupos em duas colunas ("Peito 1 de 2"), com um ponto de tinta por vez feita.
+4. "sem dados" em `textSecondary`, com o trilho pontilhado, para o que depende do app Saúde e não chegou; no fim, a linha "Aeróbico, passos e sono vêm do app Saúde.". Nunca vermelho, nunca "faltam", nunca porcentagem, nunca anel.
 
 ## 10. Movimento e retorno
 
 - Animações lentas (0,4 a 0,6 s, `easeInOut`): a pétala se enche ao concluir a sessão. A flor pode crescer de 0,5× a 1× na abertura ou na tela de progresso, como índice de adaptação gradual.
-- Vibração leve (`.sensoryFeedback(.success)`) ao concluir uma série. Nada de fogos por "melhor marca".
+- Vibração leve (`.sensoryFeedback(.success)`) ao concluir uma série. Nada de fogos por "melhor marca". Vibrar quer dizer "feito": por isso a abertura não vibra.
 - Respeitar Reduzir Movimento: trocar crescimento por esmaecimento.
+- **Abertura (2.3, SPEC RF-50):** a tela de lançamento é o azul-marinho do ícone com a flor Brisa no centro; no primeiro quadro, a flor respira, gira 10° e desabrocha pétala por pétala enquanto o azul amanhece até o papel, com o véu de areia (não no escuro), a pétala do objetivo principal corando e saindo por último e um **pólen discreto** (8 grãos de números fixos, creme, saindo do miolo). Total 0,92 s; com Reduzir Movimento, só esmaecimentos em 0,60 s, sem pólen. Nunca bloqueia o toque, só roda a frio e não vibra. Os números são os do protótipo aprovado, `docs/design/v23-animation/launch.html`.
+- **Descanso em ensō (2.3):** o traço de pincel se pinta conforme o descanso passa, no ritmo de 1 s; sem pulsar, sem piscar.
 
 ## 11. Incertezas e decisões do dono
 
 - **Ícone sem Mac:** o caminho é o catálogo de imagens com PNG de 1024 px mais as aparências escura e tingida (suportadas desde o iOS 18; `appearances` → `luminosity` `dark`/`tinted` no `Contents.json`). Para a aparência escura, a Apple sugere fundo transparente; a entregue é opaca, e só o CI (`actool`) e o aparelho confirmam como fica. Cores não foram testadas em tela P3 com True Tone. Não foi feita busca por ícones parecidos na App Store.
 - **Decisões do dono ainda abertas:** a ordem das pétalas (§4). Já decididos: nome (Magister), ícone (pétalas creme sobre azul-marinho, 2026-09-23), desenho Brisa e subtítulo do Combate "Potência e resistência", mantendo o nome "Combate" (2026-09-27, SPEC decisão 18).
 - **Brisa sem Mac:** a geometria da `FlowerView` é portada do gerador em PowerShell; só o CI e o aparelho confirmam que as duas coincidem a 56 pt.
+- **Tinta e papel sem Mac (2.3):** a textura de papel, a flor em aguada, o ensō e a aguada de montanha são desenhados em `Canvas` a partir dos mesmos números das folhas de conferência (`docs/design/v23-ink/`); só o aparelho confirma a textura com True Tone, a leitura da aguada a 26 pt e a abertura a 120 Hz.
 
 ## 12. Ilustrações de exercício ("Como fazer", SPEC RF-40 e §7.12)
 
@@ -198,7 +229,7 @@ Aprovado pelo dono em 2026-09-24 (protótipo v2 em `docs/design/exercise-guides/
 - **Exceção ao "sem halteres" do §1.4:** equipamento aparece só dentro da folha Como fazer, nunca em ícones, estados vazios, abas ou na Home. A figura também nunca aparece na Home (§9.6), só na folha.
 - **Exceção ao §10:** a demonstração segue o ritmo do exercício (fases de 0,8 a 3 s, padrão de 1,5 s, `easeInOut`, pausas de 0,4 s) e tem botão Pausar. Com Reduzir Movimento, os quadros ficam parados lado a lado.
 
-## 13. Sessão, informações e objetivo (versão 2.2)
+## 13. Sessão, informações e objetivo (versões 2.2 e 2.3)
 
 Telas de referência em `docs/design/v22/mockup.html`; regras em SPEC RF-44 a RF-47.
 
@@ -218,6 +249,29 @@ Telas de referência em `docs/design/v22/mockup.html`; regras em SPEC RF-44 a RF
 **Seu objetivo** é uma folha só para trocar de objetivo e para o primeiro uso: a flor grande, os 5 objetivos na ordem das pétalas (flor pequena com a pétala dele, nome, subtítulo, dias), o tocado com borda `accent`, o formato em chips (só na Hipertrofia), a prévia do Dia A em `textSecondary`, a frase sobre as cargas e um botão principal que diz o que vai acontecer ("Trocar para Hipertrofia").
 
 **Sessão concluída** usa a flor do objetivo (a pétala se enche devagar, §10), duração, "Exercícios 5 de 5", séries, FC quando houver e "A próxima sessão já está pronta: Dia B". Sem tonelagem, sem verde nem laranja do sistema.
+
+**Na 2.3** (SPEC RF-44 c e i, RF-46, RF-47, §7.14; SPEC decisão 20):
+- **Sessão guiada:** um botão grande preso embaixo (56 pt, `accent`) guia a sessão: "Marcar série", "Marcar como feito" ou "Concluir a sessão". Acima dele, uma linha: "Agora: Agachamento livre · série 2 de 3" e a meta de hoje em SF Rounded. Durante o descanso, "A seguir: série 3". A lista de cartões continua em cima, para consultar; bolinhas, "Feito", carga, Trocar e Pular continuam nos cartões, como caminho secundário.
+- **Sem carga:** num exercício com equipamento e carga 0 ou vazia, o cartão mostra "sem carga" em `textSecondary`, sublinhado em `accent` porque se toca. Sai a caixa "Escolha uma carga…" que bloqueava. A sugestão delicada aparece uma vez na vida de cada exercício, embaixo do cartão, em `textSecondary`: "Anotar a carga ajuda a sugerir quando subir." com "Anotar carga" e "Agora não", sem ícone de alerta.
+- **Cardio na ficha:** "30 min" ou "4 × 3 min" em SF Rounded; no lugar da carga, a frase do teste da fala; "sem nível" quando a máquina tem nível e ninguém pôs; nos intervalos, "Recuperação andando" e a linha fixa "Antes, aqueça 10 minutos andando devagar.". Nada de FC, zonas ou ritmo.
+- **Como fazer:** o botão "Como fazer" (`play.circle`, `accent`) ao lado do nome, só quando há guia; a folha segue o §12, com o fundo de papel.
+- **Descanso:** o anel de 48 pt vira o ensō (§14), com o tempo no centro.
+- **Papel:** `paperBackground()` na ficha, no resumo e nas folhas; `inkCard()` nos cartões. O resumo continua sem citação nem elogio (§6).
+
+**Seu objetivo na 2.3** (SPEC RF-45, §7.15 M7 e M8): com um plano ativo e outro objetivo tocado, dois botões: "Trocar para X" e "Adicionar X ao seu plano". Adicionar abre três páginas curtas: "O que muda" (os grupos "Ganha", "Fica igual" e "Custa", cada item com "Por quê?"), "Seus dias" (chips de segunda a domingo e as duas chaves) e "Sua semana" (os 7 dias, com o que cabe em cada um e "descanso" nos livres, ou o motivo e as saídas, cada uma com a semana que resulta e "Escolher esta"). Na aba Plano, cada plano ativo aparece com a flor pequena, o nome e a semana dele; com dois, "Sua semana", "Seus dias" e "Tirar este plano".
+
+## 14. Tinta e papel (direção A, 2.3)
+
+Escolhida pelo dono em 2026-09-28 (SPEC decisão 20; `docs/design/v23-aesthetics/directions.html`, direção A). O app vira um caderno de caligrafia: papel washi, tinta sumi em tons de uma tinta só e um único índigo. A beleza vem do pincel e do vazio. **Só o visual muda:** nenhuma frase estoica, budista ou de efeito entra no app (§6).
+
+- **Ma (o vazio):** mais espaço livre em volta do que importa, sobretudo no Início. Um cartão por assunto; nada de grades cheias.
+- **Papel:** `paperBackground()` = `background` com a fibra de washi (`PaperFiber`, PNG de 256 px ladrilhável, gerado por script com semente fixa) a 4 %, só no fundo, por baixo das áreas seguras. Some com Aumentar Contraste. Cartões com `inkCard()`: `surface`, canto contínuo de 16 pt e fio de 0,5 pt em `line` (1 pt em `textSecondary` com Aumentar Contraste). Sem sombra.
+- **Tinta:** os tons de uma tinta só (gosai) vão do texto (`textPrimary`) aos traços (`inkMuted`), às legendas (`textSecondary`) e aos fios (`line`). A cor fica nas pétalas dos objetivos e no índigo da ação.
+- **Flor em aguada:** as pétalas fora dos objetivos são uma lavagem de tinta a 7 % com contorno fino no tom das legendas; a pétala de cada objetivo ativo é pigmento, mais escuro na base e mais claro na ponta (nōtan); o miolo é areia. A partir de 120 pt, uma borda de tinta levemente mais escura dá o "pintado". Sem desfoque, sem textura animada; tudo determinístico, a mesma flor de 26 a 168 pt.
+- **Ensō:** um traço de pincel aberto (vão de cerca de 30°), que começa mais grosso e afina, pintado de 0 até o progresso; o trilho em `line`; o fim do traço em "branco voador" (3 fios finos com falhas fixas). É o descanso da ficha e o pincel das marcas das Metas da semana.
+- **Aguada de montanha:** duas silhuetas em curvas, em `textPrimary` a 7 % e 4 %, com a base esmaecendo; parada; só no canto de cima do Início.
+- **Letras:** as do §5, sem fonte baixada. SF Symbols em peso leve, para acompanhar o traço fino.
+- **Proibido nesta direção:** lótus, Buda decorativo, caracteres japoneses ou chineses como enfeite, dourado, confete, anéis concêntricos, e qualquer texto de sabedoria ou motivação.
 
 ## Fontes
 
