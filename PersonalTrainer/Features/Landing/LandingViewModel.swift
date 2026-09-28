@@ -34,6 +34,10 @@ final class LandingViewModel {
 
     /// Objetivos ativos, o principal primeiro (SPEC §7.15 M1); vazio sem objetivo.
     private(set) var activeGoals: [ProgramGoal] = []
+    /// "segunda-feira, 28 de setembro" (RF-49), no calendário e no fuso da pessoa.
+    private(set) var dateText = ""
+    /// "Bom dia" / "Boa tarde" / "Boa noite" pelo horário do relógio injetado (RF-49).
+    private(set) var greeting = ""
     private(set) var pathState: PathState = .noGoal
     /// Segunda a domingo (índice 0…6, `PlanWeekday`): cheio quando há sessão concluída com
     /// série naquele dia da semana corrente.
@@ -89,6 +93,8 @@ final class LandingViewModel {
     /// plano). Nunca lança: uma falha do planejador vira log e um estado seguro (RF-49 ponto 5).
     func refresh() {
         let referenceDate = now()
+        dateText = LandingText.dateText(referenceDate, calendar: calendar)
+        greeting = LandingText.greeting(hour: calendar.component(.hour, from: referenceDate))
 
         let goals = (try? planner.activeProgramGoals()) ?? []
         activeGoals = goals
