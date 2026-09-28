@@ -1199,7 +1199,7 @@ function Draw-Lines($g, $Gd, $sol, $color) {
     if ($null -eq $from -or $null -eq $to) { continue }
     $tgt = $null; foreach ($q in $Gd.props) { if ($q.id -ceq $pr.to) { $tgt = $q } }
     if ($null -ne $tgt -and ($tgt.kind -ceq 'vHandle' -or $tgt.kind -ceq 'rope')) { $to = $to.Plus($from.Minus($to).Unit().Times(0.06)) }
-    $w = if ($pr.kind -ceq 'band') { 0.016 } else { 0.0075 }
+    $w = if ($pr.kind -ceq 'band') { 0.02 } else { 0.0075 }
     Stroke-WorldLine $g $color $from $to $w
   }
 }
@@ -1234,15 +1234,27 @@ function Draw-Dumbbell($g, [V2]$c, $ink, $color, [bool]$veil) {
   Stroke-WorldCircle $g $color $c 0.034 0.013
   Fill-WorldCircle $g $color $c 0.012
 }
+# A corda gira em volta do eixo das mãos; no instante desenhado ela passa por baixo dos pés. De frente é um U de
+# uma mão à outra; de lado, as duas pontas coincidem e ela aparece como um fio da mão até embaixo dos pés.
 function Draw-JumpRope($g, $sol, $color, [V2]$shift) {
-  $P = $sol.P; $h1 = $P['hand']; $h2 = if ($sol.front) { $P['handFar'] } else { $P['hand'] }
-  if ($null -eq $h1 -or $null -eq $h2) { return }
-  $low = -0.012; $cy = ($low - 0.25 * ($h1.Y + $h2.Y) / 2.0) / 0.75
-  $dx = if ($sol.front) { 0.0 } else { 0.2 }
-  $p1 = (ToS $h1.Plus($shift)); $p4 = (ToS $h2.Plus($shift))
-  $c1 = ToS ([V2]::new($h1.X + $dx, $cy)); $c2 = ToS ([V2]::new($h2.X - $dx, $cy))
+  $P = $sol.P; $h1 = $P['hand']
+  if ($null -eq $h1) { return }
+  $feet = @('toe', 'toeFar', 'heel', 'heelFar', 'ankle', 'ankleFar') | Where-Object { $null -ne $P[$_] } | ForEach-Object { $P[$_] }
+  $low = 1e9; $cx = 0.0; $k = 0
+  foreach ($f in $feet) { $low = [Math]::Min($low, $f.Y); $cx += $f.X; $k++ }
+  if ($k -eq 0) { return }
+  $cx /= $k; $low -= 0.022
   $pen = New-Object System.Drawing.Pen($color, [single](0.007 * $script:sc)); $pen.StartCap = 'Round'; $pen.EndCap = 'Round'
-  $g.DrawBezier($pen, (PF $p1), (PF $c1), (PF $c2), (PF $p4)); $pen.Dispose()
+  if ($sol.front) {
+    $h2 = $P['handFar']; if ($null -eq $h2) { $pen.Dispose(); return }
+    $cy = ($low - 0.25 * ($h1.Y + $h2.Y) / 2.0) / 0.75
+    $g.DrawBezier($pen, (PF (ToS $h1)), (PF (ToS ([V2]::new($h1.X, $cy)))), (PF (ToS ([V2]::new($h2.X, $cy)))), (PF (ToS $h2)))
+  } else {
+    $bottom = [V2]::new($cx, $low)
+    $c1 = $h1.Plus([V2]::new(0.06, -0.22)); $c2 = $bottom.Plus([V2]::new(0.16, 0.06))
+    $g.DrawBezier($pen, (PF (ToS $h1.Plus($shift))), (PF (ToS $c1)), (PF (ToS $c2)), (PF (ToS $bottom)))
+  }
+  $pen.Dispose()
 }
 function Draw-Prop($g, $Gd, $sol, $pr, [V2]$c, $ink, $color, [bool]$ghost) {
   switch -CaseSensitive ($pr.kind) {
@@ -1506,10 +1518,11 @@ function InfoOf($Gd) {
 # ---------------------------------------------------------------- folhas de revisão
 $Gutter = 36
 $Layout = @{
-  sheet = @{ panel = 320; cardPad = 28; between = 32; cols = 2; title = 31; compact = $false }
-  vocab = @{ panel = 250; cardPad = 22; between = 24; cols = 3; title = 22; compact = $true }
+  sheet = @{ panel = 360; cardPad = 28; between = 32; cols = 2; title = 31; compact = $false }
+  vocab = @{ panel = 290; cardPad = 22; between = 24; cols = 3; title = 22; compact = $true }
 }
-function Get-ColW($lay) { 2 * $lay.cardPad + 3 * $lay.panel + 2 * $lay.between }
+# Largura do cartão: cabe o maior número de quadros da folha (1 a 3).
+function Get-ColW($lay) { $k = [Math]::Max(1, $script:MaxFrames); 2 * $lay.cardPad + $k * $lay.panel + ($k - 1) * $lay.between }
 function Get-CommonScale($guides, [double]$panel, [double]$pad, [double]$topPad, [double]$bottomPad) {
   $s = 1e9
   foreach ($Gd in $guides) { $b = $script:boundsBy[$Gd.slug]; $s = [Math]::Min($s, [Math]::Min(($panel - 2 * $pad) / ($b.maxX - $b.minX), ($panel - $bottomPad - $topPad) / ($b.maxY - $b.minY))) }
@@ -1588,9 +1601,9 @@ function Draw-Header($g, $ink, [double]$W, [string]$title, [string]$sub) {
   # legenda: amostras sobre o fundo do quadro, com as mesmas cores da figura (só da folha: no app não há legenda)
   $items = @(
     @('limb', $ink.nearMove, 'o que se move'), @('limb', $ink.nearStill, 'resto do corpo'), @('pair', $null, 'lado de lá, mais suave'),
-    @('ghost', $null, 'posição inicial (quadros seguintes)'), @('arrow', $ink.arrow, 'caminho da ida (quadro 1)'), @('ring', $ink.equip, 'equipamento que se move'))
+    @('ghost', $null, 'posição inicial'), @('arrow', $ink.arrow, 'caminho da ida'), @('ring', $ink.equip, 'equipamento que se move'))
   $fl = New-Font 'Segoe UI' 16.5; $flb = New-Font 'Segoe UI Semibold' 16.5
-  $lead = 'Legenda da revisão (não vai para o app):'
+  $lead = 'Legenda (só da revisão):'
   $leadW = TextWidth $g $lead $flb
   $totalW = $leadW + 24; foreach ($it in $items) { $totalW += 44 + 10 + (TextWidth $g $it[2] $fl) + 30 }
   $pillW = [Math]::Min($W - 2 * $Gutter, $totalW + 24)
@@ -1631,6 +1644,7 @@ function Draw-Header($g, $ink, [double]$W, [string]$title, [string]$sub) {
 # Uma aparência (clara ou escura) da folha: devolve o canvas desenhado.
 function Render-Look($guides, [string]$look, $lay, [string]$title, [string]$sub, [string]$footer) {
   $ink = New-Ink $look
+  $script:MaxFrames = 1; foreach ($Gd in $guides) { $script:MaxFrames = [Math]::Max($script:MaxFrames, $Gd.frames.Count) }
   $colW = Get-ColW $lay; $cols = $lay.cols; $rows = [int][Math]::Ceiling($guides.Count / $cols)
   $W = [int]($cols * $colW + ($cols + 1) * $Gutter)
   $scale = Get-CommonScale $guides $lay.panel 8 10 14

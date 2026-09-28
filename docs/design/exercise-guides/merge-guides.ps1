@@ -7,7 +7,8 @@
 #      6 casas, UTF-8 sem BOM, LF): rodar duas vezes dá os mesmos bytes. O arquivo do seed é gerado; nunca o edite
 #      à mão;
 #   3. roda -Check (com o catálogo do seed) e -Golden sobre o resultado, gravando
-#      Packages/TrainerCore/Tests/TrainerCoreTests/Fixtures/exercise-guides-golden.v1.json;
+#      Packages/TrainerCore/Tests/TrainerCoreTests/Fixtures/exercise-guides-golden.v1.json, e o golden do vocabulário
+#      (exercise-guides-vocabulary-golden.v1.json, com o catálogo desligado);
 #   4. lista os slugs do manifesto que ainda não têm guia.
 #
 # Uso: powershell -NoProfile -ExecutionPolicy Bypass -File merge-guides.ps1
@@ -18,6 +19,7 @@ $repo = [System.IO.Path]::GetFullPath((Join-Path $here '..\..\..'))
 $renderer = Join-Path $here 'render-exercise-guides.ps1'
 $seedFile = Join-Path $repo 'PersonalTrainer\Resources\Seed\exercise-guides.v1.json'
 $goldenFile = Join-Path $repo 'Packages\TrainerCore\Tests\TrainerCoreTests\Fixtures\exercise-guides-golden.v1.json'
+$vocabularyGoldenFile = Join-Path $repo 'Packages\TrainerCore\Tests\TrainerCoreTests\Fixtures\exercise-guides-vocabulary-golden.v1.json'
 $Inv = [System.Globalization.CultureInfo]::InvariantCulture
 $Utf8 = New-Object System.Text.UTF8Encoding $false
 
@@ -137,6 +139,10 @@ if ($check.code -ne 0) { $check.lines | ForEach-Object { Write-Host "  $_" }; Fa
 $gold = Invoke-Renderer @('-Golden', $goldenFile, '-Data', $seedFile)
 $gold.lines | ForEach-Object { Write-Host "  $_" }
 if ($gold.code -ne 0) { Fail 'falhou ao gravar o golden' }
+# O vocabulário usa todos os recursos do formato; o golden dele protege no Swift os caminhos que os lotes ainda não usam.
+$vocabGold = Invoke-Renderer @('-Golden', $vocabularyGoldenFile, '-Data', (Join-Path $here 'vocabulary.sample.json'), '-NoCatalog')
+$vocabGold.lines | ForEach-Object { Write-Host "  $_" }
+if ($vocabGold.code -ne 0) { Fail 'falhou ao gravar o golden do vocabulário' }
 
 $missing = @($wanted | Where-Object { -not $guides.ContainsKey($_) })
 if ($missing.Count -eq 0) { Write-Host "todas as $($wanted.Count) guias do manifesto estão no seed" }

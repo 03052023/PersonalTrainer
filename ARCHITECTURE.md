@@ -276,6 +276,10 @@ Tipos: escrita `HKWorkoutType`; leitura `heartRate` (M2). M5 acrescenta só leit
 - `SeedLoader` roda no primeiro launch (`UserSettingsModel.schemaSeedVersion < bundle seed version`) e faz upsert por `slug`: busca o `ExerciseModel` existente e copia campo a campo; **nunca** insere um segundo modelo com o mesmo `uuid`/`slug` (os dois são `.unique` e o insert duplicado vira upsert silencioso que zeraria `isArchived`/`machineNotes`). Só adiciona novos.
 - Com o `project.yml` atual, os JSON de `Resources/Seed/` são copiados para a **raiz** do bundle: usar `Bundle.main.url(forResource: "exercises.v1", withExtension: "json")` sem `subdirectory:`.
 - Na M1 o programa é editado **no JSON** e reinstalando o app. É deliberado: elimina uma tela inteira do MVP.
+- **Guias "Como fazer" (2.3; SPEC RF-40 e §7.12):** `Resources/Seed/exercise-guides.v1.json` vai no bundle como os outros JSON do seed, sem tarefa [PROJ]. O formato está congelado em `docs/V23-CORE-CONTRACT.md` §2.5: topo `{"version": 1, "rig": "mannequin-v2", "units": "stature", "guides": […]}`, uma guia por `slug` do catálogo, UTF-8 sem BOM e LF.
+  - O arquivo é **gerado**, nunca editado à mão. Os autores escrevem `docs/design/exercise-guides/batch-<id>.json` (lotes do manifesto `batches.json`); `merge-guides.ps1` junta os lotes em ordem de slug com um serializador determinístico, roda o `-Check` e grava os goldens em `Packages/TrainerCore/Tests/TrainerCoreTests/Fixtures/`.
+  - A decodificação (`ExerciseGuideCatalog.decode`) só lê; quem valida é o `ExerciseGuideValidator` (E1–E10 e formato), as mesmas regras do `-Check` de `render-exercise-guides.ps1`. O `GuideGoldenTests` compara a cinemática do Swift com a da ferramenta em até 0,001 H: é o que garante que o app desenha o que a folha de revisão mostrou, já que o Swift não roda na máquina de autoria.
+  - No app (onda de telas), `Services/ExerciseGuides/ExerciseGuideLibrary` lê o arquivo, valida contra o catálogo e, se falhar, registra no log e devolve `ExerciseGuideCatalog.empty` (E8): sem botão "Como fazer", e a sessão nunca para.
 
 ## 12. Backup (M2)
 
@@ -383,18 +387,22 @@ PersonalTrainer/                        ← raiz do repo (Windows: C:\Users\leon
 │   └── TrainerCore/
 │       ├── Package.swift
 │       ├── Sources/TrainerCore/{Domain,Engine,Sync,Summary}/   (M4: Review/ · M5: Health/ — separados de Engine/ por R2)
-│       │   └── Coach/   diálogo do app (SPEC §7.11 C1–C8): CoachFeedBuilder, CoachLog, ReviewSchedule, ProvisioningProfileParser; lê Review/ e Health/, recebe o estado do deload pronto
+│       │   ├── Coach/   diálogo do app (SPEC §7.11 C1–C8): CoachFeedBuilder, CoachLog, ReviewSchedule, ProvisioningProfileParser; lê Review/ e Health/, recebe o estado do deload pronto
+│       │   └── Guide/   (2.3) "Como fazer" (SPEC §7.12 E1–E10): formato das guias (ExerciseGuide, ExerciseGuideCatalog, GuideFrame, GuidePose…), cinemática (GuideKinematics, GuideSkeleton, GuideRig), partes que se movem e seta (GuideMotion), tempo (GuideTiming) e ExerciseGuideValidator; só Foundation, sem Date(), função pura de t
 │       └── Tests/TrainerCoreTests/
+│           └── Fixtures/   goldens do "Como fazer" gravados por docs/design/exercise-guides/merge-guides.ps1 (exercise-guides-golden.v1.json, exercise-guides-vocabulary-golden.v1.json); fora do alvo (exclude no Package.swift), lidos por #filePath
 ├── PersonalTrainer/                     (target iOS — XcodeGen inclui a pasta inteira, exceto Support/)
 │   ├── App/            PersonalTrainerApp.swift · AppEnvironment.swift · AppEnvironment+Factories.swift · RootView.swift
 │   ├── Features/       Home/ · Session/ · History/ · (M2) Catalog/ · Program/ · Settings/ ·
 │   │                   DesignSystem/ (Theme, GoalStyle, FlowerView, PrimaryButtonStyle — DESIGN.md §3/§4/§9) ·
-│   │                   (v2.2) ExerciseInfo/ (folha "Informações do exercício" e textos da meta de hoje, usados pela Home, pela Sessão e pelo Histórico — SPEC RF-47)
+│   │                   (v2.2) ExerciseInfo/ (folha "Informações do exercício" e textos da meta de hoje, usados pela Home, pela Sessão e pelo Histórico — SPEC RF-47) ·
+│   │                   (2.3, onda de telas) ExerciseGuide/ (GuideIllustrationView com TimelineView + Canvas, GuideStaticFramesView, folha e botão "Como fazer" — SPEC §7.12)
 │   ├── PreviewSupport/ doubles privados de SessionPlanning/SessionCoordinating para #Preview (fora de Features/ para o grep R4 ficar limpo)
 │   ├── Services/       Planning/ · Session/ · RestTimer/ · Seed/ · Notifications/ · HealthKit/ · WatchSync/ · (M2) Backup/ · References/ ·
-│   │                   (M4) Decisions/ (decisões de semana leve em JSON) · Coach/ (diálogo, SPEC §7.11: CoachService, log em JSON, validade da instalação)
+│   │                   (M4) Decisions/ (decisões de semana leve em JSON) · Coach/ (diálogo, SPEC §7.11: CoachService, log em JSON, validade da instalação) ·
+│   │                   (2.3, onda de telas) ExerciseGuides/ (ExerciseGuideLibrary: lê exercise-guides.v1.json, valida e cai em .empty com log — SPEC E8)
 │   ├── Persistence/    Schema/{SchemaV1,CurrentSchema}.swift · MigrationPlan.swift · ModelContainerFactory.swift · Mappers/ · Repositories/
-│   ├── Resources/      Seed/exercises.v1.json · Seed/program-default.v1.json · (Assets.xcassets)
+│   ├── Resources/      Seed/exercises.v1.json · Seed/program-default.v1.json · (2.3) Seed/exercise-guides.v1.json (gerado pela junção dos lotes) · (Assets.xcassets)
 │   └── Support/        PersonalTrainer.entitlements · Info.plist (gerado, fora do Git)
 ├── PersonalTrainerWatch/                (target watchOS — placeholder até M3)
 │   ├── App/ · Features/ · Services/ · Support/PersonalTrainerWatch.entitlements
