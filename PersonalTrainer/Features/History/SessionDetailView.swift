@@ -42,6 +42,9 @@ struct SessionDetailView: View {
                 SessionExerciseSection(sessionExercise: sessionExercise, references: references)
             }
         }
+        .scrollContentBackground(.hidden)
+        .paperBackground()
+        .listRowBackground(Theme.surface)
         .navigationTitle(session.programDayName)
         .navigationBarTitleDisplayMode(.inline)
     }

@@ -80,6 +80,8 @@ struct HealthProfileView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .scrollContentBackground(.hidden)
+        .paperBackground()
         .navigationTitle("Perfil de saúde")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

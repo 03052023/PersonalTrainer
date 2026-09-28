@@ -535,6 +535,66 @@ final class HealthViewModelTests: XCTestCase {
         XCTAssertTrue(model.visibleSuggestions.contains { $0.id == dismissed.id })
     }
 
+    // MARK: - W7 (SPEC §7.16, docs/V23-UI-CONTRACT.md §4.3): passos só com Longevidade ou Cardio
+
+    /// 7 dias com 3.000 passos (abaixo da meta de 7.000), disparando a sugestão `.lowSteps`
+    /// (SPEC A5/W7); nenhum outro dado de recuperação, para a lista de sugestões ficar previsível.
+    private func lowStepsReader() -> HealthSpyReader {
+        let days = (1...7).map { daysAgo in
+            DailyStepCount(day: calendar.date(byAdding: .day, value: -daysAgo, to: now) ?? now, steps: 3_000)
+        }
+        let input = HealthInput(
+            physiology: UserPhysiology(birthDate: nil, sex: nil, maxHeartRateOverride: nil),
+            aerobicWorkouts: [],
+            recovery: [],
+            steps: days,
+            vo2Max: [],
+            recentSessions: []
+        )
+        return HealthSpyReader(input: input)
+    }
+
+    func testW7_showsStepsDefaultsToTrue_forTestsAndPreviews() async throws {
+        let (defaults, suite) = try makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: "healthReadAuthorized")
+        let model = makeModel(reader: lowStepsReader(), defaults: defaults)
+
+        await model.load()
+
+        XCTAssertTrue(model.showsSteps)
+        XCTAssertEqual(model.report?.steps.average7, 3_000)
+        XCTAssertTrue(model.visibleSuggestions.contains { $0.kind == .lowSteps })
+    }
+
+    func testW7_healthHidesStepsSuggestionWithoutLongevityOrCardio() async throws {
+        let (defaults, suite) = try makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: "healthReadAuthorized")
+        let model = makeModel(reader: lowStepsReader(), defaults: defaults, showsSteps: false)
+
+        await model.load()
+
+        XCTAssertFalse(model.showsSteps)
+        // O relatório continua trazendo `.lowSteps` (§7.10 puro); só a exibição some (W7).
+        XCTAssertTrue(model.report?.suggestions.contains { $0.kind == .lowSteps } == true)
+        XCTAssertFalse(model.visibleSuggestions.contains { $0.kind == .lowSteps })
+    }
+
+    func testW7_healthHidingStepsKeepsOtherSuggestionsVisible() async throws {
+        let (defaults, suite) = try makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: "healthReadAuthorized")
+        // Sem dado noturno (dispara `.wearWatchAtNight`) e passos baixos (dispara `.lowSteps`).
+        let reader = lowStepsReader()
+        let model = makeModel(reader: reader, defaults: defaults, showsSteps: false)
+
+        await model.load()
+
+        XCTAssertTrue(model.visibleSuggestions.contains { $0.kind == .wearWatchAtNight }, "outras sugestões continuam")
+        XCTAssertFalse(model.visibleSuggestions.contains { $0.kind == .lowSteps })
+    }
+
     // MARK: - Formatação pt-BR do card
 
     func testFormat_cardLines_inBrazilianPortuguese() {
@@ -572,7 +632,8 @@ final class HealthViewModelTests: XCTestCase {
         sessions: [SessionSummary] = [],
         targets: HealthTargets = HealthTargets(),
         now overrideNow: Date? = nil,
-        logStore: any CoachLogStoring = FakeCoachLogStore()
+        logStore: any CoachLogStoring = FakeCoachLogStore(),
+        showsSteps: Bool = true
     ) -> HealthViewModel {
         let fixedNow = overrideNow ?? now
         return HealthViewModel(
@@ -582,7 +643,8 @@ final class HealthViewModelTests: XCTestCase {
             now: { fixedNow },
             calendar: calendar,
             defaults: defaults,
-            logStore: logStore
+            logStore: logStore,
+            showsSteps: { showsSteps }
         )
     }
 
