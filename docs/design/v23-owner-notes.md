@@ -33,3 +33,8 @@ Aplicar no contrato da onda de telas; também vão para o HANDOFF quando o main 
     - Longevidade + qualquer um: + equilíbrio e mobilidade; = pouco conflito.
 12. **Força × Combate:** compartilham a base de força máxima (compostos com 3–6 repetições). O Combate acrescenta potência, condicionamento intermitente, pegada, tronco e pescoço, com menos volume nos grandes levantamentos. O "Por quê?" e a tela de objetivos explicam a diferença; ao combinar os dois, o app marca como "grande sobreposição".
 13. **Detalhes sutis da abertura** (2026-09-28): o resultado do método (crítico + refino, workflow `wf_033bc874-622`) vale como está, inclusive a continuidade, se o crítico mantiver. O dono gostou da luz e do ensō e não gostou da continuidade, mas disse que é só um sinal de gosto para as próximas etapas, não uma correção: NÃO sobrepor o resultado do método.
+14. **Decisões de 2026-09-28** (valem para a onda de telas):
+    - **Direção visual: A · Tinta e papel** (docs/design/v23-aesthetics/directions.html), trazendo também **mensagens estoicas** junto com o lado budista. As citações são de domínio público (Sêneca, Marco Aurélio, Epicteto, Dhammapada), em pt-BR, com a fonte.
+    - **Pólen: entra**, discreto, na abertura. O dono pediu explicitamente.
+    - **Desenhos do "Como fazer": aprovados** (T6.8, CA6-7 para os 55 de 2026-09-28).
+    - **Tela inicial nova:** o app não abre direto no treino do dia. Primeiro vem uma **home bonita**: a flor pintada em tinta, uma saudação, a mensagem do dia (estoica ou budista), um resumo calmo da semana e um caminho claro para o treino de hoje. A tela Hoje com os treinos vem em seguida.
