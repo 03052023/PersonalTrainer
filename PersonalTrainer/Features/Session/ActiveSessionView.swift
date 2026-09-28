@@ -48,116 +48,84 @@ struct ActiveSessionView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 10) {
-                        warmupHint
-
-                        if model.exercises.isEmpty {
-                            ContentUnavailableView(
-                                "Nenhum exercício",
-                                systemImage: "list.bullet",
-                                description: Text("Esta sessão não tem exercícios. Toque em Concluir.")
-                            )
-                        }
-
-                        ForEach(Array(model.exercises.enumerated()), id: \.element.uuid) { pair in
-                            card(for: pair.element, number: pair.offset + 1)
-                                .id(pair.element.uuid)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .padding(.bottom, 24)
+            list
+                .paperBackground()
+                // RF-44 f: o descanso fica preso no topo, fora da lista que rola.
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    RestTimerView(timer: model.restTimer, nextUp: model.restNextUpText, title: model.restTitle)
                 }
-                .scrollDismissesKeyboard(.interactively)
-                .onChange(of: focusedLoadID) { _, newValue in
-                    guard let newValue else {
-                        // Teclado fechado ("OK" ou arrastar): a carga volta a ser só texto.
-                        editingLoadID = nil
-                        return
-                    }
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        proxy.scrollTo(newValue, anchor: .center)
-                    }
+                // RF-44 i: o botão grande preso embaixo guia a sessão; a lista continua em cima.
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    guideBar
                 }
-            }
-            .background(Theme.background.ignoresSafeArea())
-            // RF-44 f: o descanso fica preso no topo, fora da lista que rola.
-            .safeAreaInset(edge: .top, spacing: 0) {
-                RestTimerView(timer: model.restTimer, nextUp: model.restNextUpText)
-            }
-            .sensoryFeedback(.success, trigger: model.markCount)
-            .navigationTitle(model.session?.programDayName ?? "Sessão")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Theme.background, for: .navigationBar)
-            .toolbar { toolbarContent }
-            .confirmationDialog(
-                SessionSheetText.pendingTitle(count: pendingFinish?.names.count ?? 0),
-                isPresented: $isShowingPendingDialog,
-                titleVisibility: .visible,
-                presenting: pendingFinish
-            ) { pending in
-                // RF-44 e: só quando algum pendente pode ser marcado (os de primeira vez sem carga
-                // ficam de fora); sem nenhum, o toque concluiria uma sessão sem nada marcado.
-                if pending.canMarkAny {
-                    Button("Marcar como feitos, como previsto") {
-                        markRemainingAndFinish()
-                    }
-                }
-                if pending.hasAnySet {
-                    Button("Encerrar só com o que marquei") {
-                        finishAndClose()
-                    }
-                } else {
-                    Button("Sair sem registrar") {
-                        model.abandon()
-                        if model.isFinished {
-                            onFinished()
+                .sensoryFeedback(.success, trigger: model.markCount)
+                .navigationTitle(model.session?.programDayName ?? "Sessão")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(Theme.background, for: .navigationBar)
+                .toolbar { toolbarContent }
+                .confirmationDialog(
+                    SessionSheetText.pendingTitle(count: pendingFinish?.names.count ?? 0),
+                    isPresented: $isShowingPendingDialog,
+                    titleVisibility: .visible,
+                    presenting: pendingFinish
+                ) { pending in
+                    // RF-44 e: só quando algum pendente pode ser marcado; desde a 2.3, com ou sem carga
+                    // (os sem carga gravam 0).
+                    if pending.canMarkAny {
+                        Button("Marcar como feitos, como previsto") {
+                            markRemainingAndFinish()
                         }
                     }
+                    if pending.hasAnySet {
+                        Button("Encerrar só com o que marquei") {
+                            finishAndClose()
+                        }
+                    } else {
+                        Button("Sair sem registrar") {
+                            model.abandon()
+                            if model.isFinished {
+                                onFinished()
+                            }
+                        }
+                    }
+                    Button("Voltar ao treino", role: .cancel) {}
+                } message: { pending in
+                    Text(SessionSheetText.pendingMessage(names: pending.names))
                 }
-                Button("Voltar ao treino", role: .cancel) {}
-            } message: { pending in
-                Text(SessionSheetText.pendingMessage(
-                    names: pending.names,
-                    needingLoad: pending.canMarkAny ? pending.needingLoad : []
-                ))
-            }
-            .sheet(item: $infoItem, onDismiss: { runPendingInfoAction() }) { content in
-                infoSheet(for: content)
-            }
-            .sheet(item: $whyItem) { item in
-                WhySheet(topic: item.id, catalog: references)
-                    .presentationDetents([.medium, .large])
+                .sheet(item: $infoItem, onDismiss: { runPendingInfoAction() }) { content in
+                    infoSheet(for: content)
+                }
+                .sheet(item: $whyItem) { item in
+                    WhySheet(topic: item.id, catalog: references)
+                        .presentationDetents([.medium, .large])
+                        .tint(Theme.accent)
+                }
+                .sheet(
+                    isPresented: $model.isShowingSubstituteSheet,
+                    onDismiss: { model.sheetDidDismiss() }
+                ) {
+                    SubstituteExerciseSheet(
+                        exerciseName: model.substitutingExerciseName,
+                        suggestions: model.substituteSuggestions,
+                        references: references,
+                        context: .session,
+                        onPick: { model.substituteSelectedExercise(with: $0) },
+                        onCancel: { model.cancelSubstitution() }
+                    )
                     .tint(Theme.accent)
-            }
-            .sheet(
-                isPresented: $model.isShowingSubstituteSheet,
-                onDismiss: { model.sheetDidDismiss() }
-            ) {
-                SubstituteExerciseSheet(
-                    exerciseName: model.substitutingExerciseName,
-                    suggestions: model.substituteSuggestions,
-                    references: references,
-                    context: .session,
-                    onPick: { model.substituteSelectedExercise(with: $0) },
-                    onCancel: { model.cancelSubstitution() }
-                )
-                .tint(Theme.accent)
-            }
-            .sheet(
-                item: $model.editingSet,
-                onDismiss: { model.sheetDidDismiss() }
-            ) { edit in
-                EditSetSheet(
-                    edit: edit,
-                    onSave: { model.saveEditedSet($0) },
-                    onDelete: { model.deleteSet(id: edit.setID) },
-                    onCancel: { model.cancelEditingSet() }
-                )
-                .presentationDetents([.medium, .large])
-            }
+                }
+                .sheet(
+                    item: $model.editingSet,
+                    onDismiss: { model.sheetDidDismiss() }
+                ) { edit in
+                    EditSetSheet(
+                        edit: edit,
+                        onSave: { model.saveEditedSet($0) },
+                        onDelete: { model.deleteSet(id: edit.setID) },
+                        onCancel: { model.cancelEditingSet() }
+                    )
+                    .presentationDetents([.medium, .large])
+                }
         }
         .alert("Erro", isPresented: $model.isShowingError) {
             Button("OK", role: .cancel) {}
@@ -176,6 +144,71 @@ struct ActiveSessionView: View {
     }
 
     // MARK: - Partes
+
+    /// A ficha: a dica de aquecimento e os cartões, na ordem. Rola até o campo de carga aberto e, ao
+    /// terminar um exercício, até o próximo (RF-44 i).
+    private var list: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    if model.showsWarmupHint {
+                        warmupHint
+                    }
+
+                    if model.exercises.isEmpty {
+                        ContentUnavailableView(
+                            "Nenhum exercício",
+                            systemImage: "list.bullet",
+                            description: Text("Esta sessão não tem exercícios. Toque em Concluir.")
+                        )
+                    }
+
+                    ForEach(Array(model.exercises.enumerated()), id: \.element.uuid) { pair in
+                        card(for: pair.element, number: pair.offset + 1)
+                            .id(pair.element.uuid)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 24)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .onChange(of: focusedLoadID) { _, newValue in
+                guard let newValue else {
+                    // Teclado fechado ("OK" ou arrastar): a carga volta a ser só texto.
+                    editingLoadID = nil
+                    return
+                }
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    proxy.scrollTo(newValue, anchor: .center)
+                }
+            }
+            // RF-44 i: ao terminar um exercício, a lista rola até o próximo.
+            .onChange(of: model.currentExerciseID) { oldValue, newValue in
+                guard let newValue, oldValue != nil, oldValue != newValue else {
+                    return
+                }
+                withAnimation(.easeInOut(duration: 0.35)) {
+                    proxy.scrollTo(newValue, anchor: .center)
+                }
+            }
+        }
+    }
+
+    /// O botão grande da sessão guiada (RF-44 i), só com a sessão aberta. Com o teclado da carga aberto,
+    /// sai da frente (volta com "OK").
+    @ViewBuilder
+    private var guideBar: some View {
+        if model.isOpen && focusedLoadID == nil {
+            SessionGuideBar(
+                line: model.guideLine,
+                target: model.guideTarget,
+                buttonTitle: SessionGuide.buttonTitle(model.guideStep.action),
+                isEnabled: model.isOpen,
+                onTap: { performGuideStep() }
+            )
+        }
+    }
 
     /// RF-44 d: a chave Aquecimento saiu; fica esta linha fixa.
     private var warmupHint: some View {
@@ -285,10 +318,21 @@ struct ActiveSessionView: View {
             pendingFinish = PendingFinish(
                 names: pendingNames,
                 hasAnySet: hasAnySet,
-                canMarkAny: model.canMarkAnyPending,
-                needingLoad: model.pendingNamesNeedingLoad
+                canMarkAny: model.canMarkAnyPending
             )
             isShowingPendingDialog = true
+        }
+    }
+
+    /// O botão grande (RF-44 i): marca a série seguinte do passo atual, como a bolinha vazia; com tudo
+    /// feito, é o mesmo "Concluir" da barra.
+    private func performGuideStep() {
+        focusedLoadID = nil
+        switch model.guideStep.action {
+        case .finish:
+            conclude()
+        case .markSet, .markDone:
+            model.markGuideStep()
         }
     }
 
@@ -346,14 +390,13 @@ private struct PendingFinish: Hashable {
     let hasAnySet: Bool
     /// Algum pendente pode ser marcado como previsto.
     let canMarkAny: Bool
-    /// Pendentes de primeira vez ainda sem carga: ficam de fora de "Marcar como feitos".
-    let needingLoad: [String]
 }
 
 #Preview("Ficha") {
     if let fixture = SessionPreviewSupport.makeFixture() {
         ActiveSessionView(model: fixture.viewModel, references: .empty, onFinished: {}, onMinimize: {})
             .tint(Theme.accent)
+            .environment(\.exerciseGuides, ExerciseGuideLibrary.load(bundle: .main))
     } else {
         Text("Preview indisponível")
     }

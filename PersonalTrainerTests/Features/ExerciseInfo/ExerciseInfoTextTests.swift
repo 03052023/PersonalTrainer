@@ -38,7 +38,7 @@ final class ExerciseInfoTextTests: XCTestCase {
         )
         XCTAssertEqual(
             ExerciseInfoText.today(firstTimeToChoose),
-            "4 séries de 6 repetições. Na primeira vez você escolhe a carga. Descanso de 1 min 30 s entre as séries."
+            "4 séries de 6 repetições. A carga é opcional. Descanso de 1 min 30 s entre as séries."
         )
 
         let seconds = makeContent(
@@ -305,6 +305,62 @@ final class ExerciseInfoTextTests: XCTestCase {
         }
     }
 
+    // MARK: - SPEC §7.14 F1 e F2: aeróbico na folha
+
+    func testF1_infoTodayForCardio() {
+        let walk = makeContent(
+            note: .hold, equipment: .bodyweight, measure: .minutes, load: nil, sets: 1, targetReps: 30,
+            repMin: 30, repMax: 45, restSeconds: 60, slug: "brisk-walk", pattern: .cardio
+        )
+        XCTAssertEqual(ExerciseInfoText.today(walk), "30 minutos, moderado: dá para conversar, mas não para cantar.")
+
+        let intervals = makeContent(
+            note: .hold, equipment: .bodyweight, measure: .minutes, load: nil, sets: 4, targetReps: 3,
+            repMin: 3, repMax: 4, restSeconds: 180, slug: "run-intervals", pattern: .cardio
+        )
+        XCTAssertEqual(
+            ExerciseInfoText.today(intervals),
+            "4 séries de 3 minutos, forte: só dá para dizer poucas palavras. "
+                + "Recuperação andando de 3 min entre as séries. Antes, aqueça 10 minutos andando devagar."
+        )
+
+        let bikeWithLevel = makeContent(
+            note: .hold, equipment: .machine, measure: .minutes, load: 7, unit: .level, sets: 1, targetReps: 50,
+            repMin: 45, repMax: 75, restSeconds: 60, slug: "stationary-bike", pattern: .cardio
+        )
+        XCTAssertEqual(ExerciseInfoText.today(bikeWithLevel), "50 minutos, leve: a conversa é fácil. No nível 7.")
+
+        let bikeWithoutLevel = makeContent(
+            note: .calibrate, equipment: .machine, measure: .minutes, load: nil, unit: .level, sets: 1, targetReps: 45,
+            repMin: 45, repMax: 75, restSeconds: 60, slug: "stationary-bike", pattern: .cardio
+        )
+        XCTAssertEqual(ExerciseInfoText.today(bikeWithoutLevel), "45 minutos, leve: a conversa é fácil.")
+        XCTAssertEqual(
+            ExerciseInfoText.why(bikeWithoutLevel),
+            "Primeira vez: faça 45 minutos no ritmo em que a conversa é fácil; a próxima sessão se ajusta. "
+                + "O nível da máquina é opcional."
+        )
+        XCTAssertEqual(ExerciseInfoText.whyTitle(bikeWithoutLevel), "Por que assim hoje", "sem nível, nada de \"escolha a carga\"")
+    }
+
+    /// SPEC RF-46 (D3): 0 num exercício com equipamento é "sem carga externa", nunca "0 kg".
+    func testRF46_noLoadOnEquipment_neverSaysZeroKg() {
+        let noLoad = lastSession(sets: [(0, 12), (0, 12), (0, 12)])
+        let hold = makeContent(
+            note: .hold, equipment: .machine, load: 0, targetReps: 12, repMin: 8, repMax: 12, lastSession: noLoad
+        )
+        XCTAssertEqual(
+            ExerciseInfoText.why(hold),
+            "Na última vez você fez 12, 12 e 12, dentro da faixa de 8 a 12. A meta sobe para 12 repetições."
+        )
+        XCTAssertEqual(
+            ExerciseInfoText.today(hold),
+            "3 séries de 12 repetições. A carga é opcional. Descanso de 4 min entre as séries."
+        )
+        XCTAssertEqual(ExerciseInfoText.whyTitle(hold), "Por que assim hoje")
+        XCTAssertEqual(hold.loadDisplay, .toChoose)
+    }
+
     // MARK: - Fixtures
 
     private func makeContent(
@@ -320,7 +376,9 @@ final class ExerciseInfoTextTests: XCTestCase {
         targetRIR: Int = 2,
         restSeconds: Int = 240,
         machineNotes: String? = nil,
-        lastSession: ExerciseLastSession? = nil
+        lastSession: ExerciseLastSession? = nil,
+        slug: String? = nil,
+        pattern: MovementPattern? = nil
     ) -> ExerciseInfoContent {
         ExerciseInfoContent(
             id: UUID(),
@@ -338,7 +396,9 @@ final class ExerciseInfoTextTests: XCTestCase {
             load: load,
             restSeconds: restSeconds,
             note: note,
-            lastSession: lastSession
+            lastSession: lastSession,
+            slug: slug,
+            movementPattern: pattern
         )
     }
 

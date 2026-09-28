@@ -4,9 +4,10 @@ import TrainerCore
 
 /// Dados e doubles para os `#Preview` da ficha da sessão (SPEC RF-44): uma sessão em andamento com
 /// um exercício feito (com um aquecimento antigo), um pulado, um no meio, um de peso do corpo sem
-/// carga (RF-46) e um de primeira vez sem carga (RF-44 c) — o bastante para ver todos os estados
-/// dos cartões. O catálogo tem dois exercícios fora da sessão para a folha "Trocar" (RF-34) ter o
-/// que sugerir.
+/// carga (RF-46), um sem carga (RF-44 c, "sem carga") e os intervalos de corrida do Cardio (§7.14,
+/// "4 × 3 min" com a recuperação andando) — o bastante para ver todos os estados dos cartões. Os
+/// slugs são os do seed, para o "Como fazer" aparecer quando o preview injeta as guias. O catálogo
+/// tem dois exercícios fora da sessão para a folha "Trocar" (RF-34) ter o que sugerir.
 ///
 /// Os doubles (coordinator, planner) são `private` e prefixados pela feature para não colidir com
 /// os das outras tarefas. Só previews usam `Date()` aqui: não é ViewModel nem serviço, e o timer de
@@ -44,7 +45,7 @@ enum SessionPreviewSupport {
             machineNotes: "Banco na posição 3, pés no alto da plataforma"
         )
         let squatCatalog = makeCatalogExercise(
-            slug: "agachamento-livre",
+            slug: "barbell-back-squat",
             name: "Agachamento livre",
             primary: [.quads, .glutes],
             secondary: [.core],
@@ -54,7 +55,7 @@ enum SessionPreviewSupport {
             machineNotes: nil
         )
         let extensionCatalog = makeCatalogExercise(
-            slug: "cadeira-extensora",
+            slug: "leg-extension",
             name: "Cadeira extensora",
             primary: [.quads],
             secondary: [],
@@ -64,7 +65,7 @@ enum SessionPreviewSupport {
             machineNotes: "Encosto 4"
         )
         let pullUpCatalog = makeCatalogExercise(
-            slug: "barra-fixa",
+            slug: "pull-up",
             name: "Barra fixa",
             primary: [.back],
             secondary: [.biceps],
@@ -74,7 +75,7 @@ enum SessionPreviewSupport {
             machineNotes: nil
         )
         let curlCatalog = makeCatalogExercise(
-            slug: "mesa-flexora",
+            slug: "lying-leg-curl",
             name: "Mesa flexora",
             primary: [.hamstrings],
             secondary: [],
@@ -104,8 +105,21 @@ enum SessionPreviewSupport {
             loadIncrement: 5,
             machineNotes: nil
         )
+        // Aeróbico do Cardio (SPEC §7.14): intervalos de corrida, medidos em minutos.
+        let intervalsCatalog = makeCatalogExercise(
+            slug: "run-intervals",
+            name: "Intervalos de corrida",
+            primary: [.quads, .glutes],
+            secondary: [.hamstrings, .calves],
+            equipment: .bodyweight,
+            loadUnit: .kilograms,
+            loadIncrement: 2.5,
+            machineNotes: nil
+        )
+        intervalsCatalog.movementPattern = .cardio
         let catalogItems = [
             legPressCatalog, squatCatalog, extensionCatalog, pullUpCatalog, curlCatalog, seatedCurlCatalog, hackCatalog,
+            intervalsCatalog,
         ]
         for catalogItem in catalogItems {
             context.insert(catalogItem)
@@ -187,7 +201,7 @@ enum SessionPreviewSupport {
         )
         pullUp.prescribedTargetReps = 6
 
-        // 5. Mesa flexora: primeira vez sem carga (SPEC P2) → dica e campo de carga quando for a atual.
+        // 5. Mesa flexora: primeira vez sem carga (SPEC P2) → "sem carga", que se toca para pôr uma.
         let legCurl = makeSessionExercise(
             order: 4,
             catalog: curlCatalog,
@@ -200,6 +214,22 @@ enum SessionPreviewSupport {
             session: session
         )
 
+        // 6. Intervalos de corrida: "4 × 3 min", forte pelo teste da fala, recuperação andando de 3 min.
+        let intervals = makeSessionExercise(
+            order: 5,
+            catalog: intervalsCatalog,
+            prescribedLoad: nil,
+            prescribedSets: 4,
+            prescribedRIR: 3,
+            restSeconds: 180,
+            note: .hold,
+            in: context,
+            session: session
+        )
+        intervals.prescribedRepMin = 3
+        intervals.prescribedRepMax = 4
+        intervals.prescribedTargetReps = 3
+
         do {
             try context.save()
         } catch {
@@ -207,13 +237,17 @@ enum SessionPreviewSupport {
         }
 
         let notifications = FakeNotificationScheduler()
+        // Sugestões de carga num domínio só de preview, para não marcar exercícios de verdade como já sugeridos.
+        let previewDefaults = UserDefaults(suiteName: "SessionPreviewSupport") ?? .standard
         let viewModel = ActiveSessionViewModel(
             sessionID: session.uuid,
             coordinator: coordinator,
             planner: ActiveSessionPreviewPlanner(context: context),
             restTimer: RestTimer(notifications: notifications),
             notifications: notifications,
-            now: { Date() }
+            now: { Date() },
+            traits: ExerciseTraitsLibrary.load(bundle: .main),
+            loadHintDefaults: previewDefaults
         )
         return Fixture(
             viewModel: viewModel,

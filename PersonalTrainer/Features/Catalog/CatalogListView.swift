@@ -8,6 +8,8 @@ import TrainerCore
 /// só pelo ViewModel, que usa o `CatalogRepositoring` (AGENTS R4).
 struct CatalogListView: View {
     @State private var model: CatalogListViewModel
+    /// Guias do "Como fazer" (SPEC RF-40): o botão só aparece na linha do exercício que tem guia (E1).
+    @Environment(\.exerciseGuides) private var guides
 
     init(catalog: any CatalogRepositoring) {
         // `State(initialValue:)` guarda só a primeira instância: re-inits da view pelo pai não
@@ -28,8 +30,12 @@ struct CatalogListView: View {
                 } header: {
                     Text(section.title)
                 }
+                .listRowBackground(Theme.surface)
             }
         }
+        // Papel (DESIGN §14): o fundo da lista dá lugar ao papel; as linhas ficam em `surface`.
+        .scrollContentBackground(.hidden)
+        .paperBackground()
         .overlay {
             emptyState
         }
@@ -64,12 +70,26 @@ struct CatalogListView: View {
 
     // MARK: - Linhas
 
+    /// A linha abre o editor; o "Como fazer" ao lado é um botão próprio, só com guia (SPEC RF-40, E1).
+    /// Os dois são `borderless` para cada toque ir ao seu botão dentro da `List`.
     private func row(for exercise: ExerciseDefinition) -> some View {
         let archived = model.isArchived(exercise)
-        return Button {
-            model.startEditing(exercise)
-        } label: {
-            CatalogExerciseRow(exercise: exercise, isArchived: archived)
+        let guide = ExerciseGuideText.guide(forSlug: exercise.slug, isCustom: exercise.isCustom, in: guides)
+        return HStack(spacing: 4) {
+            Button {
+                model.startEditing(exercise)
+            } label: {
+                CatalogExerciseRow(exercise: exercise, isArchived: archived)
+            }
+            .buttonStyle(.borderless)
+            if let guide {
+                ExerciseGuideButton(
+                    guide: guide,
+                    exerciseName: exercise.name,
+                    primaryMuscles: exercise.primaryMuscles,
+                    style: .compact
+                )
+            }
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             Button {
@@ -98,6 +118,7 @@ struct CatalogListView: View {
                 .buttonStyle(.borderless)
             }
         }
+        .listRowBackground(Theme.surface)
     }
 
     // MARK: - Toolbar

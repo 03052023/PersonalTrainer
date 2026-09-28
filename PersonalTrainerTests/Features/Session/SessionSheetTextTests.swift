@@ -106,18 +106,36 @@ final class SessionSheetTextTests: XCTestCase {
         XCTAssertEqual(SessionSheetText.namesList([]), "")
     }
 
-    func testRF44_pendingMessage_namesTheOnesThatNeedLoad() {
+    /// SPEC RF-44 c e RF-46 (2.3, D3): "sem carga" no lugar do número, nunca "0 kg", e a sugestão delicada.
+    func testRF44c_optionalLoadTexts() {
+        XCTAssertEqual(SessionSheetText.loadLabel(.toChoose), "sem carga")
+        XCTAssertNil(SessionSheetText.loadLabel(.hidden))
+        XCTAssertEqual(SessionSheetText.loadLabel(.load("60 kg")), "60 kg")
+        XCTAssertEqual(SessionSheetText.loadLabel(.extra("+ 2,5 kg extra")), "+ 2,5 kg extra")
+        XCTAssertEqual(SessionSheetText.headline(amount: "10 repetições", loadLabel: "sem carga"), "10 repetições · sem carga")
+        XCTAssertEqual(SessionSheetText.headline(amount: "10 repetições", loadLabel: nil), "10 repetições")
         XCTAssertEqual(
-            SessionSheetText.pendingMessage(names: ["Supino reto", "Barra fixa"], needingLoad: ["Supino reto"]),
-            "Supino reto e Barra fixa ainda não foram marcados. Supino reto precisa da carga da primeira vez e fica de fora."
+            SessionSheetText.spokenHeadline(amount: "8 repetições", loadLabel: "+ 2,5 kg extra"),
+            "8 repetições, mais 2,5 kg extra"
+        )
+        XCTAssertEqual(SessionSheetText.noLevelText, "sem nível")
+        XCTAssertEqual(SessionSheetText.loadHint, "Anotar a carga ajuda a sugerir quando subir.")
+        XCTAssertEqual(SessionSheetText.loadHintAccept, "Anotar carga")
+        XCTAssertEqual(SessionSheetText.loadHintDismiss, "Agora não")
+
+        // Séries gravadas sem carga num exercício com equipamento: a linha compacta não diz "0 kg".
+        XCTAssertEqual(
+            SessionSheetText.doneSummary([logged(0, 12), logged(0, 12)], unit: .kilograms, equipment: .machine, measure: .reps),
+            "12, 12"
         )
         XCTAssertEqual(
-            SessionSheetText.pendingMessage(names: ["Supino reto", "Terra"], needingLoad: ["Supino reto", "Terra"]),
-            "Supino reto e Terra ainda não foram marcados. Supino reto e Terra precisam da carga da primeira vez e ficam de fora."
+            SessionSheetText.doneSummary([logged(0, 12), logged(40, 10)], unit: .kilograms, equipment: .barbell, measure: .reps),
+            "12, 10 × 40 kg"
         )
         XCTAssertEqual(
-            SessionSheetText.pendingMessage(names: ["Barra fixa"], needingLoad: []),
-            "Barra fixa ainda não foi marcado."
+            SessionSheetText.doneSummary([logged(0, 30)], unit: .level, equipment: .machine, measure: .minutes),
+            "30 min",
+            "aeróbico sem nível"
         )
     }
 

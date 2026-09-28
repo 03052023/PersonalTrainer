@@ -1,17 +1,22 @@
 import SwiftUI
 import TrainerCore
 
-/// Um exercício da ficha da sessão (SPEC RF-44 a/b/c, RF-46; DESIGN §13; mockup "Sessão: a ficha").
+/// Um exercício da ficha da sessão (SPEC RF-44 a/b/c, RF-46, §7.14; DESIGN §13; mockup "Sessão: a ficha").
 ///
 /// Estados: pendente e atual (o primeiro pendente, com borda de 1,5 pt em `accent`) mostram o cartão
-/// inteiro: número, nome (abre "Informações do exercício"), selo da nota (abre o "Por quê?"), a meta
-/// de hoje em SF Rounded grande com a carga sublinhada quando dá para tocar nela, as bolinhas,
-/// "Feito" e a linha pequena "3 séries · descanso 4 min". Feito vira uma linha compacta
-/// ("✓ 5, 5, 4 · 60 kg") que se abre com um toque para corrigir uma série; pulado fica esmaecido com
-/// "Pulado". Nada de RIR (SPEC RF-41).
+/// inteiro: número, nome (abre "Informações do exercício"), o botão "Como fazer" quando há guia (SPEC
+/// RF-40, E1), selo da nota (abre o "Por quê?"), a meta de hoje em SF Rounded grande com a carga
+/// sublinhada quando dá para tocar nela, as bolinhas, "Feito" e a linha pequena "3 séries · descanso
+/// 4 min". Feito vira uma linha compacta ("✓ 5, 5, 4 · 60 kg") que se abre com um toque para corrigir
+/// uma série; pulado fica esmaecido com "Pulado". Nada de RIR (SPEC RF-41).
 ///
-/// Lê o `ActiveSessionViewModel` e grava só por ele (AGENTS R4). O selo e o nome são botões
-/// separados, lado a lado, nunca um dentro do outro.
+/// Desde a 2.3: a carga é opcional ("sem carga" no lugar do número, que se toca para pôr uma; RF-44 c,
+/// D3), a sugestão de anotar a carga aparece embaixo do cartão uma vez na vida do exercício, e o
+/// aeróbico mostra "30 min" ou "4 × 3 min" com a intensidade pelo teste da fala no lugar da carga, o
+/// nível opcional, a recuperação andando e a linha fixa de aquecimento dos intervalos (§7.14 F1, F2).
+///
+/// Lê o `ActiveSessionViewModel` e grava só por ele (AGENTS R4). O selo, o "Como fazer" e o nome são
+/// botões separados, lado a lado, nunca um dentro do outro.
 struct ExerciseSheetCard: View {
     private let model: ActiveSessionViewModel
     private let exercise: SessionExerciseModel
@@ -24,6 +29,9 @@ struct ExerciseSheetCard: View {
     private let onOpenWhy: (String) -> Void
     private let onEditLoad: () -> Void
     private let onToggleExpanded: () -> Void
+
+    /// Guias do "Como fazer" (SPEC RF-40): o botão só aparece com guia para o exercício realizado.
+    @Environment(\.exerciseGuides) private var guides
 
     init(
         model: ActiveSessionViewModel,
@@ -52,6 +60,16 @@ struct ExerciseSheetCard: View {
     }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            cardContent
+            if model.showsLoadHint(exercise) {
+                loadHint
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var cardContent: some View {
         if exercise.wasSkipped {
             skippedCard
         } else if model.isDone(exercise) && !isExpanded {
@@ -74,22 +92,29 @@ struct ExerciseSheetCard: View {
             }
 
             if showsLoadField {
-                if model.isFirstTimeWithLoad(exercise) {
-                    firstTimeHint
-                } else {
-                    amountText
-                        .accessibilityLabel(Text(TodayTargetText.amount(goal, measure: measure)))
-                }
+                amountText
+                    .accessibilityLabel(Text(spokenAmount))
                 loadField
+            } else if let intensity = model.cardioIntensity(for: exercise) {
+                cardioHeadline(intensity)
             } else {
                 headline
             }
 
             actionsRow
 
-            Text(TodayTargetText.detail(sets: exercise.prescribedSets, restSeconds: exercise.restSeconds))
-                .font(.caption)
-                .foregroundStyle(Theme.textSecondary)
+            if let detail = detailText {
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+
+            if model.isCardioIntervals(exercise) {
+                Text(CardioText.intervalsWarmup)
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             if isExpanded && model.isDone(exercise) {
                 Button("Recolher", action: onToggleExpanded)
@@ -100,9 +125,9 @@ struct ExerciseSheetCard: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .inkCard()
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(isCurrent ? Theme.accent : Color.clear, lineWidth: 1.5)
         )
     }
@@ -123,6 +148,18 @@ struct ExerciseSheetCard: View {
             .buttonStyle(.plain)
             .accessibilityLabel(Text("\(String(number)). \(exercise.exerciseName)"))
             .accessibilityHint(Text("Abre as informações do exercício"))
+
+            if let guide {
+                ExerciseGuideButton(
+                    guide: guide,
+                    exerciseName: exercise.exerciseName,
+                    primaryMuscles: exercise.exercise?.primaryMuscles ?? [],
+                    style: .compact
+                )
+                .alignmentGuide(.firstTextBaseline) { dimensions in
+                    dimensions[VerticalAlignment.center] + 6
+                }
+            }
 
             if let badge {
                 Button {
@@ -155,21 +192,18 @@ struct ExerciseSheetCard: View {
             .accessibilityHidden(true)
     }
 
-    /// A meta de hoje em letra grande (RF-44 a): "3 repetições · 62,5 kg". Com Dynamic Type grande,
-    /// a carga desce para a linha de baixo em vez de cortar.
+    /// A meta de hoje em letra grande (RF-44 a): "3 repetições · 62,5 kg" ou "10 repetições · sem
+    /// carga". Com Dynamic Type grande, a carga desce para a linha de baixo em vez de cortar.
     private var headline: some View {
-        let display = model.loadDisplay(for: exercise)
-        let loadLabel = TodayTargetText.loadLabel(display)
-        let spoken = TodayTargetText.spokenHeadline(goal: goal, measure: measure, load: display)
+        let loadLabel = model.loadLabel(for: exercise)
+        let spoken = SessionSheetText.spokenHeadline(amount: spokenAmount, loadLabel: loadLabel)
         let isLoadTappable = loadLabel != nil && canEditLoad
         let hint = isLoadTappable ? "Toque duas vezes para mudar a carga de hoje" : ""
         return ViewThatFits(in: .horizontal) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 amountText
                 if let loadLabel {
-                    Text("·")
-                        .font(.system(.title3, design: .rounded, weight: .semibold))
-                        .foregroundStyle(Theme.textSecondary)
+                    separator
                     loadButton(loadLabel)
                 }
             }
@@ -191,21 +225,73 @@ struct ExerciseSheetCard: View {
         }
     }
 
+    /// Aeróbico (SPEC §7.14 F1, F2): "30 min" ou "4 × 3 min" em letra grande, o nível da máquina
+    /// opcional ao lado ("sem nível", que se toca) e, embaixo, a intensidade pelo teste da fala.
+    private func cardioHeadline(_ intensity: CardioIntensity) -> some View {
+        let loadLabel = model.loadLabel(for: exercise)
+        let intensityLine = CardioText.intensityLine(intensity)
+        let spokenBase = SessionSheetText.spokenHeadline(amount: spokenAmount, loadLabel: loadLabel)
+        let isLoadTappable = loadLabel != nil && canEditLoad
+        let hint = isLoadTappable ? "Toque duas vezes para mudar o nível de hoje" : ""
+        return VStack(alignment: .leading, spacing: 4) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    amountText
+                    if let loadLabel {
+                        separator
+                        loadButton(loadLabel)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    amountText
+                    if let loadLabel {
+                        loadButton(loadLabel)
+                    }
+                }
+            }
+            Text(intensityLine)
+                .font(.subheadline)
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("\(spokenBase). \(intensityLine)"))
+        .accessibilityHint(Text(hint))
+        .accessibilityAddTraits(isLoadTappable ? .isButton : [])
+        .accessibilityAction {
+            if isLoadTappable {
+                onEditLoad()
+            }
+        }
+    }
+
+    private var separator: some View {
+        Text("·")
+            .font(.system(.title3, design: .rounded, weight: .semibold))
+            .foregroundStyle(Theme.textSecondary)
+    }
+
     private var amountText: some View {
-        Text(TodayTargetText.amount(goal, measure: measure))
+        Text(amount)
             .font(.system(.title2, design: .rounded, weight: .bold))
             .monospacedDigit()
             .foregroundStyle(Theme.textPrimary)
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// Carga sublinhada em `accent`: tocar abre o teclado (RF-44 b, P10).
+    /// Carga sublinhada em `accent`: tocar abre o teclado (RF-44 b, P10). "sem carga" fica em
+    /// `textSecondary`, sublinhado em `accent` porque se toca (DESIGN §13).
     private func loadButton(_ label: String) -> some View {
-        Button(action: onEditLoad) {
+        let isPlaceholder = model.isLoadPlaceholder(for: exercise)
+        return Button(action: onEditLoad) {
             Text(label)
-                .font(.system(.title2, design: .rounded, weight: .bold))
+                .font(
+                    isPlaceholder
+                        ? Font.system(.title3, design: .rounded, weight: .semibold)
+                        : Font.system(.title2, design: .rounded, weight: .bold)
+                )
                 .monospacedDigit()
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(isPlaceholder ? Theme.textSecondary : Theme.accent)
                 .underline(true, pattern: .dot, color: Theme.accent)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -213,28 +299,16 @@ struct ExerciseSheetCard: View {
         .disabled(!canEditLoad)
     }
 
-    /// Primeira vez com carga (RF-44 c, RF-41): a dica concreta numa caixa em `background`.
-    private var firstTimeHint: some View {
-        Text(SessionSheetText.firstTimeHint(goal: goal, targetRIR: exercise.prescribedRIR, measure: measure))
-            .font(.subheadline)
-            .foregroundStyle(Theme.textPrimary)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.background, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-    }
-
     private var loadField: some View {
-        let isBodyweight = model.isBodyweight(exercise)
-        let isFirstTime = model.isFirstTimeWithLoad(exercise)
+        let unit = model.loadUnit(of: exercise)
         let placeholder = model.workingLoad(for: exercise).map { SessionSheetText.editableLoadText($0) } ?? "0"
         return LoadEntryField(
             exerciseID: exercise.uuid,
-            title: isBodyweight ? "Carga extra" : "Carga",
-            unitLabel: SessionSheetText.unitLabel(model.loadUnit(of: exercise)),
+            title: loadFieldTitle(unit: unit),
+            unitLabel: SessionSheetText.unitLabel(unit),
             placeholder: placeholder,
-            initialValue: isFirstTime ? model.chosenLoad(for: exercise.uuid) : nil,
-            allowsZero: isBodyweight,
+            initialValue: nil,
+            allowsZero: true,
             focus: focus,
             autoFocus: isEditingLoad,
             onChange: { value in
@@ -245,6 +319,13 @@ struct ExerciseSheetCard: View {
                 }
             }
         )
+    }
+
+    private func loadFieldTitle(unit: LoadUnit) -> String {
+        if unit == .level {
+            return "Nível"
+        }
+        return model.isBodyweight(exercise) ? "Carga extra" : "Carga"
     }
 
     /// Bolinhas e "Feito". Com Dynamic Type grande ou muitas séries, "Feito" desce.
@@ -299,6 +380,48 @@ struct ExerciseSheetCard: View {
         }
     }
 
+    // MARK: - Sugestão delicada (SPEC RF-44 c)
+
+    /// "Anotar a carga ajuda a sugerir quando subir." com "Anotar carga" e "Agora não", em
+    /// `textSecondary`, sem ícone de alerta (DESIGN §13).
+    private var loadHint: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(SessionSheetText.loadHint)
+                .font(.footnote)
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 20) {
+                Button {
+                    model.dismissLoadHint(for: exercise.uuid)
+                    if model.isDone(exercise) && !isExpanded {
+                        onToggleExpanded()
+                    }
+                    onEditLoad()
+                } label: {
+                    Text(SessionSheetText.loadHintAccept)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.accent)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    model.dismissLoadHint(for: exercise.uuid)
+                } label: {
+                    Text(SessionSheetText.loadHintDismiss)
+                        .font(.footnote)
+                        .foregroundStyle(Theme.textSecondary)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     // MARK: - Feito e pulado
 
     private var doneCard: some View {
@@ -330,8 +453,8 @@ struct ExerciseSheetCard: View {
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(Rectangle())
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Theme.textSecondary.opacity(0.25), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Theme.line, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
@@ -363,8 +486,8 @@ struct ExerciseSheetCard: View {
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Theme.textSecondary.opacity(0.25), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(Theme.line, lineWidth: 1)
         )
         .opacity(0.6)
     }
@@ -377,6 +500,31 @@ struct ExerciseSheetCard: View {
 
     private var measure: ExerciseMeasure {
         model.measure(for: exercise)
+    }
+
+    /// A meta em letra grande: "3 repetições", "15 segundos"; no aeróbico, "30 min" ou "4 × 3 min"
+    /// (SPEC §7.14 F1).
+    private var amount: String {
+        if model.isCardio(exercise) {
+            return CardioText.amount(sets: exercise.prescribedSets, minutes: goal)
+        }
+        return TodayTargetText.amount(goal, measure: measure)
+    }
+
+    private var spokenAmount: String {
+        if model.isCardio(exercise) {
+            return CardioText.spokenAmount(sets: exercise.prescribedSets, minutes: goal)
+        }
+        return TodayTargetText.amount(goal, measure: measure)
+    }
+
+    /// "3 séries · descanso 4 min"; nos intervalos, "4 séries · recuperação andando 3 min"; num
+    /// aeróbico de uma série, nada.
+    private var detailText: String? {
+        if model.isCardio(exercise) {
+            return CardioText.detail(sets: exercise.prescribedSets, restSeconds: exercise.restSeconds)
+        }
+        return TodayTargetText.detail(sets: exercise.prescribedSets, restSeconds: exercise.restSeconds)
     }
 
     private var loadUnit: LoadUnit {
@@ -395,13 +543,18 @@ struct ExerciseSheetCard: View {
         model.isOpen && !exercise.wasSkipped
     }
 
-    /// Campo de carga à vista: tocando na carga, ou na primeira vez com carga do exercício atual
-    /// (os outros de primeira vez mostram "escolha a carga", que abre o campo).
+    /// Campo de carga à vista só quando a pessoa toca na carga (ou em "Anotar carga").
     private var showsLoadField: Bool {
-        guard canEditLoad else {
-            return false
-        }
-        return isEditingLoad || (model.isFirstTimeWithLoad(exercise) && isCurrent)
+        canEditLoad && isEditingLoad
+    }
+
+    /// A guia do exercício realizado (o substituto, se houve troca; SPEC E1).
+    private var guide: ExerciseGuide? {
+        ExerciseGuideText.guide(
+            forSlug: exercise.exercise?.slug,
+            isCustom: exercise.exercise?.isCustom ?? false,
+            in: guides
+        )
     }
 
     /// Selo leigo da nota (DESIGN §7): some sem novidade (`hold`) ou sem referência no catálogo.
