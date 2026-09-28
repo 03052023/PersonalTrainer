@@ -113,7 +113,7 @@ final class HomeModeTests: XCTestCase {
     }
 
     func testRF42_homeBandSummary_isCalmPortuguese() {
-        XCTAssertEqual(PlanCard.homeModeSummary, "Exercícios com o peso do corpo ou objetos de casa. O programa continua o mesmo.")
+        XCTAssertEqual(PlanCard.homeModeSummary, "Exercícios com o peso do corpo ou objetos de casa. O plano continua o mesmo.")
     }
 
     // MARK: - Fixtures

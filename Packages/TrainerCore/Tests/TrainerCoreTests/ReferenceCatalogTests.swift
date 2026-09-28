@@ -67,6 +67,27 @@ func referenceCatalogFileExplanationsAreShort() throws {
     }
 }
 
+@Test("RF-41 o Por quê? das notas, da semana leve e dos objetivos não cita RIR, RPE nem deload")
+func referenceCatalogFileVisibleTopicsHaveNoRIR() throws {
+    let catalog = try loadReferenceCatalogFile()
+    let notes: [PrescriptionNote] = [.calibrate, .increase, .hold, .retry, .decrease, .returning, .deload]
+    let noteTopics: [String] = notes.map { ReferenceCatalog.topic(for: $0) }
+    let goalTopics: [String] = ProgramGoal.allCases.map { $0.referenceTopic }
+    let topics: [String] = noteTopics + goalTopics + ["rule.D", "rule.P9"]
+    let forbiddenWords: Set<String> = ["rir", "rpe", "deload", "deloads"]
+
+    for topic in topics {
+        var texts: [String] = [catalog.explanations[topic] ?? ""]
+        texts += catalog.references(for: topic).map { $0.summary }
+        for text in texts {
+            let lowercased = text.lowercased()
+            let words = Set(lowercased.split { !$0.isLetter }.map { String($0) })
+            #expect(words.isDisjoint(with: forbiddenWords), "\(topic): \(text)")
+            #expect(!lowercased.contains("repetições em reserva"), "\(topic): \(text)")
+        }
+    }
+}
+
 @Test("SPEC 7.9 catálogo real usa diretrizes e sínteses antes de estudos isolados")
 func referenceCatalogFilePrefersSyntheses() throws {
     let catalog = try loadReferenceCatalogFile()

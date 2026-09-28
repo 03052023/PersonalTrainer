@@ -98,9 +98,12 @@ struct ActiveSessionView: View {
                 titleVisibility: .visible,
                 presenting: pendingFinish
             ) { pending in
-                Button("Marcar como feitos, como previsto") {
-                    model.markRemainingAsPrescribed()
-                    finishAndClose()
+                // RF-44 e: só quando algum pendente pode ser marcado (os de primeira vez sem carga
+                // ficam de fora); sem nenhum, o toque concluiria uma sessão sem nada marcado.
+                if pending.canMarkAny {
+                    Button("Marcar como feitos, como previsto") {
+                        markRemainingAndFinish()
+                    }
                 }
                 if pending.hasAnySet {
                     Button("Encerrar só com o que marquei") {
@@ -116,7 +119,10 @@ struct ActiveSessionView: View {
                 }
                 Button("Voltar ao treino", role: .cancel) {}
             } message: { pending in
-                Text(SessionSheetText.pendingMessage(names: pending.names))
+                Text(SessionSheetText.pendingMessage(
+                    names: pending.names,
+                    needingLoad: pending.canMarkAny ? pending.needingLoad : []
+                ))
             }
             .sheet(item: $infoItem, onDismiss: { runPendingInfoAction() }) { content in
                 infoSheet(for: content)
@@ -276,9 +282,23 @@ struct ActiveSessionView: View {
                 onFinished()
             }
         case let .needsConfirmation(pendingNames, hasAnySet):
-            pendingFinish = PendingFinish(names: pendingNames, hasAnySet: hasAnySet)
+            pendingFinish = PendingFinish(
+                names: pendingNames,
+                hasAnySet: hasAnySet,
+                canMarkAny: model.canMarkAnyPending,
+                needingLoad: model.pendingNamesNeedingLoad
+            )
             isShowingPendingDialog = true
         }
+    }
+
+    /// "Marcar como feitos, como previsto": se alguma gravação falhou, a sessão não é concluída e a
+    /// ficha fica aberta com o alerta de erro (o resumo esconderia o aviso).
+    private func markRemainingAndFinish() {
+        guard model.markRemainingAsPrescribed() else {
+            return
+        }
+        finishAndClose()
     }
 
     private func finishAndClose() {
@@ -324,6 +344,10 @@ private struct WhyTopic: Identifiable, Hashable {
 private struct PendingFinish: Hashable {
     let names: [String]
     let hasAnySet: Bool
+    /// Algum pendente pode ser marcado como previsto.
+    let canMarkAny: Bool
+    /// Pendentes de primeira vez ainda sem carga: ficam de fora de "Marcar como feitos".
+    let needingLoad: [String]
 }
 
 #Preview("Ficha") {

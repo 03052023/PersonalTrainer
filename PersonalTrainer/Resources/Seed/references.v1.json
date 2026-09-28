@@ -119,7 +119,7 @@
       "source": "Sports Medicine",
       "doi": "10.1007/s40279-024-02069-2",
       "level": "metaAnalysis",
-      "summary": "A hipertrofia aumenta quando as séries terminam mais perto da falha, enquanto o ganho de força foi semelhante numa ampla faixa de RIR (análise exploratória, com o RIR estimado a partir da descrição dos estudos)."
+      "summary": "A hipertrofia aumenta quando as séries terminam mais perto da falha, enquanto o ganho de força foi semelhante numa ampla faixa de proximidade da falha (análise exploratória, com essa proximidade estimada a partir da descrição dos estudos)."
     },
     {
       "id": "halperin-2022-rir-accuracy",
@@ -259,7 +259,7 @@
       "source": "Strength and Conditioning Journal",
       "doi": "10.1519/SSC.0000000000000218",
       "level": "narrativeReview",
-      "summary": "Mostra como usar a escala de repetições em reserva para prescrever a carga e ajustá-la série a série à capacidade do dia (autorregulação)."
+      "summary": "Mostra como usar uma escala de esforço baseada em quantas repetições ainda daria para fazer para prescrever a carga e ajustá-la série a série à capacidade do dia (autorregulação)."
     },
     {
       "id": "schoenfeld-2021-loading",
@@ -359,7 +359,7 @@
       "source": "Journal of Strength and Conditioning Research",
       "doi": "10.1519/JSC.0000000000001049",
       "level": "study",
-      "summary": "Em 29 praticantes de agachamento, a escala de esforço baseada em repetições em reserva (RPE 10 = 0 RIR) acompanhou de perto a velocidade da barra, o que a torna uma forma prática de regular a carga do dia."
+      "summary": "Em 29 praticantes de agachamento, a escala de esforço baseada em quantas repetições ainda daria para fazer acompanhou de perto a velocidade da barra, o que a torna uma forma prática de regular a carga do dia."
     },
     {
       "id": "bickel-2011-maintenance",
@@ -409,7 +409,7 @@
       "source": "Sports Medicine - Open",
       "doi": "10.1186/s40798-024-00691-y",
       "level": "study",
-      "summary": "Atletas de força e fisiculturismo relatam deloads de cerca de uma semana a cada 5–6 semanas, reduzindo volume, carga e esforço (mais RIR) e mantendo a frequência."
+      "summary": "Atletas de força e fisiculturismo relatam uma semana mais leve a cada 5–6 semanas, reduzindo volume, carga e esforço (mais folga) e mantendo a frequência."
     },
     {
       "id": "mandsager-2018-fitness",
@@ -543,14 +543,14 @@
     "rule.P6": "Uma série abaixo do mínimo da faixa faz a carga se repetir na sessão seguinte; duas sessões seguidas de falha na mesma carga a reduzem em cerca de 10% (pelo menos um incremento). Ajustar a carga pelo desempenho é a base da autorregulação por RIR e chegar à falha não traz vantagem para hipertrofia; o valor de 10% é uma regra prática, sem estudo que o defina.",
     "rule.P9": "Se o exercício não é feito há mais de 21 dias, a carga recomeça cerca de 10% abaixo da última referência, com meta no mínimo da faixa. Pausas curtas causam perda de força limitada, então o corte é pequeno; o valor exato é uma margem de segurança prática, não um número tirado dos estudos.",
     "rule.S2": "O próximo treino é o dia seguinte da rotação ao da última sessão registrada, para que todos os grupos musculares sejam treinados com regularidade. Treinar cada grupo pelo menos 2 vezes por semana facilita acumular o volume semanal; com o volume igualado, a frequência pouco muda a hipertrofia, e para a força mais frequência ajuda, em parte por somar volume.",
-    "rule.D": "O deload é uma semana com cerca de 60% das séries, carga 15% menor e mais folga em cada série, para dissipar a fadiga sem perder o que foi ganho. A evidência direta ainda é limitada: atletas relatam deloads de cerca de uma semana a cada 5–6 semanas, e parar de vez por uma semana reduziu o ganho de força, por isso o app reduz o treino em vez de suspendê-lo. Os valores de 60% e 15% e a folga maior são escolhas práticas, sem estudo que os defina.",
+    "rule.D": "A semana leve tem cerca de 60% das séries, carga 15% menor e mais folga em cada série, para dissipar a fadiga sem perder o que foi ganho. A evidência direta ainda é limitada: atletas relatam uma semana mais leve a cada 5–6 semanas, e parar de vez por uma semana reduziu o ganho de força, por isso o app reduz o treino em vez de suspendê-lo. Os valores de 60% e 15% e a folga maior são escolhas práticas, sem estudo que os defina.",
     "note.calibrate": "Primeira sessão deste exercício: ela serve para encontrar a carga de partida, com meta no mínimo da faixa. Escolha uma carga que deixe uma folga antes do esforço máximo; sentir o próprio limite tem um certo erro, então é melhor errar para o lado leve.",
     "note.increase": "Você completou o topo da faixa em todas as séries, então a carga sobe e a meta volta ao mínimo da faixa. Aumentar a carga quando se passa do alvo de repetições é a progressão recomendada pelo ACSM.",
     "note.hold": "Mesma carga da última sessão, com meta de uma repetição a mais. Ganhar repetições dentro da faixa antes de subir a carga mantém a progressão segura e continua estimulando a hipertrofia.",
     "note.retry": "Alguma série da última sessão ficou abaixo do mínimo da faixa, então a carga se repete para confirmar se foi só um dia ruim. Ajustar a carga pelo desempenho de cada sessão é mais confiável do que uma regra fixa; a carga só cai se a falha se repetir na mesma carga.",
     "note.decrease": "Duas sessões seguidas abaixo do mínimo na mesma carga: ela cai cerca de 10% para você voltar à faixa com folga, sem chegar ao limite. Chegar à falha não traz vantagem para hipertrofia, então reduzir a carga não atrasa o progresso; o corte exato é uma regra prática.",
     "note.returning": "Faz mais de 21 dias que você não faz este exercício, então a carga recomeça cerca de 10% abaixo da última. A força cai pouco em pausas curtas; o corte é uma margem de segurança prática, não um número tirado dos estudos.",
-    "note.deload": "Semana de deload: menos séries, carga cerca de 15% menor e mais folga em cada série para reduzir a fadiga acumulada. Estudos de manutenção indicam que força e massa se preservam por semanas com bem menos volume se a intensidade não cair muito, por isso o corte de carga é moderado; a evidência direta sobre deload ainda é limitada.",
+    "note.deload": "Semana leve: menos séries, carga cerca de 15% menor e mais folga em cada série para reduzir a fadiga acumulada. Estudos de manutenção indicam que força e massa se preservam por semanas com bem menos volume se a intensidade não cair muito, por isso o corte de carga é moderado; a evidência direta sobre semanas leves ainda é limitada.",
     "goal.hypertrophy": "Hipertrofia usa 6–12 repetições nos compostos e 8–15 nos isolados, séries que terminam com uma pequena folga, 10–20 séries por grupo por semana e cada grupo treinado ao menos 2 vezes. Mais volume dá mais crescimento, com retornos decrescentes, e séries perto da falha (sem precisar alcançá-la) funcionam numa ampla faixa de cargas; nos formatos com foco, os grupos fora do foco recebem cerca de 1/3 do volume para manutenção.",
     "goal.strength": "Força usa 3–6 repetições com uma pequena folga em cada série, 6–12 séries por grupo por semana e descansos de 3 a 5 minutos. Cargas altas e descansos longos maximizam a força máxima, e o benefício de volume extra diminui rápido, por isso o volume é menor que na hipertrofia.",
     "goal.endurance": "Resistência muscular usa 12–20 repetições, com folga em cada série, e descansos curtos de 60–90 s. O ACSM recomenda cargas leves a moderadas, com mais de 15 repetições e pausas abaixo de 90 s, para a resistência muscular localizada.",

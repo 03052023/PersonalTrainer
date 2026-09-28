@@ -163,7 +163,7 @@ final class HomeViewModelTests: XCTestCase {
         let returned = model.startSession()
 
         XCTAssertNil(returned)
-        XCTAssertEqual(model.errorMessage, "Nenhum programa ativo para iniciar.")
+        XCTAssertEqual(model.errorMessage, "Nenhum objetivo escolhido. Toque em Escolher, no topo da tela Hoje.")
     }
 
     func testStartSession_plannerReportsSessionInProgress_switchesToResume() {

@@ -106,6 +106,21 @@ final class SessionSheetTextTests: XCTestCase {
         XCTAssertEqual(SessionSheetText.namesList([]), "")
     }
 
+    func testRF44_pendingMessage_namesTheOnesThatNeedLoad() {
+        XCTAssertEqual(
+            SessionSheetText.pendingMessage(names: ["Supino reto", "Barra fixa"], needingLoad: ["Supino reto"]),
+            "Supino reto e Barra fixa ainda não foram marcados. Supino reto precisa da carga da primeira vez e fica de fora."
+        )
+        XCTAssertEqual(
+            SessionSheetText.pendingMessage(names: ["Supino reto", "Terra"], needingLoad: ["Supino reto", "Terra"]),
+            "Supino reto e Terra ainda não foram marcados. Supino reto e Terra precisam da carga da primeira vez e ficam de fora."
+        )
+        XCTAssertEqual(
+            SessionSheetText.pendingMessage(names: ["Barra fixa"], needingLoad: []),
+            "Barra fixa ainda não foi marcado."
+        )
+    }
+
     // MARK: - Exercício feito (RF-44 a, RF-46)
 
     func testRF44_doneSummary_sameLoad() {

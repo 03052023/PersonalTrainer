@@ -60,7 +60,7 @@ struct DayPickerMenu: View {
             }
             .disabled(!isEnabled)
             .accessibilityLabel(Text("Dia do treino: \(dayName)"))
-            .accessibilityHint(Text("Toque para escolher outro dia do programa."))
+            .accessibilityHint(Text("Toque para escolher outro dia do plano."))
         }
     }
 

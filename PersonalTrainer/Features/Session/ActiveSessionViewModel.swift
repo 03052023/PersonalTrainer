@@ -9,7 +9,8 @@ import TrainerCore
 /// A ficha mostra todos os exercícios; cada toque grava pelo `SessionCoordinating` (AGENTS R4),
 /// que salva na hora (RF-06): a bolinha vazia grava uma série com a meta de hoje (`markSet`),
 /// "Feito" grava as séries que faltam (`markExerciseDone`) e "Marcar como feitos, como previsto"
-/// faz o mesmo em cada pendente que tem carga (`markRemainingAsPrescribed`). Toda série nova grava
+/// faz o mesmo em cada pendente que tem carga (`markRemainingAsPrescribed`; só oferecido quando
+/// algum pendente pode ser marcado, `canMarkAnyPending`). Toda série nova grava
 /// `rir = nil` e `isWarmup = false` (SPEC RF-03, RF-41, decisão 18); a correção de uma série
 /// regrava o `rir` que ela já tinha.
 ///
@@ -340,11 +341,30 @@ final class ActiveSessionViewModel {
     }
 
     /// "Marcar como feitos, como previsto" (RF-44 e): "Feito" em cada pendente que dá para marcar;
-    /// os de primeira vez sem carga ficam de fora, e os pulados não são pendentes.
-    func markRemainingAsPrescribed() {
+    /// os de primeira vez sem carga ficam de fora, e os pulados não são pendentes. Devolve `false`
+    /// se alguma gravação falhou (a mensagem fica em `errorMessage`): quem chamou não conclui.
+    @discardableResult
+    func markRemainingAsPrescribed() -> Bool {
+        var allLogged = true
         for exercise in pendingExercises where canMark(exercise) {
             markExerciseDone(sessionExerciseID: exercise.uuid)
+            if isPending(exercise) {
+                allLogged = false
+            }
         }
+        return allLogged
+    }
+
+    /// Algum pendente pode ser marcado como previsto (RF-44 e). Sem nenhum, a opção
+    /// "Marcar como feitos, como previsto" não aparece.
+    var canMarkAnyPending: Bool {
+        pendingExercises.contains { canMark($0) }
+    }
+
+    /// Nomes dos pendentes que "Marcar como feitos, como previsto" deixa de fora: primeira vez com
+    /// carga, ainda sem carga (RF-44 c, e).
+    var pendingNamesNeedingLoad: [String] {
+        pendingExercises.filter { !canMark($0) }.map(\.exerciseName)
     }
 
     /// "A seguir" do descanso (RF-44 f): a próxima série do exercício que iniciou o descanso; se

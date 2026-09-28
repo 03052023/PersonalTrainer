@@ -239,8 +239,8 @@ final class SettingsViewModel {
             let days = try planner.activeProgramDays()
             guard !days.isEmpty else {
                 present(
-                    title: "Nenhum programa ativo",
-                    message: "Ative um programa com pelo menos um dia para programar uma semana leve."
+                    title: "Nenhum objetivo escolhido",
+                    message: "Escolha um objetivo no topo da tela Hoje para programar uma semana leve."
                 )
                 return
             }
@@ -314,7 +314,7 @@ final class SettingsViewModel {
         case .corrupted:
             return "O arquivo não é um backup válido do Magister. Nada foi alterado."
         case .inProgressSession:
-            return "Há uma sessão em andamento. Finalize ou abandone a sessão antes de importar."
+            return "Há uma sessão em andamento. Conclua ou encerre a sessão antes de importar."
         case .referentialIntegrity(let detail):
             return "O backup tem dados inconsistentes e não foi importado. \(detail)"
         }

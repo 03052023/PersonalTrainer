@@ -214,7 +214,7 @@ final class GoalSheetModel {
     var footnote: String {
         switch mode {
         case .change:
-            return "Suas cargas ficam guardadas: cada exercício tem o próprio histórico. A próxima sessão será o Dia A."
+            return "Suas cargas ficam guardadas: cada exercício tem o próprio histórico. A próxima sessão aparece na tela Hoje."
         case .firstUse:
             return "A primeira sessão será o Dia A. Dá para trocar de objetivo depois, no topo da tela Hoje."
         }

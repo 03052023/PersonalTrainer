@@ -211,7 +211,7 @@ final class GoalSheetModelTests: XCTestCase {
         let repository = GoalPlanTestRepository(programs: Programs.seed())
         let change = makeModel(repository)
         change.load()
-        XCTAssertEqual(change.footnote, "Suas cargas ficam guardadas: cada exercício tem o próprio histórico. A próxima sessão será o Dia A.")
+        XCTAssertEqual(change.footnote, "Suas cargas ficam guardadas: cada exercício tem o próprio histórico. A próxima sessão aparece na tela Hoje.")
 
         let firstUse = makeModel(repository, mode: .firstUse)
         XCTAssertTrue(firstUse.footnote.contains("Dia A"))

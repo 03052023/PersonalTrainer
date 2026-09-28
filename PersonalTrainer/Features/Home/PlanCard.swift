@@ -182,7 +182,7 @@ struct PlanCard: View {
     // MARK: - Textos (pt-BR)
 
     /// Explicação curta da faixa "Em casa" (DESIGN §6: frase curta, o porquê e a autonomia).
-    static let homeModeSummary = "Exercícios com o peso do corpo ou objetos de casa. O programa continua o mesmo."
+    static let homeModeSummary = "Exercícios com o peso do corpo ou objetos de casa. O plano continua o mesmo."
 
     /// "1 exercício", "5 exercícios".
     static func exerciseCountText(_ count: Int) -> String {

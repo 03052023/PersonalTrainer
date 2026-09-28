@@ -325,7 +325,9 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertEqual(fixture.logStore.reviewSaveCount, 0, "A próxima revisão segue o calendário do lastReviewAt")
     }
 
-    func testHandle_applySwitchProgram_activatesTheNextProgramWithTheSameGoal() throws {
+    /// SPEC RF-45: o C2 troca para o próximo formato da Hipertrofia do seed, nunca para um programa
+    /// escondido (o antigo Empurrar/Inferior/Puxar, que vem antes pelo nome).
+    func testRF45_applySwitchProgram_activatesTheNextHypertrophyFormat() throws {
         let suggestion = ProgramSuggestion(
             id: "switchProgram:old:2026-W39",
             kind: .switchProgram,
@@ -337,16 +339,22 @@ final class CoachServiceTests: XCTestCase {
         )
         let fixture = try makeFixture(logStore: storeWithReview([suggestion]))
         defer { fixture.cleanUp() }
-        let other = program(name: "Foco superior", goal: .hypertrophy)
+        let formats = CoachService.hypertrophyFormats.map(\.id)
+        let legacyID = try XCTUnwrap(UUID(uuidString: "26262EE7-89B0-4048-93F9-1720FD9CBE40"))
+        let other = program(id: formats[1], name: "Hipertrofia — Foco inferior", goal: .hypertrophy)
         fixture.programs.programs = [
-            program(name: "Completo", goal: .hypertrophy, isActive: true),
+            program(id: formats[0], name: "Hipertrofia — Completo", goal: .hypertrophy, isActive: true),
+            program(id: legacyID, name: "Hipertrofia — Empurrar/Inferior/Puxar", goal: .hypertrophy),
             program(name: "Força 3 dias", goal: .strength),
             other,
         ]
 
         fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
         let message = try XCTUnwrap(fixture.service.messages.first { $0.rule == .review })
-        XCTAssertTrue(fixture.service.applySummary(for: message)?.contains("Foco superior") ?? false)
+        XCTAssertEqual(
+            fixture.service.applySummary(for: message),
+            "O plano passa a ser Mais pernas e glúteos. As cargas de cada exercício são mantidas."
+        )
         fixture.service.handle(.apply, on: message)
 
         XCTAssertEqual(fixture.programs.activated, [other.id])
@@ -367,6 +375,36 @@ final class CoachServiceTests: XCTestCase {
         let fixture = try makeFixture(logStore: storeWithReview([suggestion]))
         defer { fixture.cleanUp() }
         fixture.programs.programs = [program(name: "Completo", goal: .hypertrophy, isActive: true)]
+        var chooseRequests = 0
+        fixture.service.onChooseProgramRequested = { chooseRequests += 1 }
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        let message = try XCTUnwrap(fixture.service.messages.first { $0.rule == .review })
+        fixture.service.dismissHighlight()
+        fixture.service.handle(.apply, on: message)
+
+        XCTAssertEqual(fixture.programs.activated, [])
+        XCTAssertEqual(chooseRequests, 1)
+    }
+
+    /// SPEC RF-45: fora da Hipertrofia não há formatos; uma cópia do mesmo objetivo fica escondida,
+    /// então a pessoa escolhe na folha "Seu objetivo".
+    func testRF45_applySwitchProgram_outsideHypertrophy_asksThePersonToChoose() throws {
+        let suggestion = ProgramSuggestion(
+            id: "switchProgram:old:2026-W39",
+            kind: .switchProgram,
+            rule: "R5",
+            title: "Experimentar um novo programa",
+            reason: "Você treina com o programa Força há 9 semanas.",
+            strength: .optional,
+            referenceTopic: "topic.substitution"
+        )
+        let fixture = try makeFixture(logStore: storeWithReview([suggestion]))
+        defer { fixture.cleanUp() }
+        fixture.programs.programs = [
+            program(name: "Força", goal: .strength, isActive: true),
+            program(name: "Força (cópia)", goal: .strength),
+        ]
         var chooseRequests = 0
         fixture.service.onChooseProgramRequested = { chooseRequests += 1 }
 
@@ -1071,6 +1109,7 @@ final class CoachServiceTests: XCTestCase {
     }
 
     private func program(
+        id: UUID = UUID(),
         name: String,
         goal: ProgramGoal,
         isActive: Bool = false,
@@ -1078,6 +1117,7 @@ final class CoachServiceTests: XCTestCase {
     ) -> ProgramTemplate {
         let exercises = targets.isEmpty ? [ExerciseTarget(exerciseID: UUID(), order: 0)] : targets
         return ProgramTemplate(
+            id: id,
             name: name,
             days: [ProgramDayTemplate(name: "Dia A", order: 0, exercises: exercises)],
             isActive: isActive,

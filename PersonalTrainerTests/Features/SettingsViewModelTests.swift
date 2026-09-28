@@ -136,7 +136,7 @@ final class SettingsViewModelTests: XCTestCase {
         model.requestDeload()
 
         XCTAssertFalse(model.isConfirmingDeload)
-        XCTAssertEqual(model.alert?.title, "Nenhum programa ativo")
+        XCTAssertEqual(model.alert?.title, "Nenhum objetivo escolhido")
         XCTAssertTrue(planner.requestedAt.isEmpty)
     }
 

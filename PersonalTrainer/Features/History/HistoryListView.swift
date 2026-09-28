@@ -44,7 +44,7 @@ struct HistoryListView: View {
                     ContentUnavailableView(
                         "Nenhum treino registrado ainda",
                         systemImage: "clock.arrow.circlepath",
-                        description: Text("As sessões finalizadas ou abandonadas aparecem aqui.")
+                        description: Text("As sessões concluídas ou encerradas aparecem aqui.")
                     )
                     .listRowSeparator(.hidden)
                 } else {

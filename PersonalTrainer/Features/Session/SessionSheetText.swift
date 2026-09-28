@@ -98,6 +98,21 @@ enum SessionSheetText {
         return names.count == 1 ? "\(list) ainda não foi marcado." : "\(list) ainda não foram marcados."
     }
 
+    /// Mensagem do diálogo com os pendentes que "Marcar como feitos, como previsto" deixa de fora
+    /// (primeira vez sem carga, RF-44 c e e): "Supino reto e Remada baixa ainda não foram marcados.
+    /// Supino reto precisa da carga da primeira vez e fica de fora."
+    static func pendingMessage(names: [String], needingLoad: [String]) -> String {
+        let base = pendingMessage(names: names)
+        guard !needingLoad.isEmpty else {
+            return base
+        }
+        let list = namesList(needingLoad)
+        let note = needingLoad.count == 1
+            ? "\(list) precisa da carga da primeira vez e fica de fora."
+            : "\(list) precisam da carga da primeira vez e ficam de fora."
+        return "\(base) \(note)"
+    }
+
     /// "A", "A e B", "A, B e C".
     static func namesList(_ names: [String]) -> String {
         guard let last = names.last else {

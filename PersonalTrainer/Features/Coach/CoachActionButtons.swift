@@ -55,7 +55,7 @@ struct CoachActionButtons: View {
             }
         }
         .confirmationDialog(
-            "Aplicar ao programa?",
+            "Aplicar ao plano?",
             isPresented: $isConfirmingApply,
             titleVisibility: .visible
         ) {

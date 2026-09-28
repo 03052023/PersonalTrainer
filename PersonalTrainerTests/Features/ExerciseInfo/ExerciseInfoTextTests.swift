@@ -169,6 +169,52 @@ final class ExerciseInfoTextTests: XCTestCase {
         )
     }
 
+    // MARK: - RF-46: peso do corpo com histórico, sem "0 kg"
+
+    func testRF46_why_bodyweightHasNoZeroKg() {
+        let noExtra = lastSession(sets: [(0, 5), (0, 5), (0, 5)])
+
+        let hold = makeContent(
+            note: .hold, equipment: .bodyweight, load: 0, targetReps: 6, repMin: 5, repMax: 8, lastSession: noExtra
+        )
+        XCTAssertEqual(
+            ExerciseInfoText.why(hold),
+            "Na última vez você fez 5, 5 e 5, dentro da faixa de 5 a 8. A meta sobe para 6 repetições."
+        )
+
+        let increase = makeContent(
+            note: .increase, equipment: .bodyweight, load: 2.5, targetReps: 5, repMin: 5, repMax: 8,
+            lastSession: lastSession(sets: [(0, 8), (0, 8), (0, 8)])
+        )
+        XCTAssertEqual(
+            ExerciseInfoText.why(increase),
+            "Na última vez você fez 8, 8 e 8, o máximo de 5 a 8. "
+                + "Hoje entra + 2,5 kg extra e as repetições recomeçam em 5."
+        )
+
+        let returning = makeContent(
+            note: .returning, equipment: .bodyweight, load: 0, targetReps: 5, repMin: 5, repMax: 8, lastSession: noExtra
+        )
+        XCTAssertEqual(
+            ExerciseInfoText.why(returning),
+            "Faz mais de 3 semanas que você não faz este exercício. Hoje a meta volta para 5 repetições, para retomar com calma."
+        )
+
+        let notes: [PrescriptionNote] = [.increase, .hold, .retry, .decrease, .returning, .deload]
+        let loads: [Double?] = [nil, 0]
+        for note in notes {
+            for load in loads {
+                let content = makeContent(
+                    note: note, equipment: .bodyweight, load: load, repMin: 5, repMax: 8, lastSession: noExtra
+                )
+                let sentence = ExerciseInfoText.why(content)
+                XCTAssertFalse(sentence.isEmpty, "\(note)")
+                XCTAssertFalse(sentence.contains("kg"), "\(note) com peso do corpo não deveria citar carga: \(sentence)")
+                XCTAssertFalse(sentence.contains("A carga"), "\(note) com peso do corpo sem extra: \(sentence)")
+            }
+        }
+    }
+
     /// SPEC contrato §3.2: sem `lastSession`, a frase não cita números (caminho raro de defesa).
     func testRF47_why_fallsBackToQualitativeSentenceWithoutLastSession() {
         let notes: [PrescriptionNote] = [.increase, .hold, .retry, .decrease, .returning, .deload]

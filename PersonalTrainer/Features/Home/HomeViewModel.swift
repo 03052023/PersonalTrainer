@@ -157,7 +157,7 @@ final class HomeViewModel {
             return activeSessionID
         }
         guard let plan else {
-            errorMessage = "Nenhum programa ativo para iniciar."
+            errorMessage = "Nenhum objetivo escolhido. Toque em Escolher, no topo da tela Hoje."
             return nil
         }
         // SPEC S2/RF-33: um dia ainda sem exercícios não vira sessão (ela sairia vazia). O botão da
@@ -247,7 +247,7 @@ final class HomeViewModel {
         if let planningError = error as? PlanningError {
             switch planningError {
             case .noActiveProgram:
-                return "Nenhum programa ativo. Ative um programa para ver a próxima sessão."
+                return "Nenhum objetivo escolhido. Toque em Escolher, no topo da tela Hoje."
             case .programHasNoDays:
                 return "O programa ativo não tem dias."
             case .sessionAlreadyInProgress:

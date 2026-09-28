@@ -374,6 +374,37 @@ final class ActiveSessionViewModelTests: XCTestCase {
         XCTAssertFalse(model.isFinished, "marcar não conclui sozinho")
     }
 
+    func testRF44_markRemaining_someMarkable_namesTheOnesLeftOut() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+
+        XCTAssertTrue(model.canMarkAnyPending, "o leg press tem carga")
+        XCTAssertEqual(model.pendingNamesNeedingLoad, ["Supino reto"], "primeira vez sem carga fica de fora")
+    }
+
+    func testRF44_markRemaining_nothingMarkable_isNotOffered() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.markExerciseDone(sessionExerciseID: fixture.legPress.uuid)
+
+        XCTAssertFalse(model.canMarkAnyPending, "só sobrou a primeira vez sem carga: a opção não aparece")
+        XCTAssertEqual(model.pendingNamesNeedingLoad, ["Supino reto"])
+        XCTAssertTrue(model.markRemainingAsPrescribed(), "nada a marcar não é falha")
+        XCTAssertTrue(fixture.bench.sets.isEmpty)
+        XCTAssertFalse(model.isFinished)
+    }
+
+    func testRF44_markRemaining_coordinatorError_returnsFalseAndKeepsSessionOpen() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        fixture.coordinator.errorToThrow = .sessionNotInProgress(fixture.session.uuid)
+
+        XCTAssertFalse(model.markRemainingAsPrescribed(), "a tela não conclui quando uma gravação falha")
+        XCTAssertEqual(model.errorMessage, "Esta sessão já foi encerrada.")
+        XCTAssertFalse(model.isFinished)
+        XCTAssertEqual(fixture.session.status, .inProgress)
+    }
+
     // MARK: - Primeira vez com carga (RF-44 c) e peso do corpo (RF-46)
 
     func testRF44_firstTime_requiresLoadAboveZero() throws {

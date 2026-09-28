@@ -63,6 +63,9 @@ enum ExerciseInfoText {
         }
 
         let reps = commaAndList(lastSession.sets.map { TodayTargetText.compactAmount($0.reps, measure: content.measure) })
+        if content.equipment == .bodyweight {
+            return bodyweightWhy(content, reps: reps, lastLoad: representativeLoad)
+        }
         let lastLoadText = TodayTargetText.loadText(representativeLoad, unit: content.loadUnit)
 
         switch content.note {
@@ -99,6 +102,72 @@ enum ExerciseInfoText {
 
         case .deload:
             let loadClause = content.load.map { " com \(TodayTargetText.loadText($0, unit: content.loadUnit))" } ?? ""
+            return "Semana leve: \(TodayTargetText.setsText(content.sets))\(loadClause), um pouco menos que o normal, "
+                + "para descansar sem perder o ganho."
+        }
+    }
+
+    /// Peso do corpo com histórico (SPEC RF-46, P8): nunca "0 kg". A carga só entra na frase como
+    /// carga extra, quando é maior que 0 na última vez ou hoje; sem ela, a frase fala da meta.
+    private static func bodyweightWhy(_ content: ExerciseInfoContent, reps: String, lastLoad: Double) -> String {
+        let todayLoad = max(content.load ?? 0, 0)
+        let lastExtra = lastLoad > 0 ? " com + \(TodayTargetText.loadText(lastLoad, unit: content.loadUnit)) extra" : ""
+        let lastTime = "Na última vez você fez \(reps)\(lastExtra)"
+        let range = "\(content.repMin) a \(content.repMax)"
+        let goal = TodayTargetText.amount(content.targetReps, measure: content.measure)
+        let minimum = TodayTargetText.amount(content.repMin, measure: content.measure)
+        let todayText = TodayTargetText.loadText(todayLoad, unit: content.loadUnit)
+
+        switch content.note {
+        case .calibrate:
+            return calibrateWhy(content)
+
+        case .increase:
+            let head = "\(lastTime), o máximo de \(range). "
+            let subject = measureSubjectPlural(content.measure)
+            if todayLoad > 0 && lastLoad > 0 {
+                let delta = TodayTargetText.loadText(abs(todayLoad - lastLoad), unit: content.loadUnit)
+                return head + "A carga extra sobe \(delta) e \(subject) recomeçam em \(content.repMin)."
+            }
+            if todayLoad > 0 {
+                return head + "Hoje entra + \(todayText) extra e \(subject) recomeçam em \(content.repMin)."
+            }
+            return head + "Hoje a meta volta para \(minimum)."
+
+        case .hold:
+            let tail = todayLoad > 0
+                ? "A carga extra fica a mesma e a meta sobe para \(goal)."
+                : "A meta sobe para \(goal)."
+            return "\(lastTime), dentro da faixa de \(range). " + tail
+
+        case .retry:
+            return "\(lastTime), abaixo do mínimo de \(content.repMin). "
+                + "Hoje a meta é \(goal), para confirmar se foi só esse dia."
+
+        case .decrease:
+            let tail: String
+            if todayLoad > 0 {
+                tail = " A carga extra desce para \(todayText)."
+            } else if lastLoad > 0 {
+                tail = " Hoje fica sem a carga extra."
+            } else {
+                tail = " Hoje a meta é \(goal); a próxima sessão se ajusta."
+            }
+            return "\(lastTime), abaixo do mínimo de \(content.repMin) de novo." + tail
+
+        case .returning:
+            let head = "Faz mais de 3 semanas que você não faz este exercício."
+            if todayLoad > 0 && lastLoad > 0 {
+                let lastText = TodayTargetText.loadText(lastLoad, unit: content.loadUnit)
+                return head + " A carga extra volta a \(todayText), um pouco abaixo dos \(lastText) da última vez."
+            }
+            if lastLoad > 0 {
+                return head + " Hoje fica sem a carga extra, para voltar com calma."
+            }
+            return head + " Hoje a meta volta para \(minimum), para retomar com calma."
+
+        case .deload:
+            let loadClause = todayLoad > 0 ? " com + \(todayText) extra" : ""
             return "Semana leve: \(TodayTargetText.setsText(content.sets))\(loadClause), um pouco menos que o normal, "
                 + "para descansar sem perder o ganho."
         }
