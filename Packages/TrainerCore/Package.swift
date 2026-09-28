@@ -25,6 +25,8 @@ let package = Package(
             name: "TrainerCoreTests",
             dependencies: ["TrainerCore"],
             path: "Tests/TrainerCoreTests",
+            // Fixtures/ (golden do "Como fazer") é lido pelos testes via #filePath, não é recurso do alvo.
+            exclude: ["Fixtures"],
             swiftSettings: [
                 .swiftLanguageMode(.v6),
             ]

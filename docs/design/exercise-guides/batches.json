@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "batches": [
+    {
+      "id": 0,
+      "title": "Protótipo",
+      "slugs": ["barbell-back-squat", "barbell-bench-press", "seated-cable-row", "dumbbell-lateral-raise"]
+    },
+    {
+      "id": 1,
+      "title": "Barra",
+      "slugs": ["barbell-curl", "barbell-deadlift", "barbell-hip-thrust", "barbell-overhead-press", "barbell-romanian-deadlift", "barbell-row", "front-squat", "hex-bar-deadlift"]
+    },
+    {
+      "id": 2,
+      "title": "Halteres e kettlebell",
+      "slugs": ["alternating-dumbbell-curl", "dumbbell-bulgarian-split-squat", "dumbbell-romanian-deadlift", "dumbbell-shoulder-press", "dumbbell-step-up", "goblet-squat", "hammer-curl", "incline-dumbbell-bench-press", "kettlebell-deadlift", "kettlebell-swing", "one-arm-dumbbell-row", "overhead-dumbbell-triceps-extension"]
+    },
+    {
+      "id": 3,
+      "title": "Máquinas e polias",
+      "slugs": ["cable-crunch", "cable-triceps-pushdown", "chest-press-machine", "hip-abduction-machine", "lat-pulldown", "leg-extension", "leg-press-45", "lying-leg-curl", "pallof-press", "seated-calf-raise", "seated-leg-curl", "standing-calf-raise"]
+    },
+    {
+      "id": 4,
+      "title": "Peso do corpo e tronco",
+      "slugs": ["back-extension-45", "bird-dog", "box-squat", "chin-up", "dead-bug", "hanging-leg-raise", "knee-push-up", "pull-up", "push-up"]
+    },
+    {
+      "id": 5,
+      "title": "Carregar, potência e pescoço",
+      "slugs": ["box-jump", "dumbbell-farmers-walk", "kettlebell-farmers-walk", "medicine-ball-chest-pass", "medicine-ball-rotational-throw", "neck-isometric-band", "suitcase-carry"]
+    },
+    {
+      "id": 6,
+      "title": "Aeróbico",
+      "slugs": ["bike-intervals", "bodyweight-circuit", "brisk-walk", "easy-run", "elliptical", "jump-rope", "rowing-machine", "run-intervals", "stair-climb", "stationary-bike"]
+    }
+  ]
+}

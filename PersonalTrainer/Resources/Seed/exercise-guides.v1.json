@@ -1,0 +1,320 @@
+{
+  "version": 1,
+  "rig": "mannequin-v2",
+  "units": "stature",
+  "guides": [
+    {
+      "slug": "barbell-back-squat",
+      "view": "side",
+      "anchor": {
+        "joint": "ankle",
+        "at": [0, 0.039]
+      },
+      "timing": {
+        "toEnd": 1.6,
+        "toStart": 1.2,
+        "hold": 0.4,
+        "easing": "easeInOut"
+      },
+      "scene": [],
+      "props": [
+        {
+          "id": "barbell",
+          "kind": "barbell",
+          "attach": "back",
+          "offset": [-0.085, 0]
+        }
+      ],
+      "arms": {
+        "reach": "barbell",
+        "depth": 0.65,
+        "elbow": -150
+      },
+      "frames": [
+        {
+          "label": "Início",
+          "caption": "Em pé, barra nas costas",
+          "pose": {
+            "trunk": 84,
+            "neck": 88,
+            "thigh": -90,
+            "shin": -88,
+            "foot": -12
+          }
+        },
+        {
+          "label": "Fim",
+          "caption": "Coxas paralelas ao chão",
+          "pose": {
+            "trunk": 50,
+            "neck": 64,
+            "thigh": -12,
+            "shin": -115,
+            "foot": -12
+          }
+        }
+      ],
+      "cue": {
+        "track": "hip",
+        "span": [0, 0.97],
+        "offset": [-0.082, 0]
+      },
+      "a11y": "Pessoa em pé com a barra nas costas dobra quadril e joelhos até as coxas ficarem paralelas ao chão e volta a ficar em pé.",
+      "steps": [
+        "Apoie a barra no alto das costas, com os pés na largura dos ombros e as pontas um pouco para fora.",
+        "Leve o quadril para trás e desça até as coxas ficarem paralelas ao chão.",
+        "Suba empurrando o chão com o pé inteiro e o tronco firme, até ficar em pé."
+      ],
+      "mistakes": [
+        "Deixar os joelhos caírem para dentro: aponte-os para as pontas dos pés.",
+        "Tirar os calcanhares do chão: mantenha o pé inteiro apoiado."
+      ]
+    },
+    {
+      "slug": "barbell-bench-press",
+      "view": "side",
+      "anchor": {
+        "joint": "hip",
+        "at": [0, 0.3]
+      },
+      "timing": {
+        "toEnd": 1.6,
+        "toStart": 1.2,
+        "hold": 0.4,
+        "easing": "easeInOut"
+      },
+      "scene": [
+        {
+          "kind": "bench",
+          "x": -0.54,
+          "top": 0.245,
+          "length": 0.66
+        }
+      ],
+      "props": [
+        {
+          "id": "barbell",
+          "kind": "barbell",
+          "attach": "hand"
+        }
+      ],
+      "arms": {
+        "reach": "grip",
+        "forearm": 90
+      },
+      "frames": [
+        {
+          "label": "Início",
+          "caption": "Braços estendidos",
+          "pose": {
+            "trunk": 180,
+            "neck": 178,
+            "thigh": -4,
+            "shin": -96,
+            "foot": -12
+          },
+          "grip": [-0.285, 0.64],
+          "armDepth": [0.91, 0.91]
+        },
+        {
+          "label": "Fim",
+          "caption": "Barra toca o peito",
+          "pose": {
+            "trunk": 180,
+            "neck": 178,
+            "thigh": -4,
+            "shin": -96,
+            "foot": -12
+          },
+          "grip": [-0.17, 0.378],
+          "armDepth": [0.78, 0.86]
+        }
+      ],
+      "cue": {
+        "track": "barbell",
+        "span": [0.34, 0.86],
+        "offset": [0.012, 0]
+      },
+      "a11y": "Pessoa deitada no banco desce a barra dos braços estendidos até o peito e empurra de volta.",
+      "steps": [
+        "Deite com os olhos embaixo da barra, pés firmes no chão e ombros apoiados no banco.",
+        "Desça a barra com controle até tocar de leve a parte baixa do peito.",
+        "Empurre até estender os braços, com a barra de volta sobre os ombros."
+      ],
+      "mistakes": [
+        "Quicar a barra no peito: desça com controle e toque de leve.",
+        "Abrir os cotovelos na linha dos ombros: deixe-os um pouco mais perto do tronco."
+      ]
+    },
+    {
+      "slug": "dumbbell-lateral-raise",
+      "view": "front",
+      "anchor": {
+        "joint": "hip",
+        "at": [0, 0.528]
+      },
+      "timing": {
+        "toEnd": 1.2,
+        "toStart": 1.8,
+        "hold": 0.4,
+        "easing": "easeInOut"
+      },
+      "scene": [],
+      "props": [
+        {
+          "id": "dumbbell",
+          "kind": "dumbbell",
+          "attach": "hand"
+        }
+      ],
+      "frames": [
+        {
+          "label": "Início",
+          "caption": "Braços ao lado do corpo",
+          "pose": {
+            "trunk": 90,
+            "neck": 90,
+            "thigh": -93,
+            "shin": -90,
+            "upperArm": -78,
+            "forearm": -82
+          }
+        },
+        {
+          "label": "Fim",
+          "caption": "Braços na altura dos ombros",
+          "pose": {
+            "trunk": 90,
+            "neck": 90,
+            "thigh": -93,
+            "shin": -90,
+            "upperArm": 2,
+            "forearm": -8
+          }
+        }
+      ],
+      "cue": {
+        "track": "hand",
+        "span": [0.06, 0.96],
+        "side": "right",
+        "gap": 0.075
+      },
+      "a11y": "Pessoa em pé, de frente, eleva os halteres pelas laterais até a altura dos ombros e desce devagar.",
+      "steps": [
+        "Fique em pé, com os halteres ao lado do corpo e os cotovelos levemente dobrados.",
+        "Eleve os braços pelas laterais até a altura dos ombros.",
+        "Desça devagar até os braços voltarem ao lado do corpo."
+      ],
+      "mistakes": [
+        "Balançar o tronco: suba devagar, sem pegar impulso.",
+        "Encolher os ombros: deixe-os baixos enquanto os braços sobem."
+      ]
+    },
+    {
+      "slug": "seated-cable-row",
+      "view": "side",
+      "anchor": {
+        "joint": "hip",
+        "at": [0, 0.29]
+      },
+      "timing": {
+        "toEnd": 1.2,
+        "toStart": 1.6,
+        "hold": 0.4,
+        "easing": "easeInOut"
+      },
+      "scene": [
+        {
+          "kind": "rail",
+          "x1": -0.24,
+          "x2": 0.74
+        },
+        {
+          "kind": "tower",
+          "x": 0.61,
+          "width": 0.13,
+          "height": 0.96
+        },
+        {
+          "kind": "seat",
+          "x": -0.21,
+          "top": 0.232,
+          "length": 0.34
+        },
+        {
+          "kind": "footPlate",
+          "at": [0.536, 0.33],
+          "length": 0.27,
+          "angle": 80
+        },
+        {
+          "kind": "pulley",
+          "id": "pulley",
+          "at": [0.575, 0.205]
+        }
+      ],
+      "props": [
+        {
+          "id": "handle",
+          "kind": "vHandle",
+          "attach": "hand"
+        },
+        {
+          "id": "cable",
+          "kind": "cable",
+          "from": "pulley",
+          "to": "handle"
+        }
+      ],
+      "arms": {
+        "reach": "grip",
+        "depth": 0.95
+      },
+      "frames": [
+        {
+          "label": "Início",
+          "caption": "Braços estendidos",
+          "pose": {
+            "trunk": 90,
+            "neck": 90,
+            "thigh": 12,
+            "shin": -10,
+            "foot": 80
+          },
+          "grip": [0.345, 0.5],
+          "armDepth": [0.97, 0.97],
+          "elbow": -95
+        },
+        {
+          "label": "Fim",
+          "caption": "Puxador na barriga",
+          "pose": {
+            "trunk": 90,
+            "neck": 90,
+            "thigh": 12,
+            "shin": -10,
+            "foot": 80
+          },
+          "grip": [0.08, 0.41],
+          "armDepth": [0.98, 0.82],
+          "elbow": -155
+        }
+      ],
+      "cue": {
+        "track": "handle",
+        "span": [0.22, 0.93],
+        "offset": [0, -0.022]
+      },
+      "a11y": "Pessoa sentada puxa o puxador do cabo até a barriga, com os cotovelos indo para trás, e volta a estender os braços.",
+      "steps": [
+        "Sente com os pés na plataforma, os joelhos levemente dobrados e o tronco ereto.",
+        "Traga o puxador até a barriga levando os cotovelos para trás, rente ao corpo.",
+        "Volte estendendo os braços devagar, sem deixar o tronco ir para a frente."
+      ],
+      "mistakes": [
+        "Jogar o tronco para trás: mantenha-o parado e puxe com os braços.",
+        "Encolher os ombros: mantenha-os baixos, longe das orelhas."
+      ]
+    }
+  ]
+}
