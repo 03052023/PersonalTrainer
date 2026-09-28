@@ -114,3 +114,39 @@ func plansScaffoldDemand() {
     #expect(demand.sessionsPerWeek == 3)
     #expect(!demand.isCardio)
 }
+
+@Test("M4 o lugar da semana guarda o dia previsto; sem ele, os campos novos ficam vazios")
+func plansScaffoldPlannedSlotDay() {
+    let programID = UUID()
+    let dayID = UUID()
+    let bare = PlannedSlot(weekday: .monday, programID: programID, indexInWeek: 0, kind: .strength, orderInDay: 0)
+    let full = PlannedSlot(
+        weekday: .thursday,
+        programID: programID,
+        indexInWeek: 2,
+        kind: .cardio,
+        orderInDay: 1,
+        programDayID: dayID,
+        dayName: "Dia B — Intervalos 4 × 4",
+        cardioIntensity: .vigorous
+    )
+    let schedule = WeekSchedule(slots: [full, bare])
+
+    #expect(bare.programDayID == nil)
+    #expect(bare.dayName.isEmpty)
+    #expect(bare.cardioIntensity == nil)
+    #expect(full.programDayID == dayID)
+    #expect(schedule.slots.map(\.weekday) == [.monday, .thursday])
+    #expect(schedule.restDays == [.tuesday, .wednesday, .friday, .saturday, .sunday])
+}
+
+@Test("W2 o progresso da semana de um plano guarda feitas e previstas")
+func plansScaffoldPlanWeekProgress() {
+    let programID = UUID()
+    let progress = PlanWeekProgress(programID: programID, goal: .endurance, completed: 1, perWeek: 3)
+
+    #expect(progress.programID == programID)
+    #expect(progress.goal == .endurance)
+    #expect(progress.completed == 1)
+    #expect(progress.perWeek == 3)
+}

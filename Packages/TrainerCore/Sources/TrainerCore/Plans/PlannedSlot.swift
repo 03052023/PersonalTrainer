@@ -10,12 +10,31 @@ public struct PlannedSlot: Sendable, Hashable {
     public let kind: PlanSessionKind
     /// Ordem no dia: 0 vem primeiro. Com força e aeróbico no mesmo dia, a força vem antes (A5).
     public let orderInDay: Int
+    /// O dia do plano previsto para este lugar nesta semana: a rotação contada a partir da sessão do
+    /// começo da semana (M3, M4). `nil` quando quem monta não sabe.
+    public let programDayID: UUID?
+    /// O nome desse dia ("Dia A — Superior"), para a semana da aba Plano. Vazio quando quem monta não sabe.
+    public let dayName: String
+    /// Só nas sessões de aeróbico: a intensidade desse dia (M3), para textos como "Cardio forte".
+    public let cardioIntensity: CardioIntensity?
 
-    public init(weekday: PlanWeekday, programID: UUID, indexInWeek: Int, kind: PlanSessionKind, orderInDay: Int) {
+    public init(
+        weekday: PlanWeekday,
+        programID: UUID,
+        indexInWeek: Int,
+        kind: PlanSessionKind,
+        orderInDay: Int,
+        programDayID: UUID? = nil,
+        dayName: String = "",
+        cardioIntensity: CardioIntensity? = nil
+    ) {
         self.weekday = weekday
         self.programID = programID
         self.indexInWeek = indexInWeek
         self.kind = kind
         self.orderInDay = orderInDay
+        self.programDayID = programDayID
+        self.dayName = dayName
+        self.cardioIntensity = cardioIntensity
     }
 }

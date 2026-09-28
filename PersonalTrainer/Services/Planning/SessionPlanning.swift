@@ -58,6 +58,34 @@ protocol SessionPlanning: AnyObject {
     func weekPreferences() -> WeekPreferences
     func saveWeekPreferences(_ preferences: WeekPreferences) throws
     func fitCheck(programIDs: [UUID], preferences: WeekPreferences, now: Date) throws -> FitResult
+
+    // v2.3, Metas da semana (docs/V23-UI-CONTRACT.md §3.3; SPEC §7.16) — padrões na extensão abaixo.
+    func planWeekProgress(now: Date) throws -> [PlanWeekProgress]
+    func weeklyFrequency(now: Date) throws -> WeeklyFrequencyReport
+}
+
+// MARK: - Metas da semana (v2.3; implementadas por `SessionPlanner` na `plans-core`)
+
+extension SessionPlanning {
+    /// As sessões de cada plano ativo na semana de §7.4 que contém `now` (SPEC §7.16 W2), na ordem de
+    /// `ActivePlanOrder` (o principal primeiro). Vazio sem plano ativo. O padrão devolve vazio, para doubles
+    /// e previews.
+    func planWeekProgress(now: Date) throws -> [PlanWeekProgress] {
+        []
+    }
+
+    /// A frequência por grupo muscular da semana que contém `now` (SPEC §7.4, §7.16 W2), com as metas e o
+    /// começo da semana do `UserSettingsModel`. O padrão conta `completedSessionSummaries()` com a meta
+    /// padrão (2×), a semana começando na segunda, no calendário do aparelho.
+    func weeklyFrequency(now: Date) throws -> WeeklyFrequencyReport {
+        let sessions = try completedSessionSummaries()
+        return WeeklyFrequency.report(
+            sessions: sessions,
+            targets: [:],
+            now: now,
+            calendar: Calendar.autoupdatingCurrent
+        )
+    }
 }
 
 // MARK: - Operações da versão 2.3 (vários planos; implementadas por `SessionPlanner` na `plans-core`)
