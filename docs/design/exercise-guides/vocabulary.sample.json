@@ -4,6 +4,64 @@
   "units": "stature",
   "guides": [
     {
+      "slug": "vocab-back",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 1.6, "toStart": 1.2, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [],
+      "props": [
+        { "id": "barbell", "kind": "barbell", "attach": "back", "offset": [-0.085, 0.0] }
+      ],
+      "arms": { "reach": "barbell", "depth": 0.65, "elbow": -150 },
+      "frames": [
+        { "label": "Início", "caption": "Em pé, barra nas costas", "pose": { "trunk": 84, "neck": 88, "thigh": -90, "shin": -88, "foot": -12 } },
+        { "label": "Fim", "caption": "Coxas paralelas ao chão", "pose": { "trunk": 50, "neck": 64, "thigh": -12, "shin": -115, "foot": -12 } }
+      ],
+      "cue": { "track": "hip", "offset": [-0.082, 0.0], "span": [0.0, 0.97] },
+      "a11y": "back (do protótipo): o acessório fica no referencial do tronco e é desenhado atrás dele, meio escondido. Os braços vão à barra por IK.",
+      "steps": [
+        "Use back para a barra apoiada nas costas.",
+        "O offset é [frente, cima] a partir do ombro.",
+        "Com arms.reach no id da barra, as mãos vão até ela."
+      ],
+      "mistakes": [
+        "Barra na frente do peito: use back, não chest.",
+        "Mãos longe da barra: use arms.reach com o id dela."
+      ]
+    },
+    {
+      "slug": "vocab-bench-rail-vhandle",
+      "view": "side",
+      "anchor": { "joint": "hip", "at": [0.0, 0.29] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "rail", "x1": -0.24, "x2": 0.74 },
+        { "kind": "tower", "x": 0.61, "width": 0.13, "height": 0.96 },
+        { "kind": "bench", "x": -0.5, "top": 0.232, "length": 0.62 },
+        { "kind": "footPlate", "at": [0.536, 0.33], "length": 0.27, "angle": 80 },
+        { "kind": "pulley", "id": "pulley", "at": [0.575, 0.205] }
+      ],
+      "props": [
+        { "id": "handle", "kind": "vHandle", "attach": "hand" },
+        { "id": "cable", "kind": "cable", "from": "pulley", "to": "handle" }
+      ],
+      "arms": { "reach": "grip", "depth": 0.95 },
+      "frames": [
+        { "label": "Início", "caption": "Braços estendidos", "grip": [0.345, 0.5], "armDepth": [0.97, 0.97], "elbow": -95, "pose": { "trunk": 90, "neck": 90, "thigh": 12, "shin": -10, "foot": 80 } },
+        { "label": "Fim", "caption": "Puxador na barriga", "grip": [0.08, 0.41], "armDepth": [0.98, 0.82], "elbow": -155, "pose": { "trunk": 90, "neck": 90, "thigh": 12, "shin": -10, "foot": 80 } }
+      ],
+      "cue": { "track": "handle", "offset": [0.0, -0.022], "span": [0.22, 0.93] },
+      "a11y": "bench, rail, tower, footPlate, pulley, vHandle e cable (do protótipo): banco com dois pés, trilho no chão, torre com placas, plataforma dos pés, polia e puxador em V.",
+      "steps": [
+        "Use bench com x, top e length.",
+        "Use rail com x1 e x2 para o trilho no chão.",
+        "O vHandle aponta para a origem do cabo."
+      ],
+      "mistakes": [
+        "Puxador torto: ligue o cable até o vHandle.",
+        "Banco atravessando as pernas: encurte o length."
+      ]
+    },    {
       "slug": "vocab-block",
       "view": "side",
       "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
