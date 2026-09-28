@@ -297,6 +297,28 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 **Estado em 2026-09-24:** cálculo (DeloadPolicy, DeloadScheduler com rearme, FrequencyAwareSelector, ProgramReviewer, PersonalRecordDetector, Coach C1–C8) verde no Core tests. App (planejador com semana leve e seletor, diálogo com feed, destaque, revisão aplicável e aviso de expiração) integrado, revisado por 2 lentes adversariais e corrigido. App build verde em `ci/v3-final`. Falta a verificação no aparelho.
 
+### Versão 2.3: equilibrado, fôlego, carga opcional e "Como fazer" (pedidos do dono, 2026-09-27, depois de usar a 2.2)
+
+Pedidos, na redação do dono, com a tarefa que resolve cada um. As decisões estão na SPEC (decisão 19), e o contrato do núcleo é `docs/V23-CORE-CONTRACT.md`.
+- [ ] **D1** "O hipertrofia corpo todo é treino de corpo todo todo dia? O correto seria equilibrado, … com as divisões por dia habituais." → formato **Equilibrado**: 4 dias Superior/Inferior, padrão no seed, com o Corpo todo escondido (RF-35, §7.9): **T8.1 `core`**.
+- [ ] **D2** "O programa de resistência muscular deve mudar, deve ser cardiovascular. Aumentar o fôlego." → objetivo **Fôlego**, cardio simples em minutos, com 10 aeróbicos no catálogo (RF-48, §7.14): **T8.1 `core`**. A parte de tela vai para a onda de telas.
+- [x] **Pergunta** "Por que o treino de hipertrofia superior tem 4 dias? É para ter descanso?" → Não é descanso. São 2 dias de superior, para cada grupo em foco treinar 2×/semana, e 2 dias de pernas em manutenção, com menos séries. Agora os três formatos têm 4 dias (RF-35).
+- [ ] **D3** "Não obrigar colocar carga para poder marcar as séries e o exercício feito; a carga é só se o cara usar carga." → motor em **T8.1 `core`** (P8 D3); a ficha, na onda de telas (RF-44 c, RF-46).
+- [ ] **D4** Medida `minutes` (RF-43): **T8.1 `core`**.
+- [ ] **D5** "Você já incluiu os desenhos explicando os exercícios? Se não, inclua já na próxima." → motor e ferramenta em **T8.2 `guide-engine`**; os 62 desenhos em **T8.3** (lotes); a folha e o botão, na onda de telas.
+- [ ] "Deixe ainda mais simples a interação quando ele aperta Começar", com as informações que recomendam treinos, cargas, exercícios e mudanças → onda de telas (sessão guiada), com contrato próprio.
+- [ ] Estética mais bonita, "budista, porém estoica", com uma animação elegante de abertura → pesquisa em `docs/design/v23-aesthetics/` e passada estética na onda de telas.
+
+Tarefas do núcleo (contrato `docs/V23-CORE-CONTRACT.md`; worktrees `C:\Users\leona\Developer\pt-wt\w6-<key>`, branches `v6/<key>`):
+- [x] **T8.0 Documentos** (arquiteto): contrato do núcleo; na SPEC, RF-04, RF-35, RF-40, RF-43, RF-44 c, RF-45, RF-46, RF-48 (novo), P2/P4/P6/P8, §7.4, §7.5, R8 (novo), §7.9, §7.10, §7.12 (E2, E5–E10), H1/H2, §7.14 (novo) e as decisões 8, 14 e 19; DESIGN §1, §3 e §4 (nome Fôlego); este TASKS.
+- [~] core · v6/core — **T8.1 [CI] `core`**: carga opcional no motor (P8 D3), `ExerciseMeasure.minutes`, `MovementPattern.cardio`, 10 aeróbicos, os programas Equilibrado e Fôlego (seed 4), "Fôlego" no `ProgramGoal`, no `GoalStyle` e no `GoalPlanCatalog`, R8 na revisão e o texto da R5 (pendência da 2.2).
+- [~] guide-engine · v6/guide-engine — **T8.2 `guide-engine`** (= T6.1 + T6.4): `TrainerCore/Guide` com o validador E1–E10, as 4 guias do protótipo (lote 0), a ferramenta de autoria (`-Check`, `-Sheet`, `-Golden`, `-Vocabulary`), a junção dos lotes e o teste de paridade.
+- [ ] **T8.3 Conteúdo em lotes** (substitui T6.6 e T6.9): lotes 1 a 6 de `docs/V23-CORE-CONTRACT.md` §4, em `v6/guides-N`, depois de T8.4 passo 1.
+- [ ] **T8.4 Integração do núcleo**: `v6/core` em `v6/guide-engine`, a base da onda de conteúdo, a junção dos lotes e o teste de cobertura ligado. Nada vai para o `main` antes da onda de telas.
+- [ ] **T8.5+ Onda de telas** (contrato próprio): sessão guiada e D3 na ficha, o Fôlego na ficha e na Hoje, a folha "Como fazer" (T6.5) e os botões (T6.7), HealthKit do Fôlego (F5), semana leve no cardio e passada estética. Depois, IPA novo e a página da Amanda.
+
+**Critérios de aceitação da 2.3 (núcleo):** CA8-1 a CA8-8, em `docs/V23-CORE-CONTRACT.md` §6.
+
 ### Versão 2.2: simplificação (pedido do dono, 2026-09-27, depois de usar a 2.1 no aparelho)
 
 O app está rodando no iPhone do dono (prints de 2026-09-27: sessão e tela Hoje). Pedidos, na redação dele, com a tarefa do contrato `docs/V22-CONTRACT.md` que resolve cada um (respostas do dono na SPEC, decisão 18):
@@ -322,7 +344,7 @@ Tarefas da versão 2.2 (contrato `docs/V22-CONTRACT.md`; worktrees `C:\Users\leo
 - [x] **T7.6 [CI] `flower`** — flor Brisa no ícone e na `FlowerView`; subtítulo do Combate.
 - [x] **T7.7 [CI] `history`** — "Esta semana" no Histórico; Histórico sem RIR e com os selos leigos.
 - [~] integrador · v5/integration — **T7.8 [CI] Integração** — `v5/integration`: RootView (aba Plano, folha "Seu objetivo", parâmetros novos), limpeza do código morto, `ci/v5-final`, revisão adversarial e correção.
-- [ ] **Pendências da revisão da 2.2** (achados menores deixados para depois): a carga digitada antes da 1ª série se perde ao tocar em "Voltar" e retomar (A4: o ViewModel da ficha é recriado); a evolução do exercício (Histórico e "Ver evolução") ainda mostra "0 kg" e 1RM estimado em peso do corpo (A5, RF-46); "Sair sem registrar" grava a sessão vazia como encerrada e ela aparece no Histórico (A7: decisão do dono entre esconder no Histórico ou apagar, com a SPEC); a última série marcada recolhe o cartão e corrigir custa 1 toque a mais que no mockup (B6); o texto da revisão R5 no TrainerCore ainda diz "programa X" (trocar por "este plano" numa tarefa do core).
+- [ ] **Pendências da revisão da 2.2** (achados menores deixados para depois): a carga digitada antes da 1ª série se perde ao tocar em "Voltar" e retomar (A4: o ViewModel da ficha é recriado); a evolução do exercício (Histórico e "Ver evolução") ainda mostra "0 kg" e 1RM estimado em peso do corpo (A5, RF-46); "Sair sem registrar" grava a sessão vazia como encerrada e ela aparece no Histórico (A7: decisão do dono entre esconder no Histórico ou apagar, com a SPEC); a última série marcada recolhe o cartão e corrigir custa 1 toque a mais que no mockup (B6); o texto da revisão R5 no TrainerCore ainda diz "programa X" (→ T8.1, SPEC R8).
 
 ### Versão 2.1 (entregue em 2026-09-24, App build 36037123014) e pendências
 
@@ -353,14 +375,14 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
 | CA | Verificação |
 |----|-------------|
 | CA6-1 | Core tests verdes, com ao menos um teste por regra E1–E9 e o teste de paridade com o renderizador de autoria (T6.4). |
-| CA6-2 | Todo exercício usado em `programs.v2.json` tem guia válida (o teste lê os dois arquivos). Ao fim do lote 2, os 99 do seed também. |
+| CA6-2 | Todo exercício usado em `programs.v2.json` e todo aeróbico do catálogo tem guia válida; o teste lê os dois arquivos. Na 2.3 são 62 (`docs/V23-CORE-CONTRACT.md` §4). O resto do catálogo fica para depois. |
 | CA6-3 | No aparelho, "Como fazer" aparece na sessão, na Home e no catálogo para um exercício com guia, e não aparece para um personalizado. Um exercício trocado mostra a guia do substituto. |
 | CA6-4 | Em modo avião, a folha abre e anima. O app cresce menos de 1 MB, e nenhum arquivo de imagem é adicionado para as guias. |
 | CA6-5 | Com Reduzir Movimento, as posições ficam paradas lado a lado. Pausar para a animação. O VoiceOver lê a descrição, os passos e os erros, nessa ordem. |
 | CA6-6 | No modo escuro e com Aumentar Contraste, figura, seta e implemento continuam legíveis (DESIGN §3 e §12). |
 | CA6-7 | O dono aprovou a folha de revisão de cada lote (anotar a data aqui). |
 
-- [ ] **T6.1 Guias de execução em TrainerCore (§7.12 E1–E9)** — G1
+- [~] **T6.1 Guias de execução em TrainerCore (§7.12 E1–E10)** — G1 — na 2.3, faz parte da **T8.2 `guide-engine`** (`v6/guide-engine`), com o formato congelado em `docs/V23-CORE-CONTRACT.md` §2.5–§2.6
   - Escopo:
     - `Packages/TrainerCore/Sources/TrainerCore/Guide/*` (catálogo, guia, quadro, pose, rig, cinemática com o modo antebraço travado, partes que se movem, tempo, validador, erros);
     - `ExerciseGuideTests.swift` e `GuideKinematicsTests.swift`, que leem os arquivos reais por `#filePath`;
@@ -370,7 +392,7 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
   - Só Foundation. A pose é função de `t`, sem `Date()`.
   - O JSON entra no bundle sem tarefa [PROJ], porque o `project.yml` já inclui `PersonalTrainer/` inteiro.
   - Aceite: CA6-1 parcial (E1–E9) e 4 guias válidas.
-- [ ] **T6.4 Ferramenta de autoria no Windows** — G2
+- [~] **T6.4 Ferramenta de autoria no Windows** — G2 — na 2.3, faz parte da **T8.2 `guide-engine`** (`docs/V23-CORE-CONTRACT.md` §2.7)
   - Escopo:
     - promover `docs/design/exercise-guides/render-exercise-guides.ps1` para ler `exercise-guides.v1.json` e gerar folhas de revisão por lote, nos modos claro e escuro;
     - opção `-Golden` com as coordenadas em t = 0, ¼, ½, ¾ e 1, gravadas em `Tests/TrainerCoreTests/Fixtures/exercise-guides-golden.v1.json`;
@@ -384,7 +406,7 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
     - `ExerciseGuideButton.swift`.
   - Previews com as 4 guias; só APIs do iOS 15 ou posterior.
   - Depende de: T6.1. Aceite: App build verde e lista Verificado/Incerto (R11).
-- [ ] **T6.6 Conteúdo, lote 1: os 54 exercícios dos programas** — G3
+- [-] **T6.6 Conteúdo, lote 1: os 54 exercícios dos programas** — G3 — substituída na 2.3 pela **T8.3** (lotes 1 a 6 com 58 guias, mais as 4 do lote 0; `docs/V23-CORE-CONTRACT.md` §4)
   - Escopo: `exercise-guides.v1.json`, as folhas `docs/design/exercise-guides/sheet-1*.png` e o teste de cobertura dos slugs de `programs.v2.json`.
   - Fáceis e médios primeiro. Os difíceis (cadeira abdutora, Pallof, salto na caixa, arremesso rotacional) podem sair como `motion: "static"`, com setas.
   - Não usar o campo `equipment` para decidir a cena: os 6 exercícios de medicine ball estão como `dumbbell`.
@@ -397,7 +419,7 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
   - Depende de: T6.5 e T6.2. Não rodar em paralelo com a T6.2, porque as duas editam `PrescriptionRow.swift`.
   - Aceite: CA6-3 a CA6-6 no simulador.
 - [ ] **T6.8 [USER] Revisão do lote 1 e teste no aparelho** — G4 — O dono olha a folha e o app e anota as correções por exercício; o agente corrige no escopo da T6.6. Aceite: CA6-7 (lote 1) e CA6-3 a CA6-6 no iPhone.
-- [ ] **T6.9 Conteúdo, lote 2: os 45 restantes** — G5
+- [ ] **T6.9 Conteúdo, lote 2: os restantes do catálogo** — G5 — depois da 2.3, os que não estão nos programas nem são aeróbicos
   - Escopo: `exercise-guides.v1.json`, as folhas `sheet-2*.png` e a cobertura dos 99.
   - Difíceis previstos: voador, crucifixo inverso na máquina, abdominal na máquina, power clean suspenso, salto horizontal, arremesso para trás e extensão de pescoço na polia.
   - Depende de: T6.8. Aceite: CA6-2 (99) e CA6-7 (lote 2).

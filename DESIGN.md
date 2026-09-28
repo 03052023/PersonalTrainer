@@ -8,7 +8,7 @@ Versão 1.3 · 2026-09-27. Vale para iPhone e Apple Watch. Decisões do dono reg
 
 ## 1. Princípios
 
-1. **Os objetivos ficam no centro.** O app existe para cinco objetivos: Hipertrofia, Força, Resistência muscular, Longevidade e Combate. Cada tela responde "para qual objetivo isto serve?" antes de mostrar números.
+1. **Os objetivos ficam no centro.** O app existe para cinco objetivos: Hipertrofia, Força, Fôlego, Longevidade e Combate. Cada tela responde "para qual objetivo isto serve?" antes de mostrar números.
 2. **Calma no lugar de euforia.** Superfícies claras e quentes, pouco movimento, nenhum grito. Descanso e semana leve fazem parte do plano e nunca aparecem como fracasso.
 3. **A ciência fica à vista.** Toda sugestão tem um "Por quê?" com autor, ano e nível de evidência. A referência é a autoridade, não um coach motivacional.
 4. **Nada de cultura de academia.** Sem preto com neon, cromado, halteres, silhuetas musculosas, raios, chamas, troféus, fontes condensadas em itálico ou linguagem militar.
@@ -51,13 +51,13 @@ Superfícies claras e quentes (bege-linho); um azul da família do ícone é a c
 | `accentSoft` | fundo de item selecionado, chips (não é texto) | `#DDE5EC` | `#26323E` | texto primário sobre ele: 11,27 / 10,66 |
 | `goalHypertrophy` | Hipertrofia (terracota) | `#904C36` | `#E0927A` | 5,42 / 6,39 |
 | `goalStrength` | Força (argila) | `#7A583C` | `#C9A27F` | 5,39 / 6,69 |
-| `goalEndurance` | Resistência muscular (ardósia) | `#4F6170` | `#9FB2C2` | 5,41 / 7,18 |
+| `goalEndurance` | Fôlego (ardósia) | `#4F6170` | `#9FB2C2` | 5,41 / 7,18 |
 | `goalLongevity` | Longevidade (sálvia) | `#56654A` | `#A9B98F` | 5,28 / 7,48 |
 | `goalCombat` | Combate (ameixa) | `#74506A` | `#C9A0BC` | 5,72 / 6,89 |
 | `health` | saúde e aeróbico (ocre) | `#7A5B1A` | `#D4B062` | 5,31 / 7,60 |
 | `destructive` | apagar, erro | vermelho do sistema | vermelho do sistema | — |
 
-- As cores de objetivo e o acento sobre `accentSoft` também passam AA: no claro, o menor valor é 5,03:1 (Resistência); no escuro, 5,32:1 (Hipertrofia).
+- As cores de objetivo e o acento sobre `accentSoft` também passam AA: no claro, o menor valor é 5,03:1 (Fôlego); no escuro, 5,32:1 (Hipertrofia).
 - **A cor nunca identifica sozinha:** todo objetivo aparece com nome, símbolo e posição da pétala (HIG).
 - Vermelho é só para erro ou ação destrutiva, nunca "cor de esforço".
 - Com Aumentar Contraste ligado, `textSecondary` passa a usar `textPrimary` e cartões ganham borda de 1 pt em `textSecondary`.
@@ -73,11 +73,11 @@ A mesma flor do ícone é o sistema de identidade. No app, a pétala do objetivo
 | 2 | Hipertrofia | Ganhar massa muscular | `leaf` |
 | 3 | Força | Ficar mais forte | `mountain.2` |
 | 4 | Combate | Potência e resistência | `shield` |
-| 5 | Resistência muscular | Aguentar mais | `repeat` |
+| 5 | Fôlego | Mais fôlego e disposição | `wind` |
 
-O subtítulo do Combate foi decidido pelo dono em 2026-09-27 (SPEC decisão 18): o antigo "Saber se defender" prometia técnica de defesa, que o app não ensina (SPEC §7.9).
+O subtítulo do Combate foi decidido pelo dono em 2026-09-27 (SPEC decisão 18): o antigo "Saber se defender" prometia técnica de defesa, que o app não ensina (SPEC §7.9). Na 2.3 (SPEC decisão 19), "Resistência muscular" virou **Fôlego**, cardiovascular, com o símbolo `wind` (o vento da flor Brisa). O token de cor e a pétala não mudam.
 
-Com essa ordem, cada par de pétalas vizinhas é uma afinidade real: Longevidade e Hipertrofia (massa muscular contra sarcopenia), Hipertrofia e Força, Força e Combate (potência), Combate e Resistência (condicionamento), Resistência e Longevidade. **A ordem é decisão do dono.** No ícone as pétalas são todas creme; no app, cada uma ganha a cor do seu objetivo (§3). \*Confirmar nomes e disponibilidade no app SF Symbols (iOS 18 / watchOS 11).
+Com essa ordem, cada par de pétalas vizinhas é uma afinidade real: Longevidade e Hipertrofia (massa muscular contra sarcopenia), Hipertrofia e Força, Força e Combate (potência), Combate e Fôlego (condicionamento), Fôlego e Longevidade (o VO2máx prediz a longevidade). **A ordem é decisão do dono.** No ícone as pétalas são todas creme; no app, cada uma ganha a cor do seu objetivo (§3). \*Confirmar nomes e disponibilidade no app SF Symbols (iOS 18 / watchOS 11).
 
 ## 5. Tipografia (só fontes do sistema, sempre com Dynamic Type)
 
