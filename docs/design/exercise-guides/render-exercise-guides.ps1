@@ -30,6 +30,8 @@
 #   -Data <json>          arquivo de guias (padrão: PersonalTrainer/Resources/Seed/exercise-guides.v1.json)
 #   -Catalog <json>       catálogo do seed (padrão: PersonalTrainer/Resources/Seed/exercises.v2.json)
 #   -Only <slug,slug>     filtra as guias
+#   -Title <texto>        título da folha do -Sheet (padrão: "Como fazer · lote <nome>"), para as folhas de revisão
+#                         da integração (todas as guias e por grupo)
 #   -Out <pasta>          pasta de saída (padrão: a deste script)
 # Toda saída (-Sheet, -Golden, -Vocabulary) valida antes e não grava nada se houver erro.
 param(
@@ -41,6 +43,7 @@ param(
   [string]$Only = '',
   [switch]$Vocabulary,
   [string]$Out = '',
+  [string]$Title = '',
   # Interna: desliga o catálogo (E1 e "works" obrigatório). O -Vocabulary liga sozinho, porque os slugs vocab-*
   # não estão no catálogo e nunca vão para o seed.
   [switch]$NoCatalog
@@ -1673,7 +1676,7 @@ function Render-Look($guides, [string]$look, $lay, [string]$title, [string]$sub,
 }
 function Render-Sheet($guides, [string]$name) {
   $lay = $Layout.sheet
-  $title = "Como fazer · lote $name"
+  $title = if ($Title -ne '') { $Title } else { "Como fazer · lote $name" }
   $sub = "Folha de revisão (docs/V23-CORE-CONTRACT.md §4). No app a figura anima em loop entre os quadros; com Reduzir Movimento, ou numa guia parada (static), os quadros ficam lado a lado, como aqui."
   $footer = 'Cores: DESIGN.md §3 e §12 · proporções: Drillis e Contini (1966), em Winter · "Trabalha:": primaryMuscles de exercises.v2.json ou "works" · dados: ' + (Split-Path -Leaf $Data)
   foreach ($look in 'light', 'dark') {

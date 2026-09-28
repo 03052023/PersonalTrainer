@@ -8,33 +8,23 @@
     },
     {
       "id": 1,
-      "title": "Barra",
-      "slugs": ["barbell-curl", "barbell-deadlift", "barbell-hip-thrust", "barbell-overhead-press", "barbell-romanian-deadlift", "barbell-row", "front-squat", "hex-bar-deadlift"]
+      "title": "Programas do seed, parte 1 de 3",
+      "slugs": ["alternating-dumbbell-curl", "barbell-hip-thrust", "barbell-row", "box-squat", "cable-triceps-pushdown", "dead-bug", "dumbbell-step-up", "hammer-curl", "hip-abduction-machine", "kettlebell-farmers-walk", "lat-pulldown", "lying-leg-curl", "neck-isometric-band", "pallof-press", "run-intervals", "seated-leg-curl", "suitcase-carry"]
     },
     {
       "id": 2,
-      "title": "Halteres e kettlebell",
-      "slugs": ["alternating-dumbbell-curl", "dumbbell-bulgarian-split-squat", "dumbbell-romanian-deadlift", "dumbbell-shoulder-press", "dumbbell-step-up", "goblet-squat", "hammer-curl", "incline-dumbbell-bench-press", "kettlebell-deadlift", "kettlebell-swing", "one-arm-dumbbell-row", "overhead-dumbbell-triceps-extension"]
+      "title": "Programas do seed, parte 2 de 3",
+      "slugs": ["back-extension-45", "barbell-curl", "barbell-overhead-press", "bird-dog", "brisk-walk", "chest-press-machine", "dumbbell-bulgarian-split-squat", "dumbbell-romanian-deadlift", "front-squat", "hanging-leg-raise", "incline-dumbbell-bench-press", "kettlebell-swing", "leg-extension", "medicine-ball-chest-pass", "one-arm-dumbbell-row", "pull-up", "stationary-bike"]
     },
     {
       "id": 3,
-      "title": "Máquinas e polias",
-      "slugs": ["cable-crunch", "cable-triceps-pushdown", "chest-press-machine", "hip-abduction-machine", "lat-pulldown", "leg-extension", "leg-press-45", "lying-leg-curl", "pallof-press", "seated-calf-raise", "seated-leg-curl", "standing-calf-raise"]
+      "title": "Programas do seed, parte 3 de 3",
+      "slugs": ["barbell-deadlift", "barbell-romanian-deadlift", "box-jump", "cable-crunch", "chin-up", "dumbbell-farmers-walk", "dumbbell-shoulder-press", "goblet-squat", "hex-bar-deadlift", "kettlebell-deadlift", "knee-push-up", "leg-press-45", "medicine-ball-rotational-throw", "overhead-dumbbell-triceps-extension", "push-up", "seated-calf-raise", "standing-calf-raise"]
     },
     {
       "id": 4,
-      "title": "Peso do corpo e tronco",
-      "slugs": ["back-extension-45", "bird-dog", "box-squat", "chin-up", "dead-bug", "hanging-leg-raise", "knee-push-up", "pull-up", "push-up"]
-    },
-    {
-      "id": 5,
-      "title": "Carregar, potência e pescoço",
-      "slugs": ["box-jump", "dumbbell-farmers-walk", "kettlebell-farmers-walk", "medicine-ball-chest-pass", "medicine-ball-rotational-throw", "neck-isometric-band", "suitcase-carry"]
-    },
-    {
-      "id": 6,
-      "title": "Aeróbico",
-      "slugs": ["bike-intervals", "bodyweight-circuit", "brisk-walk", "easy-run", "elliptical", "jump-rope", "rowing-machine", "run-intervals", "stair-climb", "stationary-bike"]
+      "title": "Aeróbicos fora dos programas",
+      "slugs": ["bike-intervals", "bodyweight-circuit", "easy-run", "elliptical", "jump-rope", "rowing-machine", "stair-climb"]
     }
   ]
 }

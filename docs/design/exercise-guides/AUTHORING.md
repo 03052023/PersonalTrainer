@@ -12,6 +12,8 @@ Rode tudo nesta pasta (`docs/design/exercise-guides/`), com `powershell -NoProfi
 4. `-Only <slug,slug>` desenha só as guias que você está mexendo, e fica mais rápido.
 5. Commit só com o `batch-<id>.json` e as duas folhas. O seed e o golden são gerados na integração, por `merge-guides.ps1`.
 
+Na integração, depois do `merge-guides.ps1`, o `review-sheets.ps1` desenha as folhas do dono a partir do arquivo do seed: `sheet-all.png` (todas as guias) e `sheet-grupo-<grupo>.png` (por grupo de movimento, com uns 10 exercícios cada), cada uma também em `-dark`. Uma guia corrigida volta pelo lote dela: `batch-<id>.json`, `merge-guides.ps1` e `review-sheets.ps1`.
+
 O `vocabulary.png` mostra um exemplo de cada cena, acessório e recurso. Os dados estão em `vocabulary.sample.json`, e copiar de lá é o jeito mais rápido de começar.
 
 O arquivo é UTF-8 sem BOM, com fim de linha LF. O `-Check` recusa BOM, CRLF e qualquer chave desconhecida, e diferencia maiúsculas: `"Side"` não vale.
