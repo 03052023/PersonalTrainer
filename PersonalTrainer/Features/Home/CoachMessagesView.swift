@@ -33,7 +33,7 @@ struct CoachMessagesView: View {
             )
             .padding(16)
         }
-        .background(Theme.background)
+        .paperBackground()
         .navigationTitle("Mensagens")
         .navigationBarTitleDisplayMode(.inline)
     }

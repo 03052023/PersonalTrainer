@@ -29,6 +29,12 @@ struct PlanCard: View {
     let onSelectAutomatic: () -> Void
     /// Tocar no nome ou na meta de um exercício (SPEC RF-47): abre "Informações do exercício".
     let onSelectExercise: (PlannedExercise) -> Void
+    /// Com dois planos (SPEC §7.15 M6), o rótulo pequeno do cartão diz de qual plano ele é
+    /// ("Cardio"); `nil` = "Hoje" / "Sessão escolhida", como na 2.2.
+    let customTitle: String?
+    /// Com dois planos, o detalhe do cardio ("30 min", `TodayPlansText`); `nil` = o de sempre.
+    let customDetail: String?
+    let customDetailSpoken: String?
 
     init(
         plan: SessionPlan,
@@ -40,7 +46,10 @@ struct PlanCard: View {
         onToggleHomeMode: ((Bool) -> Void)? = nil,
         onSelectDay: @escaping (UUID) -> Void,
         onSelectAutomatic: @escaping () -> Void,
-        onSelectExercise: @escaping (PlannedExercise) -> Void = { _ in }
+        onSelectExercise: @escaping (PlannedExercise) -> Void = { _ in },
+        customTitle: String? = nil,
+        customDetail: String? = nil,
+        customDetailSpoken: String? = nil
     ) {
         self.plan = plan
         self.days = days
@@ -52,6 +61,9 @@ struct PlanCard: View {
         self.onSelectDay = onSelectDay
         self.onSelectAutomatic = onSelectAutomatic
         self.onSelectExercise = onSelectExercise
+        self.customTitle = customTitle
+        self.customDetail = customDetail
+        self.customDetailSpoken = customDetailSpoken
     }
 
     var body: some View {
@@ -73,12 +85,20 @@ struct PlanCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .inkCard()
+    }
+
+    /// "Hoje", "Sessão escolhida" ou, com dois planos, o objetivo do cartão.
+    private var titleText: String {
+        if let customTitle {
+            return customTitle
+        }
+        return selectedDayID == nil ? "Hoje" : "Sessão escolhida"
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(selectedDayID == nil ? "Hoje" : "Sessão escolhida")
+            Text(titleText)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
@@ -116,11 +136,11 @@ struct PlanCard: View {
     }
 
     private var detailText: some View {
-        Text(Self.detailText(for: plan))
+        Text(customDetail ?? Self.detailText(for: plan))
             .font(.footnote)
             .foregroundStyle(.secondary)
             // "≈" não tem leitura boa no VoiceOver; a versão falada diz "cerca de".
-            .accessibilityLabel(Text(Self.detailAccessibilityText(for: plan)))
+            .accessibilityLabel(Text(customDetailSpoken ?? Self.detailAccessibilityText(for: plan)))
     }
 
     /// Faixa calma em `accentSoft` (DESIGN §3, §9.3): semana leve e frequência fazem parte do

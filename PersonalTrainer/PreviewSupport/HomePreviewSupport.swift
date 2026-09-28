@@ -55,6 +55,62 @@ import TrainerCore
     }
 }
 
+#Preview("Hoje — dois planos") {
+    if let container = HomePreviewFixture.makeContainer() {
+        HomePreviewFixture.makeHome(
+            planner: HomePreviewMultiPlanner(day: .twoSessions),
+            coordinator: HomePreviewCoordinator(),
+            references: HomePreviewFixture.references,
+            container: container
+        )
+        .modelContainer(container)
+    } else {
+        Text("Não foi possível montar os dados de preview")
+    }
+}
+
+#Preview("Hoje — uma feita") {
+    if let container = HomePreviewFixture.makeContainer() {
+        HomePreviewFixture.makeHome(
+            planner: HomePreviewMultiPlanner(day: .oneDone),
+            coordinator: HomePreviewCoordinator(),
+            references: HomePreviewFixture.references,
+            container: container
+        )
+        .modelContainer(container)
+    } else {
+        Text("Não foi possível montar os dados de preview")
+    }
+}
+
+#Preview("Hoje — descanso") {
+    if let container = HomePreviewFixture.makeContainer() {
+        HomePreviewFixture.makeHome(
+            planner: HomePreviewMultiPlanner(day: .restDay),
+            coordinator: HomePreviewCoordinator(),
+            references: HomePreviewFixture.references,
+            container: container
+        )
+        .modelContainer(container)
+    } else {
+        Text("Não foi possível montar os dados de preview")
+    }
+}
+
+#Preview("Hoje — não cabem") {
+    if let container = HomePreviewFixture.makeContainer() {
+        HomePreviewFixture.makeHome(
+            planner: HomePreviewMultiPlanner(day: .notFitting),
+            coordinator: HomePreviewCoordinator(),
+            references: HomePreviewFixture.references,
+            container: container
+        )
+        .modelContainer(container)
+    } else {
+        Text("Não foi possível montar os dados de preview")
+    }
+}
+
 #Preview("PlanCard") {
     ScrollView {
         PlanCard(
@@ -105,6 +161,7 @@ import TrainerCore
         GoalHeaderView(goal: nil, onChangeGoal: {})
         GoalHeaderView(goal: .combat, isSessionInProgress: true, onChangeGoal: {})
         GoalHeaderView(goal: .longevity)
+        GoalHeaderView(goals: [.hypertrophy, .endurance], onChangeGoal: {})
     }
     .padding()
 }
@@ -354,6 +411,55 @@ private enum HomePreviewFixture {
         )
     }
 
+    /// Plano Cardio (SPEC RF-48): o Dia A, caminhada rápida de 30 min, conversando.
+    static let cardioPlan: SessionPlan = makeCardioPlan()
+
+    /// Os dias do Cardio, para o menu do cartão dele.
+    static let cardioDays: [ProgramDayTemplate] = [
+        ProgramDayTemplate(id: cardioPlan.programDayID, name: "Dia A — Base contínua", order: 0),
+        ProgramDayTemplate(id: UUID(), name: "Dia B — Intervalos 4 × 4", order: 1),
+        ProgramDayTemplate(id: UUID(), name: "Dia C — Longo e leve", order: 2),
+    ]
+
+    private static func makeCardioPlan() -> SessionPlan {
+        let walk = ExerciseDefinition(
+            slug: "brisk-walk",
+            name: "Caminhada rápida",
+            primaryMuscles: [.quads, .glutes],
+            equipment: .bodyweight,
+            loadUnit: .kilograms,
+            loadIncrement: 2.5,
+            movementPattern: .cardio
+        )
+        let target = ExerciseTarget(exerciseID: walk.id, order: 0, sets: 1, repMin: 30, repMax: 45, targetRIR: 3, restSeconds: 60)
+        return SessionPlan(
+            programID: UUID(),
+            programName: "Cardio",
+            programDayID: UUID(),
+            programDayName: "Dia A — Base contínua",
+            exercises: [
+                PlannedExercise(
+                    id: UUID(),
+                    exercise: walk,
+                    target: target,
+                    prescription: ExercisePrescription(
+                        exerciseID: walk.id,
+                        load: nil,
+                        sets: 1,
+                        repMin: 30,
+                        repMax: 45,
+                        targetReps: 30,
+                        targetRIR: 3,
+                        restSeconds: 60,
+                        note: .hold
+                    )
+                ),
+            ],
+            generatedAt: referenceDate,
+            estimatedMinutes: 33
+        )
+    }
+
     /// Sessão `inProgress` fora de qualquer container: o preview só lê `uuid`.
     static func makeInProgressSession() -> WorkoutSessionModel {
         WorkoutSessionModel(
@@ -413,6 +519,67 @@ private final class HomePreviewPlanner: SessionPlanning {
 
     func activeProgramGoal() throws -> ProgramGoal? {
         fixedPlan == nil ? nil : .hypertrophy
+    }
+}
+
+/// Dois planos ativos (SPEC §7.15 M6): Hipertrofia e Cardio, com o dia pronto em `todayOverview`.
+@MainActor
+private final class HomePreviewMultiPlanner: SessionPlanning {
+    enum Day {
+        case twoSessions
+        case oneDone
+        case restDay
+        case notFitting
+    }
+
+    private let day: Day
+
+    init(day: Day) {
+        self.day = day
+    }
+
+    func nextPlan(now: Date) throws -> SessionPlan? {
+        HomePreviewFixture.plan
+    }
+
+    func plan(forDayID dayID: UUID, now: Date) throws -> SessionPlan? {
+        nil
+    }
+
+    func startSession(from plan: SessionPlan, now: Date) throws -> UUID {
+        UUID()
+    }
+
+    func activeProgramDays() throws -> [ProgramDayTemplate] {
+        HomePreviewFixture.days
+    }
+
+    func activeProgramGoal() throws -> ProgramGoal? {
+        .hypertrophy
+    }
+
+    func activeProgramGoals() throws -> [ProgramGoal] {
+        [.hypertrophy, .endurance]
+    }
+
+    func todayOverview(now: Date) throws -> TodayOverview {
+        let strength = TodaySession(plan: HomePreviewFixture.plan, goal: .hypertrophy, isDoneToday: false)
+        let cardio = TodaySession(plan: HomePreviewFixture.cardioPlan, goal: .endurance, isDoneToday: false)
+        switch day {
+        case .twoSessions:
+            return TodayOverview(sessions: [strength, cardio])
+        case .oneDone:
+            let done = TodaySession(plan: HomePreviewFixture.plan, goal: .hypertrophy, isDoneToday: true)
+            return TodayOverview(sessions: [done, cardio])
+        case .restDay:
+            return TodayOverview(sessions: [], otherSessions: [strength, cardio], isRestDay: true)
+        case .notFitting:
+            return TodayOverview(sessions: [strength], otherSessions: [cardio], fitsWeek: false)
+        }
+    }
+
+    func days(ofProgramID programID: UUID) throws -> [ProgramDayTemplate] {
+        programID == HomePreviewFixture.cardioPlan.programID ? HomePreviewFixture.cardioDays : HomePreviewFixture.days
     }
 }
 

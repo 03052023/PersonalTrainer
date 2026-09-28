@@ -1,27 +1,42 @@
 import SwiftUI
 import TrainerCore
 
-/// Aba Plano (SPEC RF-45; DESIGN §7, §8; mockup "Plano"), a antiga aba Programa: no topo o
-/// objetivo com "Trocar objetivo"; "Sua semana" com um cartão por dia (o próximo marcado) para
-/// consultar; por último, "Ajustar exercícios" (dias, exercícios e parâmetros, RF-16, RF-33,
-/// RF-36) e o catálogo. Não lista programas: renomear, duplicar, apagar e trocar o objetivo de um
-/// programa saíram da interface (o repositório continua com eles para o backup e o diálogo).
+/// Aba Plano (SPEC RF-45, §7.15 M4, M8, M9; DESIGN §7, §8, §13; mockup "Plano"), a antiga aba
+/// Programa: no topo o objetivo (ou os dois objetivos) com "Trocar objetivo"; o plano com a semana dele
+/// para consultar (um cartão por dia, o próximo marcado); por último, "Ajustar exercícios" (dias,
+/// exercícios e parâmetros, RF-16, RF-33, RF-36) e o catálogo. Não lista programas: renomear, duplicar,
+/// apagar e trocar o objetivo de um programa saíram da interface.
 ///
-/// Nada aqui lê o `AppEnvironment` do ambiente nem escreve no `ModelContext` (AGENTS R4): os
-/// serviços chegam por `init`. `now` é o único relógio real da aba (SPEC P11) e só serve para
-/// perguntar ao planejador qual é o próximo dia; os parâmetros novos têm padrão para o integrador
-/// poder chamar `ProgramTabView(programs:catalog:references:now:)`.
+/// Vários planos (2.3):
+/// - com um plano, "Adicionar um plano" abre a folha "Seu objetivo" no modo de adicionar (M8);
+/// - com dois, "Sua semana" (a semana ideal de `weekSchedule`, Seg a Dom, com o nome do dia de cada
+///   sessão e "descanso" nos livres), "Seus dias" (os dias e as duas chaves, com a conferência antes de
+///   gravar, M9) e, em cada plano, "Tirar este plano" com confirmação (M8).
+///
+/// Nada aqui lê o `AppEnvironment` do ambiente nem escreve no `ModelContext` (AGENTS R4): os serviços
+/// chegam por `init`. `now` é o único relógio real da aba (SPEC P11); os parâmetros novos têm padrão
+/// para o integrador poder chamar `ProgramTabView(programs:catalog:references:now:)`.
 struct ProgramTabView: View {
     @State private var model: PlanTabModel
     @State private var isShowingGoalSheet = false
+    @State private var goalSheetMode: GoalSheet.Mode = .change
     /// Copiado ao abrir a folha: com sessão em andamento a troca fica bloqueada (RF-45).
     @State private var goalSheetBlocked = false
+    /// "Seus dias" (M9), numa folha própria.
+    @State private var daysFlow: PlanFitFlowModel?
+    @State private var isShowingDaysFlow = false
+    /// Plano esperando a confirmação de "Tirar este plano" (M8).
+    @State private var planPendingRemoval: ProgramTemplate?
     private let programs: any ProgramRepositoring
     private let catalog: any CatalogRepositoring
     private let references: ReferenceCatalog
+    private let planner: (any SessionPlanning)?
+    private let now: () -> Date
 
     /// DESIGN §9.1: a flor do topo tem cerca de 56 pt.
     private static let flowerSize: CGFloat = 56
+    /// Flor pequena de cada plano, com dois planos.
+    private static let planFlowerSize: CGFloat = 30
 
     init(
         programs: any ProgramRepositoring,
@@ -34,6 +49,8 @@ struct ProgramTabView: View {
         self.programs = programs
         self.catalog = catalog
         self.references = references
+        self.planner = planner
+        self.now = now
         self._model = State(initialValue: PlanTabModel(
             programs: programs,
             catalog: catalog,
@@ -46,15 +63,13 @@ struct ProgramTabView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 24) {
                     content
                     links
                 }
                 .padding(16)
             }
-            .background {
-                Theme.background.ignoresSafeArea()
-            }
+            .paperBackground()
             .navigationTitle("Plano")
             // Também dispara ao voltar de "Ajustar exercícios": a semana mostra o que foi gravado.
             .onAppear {
@@ -67,12 +82,54 @@ struct ProgramTabView: View {
                     programs: programs,
                     catalog: catalog,
                     references: references,
-                    mode: .change,
+                    mode: goalSheetMode,
                     isSessionInProgress: goalSheetBlocked,
+                    planner: planner,
+                    now: now,
                     onFinish: { _ in
                         isShowingGoalSheet = false
                     }
                 )
+            }
+            .sheet(isPresented: $isShowingDaysFlow, onDismiss: {
+                daysFlow = nil
+                model.refresh()
+            }) {
+                if let daysFlow {
+                    NavigationStack {
+                        PlanFitFlowView(
+                            model: daysFlow,
+                            references: references,
+                            firstPageBackTitle: "Cancelar",
+                            onCancel: {
+                                isShowingDaysFlow = false
+                            },
+                            onDone: {
+                                isShowingDaysFlow = false
+                            }
+                        )
+                    }
+                    .tint(Theme.accent)
+                }
+            }
+            .confirmationDialog(
+                removalTitle,
+                isPresented: Binding(
+                    get: { planPendingRemoval != nil },
+                    set: { isPresented in
+                        if !isPresented { planPendingRemoval = nil }
+                    }
+                ),
+                titleVisibility: .visible,
+                presenting: planPendingRemoval
+            ) { program in
+                Button(PlanWeekText.removeConfirm) {
+                    model.removePlan(programID: program.id)
+                    planPendingRemoval = nil
+                }
+                Button("Cancelar", role: .cancel) {}
+            } message: { program in
+                Text(removalMessage(for: program))
             }
             .alert("Não foi possível continuar", isPresented: $model.isPresentingError) {
                 Button("OK", role: .cancel) {}
@@ -87,8 +144,15 @@ struct ProgramTabView: View {
     @ViewBuilder
     private var content: some View {
         if let program = model.activeProgram {
-            header(for: program)
-            week
+            header
+            if model.hasTwoPlans {
+                weekSection
+                ForEach(model.activePrograms, id: \.id) { plan in
+                    planSection(plan)
+                }
+            } else {
+                singleWeek(for: program)
+            }
         } else if !model.hasLoaded {
             ProgressView()
                 .frame(maxWidth: .infinity)
@@ -108,36 +172,61 @@ struct ProgramTabView: View {
         }
     }
 
-    /// Flor, nome do objetivo, "3 dias por semana" e "Trocar objetivo".
-    private func header(for program: ProgramTemplate) -> some View {
-        let goal = program.effectiveGoal
-        return VStack(alignment: .leading, spacing: 12) {
+    /// Flor, nome do objetivo (ou "Hipertrofia + Cardio"), a linha de baixo e os botões da folha.
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 14) {
-                FlowerView(activeGoal: goal, size: Self.flowerSize)
+                FlowerView(activeGoals: model.activeGoals, size: Self.flowerSize)
                     // O texto ao lado já diz o objetivo.
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(goal.displayName)
+                    Text(model.titleText)
                         .font(.system(.title2, design: .serif, weight: .semibold))
                         .foregroundStyle(Theme.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
-                    Text(model.subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if !model.hasTwoPlans {
+                        Text(model.subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel(Text("Objetivo: \(goal.displayName). \(model.spokenSubtitle)."))
+                .accessibilityLabel(Text(headerAccessibilityText))
                 Spacer(minLength: 0)
             }
-            changeGoalButton(title: "Trocar objetivo")
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    headerButtons
+                }
+                VStack(alignment: .leading, spacing: 8) {
+                    headerButtons
+                }
+            }
         }
     }
 
-    private func changeGoalButton(title: String) -> some View {
-        Button {
-            openGoalSheet()
-        } label: {
+    @ViewBuilder
+    private var headerButtons: some View {
+        pillButton(title: "Trocar objetivo", hint: "Abre a lista de objetivos") {
+            openGoalSheet(mode: .change)
+        }
+        if model.canAddPlan {
+            pillButton(title: PlanWeekText.addPlanButton, hint: "Mostra o que muda e confere os seus dias") {
+                openGoalSheet(mode: .add)
+            }
+        }
+    }
+
+    private var headerAccessibilityText: String {
+        if model.hasTwoPlans {
+            return "Objetivos: \(model.activeGoals.spokenDisplayName)."
+        }
+        return "Objetivo: \(model.titleText). \(model.spokenSubtitle)."
+    }
+
+    private func pillButton(title: String, hint: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
             Text(title)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Theme.accent)
@@ -148,25 +237,103 @@ struct ProgramTabView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityHint("Abre a lista de objetivos")
+        .accessibilityHint(Text(hint))
     }
 
-    /// "Sua semana": um cartão por dia, com o próximo marcado.
-    private var week: some View {
+    /// Um plano só: "Sua semana" com um cartão por dia, como na 2.2.
+    private func singleWeek(for program: ProgramTemplate) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Sua semana")
-                .font(.system(.title3, design: .serif, weight: .semibold))
-                .foregroundStyle(Theme.textPrimary)
-                .accessibilityAddTraits(.isHeader)
-            if model.days.isEmpty {
-                Text("Este plano ainda não tem dias.")
+            sectionTitle(PlanWeekText.yourWeekTitle)
+            dayCards(for: program)
+        }
+    }
+
+    /// Com dois planos: "Sua semana" (M4), os avisos e "Seus dias" (M9).
+    private var weekSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle(PlanWeekText.yourWeekTitle)
+            if !model.weekRows.isEmpty {
+                WeekScheduleView(rows: model.weekRows, notes: model.weekNotes)
+                    .padding(14)
+                    .inkCard()
+            } else if model.showsNotFit {
+                Text(PlanWeekText.notFitInPlanTab)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            } else if model.didFailToLoadWeek {
+                Text(PlanWeekText.checkFailed)
                     .font(.subheadline)
                     .foregroundStyle(Theme.textSecondary)
             }
-            ForEach(model.days, id: \.id) { day in
-                dayCard(day)
+            if model.canEditDays {
+                pillButton(title: PlanWeekText.yourDaysTitle, hint: "Muda os dias em que você pode treinar") {
+                    openDaysFlow()
+                }
             }
         }
+    }
+
+    /// Com dois planos: a flor pequena, o nome, os dias do plano e "Tirar este plano".
+    private func planSection(_ program: ProgramTemplate) -> some View {
+        let goal = program.effectiveGoal
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 12) {
+                FlowerView(activeGoal: goal, size: Self.planFlowerSize)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(goal.displayName)
+                        .font(.system(.title3, design: .serif, weight: .semibold))
+                        .foregroundStyle(Theme.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(model.planSubtitle(for: program))
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(Text("Plano de \(goal.displayName). \(model.spokenPlanSubtitle(for: program))."))
+                .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 0)
+            }
+            dayCards(for: program)
+            Button {
+                planPendingRemoval = program
+            } label: {
+                Text(PlanWeekText.removePlanButton)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.accent)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!model.canRemovePlans)
+            .opacity(model.canRemovePlans ? 1 : 0.5)
+            .accessibilityHint(Text("Pede confirmação. O outro plano continua."))
+        }
+    }
+
+    @ViewBuilder
+    private func dayCards(for program: ProgramTemplate) -> some View {
+        let days = model.orderedDays(of: program)
+        if days.isEmpty {
+            Text("Este plano ainda não tem dias.")
+                .font(.subheadline)
+                .foregroundStyle(Theme.textSecondary)
+        }
+        ForEach(days, id: \.id) { day in
+            dayCard(day)
+        }
+    }
+
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.system(.title3, design: .serif, weight: .semibold))
+            .foregroundStyle(Theme.textPrimary)
+            .accessibilityAddTraits(.isHeader)
     }
 
     private func dayCard(_ day: ProgramDayTemplate) -> some View {
@@ -196,7 +363,7 @@ struct ProgramTabView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .inkCard(cornerRadius: 12)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(model.accessibilityText(for: day)))
     }
@@ -218,16 +385,18 @@ struct ProgramTabView: View {
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             if showsChooseButton {
-                changeGoalButton(title: "Escolher objetivo")
+                pillButton(title: "Escolher objetivo", hint: "Abre a lista de objetivos") {
+                    openGoalSheet(mode: .change)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// "Ajustar exercícios" (só com plano ativo) e "Catálogo de exercícios", por último.
+    /// "Ajustar exercícios" (um por plano ativo) e "Catálogo de exercícios", por último.
     private var links: some View {
         VStack(spacing: 0) {
-            if let program = model.activeProgram {
+            ForEach(model.activePrograms, id: \.id) { program in
                 NavigationLink {
                     ProgramDetailView(
                         programID: program.id,
@@ -236,7 +405,7 @@ struct ProgramTabView: View {
                         references: references
                     )
                 } label: {
-                    linkRow("Ajustar exercícios")
+                    linkRow(adjustTitle(for: program))
                 }
                 .buttonStyle(.plain)
                 Divider()
@@ -249,7 +418,14 @@ struct ProgramTabView: View {
             }
             .buttonStyle(.plain)
         }
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .inkCard(cornerRadius: 12)
+    }
+
+    /// "Ajustar exercícios"; com dois planos, "Ajustar exercícios · Cardio".
+    private func adjustTitle(for program: ProgramTemplate) -> String {
+        model.hasTwoPlans
+            ? "Ajustar exercícios · \(program.effectiveGoal.displayName)"
+            : "Ajustar exercícios"
     }
 
     private func linkRow(_ title: String) -> some View {
@@ -268,10 +444,33 @@ struct ProgramTabView: View {
         .contentShape(Rectangle())
     }
 
+    // MARK: - Tirar este plano (M8)
+
+    private var removalTitle: String {
+        guard let program = planPendingRemoval else {
+            return PlanWeekText.removePlanButton
+        }
+        return PlanWeekText.removeQuestion(program.effectiveGoal)
+    }
+
+    private func removalMessage(for program: ProgramTemplate) -> String {
+        guard let kept = model.remainingProgram(after: program) else {
+            return ""
+        }
+        return PlanWeekText.removeMessage(kept: kept.effectiveGoal)
+    }
+
     // MARK: - Ações
 
-    private func openGoalSheet() {
+    private func openGoalSheet(mode: GoalSheet.Mode) {
+        goalSheetMode = mode
         goalSheetBlocked = model.isSessionInProgress
         isShowingGoalSheet = true
+    }
+
+    private func openDaysFlow() {
+        guard let flow = model.makeDaysFlow() else { return }
+        daysFlow = flow
+        isShowingDaysFlow = true
     }
 }

@@ -27,6 +27,14 @@ final class FlowerAndGoalStyleTests: XCTestCase {
         XCTAssertEqual(ProgramGoal.endurance.petalIndex, 4)
     }
 
+    /// SPEC §7.15 M1, DESIGN §9.7: dois objetivos ativos num nome só, o principal primeiro.
+    func testM1_joinedGoalNames() {
+        XCTAssertEqual([ProgramGoal.hypertrophy, .endurance].joinedDisplayName, "Hipertrofia + Cardio")
+        XCTAssertEqual([ProgramGoal.hypertrophy, .endurance].spokenDisplayName, "Hipertrofia e Cardio")
+        XCTAssertEqual([ProgramGoal.strength].joinedDisplayName, "Força")
+        XCTAssertEqual([ProgramGoal]().joinedDisplayName, "")
+    }
+
     // MARK: - S10: geometria Brisa
 
     func testS10_petalPaths_areInsideRectAndNonEmpty() {

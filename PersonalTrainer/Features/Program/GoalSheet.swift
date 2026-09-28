@@ -6,18 +6,30 @@ import TrainerCore
 /// Dia A, o "Por quê?" e, no Combate, o aviso de técnica (SPEC §7.9). O botão diz o que vai
 /// acontecer ("Trocar para Hipertrofia").
 ///
-/// Abre do topo da tela Hoje, da aba Plano (`.change`) e no primeiro uso (`.firstUse`, dentro do
-/// `OnboardingView`). Tem a própria `NavigationStack`. Só chama `onFinish`: quem apresenta fecha
-/// a folha. Toda escrita vai pelo `GoalSheetModel`, que usa o `ProgramRepositoring` (AGENTS R4).
+/// Abre do topo da tela Hoje, da aba Plano (`.change`), no primeiro uso (`.firstUse`, dentro do
+/// `OnboardingView`) e, desde a 2.3, pelo "Adicionar um plano" da aba Plano (`.add`). Tem a própria
+/// `NavigationStack`. Só chama `onFinish`: quem apresenta fecha a folha. Toda escrita vai pelo
+/// `GoalSheetModel` e pelo `PlanFitFlowModel`, que usam o `ProgramRepositoring` e o `SessionPlanning`
+/// (AGENTS R4).
+///
+/// Vários planos (SPEC §7.15 M7, M8): com um plano ativo e outro objetivo tocado, dois botões, "Trocar
+/// para X" e "Adicionar X ao seu plano"; com dois ativos, só "Trocar para X", com "O plano de Y também
+/// sai." quando a troca tira os dois. "Adicionar" empurra o fluxo "O que muda", "Seus dias" e "Sua
+/// semana" (`PlanFitFlowView`). Sem `planner`, a folha não oferece "Adicionar".
 struct GoalSheet: View {
     enum Mode: Sendable, Hashable {
-        /// Trocar de objetivo: "Cancelar" e "Trocar para …".
+        /// Trocar de objetivo: "Cancelar" e "Trocar para …" (e "Adicionar …" com um plano ativo).
         case change
         /// Primeiro uso: "Começar" e "Pular", sem o gesto de fechar.
         case firstUse
+        /// Adicionar um segundo plano (aba Plano): "Cancelar" e "Adicionar X ao seu plano".
+        case add
     }
 
     @State private var model: GoalSheetModel
+    /// O fluxo de adicionar, montado ao tocar "Adicionar X ao seu plano".
+    @State private var addFlow: PlanFitFlowModel?
+    @State private var isShowingAddFlow = false
     private let references: ReferenceCatalog
     private let isSessionInProgress: Bool
     private let onFinish: (_ didChange: Bool) -> Void
@@ -33,6 +45,8 @@ struct GoalSheet: View {
         references: ReferenceCatalog,
         mode: Mode = .change,
         isSessionInProgress: Bool = false,
+        planner: (any SessionPlanning)? = nil,
+        now: @escaping () -> Date = { Date() },
         onFinish: @escaping (_ didChange: Bool) -> Void
     ) {
         self.references = references
@@ -42,7 +56,9 @@ struct GoalSheet: View {
             programs: programs,
             catalog: catalog,
             mode: mode,
-            isSessionInProgress: isSessionInProgress
+            isSessionInProgress: isSessionInProgress,
+            planner: planner,
+            now: now
         ))
     }
 
@@ -53,7 +69,7 @@ struct GoalSheet: View {
                     if model.mode == .firstUse {
                         firstUseHeader
                     }
-                    FlowerView(activeGoal: model.selectedGoal, size: Self.largeFlowerSize)
+                    FlowerView(activeGoals: model.flowerGoals, size: Self.largeFlowerSize)
                         .frame(maxWidth: .infinity)
                         // As linhas abaixo já dizem o objetivo escolhido.
                         .accessibilityHidden(true)
@@ -61,11 +77,26 @@ struct GoalSheet: View {
                 }
                 .padding(16)
             }
-            .background {
-                Theme.background.ignoresSafeArea()
-            }
+            .paperBackground()
             .safeAreaInset(edge: .bottom) {
                 footer
+            }
+            // M8: "Adicionar X ao seu plano" empurra o fluxo curto nesta mesma pilha.
+            .navigationDestination(isPresented: $isShowingAddFlow) {
+                if let addFlow {
+                    PlanFitFlowView(
+                        model: addFlow,
+                        references: references,
+                        firstPageBackTitle: "Voltar",
+                        onCancel: {
+                            isShowingAddFlow = false
+                        },
+                        onDone: {
+                            model.finishAfterAdd()
+                            onFinish(true)
+                        }
+                    )
+                }
             }
             .navigationTitle(navigationTitleText)
             .navigationBarTitleDisplayMode(.inline)
@@ -73,7 +104,7 @@ struct GoalSheet: View {
                 // `if` dentro do item (ViewBuilder), não em volta dele: evita depender de
                 // `buildIf` no ToolbarContentBuilder.
                 ToolbarItem(placement: .cancellationAction) {
-                    if model.mode == .change {
+                    if model.mode != .firstUse {
                         Button("Cancelar") {
                             finish(didChange: false)
                         }
@@ -101,10 +132,12 @@ struct GoalSheet: View {
         }
         .onChange(of: isSessionInProgress) { _, newValue in
             model.isSessionInProgress = newValue
+            addFlow?.isSessionInProgress = newValue
         }
-        // Fechar com o gesto na troca equivale a "Cancelar": `onFinish(false)` uma vez só.
+        // Fechar com o gesto na troca (ou ao adicionar) equivale a "Cancelar": `onFinish(false)` uma
+        // vez só.
         .onDisappear {
-            if model.mode == .change && !model.hasFinished {
+            if model.mode != .firstUse && !model.hasFinished {
                 model.markFinished()
                 onFinish(false)
             }
@@ -118,6 +151,7 @@ struct GoalSheet: View {
         switch model.mode {
         case .change: return "Seu objetivo"
         case .firstUse: return ""
+        case .add: return PlanWeekText.addPlanButton
         }
     }
 
@@ -160,7 +194,7 @@ struct GoalSheet: View {
                 rowHeader(entry)
             }
             .buttonStyle(.plain)
-            .disabled(!entry.isAvailable)
+            .disabled(!model.isSelectable(entry))
             .accessibilityLabel(Text(model.accessibilityText(for: entry)))
             .accessibilityAddTraits(isSelected ? .isSelected : [])
 
@@ -171,12 +205,12 @@ struct GoalSheet: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .inkCard(cornerRadius: 14)
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(isSelected ? Theme.accent : Color.clear, lineWidth: 1.5)
         )
-        .opacity(entry.isAvailable ? 1 : 0.6)
+        .opacity(model.isSelectable(entry) ? 1 : 0.6)
     }
 
     private func rowHeader(_ entry: GoalPlanCatalog.Entry) -> some View {
@@ -272,21 +306,43 @@ struct GoalSheet: View {
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-            if model.showsSessionBlock {
-                Text("Termine a sessão em andamento para trocar.")
+            if let warning = model.changeWarning {
+                // M8: com dois planos, trocar para um terceiro objetivo tira os dois.
+                Text(warning)
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Button {
-                confirm()
-            } label: {
-                Text(model.confirmTitle)
+            if model.showsSessionBlock {
+                Text(model.sessionBlockText)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .buttonStyle(.primary)
-            .disabled(!model.canConfirm)
+            if model.mode == .add {
+                Button {
+                    openAddFlow()
+                } label: {
+                    Text(model.confirmTitle)
+                        .multilineTextAlignment(.center)
+                }
+                .buttonStyle(.primary)
+                .disabled(!model.canAdd)
+            } else {
+                Button {
+                    confirm()
+                } label: {
+                    Text(model.confirmTitle)
+                        .multilineTextAlignment(.center)
+                }
+                .buttonStyle(.primary)
+                .disabled(!model.canConfirm)
+                if model.showsAddButton {
+                    addButton
+                }
+            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
@@ -295,7 +351,33 @@ struct GoalSheet: View {
         .background(Theme.background)
     }
 
+    /// Segundo botão da troca (M8): menos peso que o principal, com alvo de 44 pt.
+    private var addButton: some View {
+        Button {
+            openAddFlow()
+        } label: {
+            Text(model.addTitle)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(Theme.accent)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!model.canAdd)
+        .opacity(model.canAdd ? 1 : 0.5)
+    }
+
     // MARK: - Ações
+
+    /// Monta o fluxo de adicionar para o objetivo tocado e o empurra na pilha da folha.
+    private func openAddFlow() {
+        guard let flow = model.makeAddFlow() else { return }
+        addFlow = flow
+        isShowingAddFlow = true
+    }
 
     private func confirm() {
         switch model.confirm() {
