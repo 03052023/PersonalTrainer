@@ -21,6 +21,9 @@ struct FlowerView: View {
     let size: CGFloat
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Só para escolher o par claro/escuro do degradê nōtan da pétala ativa (`notanGradient(for:)`);
+    /// os tokens de `Theme` já são dinâmicos sozinhos, isto é só para misturar hexadecimais soltos.
+    @Environment(\.colorScheme) private var colorScheme
 
     /// Init explícito (integração onda 3): com a propriedade `private` acima, o init sintetizado
     /// poderia ficar privado e a Home, em outro arquivo, não conseguiria criar a flor.
@@ -41,6 +44,19 @@ struct FlowerView: View {
     }
 
     private static let outlineWidth: CGFloat = 1.5
+    /// Lavagem de tinta das pétalas fora dos objetivos (DESIGN §14: "a 7 %"). É tinta neutra
+    /// (`Theme.inkMuted`), não a cor do objetivo — só a pétala ativa ganha pigmento.
+    private static let washOpacity: Double = 0.07
+    /// Frações de mistura do degradê nōtan da pétala ativa: a base (perto do miolo) recebe um pouco
+    /// de tinta (mais escura); a ponta recebe um pouco de papel (mais clara). DESIGN §14: "mais escura
+    /// na base e mais clara na ponta". A mesma fórmula (`Theme.mixedHex`) e os mesmos números valem na
+    /// folha de conferência (`docs/design/v23-ink/render-ink-sheet.ps1`).
+    private static let notanBaseFraction: Double = 0.22
+    private static let notanTipFraction: Double = 0.30
+    /// "A partir de 120 pt, uma borda de tinta levemente mais escura dá o 'pintado'" (DESIGN §14).
+    private static let paintedBorderMinSize: CGFloat = 120
+    private static let paintedBorderFraction: Double = 0.35
+    private static let paintedBorderWidth: CGFloat = 1.25
 
     var body: some View {
         ZStack {
@@ -58,18 +74,80 @@ struct FlowerView: View {
         .accessibilityLabel(accessibilityLabel)
     }
 
-    /// Mesma forma sempre (mesma identidade de view), só muda preenchimento e contorno — para o
-    /// preenchimento poder ser animado em vez de trocado abruptamente quando o objetivo ativo muda.
+    /// Mesma forma sempre (mesma identidade de view): a pétala ativa vira pigmento em aguada
+    /// (degradê nōtan, mais escuro na base e mais claro na ponta, na direção real da pétala) e, a
+    /// partir de 120 pt, ganha uma borda de tinta mais escura ("pintado"); as outras ficam com uma
+    /// lavagem de tinta neutra a 7 % e o contorno fino de sempre (DESIGN §14).
     private func petal(for goal: ProgramGoal) -> some View {
         let isActive = activeGoals.contains(goal)
-        return BrisaPetalShape(petalIndex: goal.petalIndex)
-            .fill(isActive ? goal.color : Color.clear)
-            .overlay(
-                BrisaPetalShape(petalIndex: goal.petalIndex)
-                    .stroke(Theme.textSecondary, lineWidth: Self.outlineWidth)
-                    .opacity(isActive ? 0 : 1)
-            )
-            .frame(width: size, height: size)
+        let shape = BrisaPetalShape(petalIndex: goal.petalIndex)
+        return ZStack {
+            if isActive {
+                shape.fill(notanGradient(for: goal))
+                if size >= Self.paintedBorderMinSize {
+                    shape.stroke(paintedBorderColor(for: goal), lineWidth: Self.paintedBorderWidth)
+                }
+            } else {
+                shape.fill(Theme.inkMuted.opacity(Self.washOpacity))
+                shape.stroke(Theme.textSecondary, lineWidth: Self.outlineWidth)
+            }
+        }
+        .frame(width: size, height: size)
+    }
+
+    /// Par claro/escuro do hexadecimal de cada objetivo (não pode vir de `GoalStyle.swift`: esse
+    /// arquivo é da tarefa `plans-ui`, congelado para a `ink`). Só usado para o degradê nōtan.
+    private func hexPair(for goal: ProgramGoal) -> Theme.HexPair {
+        switch goal {
+        case .hypertrophy: return Theme.goalHypertrophyHex
+        case .strength: return Theme.goalStrengthHex
+        case .endurance: return Theme.goalEnduranceHex
+        case .longevity: return Theme.goalLongevityHex
+        case .combat: return Theme.goalCombatHex
+        }
+    }
+
+    /// Eixo da pétala (base perto do miolo → ponta), em `UnitPoint` do quadro da flor: o degradê nōtan
+    /// segue a direção real da pétala (`BrisaGeometry.petalAxisAngles`), não um "de baixo para cima"
+    /// genérico que ficaria errado nas 4 pétalas que não apontam para cima.
+    private func petalAxis(for goal: ProgramGoal) -> (base: UnitPoint, tip: UnitPoint) {
+        // Defensivo (R11): `petalIndex` só deveria vir de `ProgramGoal` (sempre 0–4), mas um índice
+        // fora da faixa cai no ângulo 0 em vez de derrubar a tela (mesma cautela de `BrisaPetalShape`).
+        let index = goal.petalIndex
+        let angleDegrees = BrisaGeometry.petalAxisAngles.indices.contains(index) ? BrisaGeometry.petalAxisAngles[index] : 0
+        let angle = angleDegrees * Double.pi / 180
+        let dx = sin(angle)
+        let dy = -cos(angle)
+        func point(at radius: Double) -> UnitPoint {
+            UnitPoint(x: 0.5 + 0.5 * radius * dx, y: 0.5 + 0.5 * radius * dy)
+        }
+        // Raios pequenos de propósito: a pétala não ocupa o quadro inteiro (só a mais comprida chega
+        // perto da borda), então 0,12/0,82 ficam dentro do contorno em vez de na ponta exata dele.
+        return (point(at: 0.12), point(at: 0.82))
+    }
+
+    private func notanGradient(for goal: ProgramGoal) -> LinearGradient {
+        let pair = hexPair(for: goal)
+        let dark = colorScheme == .dark
+        let goalHex = dark ? pair.dark : pair.light
+        let paperHex = dark ? Theme.surfaceHex.dark : Theme.surfaceHex.light
+        let inkHex = dark ? Theme.textPrimaryHex.dark : Theme.textPrimaryHex.light
+        let baseHex = Theme.mixedHex(goalHex, inkHex, fraction: Self.notanBaseFraction)
+        let tipHex = Theme.mixedHex(goalHex, paperHex, fraction: Self.notanTipFraction)
+        let axis = petalAxis(for: goal)
+        return LinearGradient(
+            colors: [Theme.color(hex: baseHex), Theme.color(hex: tipHex)],
+            startPoint: axis.base,
+            endPoint: axis.tip
+        )
+    }
+
+    private func paintedBorderColor(for goal: ProgramGoal) -> Color {
+        let pair = hexPair(for: goal)
+        let dark = colorScheme == .dark
+        let goalHex = dark ? pair.dark : pair.light
+        let inkHex = dark ? Theme.textPrimaryHex.dark : Theme.textPrimaryHex.light
+        return Theme.color(hex: Theme.mixedHex(goalHex, inkHex, fraction: Self.paintedBorderFraction))
     }
 
     private var accessibilityLabel: Text {
@@ -197,6 +275,14 @@ enum BrisaGeometry {
         }
         return (petals, maxRadius)
     }()
+
+    /// Ângulo do eixo de cada pétala (graus, `0` = topo, sentido horário — mesma convenção de
+    /// `outline(for:angle:)`), para o degradê nōtan da pétala ativa seguir a direção real dela
+    /// (`FlowerView.petalAxis(for:)`) em vez de um "de baixo para cima" genérico. Não é frozen (só
+    /// `unitPetalOutlines`, `unitCenterOutline` e `path(for:in:)` são): item novo, aditivo.
+    static let petalAxisAngles: [Double] = perPetal.enumerated().map { index, parameters in
+        rotation + 72 * Double(index) + parameters.dAngle
+    }
 
     /// Caminhos unitários das 5 pétalas (índice = `ProgramGoal.petalIndex`), normalizados para o raio
     /// externo da flor inteira = 1 — como `Draw-AppFlower` do gerador, que escala pelo mesmo `k` para
