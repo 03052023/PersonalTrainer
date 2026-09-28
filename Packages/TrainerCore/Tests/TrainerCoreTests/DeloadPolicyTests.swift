@@ -146,6 +146,30 @@ struct DeloadPolicyTests {
         #expect(result.note == .deload)
     }
 
+    @Test("§7.5 D3 semana leve com carga 0 fica em 0, em qualquer equipamento (P8 D3)")
+    func deload_D3_zeroLoadStaysZero() {
+        let normal = ExercisePrescription(
+            exerciseID: Fixture.exerciseID,
+            load: 0,
+            sets: 3,
+            repMin: 8,
+            repMax: 12,
+            targetReps: 12,
+            targetRIR: 2,
+            restSeconds: 90,
+            note: .hold
+        )
+
+        for (increment, isBodyweight) in [(2.5, false), (5.0, false), (1.0, false), (2.5, true)] {
+            let result = DeloadPolicy.deloadPrescription(from: normal, loadIncrement: increment, isBodyweight: isBodyweight)
+
+            #expect(result.load == 0, "inc \(increment), peso do corpo \(isBodyweight)")
+            #expect(result.sets == 2)
+            #expect(result.targetReps == 8)
+            #expect(result.note == .deload)
+        }
+    }
+
     // MARK: - §7.5 duration — one pass of the rotation
 
     @Test("7.5 deload ativo até uma passagem completa da rotação", arguments: DeloadPolicyTests.ActiveCase.all)
@@ -328,6 +352,9 @@ extension DeloadPolicyTests {
             LoadCase(label: "peso corporal: 2,5 × 0,85 → 0 (mínimo 0)", load: 2.5, increment: 2.5, isBodyweight: true, expected: 0),
             LoadCase(label: "peso corporal: 10 × 0,85 = 8,5 → 7,5", load: 10, increment: 2.5, isBodyweight: true, expected: 7.5),
             LoadCase(label: "peso corporal puro: 0 → 0", load: 0, increment: 2.5, isBodyweight: true, expected: 0),
+            LoadCase(label: "D3: barra sem carga externa, 0 → 0", load: 0, increment: 2.5, isBodyweight: false, expected: 0),
+            LoadCase(label: "D3: máquina sem carga externa, 0 → 0 (inc 5)", load: 0, increment: 5, isBodyweight: false, expected: 0),
+            LoadCase(label: "D3: nível 0 → 0 (inc 1)", load: 0, increment: 1, isBodyweight: false, expected: 0),
             LoadCase(label: "sem carga → sem carga", load: nil, increment: 2.5, isBodyweight: false, expected: nil),
             LoadCase(label: "carga não finita → sem carga", load: .infinity, increment: 2.5, isBodyweight: false, expected: nil),
         ]

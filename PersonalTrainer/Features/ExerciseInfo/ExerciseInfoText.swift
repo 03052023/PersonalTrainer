@@ -269,6 +269,7 @@ enum ExerciseInfoText {
         case .reps: return "as repetições"
         case .seconds: return "os segundos"
         case .steps: return "os passos"
+        case .minutes: return "os minutos"
         }
     }
 

@@ -25,7 +25,8 @@ extension ProgramGoal {
         case .hypertrophy: return "leaf"
         case .strength: return "mountain.2"
         case .combat: return "shield"
-        case .endurance: return "repeat"
+        // SPEC RF-48 (2.3): Fôlego é cardiovascular; "wind" (vento, respiração) existe desde o iOS 13.
+        case .endurance: return "wind"
         }
     }
 
@@ -38,7 +39,8 @@ extension ProgramGoal {
         // SPEC decisão 18 (2026-09-27): troca "Saber se defender", que prometia técnica de defesa
         // que o app não ensina (SPEC §7.9).
         case .combat: return "Potência e resistência"
-        case .endurance: return "Aguentar mais"
+        // SPEC RF-48 (2.3, D2): o objetivo `endurance` virou Fôlego, cardiovascular.
+        case .endurance: return "Mais fôlego e disposição"
         }
     }
 

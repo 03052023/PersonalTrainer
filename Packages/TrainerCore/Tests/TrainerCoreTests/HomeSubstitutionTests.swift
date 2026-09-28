@@ -113,6 +113,31 @@ struct HomeSubstitutionTests {
         #expect(HomeSubstitution.swaps(for: [HF.neckBand], catalog: noNeckAtHome, traits: HF.traits).first?.replacement == nil)
     }
 
+    @Test("H2 aeróbico só troca por aeróbico, e nada troca por aeróbico pelo grupo das pernas (2.3)")
+    func cardioIsOnlyEquivalentToCardio() {
+        let legExtension = HF.exercise(70, "Cadeira extensora", primary: [.quads], equipment: .machine, pattern: .kneeExtension)
+        let bike = HF.exercise(71, "Bicicleta ergométrica", primary: [.quads, .glutes], equipment: .machine, pattern: .cardio)
+        let walk = HF.exercise(72, "Caminhada rápida", slug: "brisk-walk", primary: [.quads, .glutes], equipment: .bodyweight, pattern: .cardio)
+        let squat = HF.exercise(73, "Agachamento com peso do corpo", slug: "bodyweight-squat", primary: [.quads, .glutes], equipment: .bodyweight, pattern: .squat)
+        let traits = ExerciseTraitsCatalog(traitsBySlug: [
+            walk.slug: ExerciseTraits(measure: .minutes, atHome: true),
+            squat.slug: ExerciseTraits(measure: .reps, atHome: true),
+        ])
+
+        // A cadeira extensora não tem equivalente do mesmo padrão em casa; a caminhada tem "quadríceps",
+        // mas é convenção (§7.4): sai da sessão em vez de virar caminhada.
+        #expect(HomeSubstitution.swaps(for: [legExtension], catalog: [legExtension, walk], traits: traits).first?.replacement == nil)
+        // A bicicleta não vira agachamento pelo grupo.
+        #expect(HomeSubstitution.swaps(for: [bike], catalog: [bike, squat], traits: traits).first?.replacement == nil)
+        // Com os dois em casa, cada um vai para o seu.
+        let both = [legExtension, bike, walk, squat]
+        let swaps = HomeSubstitution.swaps(for: [legExtension, bike], catalog: both, traits: traits)
+        let expected: [ExerciseDefinition?] = [squat, walk]
+        #expect(swaps.map(\.replacement) == expected)
+        #expect(!HomeSubstitution.equivalents(for: legExtension, in: [walk, squat], traits: traits).contains(walk))
+        #expect(HomeSubstitution.equivalents(for: bike, in: [walk, squat], traits: traits) == [walk])
+    }
+
     @Test("H2 sem nenhum equivalente, o exercício sai da sessão")
     func noEquivalentRemovesTheExercise() {
         let calfRaise = HF.exercise(50, "Panturrilha em pé", primary: [.calves], equipment: .machine, pattern: .calfRaise)
@@ -282,6 +307,37 @@ struct HomeSubstitutionTests {
         }
     }
 
+    @Test("H2 no seed, o equivalente de casa da bicicleta é um aeróbico de casa medido em minutos")
+    func seedBikeBecomesAHomeCardioInMinutes() throws {
+        let bundle = try SeedTestFiles.bundle()
+        let traits = try SeedTestFiles.traits()
+        let catalog = bundle.catalog.exercises
+        let bike = try #require(catalog.first { $0.slug == "stationary-bike" })
+
+        let swap = try #require(HomeSubstitution.swaps(for: [bike], catalog: catalog, traits: traits).first)
+        let replacement = try #require(swap.replacement)
+
+        #expect(replacement.movementPattern == .cardio)
+        #expect(traits.traits(for: replacement).atHome)
+        #expect(traits.traits(for: replacement).measure == .minutes)
+    }
+
+    @Test("H2 no seed, aeróbico só vira aeróbico e exercício de força nunca vira aeróbico")
+    func seedCardioAndStrengthNeverCross() throws {
+        let bundle = try SeedTestFiles.bundle()
+        let traits = try SeedTestFiles.traits()
+        let catalog = bundle.catalog.exercises
+
+        for exercise in catalog {
+            let swap = try #require(HomeSubstitution.swaps(for: [exercise], catalog: catalog, traits: traits).first)
+            guard let replacement = swap.replacement else { continue }
+            #expect(
+                (replacement.movementPattern == .cardio) == (exercise.movementPattern == .cardio),
+                "\(exercise.slug) → \(replacement.slug)"
+            )
+        }
+    }
+
     struct SeedSwapCase: Sendable, CustomTestStringConvertible {
         let original: String
         let replacement: String
@@ -312,6 +368,9 @@ struct HomeSubstitutionTests {
         SeedSwapCase(original: "pallof-press", replacement: "dead-bug"),
         SeedSwapCase(original: "medicine-ball-rotational-throw", replacement: "floor-crunch"),
         SeedSwapCase(original: "box-jump", replacement: "jump-squat"),
+        // H2 (2.3): aeróbico da academia → aeróbico de casa, medido em minutos.
+        SeedSwapCase(original: "stationary-bike", replacement: "brisk-walk"),
+        SeedSwapCase(original: "rowing-machine", replacement: "brisk-walk"),
     ]
 
     @Test("RF-42 no seed, cada exercício da academia vira o equivalente de casa esperado", arguments: HomeSubstitutionTests.seedSwapCases)

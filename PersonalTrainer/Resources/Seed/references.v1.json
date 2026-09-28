@@ -500,6 +500,36 @@
       "doi": "10.1001/jama.2020.1382",
       "level": "study",
       "summary": "Em adultos americanos, mais passos por dia se associaram a menor mortalidade por todas as causas, com queda mais acentuada até cerca de 8 mil passos e sem vantagem adicional clara da velocidade do passo além do total diário."
+    },
+    {
+      "id": "milanovic-2015-hiit",
+      "authors": "Milanović Z, Sporiš G, Weston M",
+      "year": 2015,
+      "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials",
+      "source": "Sports Medicine",
+      "doi": "10.1007/s40279-015-0365-0",
+      "level": "metaAnalysis",
+      "summary": "Meta-análise de ensaios controlados: o treino intervalado de alta intensidade e o treino contínuo melhoraram o VO2máx de adultos saudáveis, com ganho um pouco maior nos intervalos."
+    },
+    {
+      "id": "foster-2008-talk-test",
+      "authors": "Foster C, Porcari JP, Anderson J, et al.",
+      "year": 2008,
+      "title": "The Talk Test as a Marker of Exercise Training Intensity",
+      "source": "Journal of Cardiopulmonary Rehabilitation and Prevention",
+      "doi": "10.1097/01.HCR.0000311504.41775.78",
+      "level": "study",
+      "summary": "Os estudos reunidos mostram que o teste da fala acompanha a intensidade do exercício: falar com conforto indica esforço moderado, e a fala difícil indica que o esforço já passou para o forte."
+    },
+    {
+      "id": "helgerud-2007-intervals",
+      "authors": "Helgerud J, Høydal K, Wang E, et al.",
+      "year": 2007,
+      "title": "Aerobic High-Intensity Intervals Improve VO2max More Than Moderate Training",
+      "source": "Medicine & Science in Sports & Exercise",
+      "doi": "10.1249/mss.0b013e3180304570",
+      "level": "study",
+      "summary": "Em adultos jovens e saudáveis, 8 semanas de intervalos fortes de 4 minutos aumentaram o VO2máx mais do que o treino contínuo moderado com o mesmo trabalho total."
     }
   ],
   "topics": {
@@ -519,7 +549,7 @@
     "note.deload": ["rogerson-2024-deload", "spiering-2021-maintenance", "coleman-2024-deload"],
     "goal.hypertrophy": ["schoenfeld-2017-volume", "pelland-2026-dose-response", "schoenfeld-2019-frequency", "schoenfeld-2016-frequency", "schoenfeld-2021-loading", "robinson-2024-failure", "refalo-2023-failure", "acsm-2009-progression", "bickel-2011-maintenance"],
     "goal.strength": ["acsm-2009-progression", "schoenfeld-2021-loading", "suchomel-2016-strength", "grgic-2018-rest-strength", "pelland-2026-dose-response", "ralston-2017-strength-volume", "grgic-2018-frequency"],
-    "goal.endurance": ["acsm-2009-progression", "schoenfeld-2021-loading"],
+    "goal.endurance": ["garber-2011-acsm", "bull-2020-who", "milanovic-2015-hiit", "foster-2008-talk-test"],
     "goal.longevity": ["bull-2020-who", "garber-2011-acsm", "momma-2022-strength-mortality", "mandsager-2018-fitness", "kodama-2009-fitness", "sherrington-2019-falls", "paluch-2022-steps", "watson-2015-sleep", "lauersen-2014-injury-prevention"],
     "goal.combat": ["suchomel-2016-strength", "cormie-2011-power", "james-2016-combat", "buchheit-2013-hiit", "collins-2014-neck"],
     "topic.rir": ["zourdos-2016-rir", "helms-2016-rpe", "halperin-2022-rir-accuracy", "refalo-2023-failure", "robinson-2024-failure"],
@@ -531,6 +561,7 @@
     "topic.concurrent": ["schumann-2022-concurrent", "wilson-2012-concurrent"],
     "topic.hrv": ["bellenger-2016-hrv", "plews-2013-hrv", "buchheit-2014-hr-monitoring"],
     "topic.aerobic": ["bull-2020-who", "garber-2011-acsm", "tanaka-2001-hrmax"],
+    "topic.cardio": ["foster-2008-talk-test", "garber-2011-acsm", "milanovic-2015-hiit", "helgerud-2007-intervals"],
     "topic.vo2max": ["mandsager-2018-fitness", "kodama-2009-fitness", "lambe-2025-watch-vo2max", "kaminsky-2015-friend"],
     "topic.sleep": ["watson-2015-sleep", "cappuccio-2010-sleep-mortality"],
     "topic.steps": ["paluch-2022-steps", "saintmaurice-2020-steps"],
@@ -553,7 +584,7 @@
     "note.deload": "Semana leve: menos séries, carga cerca de 15% menor e mais folga em cada série para reduzir a fadiga acumulada. Estudos de manutenção indicam que força e massa se preservam por semanas com bem menos volume se a intensidade não cair muito, por isso o corte de carga é moderado; a evidência direta sobre semanas leves ainda é limitada.",
     "goal.hypertrophy": "Hipertrofia usa 6–12 repetições nos compostos e 8–15 nos isolados, séries que terminam com uma pequena folga, 10–20 séries por grupo por semana e cada grupo treinado ao menos 2 vezes. Mais volume dá mais crescimento, com retornos decrescentes, e séries perto da falha (sem precisar alcançá-la) funcionam numa ampla faixa de cargas; nos formatos com foco, os grupos fora do foco recebem cerca de 1/3 do volume para manutenção.",
     "goal.strength": "Força usa 3–6 repetições com uma pequena folga em cada série, 6–12 séries por grupo por semana e descansos de 3 a 5 minutos. Cargas altas e descansos longos maximizam a força máxima, e o benefício de volume extra diminui rápido, por isso o volume é menor que na hipertrofia.",
-    "goal.endurance": "Resistência muscular usa 12–20 repetições, com folga em cada série, e descansos curtos de 60–90 s. O ACSM recomenda cargas leves a moderadas, com mais de 15 repetições e pausas abaixo de 90 s, para a resistência muscular localizada.",
+    "goal.endurance": "Fôlego treina o coração e os pulmões com sessões simples medidas em minutos: a OMS e o ACSM recomendam de 150 a 300 minutos por semana de esforço moderado, e cada minuto forte vale por dois. A intensidade é sentida pela fala: no moderado dá para conversar, mas não para cantar, e no forte só saem poucas palavras. Intervalos curtos e fortes melhoram o fôlego um pouco mais que o treino contínuo, e os exercícios leves de força completam a semana.",
     "goal.longevity": "Longevidade combina força 2–3 vezes por semana e 150–300 min de aeróbico moderado (OMS e ACSM), equilíbrio, que reduz quedas em idosos, passos e 7 horas ou mais de sono (consenso AASM/SRS). Treino de força, boa aptidão cardiorrespiratória e mais passos por dia se associam a menor mortalidade. Mobilidade é sugestão leve: o ACSM a recomenda para manter a amplitude de movimento, mas a evidência de benefício em lesões ou longevidade é limitada, e o alongamento não preveniu lesões esportivas numa meta-análise de ensaios randomizados.",
     "goal.combat": "Combate prioriza força máxima, potência, esforços intensos e intermitentes como rounds, pegada e tronco; o app prepara o corpo, mas não ensina técnica de luta. Força, potência e capacidade anaeróbica distinguem lutadores de nível mais alto; a isometria de pescoço é sugestão leve, com evidência limitada a um estudo observacional em atletas do ensino médio (não de luta) que associou pescoço mais forte a menos concussões, sem testar se o treino de pescoço as reduz.",
     "topic.rir": "RIR (repetições em reserva) é quantas repetições ainda faltavam para a falha; RPE = 10 − RIR. Terminar as séries com 1–3 repetições em reserva é uma escolha prática: análises exploratórias sugerem que a hipertrofia aumenta perto da falha, mas alcançá-la não traz vantagem, e a força pouco depende disso.",
@@ -565,6 +596,7 @@
     "topic.concurrent": "Aeróbico junto com musculação não compromete a hipertrofia nem a força máxima, mas pode reduzir ganhos de força explosiva quando feito na mesma sessão. Uma meta-análise de 2012 viu mais interferência com corrida e com mais frequência e duração de aeróbico; a atualização de 2022 não confirmou o efeito de modalidade nem de frequência. Por prudência, o app separa as sessões e prefere baixo impacto perto de treinos de pernas.",
     "topic.hrv": "A variabilidade da frequência cardíaca (VFC) em repouso é acompanhada como média de vários dias, nunca como leitura isolada. A evidência de que ela reflete a recuperação é limitada e inconsistente: vem sobretudo de atletas de endurance, usa índices (rMSSD) diferentes do SDNN que o Apple Watch registra e, numa meta-análise, a VFC de repouso quase não mudou com o excesso de treino. Por isso ela só modula sugestões e nunca altera a carga.",
     "topic.aerobic": "A meta é de 150–300 min por semana de aeróbico moderado, em que 1 min vigoroso vale 2 moderados, como recomenda a OMS. A intensidade é classificada pela frequência cardíaca em relação à máxima estimada por 208 − 0,7 × idade.",
+    "topic.cardio": "A intensidade do aeróbico é sentida pela fala: no leve a conversa é fácil, no moderado dá para conversar, mas não para cantar, e no forte só dá para dizer poucas palavras. A duração sobe 1 minuto por sessão até o topo da faixa e fica lá, como a meta de repetições na musculação. O nível da máquina (bicicleta, remo, elíptico) é opcional: se você registrar um, ele sobe quando a duração chega ao topo, e os minutos recomeçam do mínimo.",
     "topic.vo2max": "O VO2max mede a aptidão cardiorrespiratória e é estimado pelo Apple Watch em caminhadas e corridas ao ar livre. A faixa mostrada (de muito baixo a superior) usa os percentis por idade e sexo do registro americano FRIEND, com testes cardiopulmonares em esteira de adultos de 20 a 79 anos. Aptidão maior, medida em teste de esforço, se associa fortemente a menor mortalidade, sem limite superior de benefício observado, mas a estimativa do relógio é aproximada (numa validação, errou em média cerca de 13%, para baixo), por isso vale mais a tendência do que o valor isolado.",
     "topic.sleep": "A meta padrão é de 7 a 9 horas de sono por noite, como recomenda o consenso da AASM e da SRS. Dormir de forma habitual menos do que isso esteve associado a maior mortalidade por todas as causas numa meta-análise de estudos prospectivos.",
     "topic.steps": "A meta padrão é de pelo menos 7.000 passos por dia. Mais passos diários se associaram a menor mortalidade em várias coortes internacionais, com queda mais acentuada até cerca de 7.000–8.000 passos, e uma coorte americana também associou mais passos por dia a menor risco de morte, sem uma vantagem adicional clara da velocidade do passo.",

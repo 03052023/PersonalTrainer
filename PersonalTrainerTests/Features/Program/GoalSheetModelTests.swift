@@ -65,7 +65,7 @@ final class GoalSheetModelTests: XCTestCase {
         XCTAssertEqual(model.confirm(), .refused)
 
         model.select(.hypertrophy)
-        XCTAssertEqual(model.selectedProgramID, GoalPlanCatalog.hypertrophyFullBodyID, "Primeiro formato")
+        XCTAssertEqual(model.selectedProgramID, GoalPlanCatalog.hypertrophyBalancedID, "Primeiro formato: o Equilibrado")
         XCTAssertTrue(model.canConfirm)
         XCTAssertEqual(model.confirmTitle, "Trocar para Hipertrofia")
 
@@ -113,7 +113,7 @@ final class GoalSheetModelTests: XCTestCase {
     }
 
     func testRF45_sheet_goalWithoutPlan_isNotSelectable() {
-        let programs = Programs.seed().filter { $0.id != GoalPlanCatalog.enduranceID }
+        let programs = Programs.seed().filter { $0.id != GoalPlanCatalog.enduranceCardioID }
         let repository = GoalPlanTestRepository(programs: programs)
         let model = makeModel(repository)
         model.load()
@@ -219,7 +219,7 @@ final class GoalSheetModelTests: XCTestCase {
         let hypertrophy = try XCTUnwrap(change.plans.entry(for: .hypertrophy))
         XCTAssertEqual(
             change.accessibilityText(for: hypertrophy),
-            "Hipertrofia. \(ProgramGoal.hypertrophy.subtitle). 3 ou 4 dias. Atual."
+            "Hipertrofia. \(ProgramGoal.hypertrophy.subtitle). 4 dias. Atual."
         )
         for entry in change.plans.entries {
             let text = change.accessibilityText(for: entry)

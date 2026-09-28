@@ -49,15 +49,16 @@ enum GoalPlanTestPrograms {
         return ProgramTemplate(id: id, name: name, days: Array(days.reversed()), isActive: isActive, goal: goal)
     }
 
-    /// Os 8 programas do seed; `activeID` fica ativo (o Completo, por padrão).
-    static func seed(activeID: UUID? = GoalPlanCatalog.hypertrophyFullBodyID) -> [ProgramTemplate] {
+    /// Os 9 programas do seed 4 (2.3); `activeID` fica ativo (o Equilibrado, por padrão).
+    static func seed(activeID: UUID? = GoalPlanCatalog.hypertrophyBalancedID) -> [ProgramTemplate] {
         [
+            program(id: GoalPlanCatalog.hypertrophyBalancedID, name: "Hipertrofia — Equilibrado", goal: .hypertrophy, dayCount: 4, isActive: activeID == GoalPlanCatalog.hypertrophyBalancedID),
             program(id: GoalPlanCatalog.hypertrophyFullBodyID, name: "Hipertrofia — Completo", goal: .hypertrophy, dayCount: 3, isActive: activeID == GoalPlanCatalog.hypertrophyFullBodyID),
             program(id: GoalPlanCatalog.legacyPushLegsPullID, name: "Hipertrofia — Empurrar/Inferior/Puxar", goal: .hypertrophy, dayCount: 3, isActive: activeID == GoalPlanCatalog.legacyPushLegsPullID),
             program(id: GoalPlanCatalog.hypertrophyLowerFocusID, name: "Hipertrofia — Foco inferior", goal: .hypertrophy, dayCount: 4, isActive: activeID == GoalPlanCatalog.hypertrophyLowerFocusID),
             program(id: GoalPlanCatalog.hypertrophyUpperFocusID, name: "Hipertrofia — Foco superior", goal: .hypertrophy, dayCount: 4, isActive: activeID == GoalPlanCatalog.hypertrophyUpperFocusID),
             program(id: GoalPlanCatalog.strengthID, name: "Força", goal: .strength, isActive: activeID == GoalPlanCatalog.strengthID),
-            program(id: GoalPlanCatalog.enduranceID, name: "Resistência muscular", goal: .endurance, isActive: activeID == GoalPlanCatalog.enduranceID),
+            program(id: GoalPlanCatalog.enduranceCardioID, name: "Fôlego", goal: .endurance, isActive: activeID == GoalPlanCatalog.enduranceCardioID),
             program(id: GoalPlanCatalog.longevityID, name: "Longevidade", goal: .longevity, isActive: activeID == GoalPlanCatalog.longevityID),
             program(id: GoalPlanCatalog.combatID, name: "Combate", goal: .combat, isActive: activeID == GoalPlanCatalog.combatID, firstDayExercises: [benchID, archivedID, rowID]),
         ]

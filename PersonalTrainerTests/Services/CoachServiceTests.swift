@@ -343,7 +343,7 @@ final class CoachServiceTests: XCTestCase {
         let legacyID = try XCTUnwrap(UUID(uuidString: "26262EE7-89B0-4048-93F9-1720FD9CBE40"))
         let other = program(id: formats[1], name: "Hipertrofia — Foco inferior", goal: .hypertrophy)
         fixture.programs.programs = [
-            program(id: formats[0], name: "Hipertrofia — Completo", goal: .hypertrophy, isActive: true),
+            program(id: formats[0], name: "Hipertrofia — Equilibrado", goal: .hypertrophy, isActive: true),
             program(id: legacyID, name: "Hipertrofia — Empurrar/Inferior/Puxar", goal: .hypertrophy),
             program(name: "Força 3 dias", goal: .strength),
             other,
@@ -360,6 +360,44 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertEqual(fixture.programs.activated, [other.id])
         XCTAssertEqual(fixture.logStore.log.entries.map(\.action), [.apply])
         XCTAssertFalse(fixture.service.messages.contains { $0.id == message.id })
+    }
+
+    /// SPEC RF-45 e C2 (2.3, D1): o Corpo todo ficou escondido e não é um dos 3 formatos; com ele
+    /// ativo, o próximo formato é o primeiro da lista, o Equilibrado.
+    func testC2_nextFormatAfterFullBodyIsBalanced() throws {
+        let suggestion = ProgramSuggestion(
+            id: "switchProgram:old:2026-W39",
+            kind: .switchProgram,
+            rule: "R5",
+            title: "Experimentar um novo programa",
+            reason: "Você treina com este plano há 9 semanas.",
+            strength: .optional,
+            referenceTopic: "topic.substitution"
+        )
+        let fixture = try makeFixture(logStore: storeWithReview([suggestion]))
+        defer { fixture.cleanUp() }
+        XCTAssertEqual(CoachService.hypertrophyFormats.map(\.title), ["Equilibrado", "Mais pernas e glúteos", "Mais tronco e braços"])
+        let formats = CoachService.hypertrophyFormats.map(\.id)
+        XCTAssertEqual(formats.first, UUID(uuidString: "9FE0818F-1417-4953-B357-43D757054FCC"))
+        let fullBodyID = try XCTUnwrap(UUID(uuidString: "14E3FAC0-8424-4360-AF9D-20D18DCB0E45"))
+        XCTAssertFalse(formats.contains(fullBodyID), "O Corpo todo não é formato: fica escondido")
+        let balanced = program(id: formats[0], name: "Hipertrofia — Equilibrado", goal: .hypertrophy)
+        fixture.programs.programs = [
+            program(id: fullBodyID, name: "Hipertrofia — Completo", goal: .hypertrophy, isActive: true),
+            balanced,
+            program(id: formats[1], name: "Hipertrofia — Foco inferior", goal: .hypertrophy),
+            program(id: formats[2], name: "Hipertrofia — Foco superior", goal: .hypertrophy),
+        ]
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        let message = try XCTUnwrap(fixture.service.messages.first { $0.rule == .review })
+        XCTAssertEqual(
+            fixture.service.applySummary(for: message),
+            "O plano passa a ser Equilibrado. As cargas de cada exercício são mantidas."
+        )
+        fixture.service.handle(.apply, on: message)
+
+        XCTAssertEqual(fixture.programs.activated, [balanced.id])
     }
 
     func testHandle_applySwitchProgram_withoutAnotherProgram_asksThePersonToChoose() throws {

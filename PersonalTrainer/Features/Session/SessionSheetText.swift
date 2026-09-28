@@ -26,14 +26,14 @@ enum SessionSheetText {
     static let warmupHint = "Aqueça com 1 ou 2 séries leves antes dos exercícios com carga. Não precisa marcar."
 
     /// Primeira vez com carga (SPEC RF-44 c, RF-41): "Escolha uma carga que daria para levantar umas
-    /// 9 vezes. Hoje faça 6.", com 9 = meta de hoje + RIR alvo do snapshot. Em segundos ou passos, a
-    /// frase não usa esse número (uma carga "para 45 segundos" não é intuitiva).
+    /// 9 vezes. Hoje faça 6.", com 9 = meta de hoje + RIR alvo do snapshot. Em segundos, passos ou
+    /// minutos, a frase não usa esse número (uma carga "para 45 segundos" não é intuitiva).
     static func firstTimeHint(goal: Int, targetRIR: Int, measure: ExerciseMeasure) -> String {
         switch measure {
         case .reps:
             let reachable = goal + max(0, targetRIR)
             return "Escolha uma carga que daria para levantar umas \(reachable) vezes. Hoje faça \(goal)."
-        case .seconds, .steps:
+        case .seconds, .steps, .minutes:
             let amount = TodayTargetText.amount(goal, measure: measure)
             return "Escolha uma carga com a qual você aguentaria mais do que isso. Hoje faça \(amount)."
         }
@@ -274,6 +274,7 @@ enum SessionSheetText {
         case .reps: return ""
         case .seconds: return " s"
         case .steps: return " passos"
+        case .minutes: return " min"
         }
     }
 

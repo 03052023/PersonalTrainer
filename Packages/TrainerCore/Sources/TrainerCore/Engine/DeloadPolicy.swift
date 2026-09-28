@@ -79,6 +79,7 @@ public enum DeloadPolicy: Sendable {
     /// - sets = ⌈0.6 × S⌉, at least 1.
     /// - load = round↓(load × 0.85, inc), never below the SPEC P8 minimum (inc, or
     ///   0 for bodyweight work). No load stays no load: the user types it (SPEC P2).
+    ///   A load of 0 ("no external load", SPEC P8 D3) stays 0 on any equipment.
     /// - targetRIR = 4, targetReps = repMin, note `deload`.
     /// - exercise, rep range and rest are copied unchanged.
     ///
@@ -199,12 +200,17 @@ private extension DeloadPolicy {
         return max(1, result)
     }
 
-    /// SPEC §7.5 + P8: round↓(load × 0.85, inc), at least inc (0 for bodyweight).
+    /// SPEC §7.5 + P8: round↓(load × 0.85, inc), at least inc (0 for bodyweight);
+    /// C = 0 stays 0 on any equipment (SPEC P8 D3).
     static func deloadLoad(_ load: Double?, increment: Double, isBodyweight: Bool) -> Double? {
         // A load that is not a number cannot be scaled; like SPEC P2 without a
         // starting load, the user types it on the first set.
         guard let load, load.isFinite else {
             return nil
+        }
+        // SPEC §7.5 + P8 (D3): 0 is "no external load", and a lighter week never adds one.
+        guard load != 0 else {
+            return 0
         }
         // `× 85 / 100` instead of `× 0.85`: 0.85 has no exact binary form, while
         // `load × 85` is exact for any realistic load, so a product that lands on

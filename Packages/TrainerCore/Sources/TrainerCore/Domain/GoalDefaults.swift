@@ -65,14 +65,16 @@ extension ProgramGoal {
                 setsPerExercise: 4 // SPEC §7.9: mais séries com menos repetições
             )
         case .endurance:
+            // Fôlego (SPEC §7.9 e §7.14, versão 2.3): estes padrões valem só para os complementos de
+            // força-resistência do plano; os aeróbicos seguem `CardioDefaults`.
             return GoalDefaults(
                 compoundRepRange: 12...20, // SPEC §7.9: 12–20
                 isolationRepRange: 15...20, // SPEC §7.9: topo da faixa 12–20
-                targetRIR: 3, // SPEC §7.9: RIR 2–4, meio da faixa
-                weeklySetsPerMuscle: 8...16, // SPEC §7.9: 8–16 séries/grupo/semana
-                compoundRestSeconds: 75, // SPEC §7.9: descanso 60–90 s
-                isolationRestSeconds: 60, // SPEC §7.9: piso da faixa 60–90 s
-                setsPerExercise: 3 // SPEC §7.9
+                targetRIR: 3, // SPEC §7.9: bem longe do limite
+                weeklySetsPerMuscle: 4...12, // SPEC §7.9: força 2–3 dias por semana, 2–4 séries (ACSM 2011)
+                compoundRestSeconds: 60, // SPEC §7.9: descanso curto de 60 s
+                isolationRestSeconds: 60, // SPEC §7.9: descanso curto de 60 s
+                setsPerExercise: 2 // SPEC §7.9: 2 séries por complemento
             )
         case .longevity:
             return GoalDefaults(
@@ -109,6 +111,11 @@ extension MovementPattern {
             return true
         case .chestFly, .shoulderIsolation, .elbowFlexion, .elbowExtension,
              .kneeExtension, .kneeFlexion, .calfRaise, .coreFlexion, .coreStability, .neck:
+            return false
+        // SPEC §7.14: o aeróbico não é um exercício de força. Ele não usa as faixas do objetivo
+        // (`CardioDefaults` define minutos, séries e descanso), e `false` o deixa fora de qualquer
+        // regra que trate compostos à parte.
+        case .cardio:
             return false
         }
     }

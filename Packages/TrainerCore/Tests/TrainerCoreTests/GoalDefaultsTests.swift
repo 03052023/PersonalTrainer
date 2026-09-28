@@ -15,10 +15,11 @@ struct GoalDefaultsTests {
             weeklySetsPerMuscle: 6...12, compoundRestSeconds: 240, isolationRestSeconds: 150,
             setsPerExercise: 4
         )),
+        // Fôlego (2.3): só os complementos de força; os aeróbicos seguem `CardioDefaults`.
         (.endurance, GoalDefaults(
             compoundRepRange: 12...20, isolationRepRange: 15...20, targetRIR: 3,
-            weeklySetsPerMuscle: 8...16, compoundRestSeconds: 75, isolationRestSeconds: 60,
-            setsPerExercise: 3
+            weeklySetsPerMuscle: 4...12, compoundRestSeconds: 60, isolationRestSeconds: 60,
+            setsPerExercise: 2
         )),
         (.longevity, GoalDefaults(
             compoundRepRange: 8...12, isolationRepRange: 10...15, targetRIR: 3,
@@ -64,6 +65,18 @@ struct GoalDefaultsTests {
         #expect(ProgramGoal.strength.defaults.setsPerExercise == 4)
     }
 
+    @Test("F1 Fôlego: nome e padrões do aeróbico novo (1 série de 20–40 min, 60 s de descanso)")
+    func folegoNameAndCardioDefaults() {
+        #expect(ProgramGoal.endurance.displayName == "Fôlego")
+        #expect(ProgramGoal.endurance.rawValue == "endurance")
+        #expect(CardioDefaults.minutes == 20...40)
+        #expect(CardioDefaults.sets == 1)
+        #expect(CardioDefaults.restSeconds == 60)
+        #expect(MovementPattern.cardio.displayName == "Aeróbico")
+        #expect(MovementPattern.cardio.rawValue == "cardio")
+        #expect(!MovementPattern.cardio.isCompound)
+    }
+
     @Test("SPEC 7.9 padrões são prescrições válidas: reps ≥ 1, RIR 0–5, descanso e séries positivos")
     func everyGoalProducesValidPrescription() {
         for goal in ProgramGoal.allCases {
@@ -91,7 +104,7 @@ struct GoalDefaultsTests {
         }
     }
 
-    @Test("SPEC 7.9 compostos são os 10 padrões multiarticulares; os outros 10 são isolados")
+    @Test("SPEC 7.9 compostos são os 10 padrões multiarticulares; os outros 10 e o aeróbico não são")
     func compoundPatternsAreExactlyTheMultiJointOnes() {
         let compounds: Set<MovementPattern> = [
             .horizontalPush, .verticalPush, .horizontalPull, .verticalPull,
@@ -100,6 +113,8 @@ struct GoalDefaultsTests {
         let isolations: Set<MovementPattern> = [
             .chestFly, .shoulderIsolation, .elbowFlexion, .elbowExtension,
             .kneeExtension, .kneeFlexion, .calfRaise, .coreFlexion, .coreStability, .neck,
+            // SPEC §7.14: o aeróbico não usa as faixas do objetivo (`CardioDefaults`).
+            .cardio,
         ]
 
         #expect(compounds.union(isolations) == Set(MovementPattern.allCases))

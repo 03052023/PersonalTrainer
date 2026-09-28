@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "batches": [
+    {
+      "id": 0,
+      "title": "Protótipo",
+      "slugs": ["barbell-back-squat", "barbell-bench-press", "seated-cable-row", "dumbbell-lateral-raise"]
+    },
+    {
+      "id": 1,
+      "title": "Programas do seed, parte 1 de 3",
+      "slugs": ["alternating-dumbbell-curl", "barbell-hip-thrust", "barbell-row", "box-squat", "cable-triceps-pushdown", "dead-bug", "dumbbell-step-up", "hammer-curl", "hip-abduction-machine", "kettlebell-farmers-walk", "lat-pulldown", "lying-leg-curl", "neck-isometric-band", "pallof-press", "run-intervals", "seated-leg-curl", "suitcase-carry"]
+    },
+    {
+      "id": 2,
+      "title": "Programas do seed, parte 2 de 3",
+      "slugs": ["back-extension-45", "barbell-curl", "barbell-overhead-press", "bird-dog", "brisk-walk", "chest-press-machine", "dumbbell-bulgarian-split-squat", "dumbbell-romanian-deadlift", "front-squat", "hanging-leg-raise", "incline-dumbbell-bench-press", "kettlebell-swing", "leg-extension", "medicine-ball-chest-pass", "one-arm-dumbbell-row", "pull-up", "stationary-bike"]
+    },
+    {
+      "id": 3,
+      "title": "Programas do seed, parte 3 de 3",
+      "slugs": ["barbell-deadlift", "barbell-romanian-deadlift", "box-jump", "cable-crunch", "chin-up", "dumbbell-farmers-walk", "dumbbell-shoulder-press", "goblet-squat", "hex-bar-deadlift", "kettlebell-deadlift", "knee-push-up", "leg-press-45", "medicine-ball-rotational-throw", "overhead-dumbbell-triceps-extension", "push-up", "seated-calf-raise", "standing-calf-raise"]
+    },
+    {
+      "id": 4,
+      "title": "Aeróbicos fora dos programas",
+      "slugs": ["bike-intervals", "bodyweight-circuit", "easy-run", "elliptical", "jump-rope", "rowing-machine", "stair-climb"]
+    }
+  ]
+}

@@ -1,0 +1,469 @@
+{
+  "version": 1,
+  "rig": "mannequin-v2",
+  "units": "stature",
+  "guides": [
+    {
+      "slug": "vocab-back",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 1.6, "toStart": 1.2, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [],
+      "props": [
+        { "id": "barbell", "kind": "barbell", "attach": "back", "offset": [-0.085, 0.0] }
+      ],
+      "arms": { "reach": "barbell", "depth": 0.65, "elbow": -150 },
+      "frames": [
+        { "label": "Início", "caption": "Em pé, barra nas costas", "pose": { "trunk": 84, "neck": 88, "thigh": -90, "shin": -88, "foot": -12 } },
+        { "label": "Fim", "caption": "Coxas paralelas ao chão", "pose": { "trunk": 50, "neck": 64, "thigh": -12, "shin": -115, "foot": -12 } }
+      ],
+      "cue": { "track": "hip", "offset": [-0.082, 0.0], "span": [0.0, 0.97] },
+      "a11y": "back (do protótipo): o acessório fica no referencial do tronco e é desenhado atrás dele, meio escondido. Os braços vão à barra por IK.",
+      "steps": [
+        "Use back para a barra apoiada nas costas.",
+        "O offset é [frente, cima] a partir do ombro.",
+        "Com arms.reach no id da barra, as mãos vão até ela."
+      ],
+      "mistakes": [
+        "Barra na frente do peito: use back, não chest.",
+        "Mãos longe da barra: use arms.reach com o id dela."
+      ]
+    },
+    {
+      "slug": "vocab-bench-rail-vhandle",
+      "view": "side",
+      "anchor": { "joint": "hip", "at": [0.0, 0.29] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "rail", "x1": -0.24, "x2": 0.74 },
+        { "kind": "tower", "x": 0.61, "width": 0.13, "height": 0.96 },
+        { "kind": "bench", "x": -0.5, "top": 0.232, "length": 0.62 },
+        { "kind": "footPlate", "at": [0.536, 0.33], "length": 0.27, "angle": 80 },
+        { "kind": "pulley", "id": "pulley", "at": [0.575, 0.205] }
+      ],
+      "props": [
+        { "id": "handle", "kind": "vHandle", "attach": "hand" },
+        { "id": "cable", "kind": "cable", "from": "pulley", "to": "handle" }
+      ],
+      "arms": { "reach": "grip", "depth": 0.95 },
+      "frames": [
+        { "label": "Início", "caption": "Braços estendidos", "grip": [0.345, 0.5], "armDepth": [0.97, 0.97], "elbow": -95, "pose": { "trunk": 90, "neck": 90, "thigh": 12, "shin": -10, "foot": 80 } },
+        { "label": "Fim", "caption": "Puxador na barriga", "grip": [0.08, 0.41], "armDepth": [0.98, 0.82], "elbow": -155, "pose": { "trunk": 90, "neck": 90, "thigh": 12, "shin": -10, "foot": 80 } }
+      ],
+      "cue": { "track": "handle", "offset": [0.0, -0.022], "span": [0.22, 0.93] },
+      "a11y": "bench, rail, tower, footPlate, pulley, vHandle e cable (do protótipo): banco com dois pés, trilho no chão, torre com placas, plataforma dos pés, polia e puxador em V.",
+      "steps": [
+        "Use bench com x, top e length.",
+        "Use rail com x1 e x2 para o trilho no chão.",
+        "O vHandle aponta para a origem do cabo."
+      ],
+      "mistakes": [
+        "Puxador torto: ligue o cable até o vHandle.",
+        "Banco atravessando as pernas: encurte o length."
+      ]
+    },    {
+      "slug": "vocab-block",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 1.6, "toStart": 1.2, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "block", "x": -0.26, "y": 0.0, "width": 0.22, "height": 0.25 }
+      ],
+      "props": [],
+      "frames": [
+        { "label": "Início", "caption": "Em pé na frente da caixa", "pose": { "trunk": 88, "neck": 90, "thigh": -90, "shin": -88, "foot": -12, "upperArm": -5, "forearm": -5 } },
+        { "label": "Fim", "caption": "Sentado na caixa", "pose": { "trunk": 55, "neck": 70, "thigh": -10, "shin": -110, "foot": -12, "upperArm": -5, "forearm": -5 } }
+      ],
+      "cue": { "track": "hip", "offset": [-0.08, 0.0], "span": [0.0, 0.97] },
+      "a11y": "block: retângulo arredondado da cena (caixa, degrau, assento de cadeira). Aqui a pessoa senta na caixa e volta.",
+      "steps": [
+        "Use block para caixa, degrau ou cadeira.",
+        "Dê x e y do canto de baixo, largura e altura.",
+        "Deixe o quadril logo acima do topo."
+      ],
+      "mistakes": [
+        "Quadril dentro da caixa: suba o quadril até o topo.",
+        "Pés fora do chão: confira a âncora no tornozelo."
+      ]
+    },
+    {
+      "slug": "vocab-pad-roller",
+      "view": "side",
+      "anchor": { "joint": "hip", "at": [0.0, 0.5] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "seat", "x": -0.2, "top": 0.45, "length": 0.36 },
+        { "kind": "pad", "at": [-0.095, 0.636], "length": 0.34, "angle": 100 }
+      ],
+      "props": [
+        { "id": "roller", "kind": "roller", "attach": "shin", "along": 0.85, "side": 0.05 }
+      ],
+      "frames": [
+        { "label": "Início", "caption": "Pernas dobradas", "pose": { "trunk": 100, "neck": 95, "thigh": 0, "shin": -85, "foot": -5, "upperArm": -95, "forearm": -30 } },
+        { "label": "Fim", "caption": "Pernas estendidas", "pose": { "trunk": 100, "neck": 95, "thigh": 0, "shin": -5, "foot": 75, "upperArm": -95, "forearm": -30 } }
+      ],
+      "cue": { "track": "roller", "side": "right", "gap": 0.07, "span": [0.05, 0.95] },
+      "a11y": "pad: cápsula girada da cena (encosto, apoio do joelho). roller: rolo acolchoado preso ao longo da perna, com along e side.",
+      "steps": [
+        "Use pad para encosto ou apoio, com at, length e angle.",
+        "Prenda o roller num segmento com along de 0 a 1.",
+        "Use side para tirar o rolo de cima do osso."
+      ],
+      "mistakes": [
+        "Rolo dentro da perna: aumente o side.",
+        "Encosto atravessando o tronco: afaste o at para trás."
+      ]
+    },
+    {
+      "slug": "vocab-post-band",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "id": "anchorPost", "kind": "post", "from": [0.6, 0.0], "to": [0.6, 0.72] }
+      ],
+      "props": [
+        { "id": "band", "kind": "band", "from": "anchorPost", "to": "hand" }
+      ],
+      "arms": { "reach": "grip" },
+      "frames": [
+        { "label": "Início", "caption": "Braços estendidos", "grip": [0.34, 0.72], "elbow": -95, "pose": { "trunk": 90, "neck": 90, "thigh": -85, "shin": -95, "foot": -10 } },
+        { "label": "Fim", "caption": "Mãos junto ao corpo", "grip": [0.1, 0.7], "elbow": -150, "pose": { "trunk": 90, "neck": 90, "thigh": -85, "shin": -95, "foot": -10 } }
+      ],
+      "cue": { "track": "hand", "offset": [0.0, -0.05], "span": [0.1, 0.9] },
+      "a11y": "post: barra fina da cena entre dois pontos (suporte, armação). band: elástico do topo do post até a mão.",
+      "steps": [
+        "Use post com from e to para um suporte fino.",
+        "Ligue a band do id do post até a mão ou um acessório.",
+        "O elástico sai do ponto to do post."
+      ],
+      "mistakes": [
+        "Elástico saindo do chão: o band usa o to do post.",
+        "Band com attach: band e cable não usam attach."
+      ]
+    },
+    {
+      "slug": "vocab-wheel-anchor-hand",
+      "view": "side",
+      "anchor": { "joint": "hand", "at": [0.0, 1.3] },
+      "timing": { "toEnd": 1.4, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "post", "from": [-0.42, 0.0], "to": [-0.42, 1.3], "tone": "soft" },
+        { "kind": "wheel", "layer": "front", "at": [0.0, 1.3], "radius": 0.018 }
+      ],
+      "props": [],
+      "frames": [
+        { "label": "Início", "caption": "Pendurado, braços retos", "pose": { "trunk": 90, "neck": 90, "thigh": -95, "shin": -100, "foot": -30, "upperArm": 90, "forearm": 90 } },
+        { "label": "Fim", "caption": "Queixo acima da barra", "pose": { "trunk": 90, "neck": 90, "thigh": -95, "shin": -100, "foot": -30, "upperArm": -50, "forearm": 100 } }
+      ],
+      "cue": { "track": "head", "offset": [0.1, 0.0], "span": [0.1, 0.9] },
+      "moving": ["upperArm", "forearm"],
+      "a11y": "wheel: aro da cena; com radius 0.018 vira a barra fixa vista de ponta. A âncora fica na mão, com braços por ângulos.",
+      "steps": [
+        "Use wheel pequeno para a barra fixa vista de ponta.",
+        "Ancore na mão com braços por ângulos.",
+        "O corpo sobe e desce, e a mão fica parada."
+      ],
+      "mistakes": [
+        "Âncora na mão com IK: use braços por ângulos.",
+        "Pés no chão pendurado: suba a barra."
+      ]
+    },
+    {
+      "slug": "vocab-steps",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.12, 0.159] },
+      "timing": { "toEnd": 1.4, "toStart": 1.4, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "steps", "x": 0.05, "count": 3, "rise": 0.12, "run": 0.2 }
+      ],
+      "props": [],
+      "frames": [
+        { "label": "Início", "caption": "Um pé no degrau", "pose": { "trunk": 85, "neck": 88, "thigh": -31.5, "shin": -99, "foot": -10, "upperArm": -95, "forearm": -85, "thighFar": -90, "shinFar": -90, "footFar": -10 } },
+        { "label": "Fim", "caption": "Em pé no degrau", "pose": { "trunk": 88, "neck": 88, "thigh": -88, "shin": -92, "foot": -10, "upperArm": -95, "forearm": -85, "thighFar": -110, "shinFar": -150, "footFar": -60 } }
+      ],
+      "cue": { "track": "hip", "offset": [-0.09, 0.0] },
+      "a11y": "steps: escada da cena que sobe para a frente a partir de x, com count, rise e run. A âncora é o tornozelo do pé no degrau.",
+      "steps": [
+        "Use steps com x, count, rise e run.",
+        "Ancore o tornozelo do pé que fica no degrau.",
+        "Use thighFar e shinFar para a outra perna."
+      ],
+      "mistakes": [
+        "Pé do degrau escorregando: ancore esse tornozelo.",
+        "Outra perna no degrau errado: ajuste os ângulos Far."
+      ]
+    },
+    {
+      "slug": "vocab-kettlebell",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 1.4, "toStart": 1.4, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [],
+      "props": [
+        { "id": "kettlebell", "kind": "kettlebell", "attach": "hand" }
+      ],
+      "frames": [
+        { "label": "Início", "caption": "Em pé, braços soltos", "pose": { "trunk": 88, "neck": 90, "thigh": -88, "shin": -90, "foot": -12, "upperArm": -90, "forearm": -90 } },
+        { "label": "Fim", "caption": "Quadril para trás", "pose": { "trunk": 30, "neck": 55, "thigh": -75, "shin": -95, "foot": -12, "upperArm": -90, "forearm": -90 } }
+      ],
+      "cue": { "track": "kettlebell", "offset": [0.09, 0.0], "span": [0.05, 0.95] },
+      "a11y": "kettlebell: sino pendurado abaixo da pegada, preso à mão. Os braços ficam soltos, por ângulos.",
+      "steps": [
+        "Prenda o kettlebell na mão.",
+        "O sino pende abaixo da pegada.",
+        "Confira que o sino não encosta no chão."
+      ],
+      "mistakes": [
+        "Sino dentro do chão: suba a mão ou o quadril.",
+        "Sino atravessando a perna: afaste a mão para a frente."
+      ]
+    },
+    {
+      "slug": "vocab-ball",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 1.0, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [],
+      "props": [
+        { "id": "ball", "kind": "ball", "attach": "hand" }
+      ],
+      "arms": { "reach": "grip" },
+      "frames": [
+        { "label": "Início", "caption": "Bola no peito", "grip": [0.13, 0.74], "elbow": -150, "pose": { "trunk": 88, "neck": 90, "thigh": -88, "shin": -92, "foot": -12 } },
+        { "label": "Fim", "caption": "Braços estendidos", "grip": [0.36, 0.78], "elbow": -90, "pose": { "trunk": 88, "neck": 90, "thigh": -88, "shin": -92, "foot": -12 } }
+      ],
+      "cue": { "track": "ball", "offset": [0.0, 0.11], "span": [0.05, 0.95] },
+      "a11y": "ball: medicine ball de raio 0.07, centrada na pegada. As mãos vão à pegada de cada quadro por IK.",
+      "steps": [
+        "Prenda a ball na mão.",
+        "Dê a pegada de cada quadro em grip.",
+        "A bola fica centrada entre as mãos."
+      ],
+      "mistakes": [
+        "Bola cobrindo o rosto: baixe a pegada.",
+        "Braço esticado demais: aproxime a pegada do ombro."
+      ]
+    },
+    {
+      "slug": "vocab-bar-cable",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "tower", "x": 0.33, "width": 0.13, "height": 1.1 },
+        { "kind": "pulley", "id": "pulley", "at": [0.36, 1.04] }
+      ],
+      "props": [
+        { "id": "bar", "kind": "bar", "attach": "hand" },
+        { "id": "cable", "kind": "cable", "from": "pulley", "to": "bar" }
+      ],
+      "arms": { "reach": "grip" },
+      "frames": [
+        { "label": "Início", "caption": "Cotovelos dobrados", "grip": [0.18, 0.74], "elbow": -170, "pose": { "trunk": 85, "neck": 85, "thigh": -88, "shin": -92, "foot": -12 } },
+        { "label": "Fim", "caption": "Braços estendidos", "grip": [0.14, 0.47], "elbow": -170, "pose": { "trunk": 85, "neck": 85, "thigh": -88, "shin": -92, "foot": -12 } }
+      ],
+      "cue": { "track": "bar", "offset": [0.05, 0.0], "span": [0.05, 0.95] },
+      "a11y": "bar: puxador reto visto de ponta, na mão. cable: linha da polia até o puxador.",
+      "steps": [
+        "Prenda a bar na mão.",
+        "Ligue o cable do id da polia até a bar.",
+        "A polia fica presa na torre."
+      ],
+      "mistakes": [
+        "Cabo sem origem: o from é o id de um item da cena.",
+        "Puxador longe da mão: use a pegada do quadro."
+      ]
+    },
+    {
+      "slug": "vocab-rope",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "tower", "x": 0.5, "width": 0.13, "height": 1.1 },
+        { "kind": "pulley", "id": "pulley", "at": [0.5, 0.92] }
+      ],
+      "props": [
+        { "id": "rope", "kind": "rope", "attach": "hand" },
+        { "id": "cable", "kind": "cable", "from": "pulley", "to": "rope" }
+      ],
+      "arms": { "reach": "grip" },
+      "frames": [
+        { "label": "Início", "caption": "Braços à frente", "grip": [0.33, 0.9], "elbow": -90, "pose": { "trunk": 88, "neck": 90, "thigh": -88, "shin": -92, "foot": -12 } },
+        { "label": "Fim", "caption": "Mãos perto do rosto", "grip": [0.1, 0.93], "elbow": 170, "pose": { "trunk": 88, "neck": 90, "thigh": -88, "shin": -92, "foot": -12 } }
+      ],
+      "cue": { "track": "rope", "offset": [0.0, 0.07], "span": [0.05, 0.95] },
+      "a11y": "rope: corda da polia em dois fios, que apontam para o cabo. elbow no quadro escolhe o lado do cotovelo no IK.",
+      "steps": [
+        "Prenda a rope na mão.",
+        "Ligue o cable da polia até a rope.",
+        "Use elbow no quadro para levantar o cotovelo."
+      ],
+      "mistakes": [
+        "Fios para o lado errado: ligue o cable até a rope.",
+        "Cotovelo para baixo: mude o elbow do quadro."
+      ]
+    },
+    {
+      "slug": "vocab-plate-wheel",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.2, 0.16] },
+      "timing": { "toEnd": 1.0, "toStart": 1.8, "hold": 0.3, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "post", "from": [-0.6, 0.0], "to": [-0.6, 0.085], "tone": "soft" },
+        { "kind": "post", "from": [0.36, 0.0], "to": [0.36, 0.085], "tone": "soft" },
+        { "kind": "pad", "at": [-0.1, 0.1], "length": 1.06, "angle": 0, "thick": 0.03, "tone": "soft" },
+        { "kind": "footPlate", "at": [0.24, 0.16], "length": 0.2, "angle": 40 },
+        { "kind": "wheel", "id": "flywheel", "at": [0.46, 0.34], "radius": 0.1 }
+      ],
+      "props": [
+        { "id": "seat", "kind": "plate", "attach": "hip", "offset": [0.0, -0.065], "length": 0.22, "angle": 0 },
+        { "id": "handle", "kind": "bar", "attach": "hand" },
+        { "id": "chain", "kind": "cable", "from": "flywheel", "to": "handle" }
+      ],
+      "arms": { "reach": "grip" },
+      "frames": [
+        { "label": "Início", "caption": "Joelhos dobrados", "grip": [0.25, 0.4], "elbow": -90, "pose": { "trunk": 75, "neck": 80, "thigh": 45, "shin": -60, "foot": 40 } },
+        { "label": "Fim", "caption": "Pernas estendidas", "grip": [-0.25, 0.38], "elbow": -150, "pose": { "trunk": 105, "neck": 100, "thigh": -4, "shin": -6, "foot": 40 } }
+      ],
+      "cue": { "track": "handle", "offset": [0.0, 0.08], "span": [0.05, 0.95] },
+      "a11y": "plate: placa girada que se move com o corpo; aqui o banco do remo, preso ao quadril. wheel: o volante na frente, de onde sai o cabo.",
+      "steps": [
+        "Prenda a plate a um ponto ou segmento, com length e angle.",
+        "Use wheel com id para o cabo sair dele.",
+        "Ancore o tornozelo nos pés presos."
+      ],
+      "mistakes": [
+        "Banco parado com o quadril andando: prenda a plate ao quadril.",
+        "Cabo saindo do centro errado: o cable usa o at do wheel."
+      ]
+    },
+    {
+      "slug": "vocab-jumprope-anchor-none",
+      "view": "side",
+      "anchor": { "joint": "none" },
+      "timing": { "toEnd": 0.8, "toStart": 0.8, "hold": 0.2, "easing": "easeInOut" },
+      "scene": [],
+      "props": [
+        { "id": "rope", "kind": "jumpRope", "attach": "hand" }
+      ],
+      "frames": [
+        { "label": "Início", "caption": "Pés no chão", "root": [0.0, 0.53], "pose": { "trunk": 88, "neck": 90, "thigh": -90, "shin": -90, "foot": -12, "upperArm": -70, "forearm": -20 } },
+        { "label": "Fim", "caption": "No ar, corda embaixo", "root": [0.0, 0.6], "pose": { "trunk": 88, "neck": 90, "thigh": -95, "shin": -100, "foot": -40, "upperArm": -70, "forearm": -20 } }
+      ],
+      "cue": { "track": "hip", "offset": [-0.1, 0.0] },
+      "a11y": "jumpRope: a corda sai das mãos e passa por baixo dos pés. anchor none: o quadril segue root de cada quadro, para saltos.",
+      "steps": [
+        "Prenda a jumpRope na mão.",
+        "Use anchor none em saltos.",
+        "Dê a posição do quadril em root de cada quadro."
+      ],
+      "mistakes": [
+        "Figura presa no chão num salto: use anchor none.",
+        "Quadro sem root: com anchor none, todos precisam de root."
+      ]
+    },
+    {
+      "slug": "vocab-farArm-pose",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 1.4, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [],
+      "props": [
+        { "id": "dumbbell", "kind": "dumbbell", "attach": "hand" }
+      ],
+      "arms": { "reach": "grip", "farArm": "pose" },
+      "frames": [
+        { "label": "Início", "caption": "Halter no ombro", "grip": [0.04, 0.86], "elbow": -90, "pose": { "trunk": 90, "neck": 90, "thigh": -88, "shin": -92, "foot": -12, "upperArmFar": -95, "forearmFar": -90 } },
+        { "label": "Fim", "caption": "Braço estendido", "grip": [0.04, 1.15], "elbow": 0, "pose": { "trunk": 90, "neck": 90, "thigh": -88, "shin": -92, "foot": -12, "upperArmFar": -95, "forearmFar": -90 } }
+      ],
+      "cue": { "track": "dumbbell", "offset": [0.08, 0.0], "span": [0.05, 0.95] },
+      "a11y": "farArm pose: o braço de cá vai à pegada por IK, e o de lá segue upperArmFar e forearmFar do quadro, por ângulos.",
+      "steps": [
+        "Use farArm pose em exercícios de um braço só.",
+        "Dê upperArmFar e forearmFar em todos os quadros.",
+        "O braço de lá usa o mesmo escorço do de cá."
+      ],
+      "mistakes": [
+        "Os dois braços subindo juntos: use farArm pose.",
+        "Braço de lá sem ângulos: os quadros precisam de upperArmFar e forearmFar."
+      ]
+    },
+    {
+      "slug": "vocab-legDepth-block",
+      "view": "front",
+      "anchor": { "joint": "hip", "at": [0.0, 0.37] },
+      "timing": { "toEnd": 1.4, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "block", "x": -0.17, "y": 0.0, "width": 0.34, "height": 0.31 }
+      ],
+      "props": [
+        { "id": "dumbbell", "kind": "dumbbell", "attach": "hand" }
+      ],
+      "frames": [
+        { "label": "Início", "caption": "Halteres nos ombros", "legDepth": [0.35, 1.0], "pose": { "trunk": 90, "neck": 90, "thigh": -91, "shin": -90, "upperArm": 0, "forearm": 90 } },
+        { "label": "Fim", "caption": "Braços estendidos", "legDepth": [0.35, 1.0], "pose": { "trunk": 90, "neck": 90, "thigh": -91, "shin": -90, "upperArm": 72, "forearm": 86 } }
+      ],
+      "cue": { "track": "hand", "side": "right", "gap": 0.07, "span": [0.05, 0.95] },
+      "a11y": "legDepth: escorço de [coxa, perna]; sentado visto de frente, as coxas vêm para a câmera e ficam curtas. Os halteres aparecem nas duas mãos.",
+      "steps": [
+        "Use legDepth de 0,3 a 1 em cada quadro.",
+        "Na vista frontal o lado de lá é o espelho do de cá.",
+        "O acessório da mão aparece nas duas mãos."
+      ],
+      "mistakes": [
+        "Coxas compridas sentado de frente: encurte com legDepth.",
+        "armDepth na vista frontal: ele só vale de lado."
+      ]
+    },
+    {
+      "slug": "vocab-static-1-frame",
+      "view": "side",
+      "motion": "static",
+      "anchor": { "joint": "toe", "at": [-0.45, 0.0] },
+      "scene": [],
+      "props": [],
+      "frames": [
+        { "label": "Posição", "caption": "Corpo reto, apoiado", "pose": { "trunk": 5, "neck": 3, "thigh": -175, "shin": -175, "foot": -90, "upperArm": -90, "forearm": 0 } }
+      ],
+      "moving": ["trunk"],
+      "a11y": "static com 1 quadro: isometria sem animação e sem seta; moving diz o que fica em acento forte. A âncora é a ponta do pé.",
+      "steps": [
+        "Use motion static e um quadro com o rótulo Posição.",
+        "Dê moving com o que trabalha.",
+        "Não use cue: com um quadro não há caminho."
+      ],
+      "mistakes": [
+        "Static sem moving: com um quadro, moving é obrigatório.",
+        "Cue num quadro só: tire a seta."
+      ]
+    },
+    {
+      "slug": "vocab-chest",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 1.6, "toStart": 1.2, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [],
+      "props": [
+        { "id": "barbell", "kind": "barbell", "attach": "chest", "offset": [0.05, -0.02] }
+      ],
+      "arms": { "reach": "barbell", "depth": [0.7, 0.45], "elbow": 60 },
+      "frames": [
+        { "label": "Início", "caption": "Barra na frente dos ombros", "pose": { "trunk": 88, "neck": 90, "thigh": -90, "shin": -88, "foot": -12 } },
+        { "label": "Fim", "caption": "Coxas paralelas ao chão", "pose": { "trunk": 65, "neck": 75, "thigh": -10, "shin": -118, "foot": -12 } }
+      ],
+      "cue": { "track": "hip", "offset": [-0.08, 0.0], "span": [0.0, 0.97] },
+      "a11y": "chest: o acessório fica no referencial do tronco, como back, mas é desenhado na frente dele. Aqui a barra do agachamento frontal.",
+      "steps": [
+        "Use chest para a barra apoiada na frente dos ombros.",
+        "O offset é [frente, cima] no referencial do tronco.",
+        "Os braços vão à barra por IK com arms.reach."
+      ],
+      "mistakes": [
+        "Barra atrás do tronco: use chest, não back.",
+        "Cotovelos para baixo: aumente o arms.elbow."
+      ]
+    }
+  ]
+}

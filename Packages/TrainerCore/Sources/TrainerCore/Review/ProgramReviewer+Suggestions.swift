@@ -39,14 +39,17 @@ extension ProgramReviewer {
         allowAdditions: Bool,
         week: String
     ) -> [ProgramSuggestion] {
+        // SPEC R8: aerobic exercises neither count sets nor receive "+1 série" / "−1 série":
+        // their legs are a counting convention (§7.4), and a minute is not a strength set.
+        let strengthPools = pools.filter { !$0.isCardio }
         let muscles = MuscleGroup.allCases.filter { muscle in
-            pools.contains { $0.exercise.primaryMuscles.contains(muscle) }
+            strengthPools.contains { $0.exercise.primaryMuscles.contains(muscle) }
         }
         var changedTargets = Set<UUID>()
         var suggestions: [ProgramSuggestion] = []
 
         func slots(training muscle: MuscleGroup) -> [(pool: ExercisePool, slot: ExerciseReviewInput)] {
-            pools
+            strengthPools
                 .filter { $0.exercise.primaryMuscles.contains(muscle) }
                 .flatMap { pool in pool.slots.map { (pool: pool, slot: $0) } }
         }
@@ -233,7 +236,9 @@ extension ProgramReviewer {
     /// progress (one suggestion for all its slots), otherwise move each slot to the
     /// neighbouring rep range.
     static func exerciseChangeSuggestions(for pool: ExercisePool, week: String) -> [ProgramSuggestion] {
-        guard let progress = pool.progress else { return [] }
+        // SPEC R8: no rep-range or swap suggestion for an aerobic exercise (its `progress` is
+        // already `nil`; the guard keeps the rule explicit).
+        guard !pool.isCardio, let progress = pool.progress else { return [] }
         let name = pool.exercise.name
         let stall = "\(name) está há \(progress.sessionsWithoutProgress) sessões sem superar sua melhor "
             + "marca estimada (\(ReviewText.estimate(progress.bestE1RM, unit: pool.exercise.loadUnit)))"
@@ -300,9 +305,11 @@ extension ProgramReviewer {
         else { return nil }
 
         let weeks = (calendar.dateComponents([.day], from: start, to: now).day ?? days) / 7
-        let reason = "Você treina com o programa \(input.programName) há "
+        // SPEC R8 (2.3): na tela, objetivo = plano (RF-45), então o motivo fala em "este plano" e
+        // não mostra o nome interno do programa.
+        let reason = "Você treina com este plano há "
             + "\(ReviewText.count(weeks, "semana", "semanas")); depois de "
-            + "\(ReviewText.count(input.mesocycleWeeks, "semana", "semanas")), mudar de programa "
+            + "\(ReviewText.count(input.mesocycleWeeks, "semana", "semanas")), mudar de plano "
             + "renova o estímulo, e as cargas de cada exercício são mantidas."
         return ProgramSuggestion(
             id: "switchProgram:\(input.programID.uuidString):\(week)",

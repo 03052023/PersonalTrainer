@@ -14,7 +14,7 @@ import TrainerCore
         catalog: ProgramPreviewCatalog(),
         references: ProgramPreviewFixture.references,
         now: { ProgramPreviewFixture.referenceDate },
-        planner: ProgramPreviewPlanner(nextDayID: ProgramPreviewFixture.fullBodyDayBID)
+        planner: ProgramPreviewPlanner(nextDayID: ProgramPreviewFixture.balancedDayBID)
     )
 }
 
@@ -30,7 +30,7 @@ import TrainerCore
 #Preview("Ajustar exercícios") {
     NavigationStack {
         ProgramDetailView(
-            programID: ProgramPreviewFixture.fullBodyID,
+            programID: ProgramPreviewFixture.balancedID,
             programs: ProgramPreviewRepository.make(),
             catalog: ProgramPreviewCatalog(),
             references: ProgramPreviewFixture.references
@@ -42,7 +42,7 @@ import TrainerCore
     NavigationStack {
         DayEditorView(
             model: ProgramPreviewFixture.makeDetailModel(),
-            dayID: ProgramPreviewFixture.fullBodyDayAID
+            dayID: ProgramPreviewFixture.balancedDayAID
         )
     }
 }
@@ -130,15 +130,15 @@ private enum ProgramPreviewFixture {
     /// Data fixa (SPEC P11): previews determinísticos.
     static let referenceDate = Date(timeIntervalSince1970: 1_758_600_000)
 
-    static let fullBodyID = GoalPlanCatalog.hypertrophyFullBodyID
+    static let balancedID = GoalPlanCatalog.hypertrophyBalancedID
     static let lowerFocusID = GoalPlanCatalog.hypertrophyLowerFocusID
     static let upperFocusID = GoalPlanCatalog.hypertrophyUpperFocusID
     static let strengthID = GoalPlanCatalog.strengthID
-    static let enduranceID = GoalPlanCatalog.enduranceID
+    static let enduranceID = GoalPlanCatalog.enduranceCardioID
     static let longevityID = GoalPlanCatalog.longevityID
     static let combatID = GoalPlanCatalog.combatID
-    static let fullBodyDayAID = UUID(uuidString: "00000000-0000-0000-0000-00000000D001") ?? UUID()
-    static let fullBodyDayBID = UUID(uuidString: "00000000-0000-0000-0000-00000000D002") ?? UUID()
+    static let balancedDayAID = UUID(uuidString: "00000000-0000-0000-0000-00000000D001") ?? UUID()
+    static let balancedDayBID = UUID(uuidString: "00000000-0000-0000-0000-00000000D002") ?? UUID()
 
     static let benchID = UUID(uuidString: "00000000-0000-0000-0000-00000000E001") ?? UUID()
 
@@ -156,31 +156,34 @@ private enum ProgramPreviewFixture {
         ExerciseDefinition(slug: "rosca-direta", name: "Rosca direta", primaryMuscles: [.biceps], equipment: .barbell, loadUnit: .kilograms, loadIncrement: 2, movementPattern: .elbowFlexion),
         ExerciseDefinition(slug: "triceps-corda", name: "Tríceps na corda", primaryMuscles: [.triceps], equipment: .cable, loadUnit: .level, loadIncrement: 1, movementPattern: .elbowExtension),
         ExerciseDefinition(slug: "farmer-walk", name: "Caminhada do fazendeiro com halteres", primaryMuscles: [.core], equipment: .dumbbell, loadUnit: .kilograms, loadIncrement: 2, movementPattern: .carry),
+        ExerciseDefinition(slug: "caminhada-rapida", name: "Caminhada rápida", primaryMuscles: [.quads, .glutes], equipment: .bodyweight, loadUnit: .kilograms, loadIncrement: 2.5, movementPattern: .cardio),
+        ExerciseDefinition(slug: "bicicleta", name: "Bicicleta ergométrica", primaryMuscles: [.quads, .glutes], equipment: .machine, loadUnit: .level, loadIncrement: 1, movementPattern: .cardio),
     ]
 
     static func exerciseID(_ slug: String) -> UUID {
         exercises.first { $0.slug == slug }?.id ?? benchID
     }
 
-    /// Os programas do app, com o Completo ativo.
+    /// Os programas do app, com o Equilibrado ativo.
     static var programs: [ProgramTemplate] {
-        makePrograms(activeID: fullBodyID)
+        makePrograms(activeID: balancedID)
     }
 
     /// Mesmos programas com `activeID` ativo (`nil`: nenhum ativo).
     static func makePrograms(activeID: UUID?) -> [ProgramTemplate] {
         [
             ProgramTemplate(
-                id: fullBodyID,
-                name: "Hipertrofia — Completo",
+                id: balancedID,
+                name: "Hipertrofia — Equilibrado",
                 days: [
-                    day(id: fullBodyDayAID, "Dia A — Corpo todo", order: 0, slugs: ["supino-reto-barra", "agachamento-livre", "remada-baixa", "elevacao-lateral", "triceps-corda"], startingLoads: [40, nil, nil, nil, 6]),
-                    day(id: fullBodyDayBID, "Dia B — Corpo todo", order: 1, slugs: ["leg-press-45", "supino-halteres", "puxada-frente", "stiff", "rosca-direta"]),
-                    day("Dia C — Corpo todo", order: 2, slugs: ["agachamento-livre", "chest-press", "remada-baixa", "elevacao-lateral", "farmer-walk"]),
+                    day(id: balancedDayAID, "Dia A — Superior", order: 0, slugs: ["supino-reto-barra", "remada-baixa", "elevacao-lateral", "rosca-direta", "triceps-corda"], startingLoads: [40, nil, nil, nil, 6]),
+                    day(id: balancedDayBID, "Dia B — Inferior", order: 1, slugs: ["agachamento-livre", "stiff", "leg-press-45"]),
+                    day("Dia C — Superior", order: 2, slugs: ["supino-halteres", "puxada-frente", "elevacao-lateral", "rosca-direta", "triceps-corda"]),
+                    day("Dia D — Inferior", order: 3, slugs: ["leg-press-45", "stiff", "farmer-walk"]),
                 ],
-                isActive: activeID == fullBodyID,
+                isActive: activeID == balancedID,
                 goal: .hypertrophy,
-                summary: "Corpo inteiro equilibrado em três dias."
+                summary: "Quatro dias que alternam superior e inferior, com cada grupo duas vezes por semana."
             ),
             ProgramTemplate(
                 id: lowerFocusID,
@@ -221,11 +224,11 @@ private enum ProgramPreviewFixture {
             ),
             ProgramTemplate(
                 id: enduranceID,
-                name: "Resistência muscular",
+                name: "Fôlego",
                 days: [
-                    day("Dia A — Corpo inteiro", order: 0, slugs: ["leg-press-45", "chest-press", "puxada-frente"]),
-                    day("Dia B — Corpo inteiro", order: 1, slugs: ["agachamento-livre", "flexao", "remada-baixa"]),
-                    day("Dia C — Corpo inteiro", order: 2, slugs: ["stiff", "supino-halteres", "elevacao-lateral"]),
+                    day("Dia A — Contínuo", order: 0, slugs: ["caminhada-rapida", "flexao"]),
+                    day("Dia B — Intervalos", order: 1, slugs: ["caminhada-rapida", "agachamento-livre"]),
+                    day("Dia C — Longo e leve", order: 2, slugs: ["bicicleta", "flexao"]),
                 ],
                 isActive: activeID == enduranceID,
                 goal: .endurance
@@ -304,7 +307,7 @@ private enum ProgramPreviewFixture {
     @MainActor
     static func makeDetailModel() -> ProgramDetailViewModel {
         let model = ProgramDetailViewModel(
-            programID: fullBodyID,
+            programID: balancedID,
             programs: ProgramPreviewRepository.make(),
             catalog: ProgramPreviewCatalog()
         )
@@ -618,7 +621,7 @@ private final class ProgramPreviewRepository: ProgramRepositoring {
     }
 }
 
-/// Planejador mínimo: `nextPlan` devolve o dia `nextDayID` do Completo (a marca "próxima").
+/// Planejador mínimo: `nextPlan` devolve o dia `nextDayID` do Equilibrado (a marca "próxima").
 @MainActor
 private final class ProgramPreviewPlanner: SessionPlanning {
     private let nextDayID: UUID
@@ -629,10 +632,10 @@ private final class ProgramPreviewPlanner: SessionPlanning {
 
     func nextPlan(now: Date) throws -> SessionPlan? {
         SessionPlan(
-            programID: ProgramPreviewFixture.fullBodyID,
-            programName: "Hipertrofia — Completo",
+            programID: ProgramPreviewFixture.balancedID,
+            programName: "Hipertrofia — Equilibrado",
             programDayID: nextDayID,
-            programDayName: "Dia B — Corpo todo",
+            programDayName: "Dia B — Inferior",
             exercises: [],
             generatedAt: now
         )
