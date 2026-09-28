@@ -57,6 +57,22 @@ O dono usou a 2.1 no aparelho (instalação e migração funcionaram) e pediu os
 
 Construído pelo workflow `wf_fdd53fa1-c8f`: contrato em `docs/V22-CONTRACT.md`, 7 tarefas `v5/*` verdes, integração e revisão (13 achados; os 4 major foram corrigidos), `main` 6a26655. IPA no App build 36362402317 (disponível até 2026-10-01T00:41Z). Página e PDF da Amanda atualizados para esse run. Pendências menores no TASKS (A4 carga digitada perdida ao Voltar, A5 evolução de peso do corpo em kg, A7 "Sair sem registrar" deixa sessão abandonada, B6, texto do ProgramReviewer).
 
+## 5d. Versão 2.3 em andamento (2026-09-27)
+
+Pedidos do dono:
+- D1: "Corpo todo" vira "Equilibrado", 4 dias alternando Superior e Inferior.
+- D2: "Resistência muscular" vira "Fôlego", cardiovascular, medido em minutos.
+- D3: carga opcional em qualquer exercício.
+- D4: medida `minutes`.
+- D5: "Como fazer" com desenhos de todos os exercícios dos programas.
+- Sessão ainda mais simples depois de "Começar".
+- Estética mais bonita, "budista, porém estoica", com animação de abertura.
+
+Workflow `wf_b80f610e-930`:
+- **Pesquisa de estética:** 3 frentes + síntese em `docs/design/v23-aesthetics/directions.html`.
+- **Núcleo:** contrato `docs/V23-CORE-CONTRACT.md`, branches `v6/core` e `v6/guide-engine`, desenhos em lotes `v6/guides-N` juntados em `v6/guide-engine`.
+- **Ao retomar:** mostrar as 3 direções ao dono, fazer a onda de telas (sessão guiada, passada estética, UI do Como fazer e do Fôlego) sobre `v6/*` e gerar um IPA novo. Atualizar a página e o PDF da Amanda.
+
 ## 6. Próximos passos
 
 1. O usuário instala o IPA do run 35997614062 por cima do app atual, pelo Impactor, e testa.
