@@ -52,6 +52,16 @@ protocol ProgramRepositoring: AnyObject {
     func renameDay(id: UUID, to name: String) throws
     /// Move um dia para `newIndex` (0-based) dentro do programa e renumera `order` de 0 a n-1.
     func moveDay(id: UUID, toIndex newIndex: Int) throws
+
+    // MARK: - Vários planos (v2.3, docs/V23-UI-CONTRACT.md §3.3, SPEC §7.15 M1 e M8)
+
+    /// Acrescenta `programID` aos planos ativos, sem desativar os outros. Lança `invalidParameters` se já há
+    /// `ActivePlanOrder.maxActivePlans` ativos ou se outro ativo tem o mesmo objetivo efetivo. Já ativo:
+    /// não faz nada. `activate(programID:)` continua deixando um plano só.
+    func addActivePlan(programID: UUID) throws
+    /// Tira `programID` dos planos ativos. Lança `invalidParameters` se ele é o único ativo (sempre fica
+    /// um). Inativo: não faz nada.
+    func removeActivePlan(programID: UUID) throws
 }
 
 /// Requisito novo em protocolo existente (AGENTS §2, onda 3): implementação padrão para
@@ -73,6 +83,18 @@ extension ProgramRepositoring {
 
     func moveDay(id: UUID, toIndex newIndex: Int) throws {
         throw ProgramRepositoryError.invalidParameters("Este repositório não gerencia dias do programa.")
+    }
+}
+
+/// Requisitos da 2.3 (docs/V23-UI-CONTRACT.md §3.3): padrão para doubles de outras tarefas. O
+/// `ProgramRepository` (tarefa `plans-core`) e o double de preview sobrescrevem os dois.
+extension ProgramRepositoring {
+    func addActivePlan(programID: UUID) throws {
+        throw ProgramRepositoryError.invalidParameters("Este repositório não aceita mais de um plano ativo.")
+    }
+
+    func removeActivePlan(programID: UUID) throws {
+        throw ProgramRepositoryError.invalidParameters("Este repositório não aceita mais de um plano ativo.")
     }
 }
 

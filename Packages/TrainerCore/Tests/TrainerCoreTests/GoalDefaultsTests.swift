@@ -65,9 +65,10 @@ struct GoalDefaultsTests {
         #expect(ProgramGoal.strength.defaults.setsPerExercise == 4)
     }
 
-    @Test("F1 Fôlego: nome e padrões do aeróbico novo (1 série de 20–40 min, 60 s de descanso)")
+    @Test("F1 Cardio: nome e padrões do aeróbico novo (1 série de 20–40 min, 60 s de descanso)")
     func folegoNameAndCardioDefaults() {
-        #expect(ProgramGoal.endurance.displayName == "Fôlego")
+        // Nome do dono na onda de telas da 2.3 (docs/design/v23-owner-notes.md item 1).
+        #expect(ProgramGoal.endurance.displayName == "Cardio")
         #expect(ProgramGoal.endurance.rawValue == "endurance")
         #expect(CardioDefaults.minutes == 20...40)
         #expect(CardioDefaults.sets == 1)

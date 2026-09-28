@@ -11,8 +11,13 @@ import TrainerCore
 /// `docs/design/icon-v22/render-icon-v22.ps1`, candidato 6 · Brisa). Ver `BrisaGeometry` abaixo.
 ///
 /// `size` é o diâmetro total da flor, ponta a ponta das pétalas (na Home, cerca de 56 pt).
+///
+/// Desde a 2.3 (SPEC §7.15, vários planos) a flor aceita mais de um objetivo ativo: cada um enche a sua
+/// pétala, e o primeiro de `activeGoals` é o do plano principal (`ActivePlanOrder`). As duas formas do
+/// `init` são congeladas (docs/V23-UI-CONTRACT.md §3.2); o desenho em aguada é da tarefa `ink`.
 struct FlowerView: View {
-    let activeGoal: ProgramGoal?
+    /// Objetivos com a pétala cheia, o principal primeiro. Vazio: nenhum objetivo escolhido.
+    let activeGoals: [ProgramGoal]
     let size: CGFloat
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -20,8 +25,19 @@ struct FlowerView: View {
     /// Init explícito (integração onda 3): com a propriedade `private` acima, o init sintetizado
     /// poderia ficar privado e a Home, em outro arquivo, não conseguiria criar a flor.
     init(activeGoal: ProgramGoal?, size: CGFloat) {
-        self.activeGoal = activeGoal
+        self.activeGoals = activeGoal.map { [$0] } ?? []
         self.size = size
+    }
+
+    /// Vários planos (SPEC §7.15): uma pétala cheia por objetivo ativo.
+    init(activeGoals: [ProgramGoal], size: CGFloat) {
+        self.activeGoals = activeGoals
+        self.size = size
+    }
+
+    /// O objetivo do plano principal, se houver.
+    var activeGoal: ProgramGoal? {
+        activeGoals.first
     }
 
     private static let outlineWidth: CGFloat = 1.5
@@ -37,7 +53,7 @@ struct FlowerView: View {
         }
         .frame(width: size, height: size)
         // Reduzir Movimento: troca a transição suave por uma mudança direta (DESIGN §10).
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.5), value: activeGoal)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.5), value: activeGoals)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
     }
@@ -45,7 +61,7 @@ struct FlowerView: View {
     /// Mesma forma sempre (mesma identidade de view), só muda preenchimento e contorno — para o
     /// preenchimento poder ser animado em vez de trocado abruptamente quando o objetivo ativo muda.
     private func petal(for goal: ProgramGoal) -> some View {
-        let isActive = goal == activeGoal
+        let isActive = activeGoals.contains(goal)
         return BrisaPetalShape(petalIndex: goal.petalIndex)
             .fill(isActive ? goal.color : Color.clear)
             .overlay(
@@ -57,10 +73,15 @@ struct FlowerView: View {
     }
 
     private var accessibilityLabel: Text {
-        if let activeGoal {
-            Text("Objetivo ativo: \(activeGoal.displayName)")
-        } else {
-            Text("Objetivo ainda não escolhido")
+        switch activeGoals.count {
+        case 0:
+            return Text("Objetivo ainda não escolhido")
+        case 1:
+            return Text("Objetivo ativo: \(activeGoals[0].displayName)")
+        default:
+            let names = activeGoals.map(\.displayName)
+            let joined = names.dropLast().joined(separator: ", ") + " e " + (names.last ?? "")
+            return Text("Objetivos ativos: \(joined)")
         }
     }
 }
@@ -99,7 +120,11 @@ struct BrisaCenterShape: Shape {
 /// ondulação de borda feita à mão (`wobP`/`wobM`); a flor inteira gira `rotation` e cada pétala soma
 /// o próprio `dAngle`. A Brisa não usa base alargada (`w0 = 0`), torção nem riscos, então só o
 /// contorno importa (sem holes, sem "fold").
-private enum BrisaGeometry {
+///
+/// Desde a 2.3 é `internal` (docs/V23-UI-CONTRACT.md §3.2): a abertura (`Features/Launch`) desenha a flor
+/// grande a partir dos mesmos contornos. `unitPetalOutlines`, `unitCenterOutline` e `path(for:in:)` são
+/// congelados; o resto continua privado.
+enum BrisaGeometry {
     /// Termo de ondulação: `amplitude · sen(2π · cycles · t + phase)`.
     struct Wobble {
         let amplitude: Double

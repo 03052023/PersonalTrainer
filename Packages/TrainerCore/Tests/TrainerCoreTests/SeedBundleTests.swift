@@ -752,7 +752,7 @@ func seedFolegoProgramFollowsCardioPlan() throws {
     let program = try requireProgram(id: folegoProgramID, in: bundle)
     let exercisesByID = Dictionary(bundle.catalog.exercises.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
 
-    #expect(program.name == "Fôlego")
+    #expect(program.name == "Cardio")
     #expect(!program.isActive)
     #expect(program.goal == .endurance)
     let summary = try #require(program.summary)

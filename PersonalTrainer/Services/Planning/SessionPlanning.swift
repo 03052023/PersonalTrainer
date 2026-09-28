@@ -48,6 +48,75 @@ protocol SessionPlanning: AnyObject {
 
     // v2.2 (docs/V22-CONTRACT.md §2.1) — padrão na extensão abaixo.
     func lastSession(forExerciseID exerciseID: UUID) throws -> ExerciseLastSession?
+
+    // v2.3, onda de telas (docs/V23-UI-CONTRACT.md §3.3; SPEC §7.15) — padrões na extensão abaixo.
+    func activeProgramGoals() throws -> [ProgramGoal]
+    func todayOverview(now: Date) throws -> TodayOverview
+    func nextPlan(forProgramID programID: UUID, now: Date) throws -> SessionPlan?
+    func days(ofProgramID programID: UUID) throws -> [ProgramDayTemplate]
+    func weekSchedule(now: Date) throws -> WeekSchedule?
+    func weekPreferences() -> WeekPreferences
+    func saveWeekPreferences(_ preferences: WeekPreferences) throws
+    func fitCheck(programIDs: [UUID], preferences: WeekPreferences, now: Date) throws -> FitResult
+}
+
+// MARK: - Operações da versão 2.3 (vários planos; implementadas por `SessionPlanner` na `plans-core`)
+
+extension SessionPlanning {
+    /// Objetivos dos planos ativos na ordem de `ActivePlanOrder` (SPEC §7.15 M1): o primeiro é o do
+    /// plano principal. Vazio sem plano ativo. O padrão devolve só o objetivo do programa ativo.
+    func activeProgramGoals() throws -> [ProgramGoal] {
+        guard let goal = try activeProgramGoal() else {
+            return []
+        }
+        return [goal]
+    }
+
+    /// O que a tela Hoje mostra (SPEC §7.15 M6): com um plano, a próxima sessão dele, como sempre; com dois,
+    /// as sessões da semana ideal para o dia de hoje, cada uma a próxima da rotação do seu plano (S8), a
+    /// força antes do aeróbico. O padrão devolve o `nextPlan(now:)`, com o objetivo do programa ativo.
+    func todayOverview(now: Date) throws -> TodayOverview {
+        guard let plan = try nextPlan(now: now) else {
+            return TodayOverview.empty
+        }
+        let goal = try activeProgramGoal() ?? .hypertrophy
+        return TodayOverview(sessions: [TodaySession(plan: plan, goal: goal, isDoneToday: false)])
+    }
+
+    /// A próxima sessão de um plano ativo pela rotação dele (S8). `nil` se o programa não está ativo ou não
+    /// tem dias. O padrão só responde pelo programa do `nextPlan(now:)`.
+    func nextPlan(forProgramID programID: UUID, now: Date) throws -> SessionPlan? {
+        guard let plan = try nextPlan(now: now), plan.programID == programID else {
+            return nil
+        }
+        return plan
+    }
+
+    /// Dias de um plano ativo, ordenados por `order`, para o menu de dias de cada cartão da tela Hoje (S4).
+    /// O padrão devolve os do programa ativo.
+    func days(ofProgramID programID: UUID) throws -> [ProgramDayTemplate] {
+        try activeProgramDays()
+    }
+
+    /// A semana ideal com os planos ativos (SPEC §7.15 M4), para a aba Plano. `nil` com um plano só ou
+    /// quando os planos não cabem. O padrão devolve `nil`.
+    func weekSchedule(now: Date) throws -> WeekSchedule? {
+        nil
+    }
+
+    /// Os dias e as escolhas da pessoa para a semana (SPEC §7.15 M4). O padrão devolve `.default`.
+    func weekPreferences() -> WeekPreferences {
+        WeekPreferences.default
+    }
+
+    /// Grava as escolhas da semana (fora do backup). O padrão não grava nada.
+    func saveWeekPreferences(_ preferences: WeekPreferences) throws {}
+
+    /// Confere o encaixe dos programas `programIDs` com `preferences` (SPEC §7.15 M4 e M5), antes de
+    /// ativar um segundo plano ou de mudar os dias. O padrão diz que cabe, sem semana calculada.
+    func fitCheck(programIDs: [UUID], preferences: WeekPreferences, now: Date) throws -> FitResult {
+        FitResult.unchecked
+    }
 }
 
 // MARK: - Operações da versão 2.2

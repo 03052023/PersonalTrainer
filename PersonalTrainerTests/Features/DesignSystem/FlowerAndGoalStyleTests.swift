@@ -16,12 +16,12 @@ final class FlowerAndGoalStyleTests: XCTestCase {
         XCTAssertEqual(ProgramGoal.hypertrophy.subtitle, "Ganhar massa muscular")
         XCTAssertEqual(ProgramGoal.strength.subtitle, "Ficar mais forte")
         XCTAssertEqual(ProgramGoal.combat.subtitle, "Potência e resistência")
-        // SPEC RF-48 (2.3, D2): o objetivo `endurance` virou Fôlego, cardiovascular.
-        XCTAssertEqual(ProgramGoal.endurance.subtitle, "Mais fôlego e disposição")
+        // SPEC RF-48 (2.3, D2): o objetivo `endurance` virou Cardio, cardiovascular (owner notes item 1).
+        XCTAssertEqual(ProgramGoal.endurance.subtitle, "Coração forte e mais condicionamento")
     }
 
     func testRF48_folegoNameSymbolAndPetal() {
-        XCTAssertEqual(ProgramGoal.endurance.displayName, "Fôlego")
+        XCTAssertEqual(ProgramGoal.endurance.displayName, "Cardio")
         XCTAssertEqual(ProgramGoal.endurance.rawValue, "endurance")
         XCTAssertEqual(ProgramGoal.endurance.symbolName, "wind")
         XCTAssertEqual(ProgramGoal.endurance.petalIndex, 4)

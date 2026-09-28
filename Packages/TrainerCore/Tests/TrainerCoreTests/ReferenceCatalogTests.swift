@@ -133,7 +133,7 @@ func referenceCatalogFileCoversCardioTopics() throws {
     #expect(catalog.topics["goal.endurance"] == ["garber-2011-acsm", "bull-2020-who", "milanovic-2015-hiit", "foster-2008-talk-test"])
     #expect(catalog.topics["topic.cardio"] == ["foster-2008-talk-test", "garber-2011-acsm", "milanovic-2015-hiit", "helgerud-2007-intervals"])
     let goalText = catalog.explanations["goal.endurance"] ?? ""
-    #expect(goalText.hasPrefix("Fôlego"))
+    #expect(goalText.hasPrefix("Cardio"))
     #expect(goalText.contains("minutos"))
     #expect(goalText.contains("fala"))
     let cardioText = catalog.explanations["topic.cardio"] ?? ""

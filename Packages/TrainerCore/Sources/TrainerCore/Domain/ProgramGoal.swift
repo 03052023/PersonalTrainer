@@ -15,9 +15,10 @@ public enum ProgramGoal: String, Codable, Sendable, Hashable, CaseIterable {
         switch self {
         case .hypertrophy: return "Hipertrofia"
         case .strength: return "Força"
-        // SPEC RF-48 (versão 2.3, D2): o objetivo virou cardiovascular. O raw value continua
-        // `endurance`, porque é persistido (`ProgramModel.goalRaw`).
-        case .endurance: return "Fôlego"
+        // SPEC RF-48 (versão 2.3, D2): o objetivo virou cardiovascular; o nome "Cardio" é decisão do
+        // dono (docs/design/v23-owner-notes.md item 1). O raw value continua `endurance`, porque é
+        // persistido (`ProgramModel.goalRaw`).
+        case .endurance: return "Cardio"
         case .longevity: return "Longevidade"
         case .combat: return "Combate"
         }
