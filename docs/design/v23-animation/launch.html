@@ -34,6 +34,16 @@
   --glow-a: .216;
   --shade: #6E6150;
   --shade-a: .07;
+  /* Detalhes sutis da abertura */
+  --pollen: #F5EBD7;
+  --glint: #FFFFFF;
+  --enso: #F1EDE4;
+  --warm: #EBCFB0;   /* areia, não pêssego: junto da pétala rosada do objetivo, pêssego dava tom de spa */
+  --warm-a0: .30;    /* quase uniforme: faixa forte no alto não parece céu e faz degraus no degradê */
+  --warm-a1: .24;
+  --warm-a2: .18;
+  --detail: #9A6446;
+  --detail-fill: rgba(154, 100, 70, .15);
   /* Tela inicial simulada do iPhone */
   --wall-a: #C9D3DC;
   --wall-b: #EDE5DA;
@@ -80,6 +90,15 @@
     --glow-a: 0;
     --shade: #6E6150;
     --shade-a: 0;
+    --pollen: #E6DAC3;
+    --glint: #FFFFFF;
+    --enso: #D6D2C8;
+    --warm: #7A5540;
+    --warm-a0: 0;      /* no escuro não entra: o fundo final já é marrom e o véu só sujava o azul */
+    --warm-a1: 0;
+    --warm-a2: 0;
+    --detail: #D9A98A;
+    --detail-fill: rgba(217, 169, 138, .17);
     --wall-a: #1B2430;
     --wall-b: #2A2520;
     --tile: rgba(255, 255, 255, .12);
@@ -121,6 +140,15 @@
   --glow-a: 0;
   --shade: #6E6150;
   --shade-a: 0;
+  --pollen: #E6DAC3;
+  --glint: #FFFFFF;
+  --enso: #D6D2C8;
+  --warm: #7A5540;
+  --warm-a0: 0;
+  --warm-a1: 0;
+  --warm-a2: 0;
+  --detail: #D9A98A;
+  --detail-fill: rgba(217, 169, 138, .17);
   --wall-a: #1B2430;
   --wall-b: #2A2520;
   --tile: rgba(255, 255, 255, .12);
@@ -214,6 +242,17 @@ section { display: grid; gap: 16px; min-width: 0; }
 .s-cb { stop-color: var(--core-b); }
 .s-ib0 { stop-color: var(--icon-top); }
 .s-ib1 { stop-color: var(--icon-bot); }
+/* Detalhes sutis */
+.pollen { fill: var(--pollen); }
+.nerve { fill: none; stroke-width: 2.4; stroke-linecap: round; }
+.nerve.soft { stroke-width: 8; }
+.s-gl { stop-color: var(--glint); }
+.s-cr { stop-color: var(--shade); }
+.enso { fill: var(--enso); }
+.ghost { fill: none; stroke: var(--detail); stroke-width: 1; stroke-dasharray: 3 2; vector-effect: non-scaling-stroke; }
+.s-w0 { stop-color: var(--warm); stop-opacity: var(--warm-a0); }
+.s-w1 { stop-color: var(--warm); stop-opacity: var(--warm-a1); }
+.s-w2 { stop-color: var(--warm); stop-opacity: var(--warm-a2); }
 
 /* Zoom do sistema (simulação aproximada) */
 .springboard { position: absolute; inset: 0; z-index: 14; background: linear-gradient(170deg, var(--wall-a), var(--wall-b)); transform-origin: 30% 25%; }
@@ -244,6 +283,21 @@ button { font: inherit; }
 .readout .t { font-family: var(--fonts-rounded); font-weight: 800; font-size: 30px; font-variant-numeric: tabular-nums; line-height: 1; min-width: 5.2ch; }
 .readout .phase { font-family: var(--fonts-serif); font-size: 18px; }
 .readout .hint { font-size: 13px; color: var(--ink2); flex-basis: 100%; }
+.readout .buzz { font-size: 12.5px; font-weight: 600; color: var(--detail); border: 1.5px solid currentColor; border-radius: 999px; padding: 1px 9px; opacity: 0; }
+.fx { border: 0; margin: 0; padding: 14px 16px 16px; background: var(--page-card); border-radius: 16px; display: grid; gap: 10px; min-width: 0; }
+.fx legend { float: left; width: 100%; padding: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+.fx legend b { font-family: var(--fonts-serif); font-size: 17px; font-weight: 600; }
+.fx .all { margin-left: auto; display: inline-flex; gap: 6px; }
+.fx .all button { appearance: none; border: 1.5px solid var(--accent); background: transparent; color: var(--accent); border-radius: 999px; padding: 3px 12px; font-size: 13px; font-weight: 600; cursor: pointer; }
+.fx .list { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 6px 18px; clear: both; }
+.fx .check { align-items: flex-start; }
+.fx .check input { margin-top: 2px; flex: none; }
+.fx .check span { display: grid; gap: 0; }
+.fx .check small { font-size: 12.5px; color: var(--ink2); line-height: 1.4; }
+.fx.rm .rm-off { opacity: .45; }
+.fx .note { font-size: 12.5px; color: var(--ink2); margin: 0; }
+.fx .sub { clear: both; font-size: 12.5px; font-weight: 600; color: var(--ink2); letter-spacing: .02em; margin: 4px 0 -2px; }
+.fx .list.cut .check span { color: var(--ink2); }
 .scrub { width: 100%; accent-color: var(--accent); margin: 0; }
 .chart-box { overflow-x: auto; background: var(--page-card); border-radius: 16px; padding: 14px 14px 8px; }
 .chart { display: block; width: 100%; min-width: 520px; height: auto; cursor: crosshair; }
@@ -253,6 +307,11 @@ button { font: inherit; }
 .chart .lane { fill: var(--lane); }
 .chart .cf { fill: var(--curve-fill); }
 .chart .cs { fill: none; stroke: var(--accent); stroke-width: 1.4; }
+.chart .dcf { fill: var(--detail-fill); }
+.chart .dcs { fill: none; stroke: var(--detail); stroke-width: 1.4; }
+.chart .dtick { stroke: var(--detail); stroke-width: 2; stroke-linecap: round; }
+.chart .dlabel { fill: var(--detail); font-size: 12px; }
+.chart .sep { stroke: var(--rule); stroke-width: 1; }
 .chart .grid { stroke: var(--rule); stroke-width: 1; }
 .chart .head { stroke: var(--ink); stroke-width: 1.5; }
 .chart .headknob { fill: var(--ink); }
@@ -310,7 +369,7 @@ html.shot .screen { position: fixed; left: 0; top: 0; border-radius: 0; cursor: 
       <h1>Abertura do Magister</h1>
       <p class="lead">Do ícone à tela Hoje em 0,92 segundo. A flor respira, gira de leve e desabrocha. Enquanto isso o azul amanhece até o fundo claro do app, as pétalas se desfazem nele e o dia entra.</p>
     </div>
-    <p class="meta">Proposta para a versão 2.3, revisada depois da crítica ao primeiro protótipo (que durava 1,1 s e abria o dia por uma janela redonda). A flor é a Brisa, com a geometria portada de <code>docs/design/icon-v22/render-icon-v22.ps1</code>. A tela Hoje vem de <code>docs/design/v22/mockup.html</code>. Com o sistema em modo escuro, a página mostra o ícone escuro e a paleta escura do app.</p>
+    <p class="meta">Proposta para a versão 2.3, revisada depois da crítica ao primeiro protótipo (que durava 1,1 s e abria o dia por uma janela redonda). A flor é a Brisa, com a geometria portada de <code>docs/design/icon-v22/render-icon-v22.ps1</code>. A tela Hoje vem de <code>docs/design/v22/mockup.html</code>. Com o sistema em modo escuro, a página mostra o ícone escuro e a paleta escura do app. Esta versão acrescenta dois detalhes sutis, o amanhecer quente e a pétala do objetivo, que ficaram de sete testados. Os cinco cortados na crítica continuam na página, desligados, para comparar.</p>
   </header>
 
   <section class="stage" aria-labelledby="h-demo">
@@ -370,9 +429,26 @@ html.shot .screen { position: fixed; left: 0; top: 0; border-radius: 0; cursor: 
         <label class="check"><input type="checkbox" id="prelude" checked> Com o zoom do sistema</label>
         <label class="check"><input type="checkbox" id="rm"> Reduzir Movimento</label>
       </div>
+      <fieldset class="fx" id="fxBox">
+        <legend><b>Detalhes sutis</b><span class="all"><button type="button" id="fxRec">Recomendados</button><button type="button" id="fxAll">Todos</button><button type="button" id="fxNone">Nenhum</button></span></legend>
+        <div class="list">
+          <label class="check"><input type="checkbox" data-fx="warm"><span>Amanhecer quente<small>Um tom de areia quase uniforme no meio do amanhecer. No escuro não entra.</small></span></label>
+          <label class="check"><input type="checkbox" data-fx="handoff"><span>Pétala do objetivo<small>Sai por último, e a florzinha da Hoje aparece no lugar antes do resto.</small></span></label>
+        </div>
+        <p class="sub">Cortados na crítica, só para comparar</p>
+        <div class="list cut">
+          <label class="check rm-off"><input type="checkbox" data-fx="pollen"><span>Pólen<small>Compete com o miolo e lê como confete.</small></span></label>
+          <label class="check rm-off"><input type="checkbox" data-fx="nerve"><span>Nervura de luz<small>Vira nervura de folha e brilho de "carregando".</small></span></label>
+          <label class="check rm-off"><input type="checkbox" data-fx="sway"><span>Pétalas vivas<small>Somado ao giro, faz pétala voltar para trás.</small></span></label>
+          <label class="check rm-off"><input type="checkbox" data-fx="haptic"><span>Vibração<small>Nunca passa despercebida; vibrar quer dizer "feito" (aqui, um selo).</small></span></label>
+          <label class="check rm-off"><input type="checkbox" data-fx="enso"><span>Ensō<small>Parece indicador de carregamento.</small></span></label>
+        </div>
+        <p class="note">Ligados de início: só os dois recomendados. Os dois só mudam cor e por isso continuam com Reduzir Movimento; os cortados que se movem, não.</p>
+      </fieldset>
       <div class="readout" aria-live="off">
         <span class="t" id="tRead">0,00 s</span>
         <span class="phase" id="phaseRead">Tela de lançamento</span>
+        <span class="buzz" id="buzz" aria-hidden="true">vibração leve</span>
         <span class="hint" id="hintRead">O tempo 0 é o primeiro quadro desenhado pelo app. Antes dele, o que se vê é do iOS.</span>
       </div>
       <input class="scrub" id="scrub" type="range" min="0" max="0.92" step="0.01" value="0" aria-label="Posição na linha do tempo, em segundos">
@@ -397,12 +473,58 @@ html.shot .screen { position: fixed; left: 0; top: 0; border-radius: 0; cursor: 
           <tr><td class="when">0,16–0,76</td><td><b>Desabrochar.</b> Cada pétala cresce 22% a partir da própria base e se afasta 80 px (31 pt) pelo próprio eixo; a mais comprida vai um pouco mais longe. Saem uma por vez, a cada 35 ms, a partir da de cima e no sentido do giro. Cada uma leva 0,46 s, começa devagar e termina desacelerando.</td><td class="curve">0,33 · 0 · 0,13 · 1</td></tr>
           <tr><td class="when">0,24–0,60</td><td><b>Amanhecer.</b> O azul e o halo esmaecem por igual, na tela toda, sobre uma camada lisa da cor de fundo da Hoje, ainda sem conteúdo. O cinza do meio da troca (0,36–0,48) dura 0,11 s, com as pétalas ainda inteiras na frente e nenhum texto atrás.</td><td class="curve">0,42 · 0 · 0,58 · 1</td></tr>
           <tr><td class="when">0,32–0,60</td><td><b>Miolo.</b> Cresce de 1 para 1,08 e esmaece junto com o fundo. É cor de areia sobre creme, então se funde sozinho, sem anel nem ponto de luz.</td><td class="curve">0,42 · 0 · 0,58 · 1</td></tr>
-          <tr><td class="when">0,33–0,61</td><td><b>As pétalas se desfazem.</b> A opacidade vai de 1 a 0 em 0,22 s, uma a cada 15 ms, na mesma ordem, sem desfoque. Elas ficam quase inteiras enquanto o fundo passa pelo cinza e somem quando ele já está claro: o creme some no creme. A última some em 0,61 s, quando o conteúdo da Hoje mal começou a aparecer.</td><td class="curve">0,42 · 0 · 0,58 · 1</td></tr>
+          <tr><td class="when">0,33–0,61</td><td><b>As pétalas se desfazem.</b> A opacidade vai de 1 a 0 em 0,22 s, uma a cada 15 ms, na mesma ordem (com o detalhe da pétala do objetivo, ela vai por último), sem desfoque. Elas ficam quase inteiras enquanto o fundo passa pelo cinza e somem quando ele já está claro: o creme some no creme. A última some em 0,61 s, quando o conteúdo da Hoje mal começou a aparecer.</td><td class="curve">0,42 · 0 · 0,58 · 1</td></tr>
           <tr><td class="when">0,45–0,70</td><td><b>Barra de status.</b> Escondida desde a tela de lançamento, a hora e a bateria voltam num esmaecimento curto, já sobre o fundo claro e já na cor final. Não há troca de branco para escuro.</td><td class="curve">esmaecimento do sistema</td></tr>
           <tr><td class="when">0,58–0,92</td><td><b>O dia entra.</b> A camada lisa vai de 1 a 0 e a tela Hoje assenta de 98,5% para 100% do tamanho, desacelerando até parar. O texto fica legível por volta de 0,66 s.</td><td class="curve">0,2 · 0 · 0 · 1</td></tr>
           <tr><td class="when">0,92</td><td><b>Fim.</b> A camada da abertura sai da tela e deixa de existir. A tela Hoje já estava pronta por baixo desde o primeiro quadro. Um toque durante a abertura pula para o fim em 0,15 s.</td><td class="curve">—</td></tr>
         </tbody>
       </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-details">
+    <div class="prose">
+      <h2 id="h-details">Detalhes sutis</h2>
+      <p>O pedido foi "mais detalhes sutis". Foram testados sete, e a crítica cortou cinco. Sozinho, cada um era discreto, mas somados ficava carregado: entre 0,19 e 0,57 s a flor já respira, gira, cresce, se afasta e esmaece, e o pólen, a nervura e o balanço mexiam na própria flor e competiam com ela. Ficaram os dois que agem no fundo e no significado, não na forma da flor.</p>
+      <p>Nenhum dos dois muda a duração (continua 0,92 s) nem o movimento aprovado (giro de 10°, 35 ms entre pétalas). Nenhum usa desfoque, máscara, vídeo ou imagem, e os dois saem da mesma função do tempo que já desenha a abertura. Como só mudam cor, continuam com Reduzir Movimento, e quem usa esse ajuste vê essencialmente a mesma abertura.</p>
+      <p class="muted">A imagem <code>frames-details-zoom.png</code> mostra cada um ampliado, com e sem, e os cinco cortados.</p>
+    </div>
+    <div class="table-box">
+      <table>
+        <thead><tr><th>Detalhe</th><th>Quando</th><th>Intensidade</th><th>Custo no SwiftUI</th></tr></thead>
+        <tbody>
+          <tr><td><b>Amanhecer quente</b></td><td class="when">0,30–0,58<br>pico 0,45</td><td>Um véu cor de areia (<code>#EBCFB0</code>) sobre o azul que clareia, quase uniforme: 30% no alto, 24% no meio e 18% embaixo. Sobe e desce pela curva 0,42 · 0 · 0,58 · 1, sem se mover. Sobe devagar a partir de 0,30 s e só se nota quando o azul já clareou bastante, porque areia sobre azul-escuro vira marrom. Acaba quando o conteúdo começa a entrar. O cinza frio do meio da troca, o quadro mais fraco da abertura, fica morno. No modo escuro não entra: lá o fundo final já é marrom e o véu só sujava o azul.</td><td>1 preenchimento com degradê vertical de 3 paradas</td></tr>
+          <tr><td><b>Pétala do objetivo</b></td><td class="when">0,30–0,92</td><td>A pétala do Combate ganha até 24% da cor do objetivo (<code>#74506A</code>) entre 0,30 e 0,46 s e é a última a se desfazer (0,39–0,61 s). As outras seguem a ordem de antes, 15 ms uma depois da outra. Entre 0,53 e 0,68 s aparece, no lugar da flor do cabeçalho, a florzinha inteira (contornos, miolo e a pétala cheia): fica sozinha no fundo liso só 50 ms, até o resto da Hoje começar a entrar (0,58 s), e se lê como a mesma flor, pequena. Quando o conteúdo chega, ela coincide com a de verdade, e nos últimos 0,1 s (0,82–0,92) a cópia esmaece, para não ficar borda dupla quando a camada sai. Nada voa pela tela: a cor sai da flor grande e reaparece na pequena.</td><td>1 preenchimento na pétala grande e a própria <code>FlowerView</code> por cima, posta na moldura da flor do cabeçalho por <code>anchorPreference</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cols">
+      <div>
+        <h3>Com Reduzir Movimento</h3>
+        <ul class="plain">
+          <li>Os dois ficam, porque não são movimento.</li>
+          <li><b>Amanhecer quente</b> mais curto: 0,16–0,34 s, pico em 0,26 s, e acaba quando o conteúdo começa a aparecer (0,34 s).</li>
+          <li><b>Pétala do objetivo</b> só com esmaecimento: as outras pétalas somem em 0,04–0,26 s, a do objetivo em 0,10–0,32 s, corando entre 0,04 e 0,20 s. A florzinha aparece em 0,29–0,44 s e a cópia sai em 0,52–0,60 s.</li>
+        </ul>
+        <h3>Por que estes números</h3>
+        <ul class="plain">
+          <li>O véu termina antes de 0,58 s, quando o texto começa a entrar, então nunca tinge o conteúdo.</li>
+          <li>Areia e não pêssego: entre 0,40 e 0,46 s o véu fica junto da pétala rosada do objetivo, e rosa com pêssego é o tom de spa que o DESIGN.md §2 evita. Com areia, os 24% de cor na pétala funcionam.</li>
+          <li>A florzinha começa em 0,53 s, e não antes, para não ficar uma gota solta no canto do creme vazio, longe de onde o olho está.</li>
+          <li>Números fixos, nada sorteado, como na Brisa. A abertura é igual toda vez e dá para testar quadro a quadro.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Cortados, e por quê</h3>
+        <ul class="plain">
+          <li><b>Pólen.</b> Fica no miolo, justo onde o olho está durante o giro. Pontinhos saindo do centro na hora da abertura têm a linguagem do confete, que o DESIGN.md proíbe (§1.5 e §9.6). A 1×, grãos de 1,6 a 2,7 pt parecem poeira ou pixel queimado, e aos 0,36 s formam um anel pontilhado.</li>
+          <li><b>Nervura de luz.</b> Uma linha no meio da gota vira nervura de folha e muda o desenho da Brisa, que não tem espinha visível. O brilho que corre da base à ponta é o efeito de lista "carregando". Em movimento, 0,9 pt lê como risco no papel, não como luz.</li>
+          <li><b>Pétalas vivas.</b> Somado ao giro, o balanço leva a pétala de cima a 42° por segundo, acima dos 28° prometidos em Conforto, e três pétalas voltam para trás por instantes, o vai e volta que o protótipo aprovado tirou. Meia oscilação em 0,55 s parece pétala solta, não vida.</li>
+          <li><b>Vibração.</b> Uma vibração nunca passa despercebida. No app, vibrar quer dizer "feito" (DESIGN.md §10), e a abertura só roda a frio, quando o iOS decide, então às vezes vibraria e às vezes não.</li>
+          <li><b>Ensō.</b> Um traço que dá a volta na flor enquanto o app abre parece indicador de carregamento, e lembra a janela redonda descartada e os anéis que o DESIGN.md §9.6 proíbe.</li>
+          <li class="muted">Se depois de ver no aparelho faltar luz, há um jeito sem linha e sem desenho novo: o sombreado que cada pétala já tem perde 20 a 30% de opacidade enquanto ela abre, na ordem do desabrochar. Fica para depois do teste.</li>
+        </ul>
+      </div>
     </div>
   </section>
 
@@ -439,7 +561,7 @@ html.shot .screen { position: fixed; left: 0; top: 0; border-radius: 0; cursor: 
         <ul class="plain">
           <li>O giro total é de 10°, no máximo 28° por segundo. Nada gira depressa nem por muito tempo.</li>
           <li>Quem cresce são as pétalas, até 22%, e a tela Hoje 1,5%. Não há zoom de câmera.</li>
-          <li>O brilho só sobe uma vez, do azul para a tela clara, e por igual. Nada pisca nem pulsa.</li>
+          <li>O brilho só sobe uma vez, do azul para a tela clara, e por igual. O véu de areia é quase uniforme e não se move. Nada pisca, pulsa ou vibra.</li>
           <li>O toque nunca fica preso: tocar pula para o fim em 0,15 s.</li>
         </ul>
       </div>
@@ -449,46 +571,55 @@ html.shot .screen { position: fixed; left: 0; top: 0; border-radius: 0; cursor: 
   <section aria-labelledby="h-rm">
     <div class="prose">
       <h2 id="h-rm">Com Reduzir Movimento</h2>
-      <p>Com o ajuste ligado no iPhone (Acessibilidade › Movimento), nada gira, respira, cresce ou se desloca. Depois da mesma pausa de 0,04 s, a flor esmaece (0,04–0,28 s), o azul vira o fundo liso da Hoje (0,12–0,40 s) e o conteúdo aparece parado, no tamanho final (0,34–0,60 s). As três usam a curva 0,42 · 0 · 0,58 · 1. É a mesma ordem da versão com movimento, então nunca há flor ou azul por cima do texto. A barra de status volta em 0,30 s. Total: 0,6 s. O próprio iOS também troca o zoom do ícone por um esmaecimento. Marque "Reduzir Movimento" acima para ver.</p>
+      <p>Com o ajuste ligado no iPhone (Acessibilidade › Movimento), nada gira, respira, cresce ou se desloca. Depois da mesma pausa de 0,04 s, a flor esmaece (0,04–0,28 s), o azul vira o fundo liso da Hoje (0,12–0,40 s) e o conteúdo aparece parado, no tamanho final (0,34–0,60 s). As três usam a curva 0,42 · 0 · 0,58 · 1. É a mesma ordem da versão com movimento, então nunca há flor ou azul por cima do texto. A barra de status volta em 0,30 s. Total: 0,6 s. Os dois detalhes sutis ficam, porque só mudam cor. O próprio iOS também troca o zoom do ícone por um esmaecimento. Marque "Reduzir Movimento" acima para ver.</p>
     </div>
   </section>
 
   <section aria-labelledby="h-swift">
     <div class="prose">
       <h2 id="h-swift">No SwiftUI: custo e caminho</h2>
-      <p>A abertura cabe numa view só, <code>LaunchOverlay</code>, por cima da raiz do app. Uma <code>TimelineView(.animation)</code> dá o relógio e uma <code>Canvas</code> desenha tudo a partir de uma função pura do tempo, a mesma desta página. Os caminhos das 5 pétalas e do miolo são montados uma vez, com o código da <code>FlowerView</code>, e ficam guardados. A escala da Hoje e a barra de status saem da mesma função, então tudo anda no mesmo relógio.</p>
+      <p>A abertura cabe numa view só, <code>LaunchOverlay</code>, por cima da raiz do app. Uma <code>TimelineView(.animation)</code> dá o relógio e uma <code>Canvas</code> desenha o fundo, o véu e a flor grande a partir de uma função pura do tempo, a mesma desta página. Os caminhos das 5 pétalas e do miolo vêm de <code>BrisaGeometry</code>, o mesmo código da <code>FlowerView</code>, e são montados uma vez. A florzinha que chega antes da Hoje é a própria <code>FlowerView</code>, posta por cima da <code>Canvas</code> na moldura da flor do cabeçalho, então coincide com ela por construção. A escala da Hoje, a barra de status e os dois detalhes saem da mesma função, e tudo anda no mesmo relógio.</p>
     </div>
     <div class="budget">
-      <div><b>≈ 14</b><span>preenchimentos lisos por quadro: fundo, azul, halo, 5 pétalas (cor e sombra) e miolo</span></div>
-      <div><b>0</b><span>desfoques e máscaras</span></div>
+      <div><b>≤ 16</b><span>preenchimentos lisos por quadro na <code>Canvas</code> com os dois detalhes (14 sem eles): + 1 véu e 1 cor na pétala do objetivo</span></div>
+      <div><b>+ 1</b><span><code>FlowerView</code> de 50 pt por cima, só de 0,53 s ao fim</span></div>
+      <div><b>0</b><span>desfoques, máscaras e vibrações</span></div>
       <div><b>≈ 110</b><span>quadros a 120 Hz (≈ 55 a 60 Hz), e depois a camada sai da hierarquia</span></div>
-      <div><b>0</b><span>vídeos, imagens animadas ou bibliotecas</span></div>
     </div>
     <pre>struct LaunchFrame { turn, breathe, halo, petals[5]: (grow, slide, opacity), coreScale, coreOpacity,
-                     dawn, content, todayScale, statusBarVisible }
-enum LaunchTimeline { static func frame(at t: Double, reduceMotion: Bool) -> LaunchFrame }  // teste de tabela no XCTest
+                     dawn, warm, goalTint, goalHeader, content, todayScale, statusBarVisible }
+enum LaunchTimeline {                                   // teste de tabela no XCTest
+  static func frame(at t: Double, reduceMotion: Bool, dark: Bool, hasGoal: Bool) -> LaunchFrame
+}                                                       // dark: warm = 0 · sem objetivo: goalTint = goalHeader = 0
 
 TimelineView(.animation(paused: finished)) { timeline in
-  let f = LaunchTimeline.frame(at: elapsed(timeline.date), reduceMotion: reduceMotion)
-  TodayRoot()
+  let f = LaunchTimeline.frame(at: elapsed(timeline.date), reduceMotion: reduceMotion,
+                                dark: colorScheme == .dark, hasGoal: goal != nil)
+  TodayRoot()                                           // a FlowerView do cabeçalho publica a moldura (anchorPreference)
     .scaleEffect(f.todayScale)
     .overlay {
       if !finished {
         Canvas { g, size in
           let full = Path(CGRect(origin: .zero, size: size))
           var bg = g
-          bg.opacity = 1 - f.content                      // o dia entra: o fundo liso some
+          bg.opacity = 1 - f.content                    // o dia entra: o fundo liso some
           bg.drawLayer { l in
-            l.fill(full, with: .color(.todayBackground))
-            l.opacity = 1 - f.dawn                        // amanhecer: o azul some por igual
-            l.fill(full, with: .color(.launchBackground))
-            l.fill(haloPath, with: .radialGradient(halo, center: c, startRadius: 0, endRadius: haloRadius * f.halo))
+            l.fill(full, with: .color(Theme.background))
+            var night = l
+            night.opacity = 1 - f.dawn                  // amanhecer: o azul some por igual
+            night.fill(full, with: .color(.launchBackground))
+            night.fill(haloPath, with: .radialGradient(halo, center: c, startRadius: 0, endRadius: haloRadius * f.halo))
+            var warm = l
+            warm.opacity = f.warm                       // amanhecer quente: véu de areia quase uniforme
+            warm.fill(full, with: .linearGradient(Gradient(colors: [sand.opacity(0.30), sand.opacity(0.24), sand.opacity(0.18)]),
+                                                  startPoint: .zero, endPoint: CGPoint(x: 0, y: size.height)))
           }
-          for i in 0..&lt;5 {
+          for i in 0..&lt;5 where f.petals[i].opacity > 0 {
             var p = g
             p.opacity = f.petals[i].opacity
-            p.concatenate(petalTransform(i, f))           // gira, respira, desliza e cresce da base
-            p.drawLayer { l in l.fill(petalPaths[i], with: petalColor[i]); l.fill(petalPaths[i], with: petalShade[i]) }
+            p.concatenate(petalTransform(i, f))         // gira, respira, desliza e cresce a partir da base
+            p.fill(petalPaths[i], with: petalColor[i]); p.fill(petalPaths[i], with: petalShade[i])
+            if let goal, i == goal.petalIndex { p.fill(petalPaths[i], with: .color(goal.color.opacity(f.goalTint))) }
           }
           var core = g
           core.opacity = f.coreOpacity
@@ -496,7 +627,19 @@ TimelineView(.animation(paused: finished)) { timeline in
           core.fill(corePath, with: coreColor)
         }
         .ignoresSafeArea()
-        .onTapGesture { skipToEnd() }                     // toque adianta, nunca prende
+        .onTapGesture { skipToEnd() }                   // toque adianta, nunca prende
+      }
+    }
+    .overlayPreferenceValue(GoalFlowerAnchor.self) { anchor in   // por cima da Canvas
+      GeometryReader { proxy in
+        if let anchor, !finished, f.goalHeader > 0 {
+          let r = proxy[anchor]                         // já com a escala da Hoje (ver "Só o aparelho confirma")
+          FlowerView(activeGoal: goal, size: r.width)   // a florzinha de verdade, não uma cópia desenhada
+            .position(x: r.midX, y: r.midY)
+            .opacity(f.goalHeader)                      // entra 0,53–0,68; sai 0,82–0,92, sem borda dupla no fim
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
       }
     }
     .statusBarHidden(!f.statusBarVisible)
@@ -507,8 +650,9 @@ TimelineView(.animation(paused: finished)) { timeline in
         <ul class="plain">
           <li>Só na abertura a frio. Voltar do segundo plano não repete a animação.</li>
           <li>Começa quando a tela Hoje já está montada por baixo. Se os dados demorarem, a flor fica parada, igual à tela de lançamento, e nunca aparece um indicador girando.</li>
-          <li>Lê <code>@Environment(\.accessibilityReduceMotion)</code> e escolhe a versão de esmaecimento.</li>
-          <li>Não tem vibração nem som.</li>
+          <li>Lê <code>@Environment(\.accessibilityReduceMotion)</code>, que escolhe a versão de esmaecimento e mantém os dois detalhes, e <code>@Environment(\.colorScheme)</code>, que desliga o véu de areia no escuro.</li>
+          <li>Sem vibração. No app, vibrar quer dizer "feito" (DESIGN.md §10).</li>
+          <li>Sem objetivo escolhido, não há pétala colorida: nenhuma pétala cora, todas saem na ordem normal e a florzinha entra junto com a Hoje.</li>
         </ul>
       </div>
       <div>
@@ -528,6 +672,9 @@ TimelineView(.animation(paused: finished)) { timeline in
           <li>Se a barra de status volta com esmaecimento ou de uma vez. Nos dois casos ela cai sobre o fundo já claro e na cor final.</li>
           <li>Se a <code>TimelineView</code> roda a 120 Hz sem a chave <code>CADisableMinimumFrameDurationOnPhone</code> no Info.plist. A 60 Hz são cerca de 55 quadros e a abertura continua lisa.</li>
           <li>O iOS guarda a tela de lançamento em cache. Depois de trocá-la, pode ser preciso reinstalar o app para ver a nova.</li>
+          <li>Se a moldura da âncora já vem com o <code>.scaleEffect</code> da Hoje. Deve vir, porque a escala é um efeito de geometria. Se não vier, a florzinha fica até 4 pt fora do lugar entre 0,58 e 0,70 s, e basta aplicar <code>f.todayScale</code> nela, em volta do centro da tela.</li>
+          <li>Se o véu de areia faz degraus visíveis na tela do iPhone, e se fica bonito com True Tone.</li>
+          <li>Se aparece borda dupla na florzinha entre 0,68 e 0,82 s, com as duas flores iguais empilhadas. Se aparecer, adiantar a saída da cópia para 0,72–0,82 s, quando o conteúdo já passou de 80%.</li>
         </ul>
       </div>
     </div>
@@ -589,7 +736,10 @@ TimelineView(.animation(paused: finished)) { timeline in
       A += c; cx += (x0 + x1) * c; cy += (y0 + y1) * c;
     }
     A /= 2; cx /= 6 * A; cy /= 6 * A;
-    return { pts, base: S(0, 0), tip: S(U[cnt], V[cnt]), mid: S(U[mid], V[mid]), midN: S(U[mid] + NU[mid] * W, V[mid] + NV[mid] * W), centroid: [cx, cy], L };
+    // espinha da pétala (a nervura de luz corre por ela), de 8% a 84% do comprimento
+    const spine = [];
+    for (let j = 0; j <= cnt; j += 4) { const tt = (1 - Math.cos(Math.PI * j / cnt)) / 2; if (tt >= 0.08 && tt <= 0.84) spine.push(S(U[j], V[j])); }
+    return { pts, spine, base: S(0, 0), tip: S(U[cnt], V[cnt]), mid: S(U[mid], V[mid]), midN: S(U[mid] + NU[mid] * W, V[mid] + NV[mid] * W), centroid: [cx, cy], L };
   }
   function getCenter(radius, harm) {
     const pts = [];
@@ -649,16 +799,86 @@ TimelineView(.animation(paused: finished)) { timeline in
   const E = {}; for (const k of ['breathe', 'turn', 'open', 'fade', 'core', 'dawn', 'content', 'rm']) E[k] = bezier(...TL[k].c);
   const seg = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
   const petalStart = (i) => TL.open.t0 + ORDER.indexOf(i) * TL.open.stagger;
-  const fadeStart = (i) => TL.fade.t0 + ORDER.indexOf(i) * TL.fade.stagger;
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // Detalhes sutis. Ligados de início só os dois que ficaram depois da crítica (amanhecer quente e pétala do objetivo);
+  // os outros cinco foram cortados e continuam aqui, desligados, só para comparar. Nenhum muda a duração: o véu acaba
+  // antes de 0,58 s, e a florzinha do cabeçalho, que já é parte da Hoje, sai por baixo do fim (0,92 s).
+  // ---------------------------------------------------------------------------------------------------------------
+  const ACTIVE = 3;   // pétala do objetivo ativo (Combate), a mesma que a FlowerView da Hoje pinta
+  const FXK = ['pollen', 'nerve', 'warm', 'handoff', 'sway', 'haptic', 'enso'];
+  const FX_DEFAULT = { pollen: false, nerve: false, warm: true, handoff: true, sway: false, haptic: false, enso: false };
+  const ON = Object.assign({}, FX_DEFAULT);
+  const D = {
+    // 8 grãos, números fixos (como a Brisa, nada aleatório). a: ângulo no referencial da flor (graus, horário a partir
+    // de cima), perto do meio dos vãos (29°, 102°, 170°, 242°, 314°); t0 e life em s; r0 → r1 em px; s: raio; o: opacidade.
+    // Cada grão sai logo depois de a pétala vizinha começar a abrir, na mesma ordem.
+    pollen: {
+      c: [0.18, 0.5, 0.36, 1],
+      grains: [
+        { a: 316, t0: 0.190, life: 0.33, r0: 40, r1: 150, s: 6.4, o: 0.78, curl: -6 },
+        { a: 306, t0: 0.250, life: 0.30, r0: 34, r1: 186, s: 4.8, o: 0.56, curl: -9 },
+        { a: 240, t0: 0.220, life: 0.32, r0: 42, r1: 128, s: 5.2, o: 0.68, curl: -5 },
+        { a: 174, t0: 0.245, life: 0.31, r0: 44, r1: 168, s: 6.8, o: 0.72, curl: -7 },
+        { a: 163, t0: 0.290, life: 0.27, r0: 36, r1: 106, s: 4.2, o: 0.54, curl: -3 },
+        { a: 100, t0: 0.265, life: 0.30, r0: 40, r1: 122, s: 4.6, o: 0.62, curl: -4 },
+        { a: 33,  t0: 0.280, life: 0.28, r0: 44, r1: 144, s: 5.8, o: 0.70, curl: -6 },
+        { a: 22,  t0: 0.232, life: 0.32, r0: 36, r1: 196, s: 4.0, o: 0.50, curl: -8 }
+      ]
+    },
+    // Um fio de brilho de 3,2 px corre pela espinha de cada pétala, da base para a ponta, começando um pouco antes de
+    // ela abrir. A luz vem de cima à esquerda (315°): as pétalas voltadas para ela brilham mais.
+    nerve: { lead: 0.05, dur: 0.28, from: 0.04, to: 0.80, spread: 0.3, light: 315, lo: 0.36, hi: 0.7, crease: 0.07, sheen: 0.3, c: [0.42, 0, 0.58, 1] },
+    // Ensō: um traço de pincel aberto em volta da flor, desenhado no sentido do giro. Fica no azul e some com ele.
+    enso: { t0: 0.06, t1: 0.44, R: 404, a0: 206, sweep: 292, W: 15, o: 0.12, c: [0.5, 0, 0.3, 1] },
+    // Amanhecer quente: um véu de areia quase uniforme (30/24/18%) sobe e desce no meio do amanhecer, sem se mover.
+    // As cores estão no CSS (--warm, --warm-a0..2); no escuro as opacidades são 0 e o véu não entra.
+    warm: { t0: 0.30, peak: 0.45, t1: 0.58, rm: [0.16, 0.26, 0.34], c: [0.42, 0, 0.58, 1] },
+    haptic: { at: 0.28 },
+    // A pétala do objetivo cora de leve e sai por último; a florzinha inteira da Hoje (contornos, miolo e pétala cheia)
+    // aparece no lugar da de verdade 50 ms antes do resto do conteúdo e, quando ele já chegou, sai nos últimos 0,1 s,
+    // para não ficar borda dupla (duas flores iguais empilhadas) nem afinar de uma vez quando a camada sai.
+    handoff: { tint: [0.30, 0.46], amt: 0.24, header: [0.53, 0.68], out: [0.82, 0.92],
+      rm: { others: [0.04, 0.26], active: [0.10, 0.32], tint: [0.04, 0.20], header: [0.29, 0.44], out: [0.52, 0.60] }, c: [0.42, 0, 0.58, 1] },
+    // Pétalas vivas: cada uma balança em torno da própria base. [amplitude em graus, período em s, fase em rad]
+    sway: { env: [0.06, 0.26], per: [[1.4, 0.62, 0.3], [1.1, 0.74, 2.2], [1.7, 0.56, 4.1], [1.2, 0.68, 1.3], [1.5, 0.80, 5.2]], c: [0.42, 0, 0.58, 1] }
+  };
+  const ED = { pollen: bezier(...D.pollen.c), io: bezier(0.42, 0, 0.58, 1), enso: bezier(...D.enso.c) };
+  const fadeOrder = () => (ON.handoff ? ORDER.filter((i) => i !== ACTIVE).concat([ACTIVE]) : ORDER);
+  const fadeStart = (i) => TL.fade.t0 + fadeOrder().indexOf(i) * TL.fade.stagger;
+  const nervePeak = PETALS.map((p) => {
+    const a = Math.atan2(p.centroid[0], -p.centroid[1]) * 180 / Math.PI - D.nerve.light;
+    return D.nerve.lo + (D.nerve.hi - D.nerve.lo) * Math.max(0, Math.cos(a * Math.PI / 180));
+  });
+  const bump = (t, a, m, b) => (t <= m ? ED.io(seg(t, a, m)) : 1 - ED.io(seg(t, m, b)));
+  const headerAt = (t, H) => ED.io(seg(t, H.header[0], H.header[1])) * (1 - ED.io(seg(t, H.out[0], H.out[1])));
+
+  function grainAt(g, t) {
+    const u = seg(t, g.t0, g.t0 + g.life);
+    if (u <= 0 || u >= 1) return { x: 0, y: 0, r: 0, o: 0 };
+    const e = ED.pollen(u), r = g.r0 + (g.r1 - g.r0) * e, a = (g.a + g.curl * e) * Math.PI / 180;
+    return { x: r * Math.sin(a), y: -r * Math.cos(a), r: g.s * (1 - 0.25 * u), o: g.o * Math.min(1, u / 0.16) * (1 - ED.io(seg(u, 0.38, 1))) };
+  }
 
   // Estado de um instante. dawn: 0 = azul, 1 = fundo liso da Hoje. content: 0 = fundo liso cobre a Hoje, 1 = Hoje livre.
   function stateAt(t, rm) {
+    const none = { pollen: null, nerve: null, enso: 0, sway: null, buzz: 0 };
     if (rm) {
       // a flor sai antes do azul, e o conteúdo só entra sobre um fundo já liso: nunca há flor ou azul por cima do texto
-      return { rm: true, flower: 1 - E.rm(seg(t, TL.rm.flower[0], TL.rm.flower[1])), turn: 0, breathe: 1, core: { s: 1, o: 1 },
+      const fl = 1 - E.rm(seg(t, TL.rm.flower[0], TL.rm.flower[1]));
+      // Detalhes em movimento ficam desligados. Os de cor ficam: o amanhecer quente e a pétala do objetivo (que só esmaece).
+      const HR = D.handoff.rm;
+      const petals = PETALS.map((p, i) => {
+        if (!ON.handoff) return { d: 0, g: 1, o: fl };
+        const w = i === ACTIVE ? HR.active : HR.others;
+        return { d: 0, g: 1, o: 1 - E.rm(seg(t, w[0], w[1])) };
+      });
+      return Object.assign(none, { rm: true, flower: 1, turn: 0, breathe: 1, core: { s: 1, o: fl },
         dawn: E.rm(seg(t, TL.rm.dawn[0], TL.rm.dawn[1])), content: E.rm(seg(t, TL.rm.content[0], TL.rm.content[1])),
-        settle: 1, glow: 1, status: t >= TL.rm.status,
-        petals: PETALS.map(() => ({ d: 0, g: 1, o: 1 })) };
+        settle: 1, glow: 1, status: t >= TL.rm.status, petals,
+        warm: ON.warm ? bump(t, ...D.warm.rm) : 0,
+        tint: ON.handoff ? D.handoff.amt * ED.io(seg(t, HR.tint[0], HR.tint[1])) : 0,
+        header: ON.handoff ? headerAt(t, HR) : 0 });
     }
     const petals = PETALS.map((p, i) => {
       const s = petalStart(i);
@@ -669,6 +889,7 @@ TimelineView(.animation(paused: finished)) { timeline in
     const c = E.core(seg(t, TL.core.t0, TL.core.t1));
     const k = E.content(seg(t, TL.content.t0, TL.content.t1));
     const avg = petals.reduce((s, p) => s + p.pr, 0) / 5;
+    const N = D.nerve, SW = D.sway;
     return {
       rm: false, flower: 1,
       turn: TL.turn.deg * E.turn(seg(t, TL.turn.t0, TL.turn.t1)),
@@ -679,7 +900,18 @@ TimelineView(.animation(paused: finished)) { timeline in
       content: k,
       settle: TL.content.from + (1 - TL.content.from) * k,
       glow: 1 + 0.15 * avg,
-      status: t >= TL.status.at
+      status: t >= TL.status.at,
+      pollen: ON.pollen ? D.pollen.grains.map((g) => grainAt(g, t)) : null,
+      nerve: ON.nerve ? PETALS.map((p, i) => {
+        const u = seg(t, petalStart(i) - N.lead, petalStart(i) - N.lead + N.dur);
+        return { p: N.from + (N.to - N.from) * ED.io(u), a: nervePeak[i] * Math.pow(Math.sin(Math.PI * u), 1.4) };
+      }) : null,
+      enso: ON.enso ? ED.enso(seg(t, D.enso.t0, D.enso.t1)) : 0,
+      warm: ON.warm ? bump(t, D.warm.t0, D.warm.peak, D.warm.t1) : 0,
+      tint: ON.handoff ? D.handoff.amt * ED.io(seg(t, D.handoff.tint[0], D.handoff.tint[1])) : 0,
+      header: ON.handoff ? headerAt(t, D.handoff) : 0,
+      sway: ON.sway ? SW.per.map(([amp, T, ph]) => amp * ED.io(seg(t, SW.env[0], SW.env[1])) * Math.sin(2 * Math.PI * (t - TL.turn.t0) / T + ph)) : null,
+      buzz: ON.haptic ? 1 - seg(Math.abs(t - D.haptic.at), 0.02, 0.09) : 0
     };
   }
 
@@ -714,28 +946,81 @@ TimelineView(.animation(paused: finished)) { timeline in
   $('mark').innerHTML = iconSVG('m', true);
   $('zoomArt').innerHTML = iconSVG('z', false);
 
-  // A flor dentro do app (FlowerView): Combate ativo (pétala 4), as outras em contorno.
+  // A flor dentro do app (FlowerView): Combate ativo (pétala 4), as outras em contorno. A mesma marcação é usada na
+  // cópia que chega antes da Hoje, na camada da abertura (no app, é a própria FlowerView por cima da Canvas).
+  const HEADER_FLOWER = PETAL_D.map((d, i) => `<path d="${d}" class="${i === ACTIVE ? 'p-on' : 'p-off'}" vector-effect="non-scaling-stroke"/>`).join('') + `<path d="${CENTER_D}" class="fc"/>`;
   (function () {
     const r = maxR + 8, v = $('hojeFlower');
     v.setAttribute('viewBox', `${f1(-r)} ${f1(-r)} ${f1(2 * r)} ${f1(2 * r)}`);
     v.setAttribute('aria-hidden', 'true');
-    v.innerHTML = PETAL_D.map((d, i) => `<path d="${d}" class="${i === 3 ? 'p-on' : 'p-off'}" vector-effect="non-scaling-stroke"/>`).join('') + `<path d="${CENTER_D}" class="fc"/>`;
+    v.innerHTML = HEADER_FLOWER;
   })();
 
   // Camada da abertura: duas camadas lisas (fundo da Hoje e, por cima, o azul com o halo), as 5 pétalas e o miolo.
-  // Sem máscara e sem desfoque.
+  // Sem máscara e sem desfoque. Os detalhes sutis entram como preenchimentos a mais, desligáveis.
+  const lineOf = (pts) => 'M' + pts.map(([x, y]) => f1(x) + ',' + f1(y)).join('L');
+  // A nervura é um fio claro com um fio de sombra ao lado, do lado sombreado da pétala: lê como vinco que pega a luz.
+  const creaseOff = PETALS.map((p) => { const vx = p.mid[0] - p.midN[0], vy = p.mid[1] - p.midN[1], l = Math.hypot(vx, vy); return [vx / l * 3.4, vy / l * 3.4]; });
+  const nerveDefs = PETALS.map((p, i) => {
+    const a = p.spine[0], b = p.spine[p.spine.length - 1], [ox, oy] = creaseOff[i];
+    const stops = (cls) => `<stop offset="0" class="${cls}" stop-opacity="0"/><stop offset="0" class="${cls}" stop-opacity="0"/><stop offset="0" class="${cls}" stop-opacity="0"/>`;
+    return `<linearGradient id="snv${i}" gradientUnits="userSpaceOnUse" x1="${f1(a[0])}" y1="${f1(a[1])}" x2="${f1(b[0])}" y2="${f1(b[1])}">${stops('s-gl')}</linearGradient>` +
+      `<linearGradient id="snc${i}" gradientUnits="userSpaceOnUse" x1="${f1(a[0] + ox)}" y1="${f1(a[1] + oy)}" x2="${f1(b[0] + ox)}" y2="${f1(b[1] + oy)}">${stops('s-cr')}</linearGradient>`;
+  }).join('');
+  const splashPetals = PETALS.map((p, i) =>
+    `<g id="sg${i}"><path d="${PETAL_D[i]}" fill="url(#sp${i})"/><path d="${PETAL_D[i]}" fill="url(#ss${i})"/>` +
+    (i === ACTIVE ? `<path id="stint" d="${PETAL_D[i]}" class="p-on" opacity="0"/>` : '') +
+    `<path id="screase${i}" class="nerve" d="${lineOf(p.spine.map(([x, y]) => [x + creaseOff[i][0], y + creaseOff[i][1]]))}" stroke="url(#snc${i})" opacity="0"/>` +
+    `<path id="ssheen${i}" class="nerve soft" d="${lineOf(p.spine)}" stroke="url(#snv${i})" opacity="0"/>` +
+    `<path id="snerve${i}" class="nerve" d="${lineOf(p.spine)}" stroke="url(#snv${i})" opacity="0"/></g>`).join('') +
+    `<g id="scg"><path d="${CENTER_D}" fill="url(#score)"/></g>` +
+    `<g id="spollen">${D.pollen.grains.map(() => '<circle class="pollen" r="0" opacity="0"/>').join('')}</g>` +
+    // só para a folha de recortes (&ghost): o contorno de cada pétala sem o balanço
+    `<g id="sghost" display="none">${PETAL_D.map((d) => `<path class="ghost" d="${d}"/>`).join('')}</g>`;
   $('splash').innerHTML =
-    `<defs>${petalDefs('s')}</defs>` +
+    `<defs>${petalDefs('s')}${nerveDefs}<linearGradient id="swarm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" class="s-w0"/><stop offset="0.5" class="s-w1"/><stop offset="1" class="s-w2"/></linearGradient></defs>` +
     `<g id="veil"><rect class="day-bg" width="${W}" height="${H}"/>` +
     `<g id="night"><rect class="launch-bg" width="${W}" height="${H}"/>` +
-    `<g transform="translate(${f1(FX)} ${f1(FY)}) scale(${K})"><circle id="glowC" r="430" fill="url(#sglow)"/></g></g></g>` +
-    `<g transform="translate(${f1(FX)} ${f1(FY)}) scale(${K})"><g id="flR">${petalArt('s')}</g></g>`;
+    `<g transform="translate(${f1(FX)} ${f1(FY)}) scale(${K})"><circle id="glowC" r="430" fill="url(#sglow)"/><path id="enso" class="enso" d="" opacity="${D.enso.o}"/></g></g>` +
+    `<rect id="warm" width="${W}" height="${H}" fill="url(#swarm)" opacity="0"/></g>` +
+    `<g transform="translate(${f1(FX)} ${f1(FY)}) scale(${K})"><g id="flR">${splashPetals}</g></g>` +
+    `<g id="hand" opacity="0">${HEADER_FLOWER}</g>`;
 
   const els = {
     splash: $('splash'), flR: $('flR'), veil: $('veil'), night: $('night'), glow: $('glowC'), core: $('scg'), hoje: $('hoje'), statusOver: $('statusOver'),
     petals: PETALS.map((p, i) => $('sg' + i)),
+    nerves: PETALS.map((p, i) => [[$('snerve' + i), 1], [$('screase' + i), 1], [$('ssheen' + i), D.nerve.sheen]]),
+    nerveStops: PETALS.map((p, i) => [$('snv' + i).querySelectorAll('stop'), $('snc' + i).querySelectorAll('stop')]),
+    grains: Array.from($('spollen').children), ghosts: Array.from($('sghost').children), tint: $('stint'), enso: $('enso'), warm: $('warm'), hand: $('hand'), buzz: $('buzz'),
     home: $('home'), zoom: $('zoom'), press: $('press'), tapdot: $('tapdot')
   };
+
+  // Onde fica a florzinha do cabeçalho da Hoje, em px da tela (sem a escala de assentamento). A cópia inteira é
+  // desenhada ali, por cima do fundo liso, e cai exatamente sobre a de verdade quando o conteúdo entra.
+  let HAND = null, GHOST = false;
+  function measureHand() {
+    const prev = els.hoje.style.transform; els.hoje.style.transform = 'none';
+    const sr = $('screen').getBoundingClientRect(), fr = $('hojeFlower').getBoundingClientRect(), k = sr.width / W;
+    els.hoje.style.transform = prev;
+    const vb = $('hojeFlower').viewBox.baseVal;
+    if (!k || !fr.width) return null;
+    return { x: (fr.left - sr.left) / k + fr.width / k / 2, y: (fr.top - sr.top) / k + fr.height / k / 2, s: fr.width / k / vb.width };
+  }
+
+  // Ensō: contorno de um traço de pincel, até a fração e do caminho.
+  function ensoD(e) {
+    if (e <= 0.004) return '';
+    const n = Math.max(3, Math.ceil(110 * e)), R = D.enso.R, out = [], inn = [];
+    for (let k = 0; k <= n; k++) {
+      const s = e * k / n, a = (D.enso.a0 - D.enso.sweep * s) * Math.PI / 180;
+      const press = Math.sin(Math.PI / 2 * Math.min(1, s / 0.07)), dry = 1 - 0.62 * Math.pow(s, 1.5);
+      const w = D.enso.W * (0.35 + 0.65 * press) * dry * (1 + 0.1 * Math.sin(11 * s + 1.3));
+      const rr = R + 7 * Math.sin(2.3 * s + 0.4);
+      out.push([(rr + w / 2) * Math.sin(a), -(rr + w / 2) * Math.cos(a)]);
+      inn.push([(rr - w / 2) * Math.sin(a), -(rr - w / 2) * Math.cos(a)]);
+    }
+    return pathOf(out.concat(inn.reverse()));
+  }
 
   // Tela inicial simulada: ícones genéricos, só o Magister com nome.
   const ICON = { x: 91.3, y: 138, s: 48 };
@@ -810,18 +1095,40 @@ TimelineView(.animation(paused: finished)) { timeline in
     els.flR.setAttribute('transform', `rotate(${s.turn.toFixed(3)}) scale(${s.breathe.toFixed(4)})`);
     els.flR.setAttribute('opacity', s.flower.toFixed(3));
     PETALS.forEach((p, i) => {
-      // cresce a partir da base e desliza pelo eixo do centroide
+      // cresce a partir da base e desliza pelo eixo do centroide; com "pétalas vivas", balança em torno da base
       const st = s.petals[i], len = Math.hypot(p.centroid[0], p.centroid[1]);
       const dx = p.centroid[0] / len * st.d, dy = p.centroid[1] / len * st.d, [bx, by] = p.base;
-      const g = els.petals[i];
-      g.setAttribute('transform', `translate(${f1(dx + bx)} ${f1(dy + by)}) scale(${st.g.toFixed(4)}) translate(${f1(-bx)} ${f1(-by)})`);
+      const g = els.petals[i], sw = s.sway ? ` rotate(${s.sway[i].toFixed(3)})` : '';
+      g.setAttribute('transform', `translate(${f1(dx + bx)} ${f1(dy + by)})${sw} scale(${st.g.toFixed(4)}) translate(${f1(-bx)} ${f1(-by)})`);
+      if (GHOST) els.ghosts[i].setAttribute('transform', `translate(${f1(dx + bx)} ${f1(dy + by)}) scale(${st.g.toFixed(4)}) translate(${f1(-bx)} ${f1(-by)})`);
       g.setAttribute('opacity', st.o.toFixed(3));
+      // nervura de luz: três paradas de degradê que andam pela espinha
+      const nv = s.nerve && s.nerve[i], on = nv && nv.a > 0.002;
+      els.nerves[i].forEach(([el, o]) => el.setAttribute('opacity', on ? String(o) : '0'));
+      if (on) els.nerveStops[i].forEach(([a, b, c], k) => {
+        const sp = D.nerve.spread;
+        a.setAttribute('offset', Math.max(0, nv.p - sp).toFixed(3));
+        b.setAttribute('offset', Math.min(1, Math.max(0, nv.p)).toFixed(3)); b.setAttribute('stop-opacity', (k ? nv.a * D.nerve.crease / D.nerve.hi : nv.a).toFixed(3));
+        c.setAttribute('offset', Math.min(1, nv.p + sp).toFixed(3));
+      });
     });
+    els.tint.setAttribute('opacity', s.tint.toFixed(3));
     els.core.setAttribute('transform', `scale(${s.core.s.toFixed(4)})`);
     els.core.setAttribute('opacity', s.core.o.toFixed(3));
+    els.grains.forEach((c, j) => {
+      const g = s.pollen && s.pollen[j];
+      if (!g || g.o <= 0.002) { c.setAttribute('opacity', '0'); return; }
+      c.setAttribute('cx', f1(g.x)); c.setAttribute('cy', f1(g.y)); c.setAttribute('r', g.r.toFixed(2)); c.setAttribute('opacity', g.o.toFixed(3));
+    });
+    els.enso.setAttribute('d', ensoD(s.enso));
     els.night.setAttribute('opacity', (1 - s.dawn).toFixed(3));
+    els.warm.setAttribute('opacity', s.warm.toFixed(3));
     els.veil.setAttribute('opacity', (1 - s.content).toFixed(3));
     els.glow.setAttribute('r', (430 * s.glow).toFixed(1));
+    // florzinha do cabeçalho: mesma escala de assentamento da Hoje, em volta do centro da tela
+    if (s.header > 0.001 && !HAND) HAND = measureHand();
+    els.hand.setAttribute('opacity', HAND ? s.header.toFixed(3) : '0');
+    if (HAND) els.hand.setAttribute('transform', `translate(${W / 2} ${H / 2}) scale(${settle.toFixed(4)}) translate(${(HAND.x - W / 2).toFixed(3)} ${(HAND.y - H / 2).toFixed(3)}) scale(${HAND.s.toFixed(5)})`);
   }
 
   // ---------------------------------------------------------------------------------------------------------------
@@ -831,15 +1138,38 @@ TimelineView(.animation(paused: finished)) { timeline in
   const AX = 1.0; // o eixo vai até 1 s; a abertura acaba antes
   const tx = (t) => CH.x0 + (CH.x1 - CH.x0) * t / AX;
   const lin = (u) => u;
+  // Faixas dos detalhes ligados (cor de terra, abaixo das faixas principais)
+  function detailLanes(rm) {
+    const out = [], io = ED.io;
+    const HO = rm ? D.handoff.rm : D.handoff;
+    if (ON.warm) {
+      const [a, m, b] = rm ? D.warm.rm : [D.warm.t0, D.warm.peak, D.warm.t1];
+      out.push({ label: 'Amanhecer quente', bars: [{ a, b, f: (u) => bump(a + (b - a) * u, a, m, b) }] });
+    }
+    if (ON.handoff) out.push({ label: 'Pétala do objetivo', bars: [{ a: HO.tint[0], b: HO.tint[1], f: io },
+      { a: HO.header[0], b: HO.out[1], f: (u) => headerAt(HO.header[0] + (HO.out[1] - HO.header[0]) * u, HO) }] });
+    if (rm) return out;
+    if (ON.pollen) out.push({ label: 'Pólen', bars: D.pollen.grains.map((g) => ({ a: g.t0, b: g.t0 + g.life, f: (u) => Math.min(1, u / 0.16) * (1 - io(seg(u, 0.38, 1))) * g.o, thin: true })) });
+    if (ON.nerve) out.push({ label: 'Nervura de luz', bars: ORDER.map((i) => ({ a: petalStart(i) - D.nerve.lead, b: petalStart(i) - D.nerve.lead + D.nerve.dur, f: (u) => Math.pow(Math.sin(Math.PI * u), 1.4) * nervePeak[i] / D.nerve.hi, thin: true })) });
+    if (ON.sway) out.push({ label: 'Pétalas vivas (±2°)', bars: D.sway.per.map(([amp, T, ph]) => ({ a: TL.turn.t0, b: TL.fade.t0 + 4 * TL.fade.stagger + TL.fade.dur, thin: true,
+      f: (u) => { const t = TL.turn.t0 + (TL.fade.t0 + 4 * TL.fade.stagger + TL.fade.dur - TL.turn.t0) * u; return 0.5 + 0.5 * (amp / 1.7) * io(seg(t, D.sway.env[0], D.sway.env[1])) * Math.sin(2 * Math.PI * (t - TL.turn.t0) / T + ph); } })) });
+    if (ON.haptic) out.push({ label: 'Vibração', bars: [{ a: D.haptic.at, tick: true }] });
+    if (ON.enso) out.push({ label: 'Ensō', bars: [{ a: D.enso.t0, b: D.enso.t1, f: ED.enso }] });
+    return out;
+  }
   function lanes(rm) {
+    const det = detailLanes(rm).map((l) => Object.assign(l, { detail: true }));
     if (rm) return [
       { label: 'Pausa', bars: [{ a: 0, b: TL.hold[1] }] },
-      { label: 'Flor esmaece', bars: [{ a: TL.rm.flower[0], b: TL.rm.flower[1], f: E.rm }] },
+      { label: 'Flor esmaece', bars: ON.handoff ? [D.handoff.rm.others, D.handoff.rm.active].map(([a, b]) => ({ a, b, f: E.rm, thin: true })) : [{ a: TL.rm.flower[0], b: TL.rm.flower[1], f: E.rm }] },
       { label: 'Azul vira fundo', bars: [{ a: TL.rm.dawn[0], b: TL.rm.dawn[1], f: E.rm }] },
       { label: 'Hoje aparece', bars: [{ a: TL.rm.content[0], b: TL.rm.content[1], f: E.rm }] },
       { label: 'Barra de status', bars: [{ a: TL.rm.status, b: TL.rm.status + TL.status.dur, f: lin }] }
-    ];
+    ].concat(det);
     const ps = ORDER.map((i) => petalStart(i));
+    return det.length ? mainLanes(ps).concat(det) : mainLanes(ps);
+  }
+  function mainLanes(ps) {
     return [
       { label: 'Pausa', bars: [{ a: 0, b: TL.hold[1] }] },
       { label: 'Respiro (−3%)', bars: [{ a: TL.breathe.t0, b: TL.breathe.t1, f: E.breathe }] },
@@ -854,7 +1184,8 @@ TimelineView(.animation(paused: finished)) { timeline in
   }
   let chartRM = null;
   function drawChart(rm) {
-    if (chartRM === rm) return; chartRM = rm;
+    const key = rm + JSON.stringify(ON);
+    if (chartRM === key) return; chartRM = key;
     const L = lanes(rm), svg = $('chart');
     const h = CH.top + L.length * (CH.lane + CH.gap) + 34;
     svg.setAttribute('viewBox', `0 0 600 ${h}`);
@@ -869,16 +1200,18 @@ TimelineView(.animation(paused: finished)) { timeline in
     out += `<line class="head" x1="${xe}" y1="${CH.top - 4}" x2="${xe}" y2="${h - 26}" stroke-dasharray="3 3" opacity="0.55"/>` +
       `<text class="tick" x="${xe}" y="${h - 10}" text-anchor="middle">fim: ${n2(endT0)} s</text>`;
     L.forEach((ln, j) => {
-      const y = CH.top + j * (CH.lane + CH.gap), yb = y + CH.lane;
+      const y = CH.top + j * (CH.lane + CH.gap), yb = y + CH.lane, dt = ln.detail;
+      if (dt && !L[j - 1].detail) out += `<line class="sep" x1="0" y1="${y - CH.gap / 2}" x2="${CH.x1}" y2="${y - CH.gap / 2}"/>`;
       out += `<rect class="lane" x="${CH.x0}" y="${y}" width="${CH.x1 - CH.x0}" height="${CH.lane}" rx="5"/>`;
-      out += `<text class="lanelabel" x="0" y="${y + CH.lane / 2 + 4}">${ln.label}</text>`;
+      out += `<text class="${dt ? 'dlabel' : 'lanelabel'}" x="0" y="${y + CH.lane / 2 + 4}">${ln.label}</text>`;
       ln.bars.forEach((b) => {
         const xa = tx(b.a), xb = tx(b.b);
+        if (b.tick) { out += `<line class="dtick" x1="${xa}" y1="${y + 3}" x2="${xa}" y2="${yb - 3}"/>`; return; }
         if (!b.f) { out += `<rect class="cf" x="${xa}" y="${y}" width="${xb - xa}" height="${CH.lane}" rx="4"/>`; return; }
         let d = '';
         for (let n = 0; n <= 40; n++) { const u = n / 40, x = xa + (xb - xa) * u, v = b.f(u); d += (n ? 'L' : 'M') + x.toFixed(1) + ',' + (yb - v * (CH.lane - 3)).toFixed(1); }
-        if (!b.thin) out += `<path class="cf" d="${d}L${xb.toFixed(1)},${yb}L${xa.toFixed(1)},${yb}Z"/>`;
-        out += `<path class="cs" d="${d}"${b.thin ? ' opacity="0.8"' : ''}/>`;
+        if (!b.thin) out += `<path class="${dt ? 'dcf' : 'cf'}" d="${d}L${xb.toFixed(1)},${yb}L${xa.toFixed(1)},${yb}Z"/>`;
+        out += `<path class="${dt ? 'dcs' : 'cs'}" d="${d}"${b.thin ? ' opacity="0.8"' : ''}/>`;
       });
     });
     out += `<g id="playhead"><line class="head" x1="0" y1="${CH.top - 6}" x2="0" y2="${h - 26}"/><circle class="headknob" cx="0" cy="${CH.top - 6}" r="3.5"/></g>`;
@@ -891,6 +1224,7 @@ TimelineView(.animation(paused: finished)) { timeline in
     [0.16, 'A flor desabrocha', 'Uma pétala de cada vez, a cada 35 ms: cada uma cresce a partir da base e se afasta um pouco.'],
     [0.24, 'Amanhece', 'O azul clareia por igual na tela toda, até a cor de fundo da Hoje. As pétalas somem no claro, sem desfoque.'],
     [0.45, 'A barra de status volta', 'A hora e a bateria aparecem já sobre o fundo claro, sem troca de cor.'],
+    [0.53, 'A florzinha chega antes', 'A pétala do Combate, a última a sair, passa a vez à florzinha do cabeçalho, que aparece no lugar dela 50 ms antes do resto da Hoje.', 'handoff'],
     [0.58, 'O dia entra', 'O conteúdo da Hoje aparece e assenta de 98,5% para 100%, desacelerando.'],
     [0.92, 'Tela Hoje', 'A camada da abertura já não existe. Tudo responde ao toque.']
   ];
@@ -898,6 +1232,7 @@ TimelineView(.animation(paused: finished)) { timeline in
     [0, 'Tela de lançamento', 'Reduzir Movimento: nada gira, cresce ou se desloca.'],
     [0.04, 'A flor esmaece', 'Primeiro a flor, até 0,28 s.'],
     [0.12, 'O azul vira fundo', 'O azul esmaece até a cor lisa de fundo da Hoje, até 0,40 s.'],
+    [0.29, 'A florzinha chega antes', 'A florzinha do cabeçalho aparece no lugar, um pouco antes do resto.', 'handoff'],
     [0.34, 'O dia entra', 'O conteúdo aparece parado, no tamanho final, até 0,60 s.'],
     [0.60, 'Tela Hoje', 'A camada da abertura já não existe.']
   ];
@@ -908,17 +1243,21 @@ TimelineView(.animation(paused: finished)) { timeline in
     $('tRead').textContent = t < 0 ? '−' + n2(-t) + ' s' : n2(Math.min(t, end)) + ' s';
     let ph;
     if (t < 0) ph = ['Zoom do sistema', 'Simulação aproximada do que o iOS faz sozinho ao tocar no ícone.'];
-    else { const list = rm ? PHASES_RM : PHASES; ph = list[0].slice(1); for (const p of list) if (tc >= p[0]) ph = p.slice(1); }
+    else { const list = (rm ? PHASES_RM : PHASES).filter((p) => !p[3] || ON[p[3]]); ph = list[0].slice(1, 3); for (const p of list) if (tc >= p[0]) ph = p.slice(1, 3); }
     if (skip && t >= skip.at) ph = ['Toque: pulou para o fim', 'A camada esmaece em 0,15 s e a tela Hoje fica livre.'];
     $('phaseRead').textContent = ph[0]; $('hintRead').textContent = ph[1];
     const head = document.getElementById('playhead');
     if (head) head.setAttribute('transform', `translate(${tx(tc).toFixed(1)} 0)`);
     const sc = $('scrub'); sc.max = String(end); if (document.activeElement !== sc) sc.value = String(tc);
+    // a vibração não se vê: um selo acende no instante em que o iPhone vibraria
+    const skipped = skip && skip.at <= D.haptic.at;
+    els.buzz.style.opacity = ON.haptic && !rm && !skipped && t >= 0 ? (1 - seg(Math.abs(t - D.haptic.at), 0.03, 0.12)).toFixed(3) : '0';
   }
 
   const isRM = () => $('rm').checked;
   function render(t) {
     const rm = isRM(), pre = $('prelude').checked;
+    $('fxBox').classList.toggle('rm', rm);
     renderPrelude(pre ? t : Math.max(0, t), rm);
     renderSplash(t, rm);
     updateUI(pre ? t : Math.max(0, t), rm);
@@ -932,7 +1271,10 @@ TimelineView(.animation(paused: finished)) { timeline in
   const endT = () => (isRM() ? TL.endRM : TL.end);
   function loop(ts) {
     if (!wall0) wall0 = ts;
+    const tPrev = tNow;
     tNow = t0 + (ts - wall0) / 1000 * speed();
+    // num Android a página vibra de verdade (o Safari do iPhone não tem essa API)
+    if (ON.haptic && !isRM() && !skip && tPrev < D.haptic.at && tNow >= D.haptic.at && navigator.vibrate && navigator.userActivation && navigator.userActivation.hasBeenActive) { try { navigator.vibrate(12); } catch (e) { /* sem vibração */ } }
     const stop = skip ? skip.at + TL.skip : endT();
     if (tNow >= stop) { tNow = skip ? tNow : endT(); render(tNow); raf = 0; return; }
     render(tNow); raf = requestAnimationFrame(loop);
@@ -961,6 +1303,15 @@ TimelineView(.animation(paused: finished)) { timeline in
     skip = { at: tNow, s: stateAt(tNow, isRM()) };
   });
 
+  // Chaves dos detalhes: mudar uma redesenha o mesmo instante, para comparar quadro a quadro.
+  const fxBoxes = Array.from(document.querySelectorAll('input[data-fx]'));
+  const syncBoxes = () => fxBoxes.forEach((b) => { b.checked = !!ON[b.dataset.fx]; });
+  const fxChanged = () => { chartRM = null; if (skip) skip.s = stateAt(skip.at, isRM()); if (!raf) render(tNow); };
+  fxBoxes.forEach((b) => b.addEventListener('change', () => { ON[b.dataset.fx] = b.checked; fxChanged(); }));
+  $('fxRec').addEventListener('click', () => { Object.assign(ON, FX_DEFAULT); syncBoxes(); fxChanged(); });
+  $('fxAll').addEventListener('click', () => { FXK.forEach((k) => { ON[k] = true; }); syncBoxes(); fxChanged(); });
+  $('fxNone').addEventListener('click', () => { FXK.forEach((k) => { ON[k] = false; }); syncBoxes(); fxChanged(); });
+
   // Aparelho cabe na largura do celular
   function fit() {
     const slot = $('phoneSlot'), avail = Math.min(320, slot.parentElement.clientWidth);
@@ -969,9 +1320,14 @@ TimelineView(.animation(paused: finished)) { timeline in
   window.addEventListener('resize', fit); fit();
 
   // ---------------------------------------------------------------------------------------------------------------
-  // Início. #t=0.30 congela naquele tempo; &shot mostra só a tela; &rm liga Reduzir Movimento; &dark / &light tema.
+  // Início. #t=0.30 congela naquele tempo; &shot mostra só a tela; &rm liga Reduzir Movimento; &dark / &light tema;
+  // &fx=none, &fx=all ou &fx=warm-handoff escolhe os detalhes (sem fx: os dois recomendados).
   // ---------------------------------------------------------------------------------------------------------------
   const hash = decodeURIComponent((location.hash || '') + '&' + (location.search || '').replace(/^\?/, ''));
+  const fxm = hash.match(/fx=([a-z-]+)/);
+  GHOST = /\bghost\b/.test(hash); $('sghost').setAttribute('display', GHOST ? 'inline' : 'none');
+  if (fxm) FXK.forEach((k) => { ON[k] = fxm[1] === 'all' || fxm[1].split('-').includes(k); });
+  syncBoxes();
   if (/\bdark\b/.test(hash)) document.documentElement.setAttribute('data-theme', 'dark');
   if (/\blight\b/.test(hash)) document.documentElement.setAttribute('data-theme', 'light');
   const mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
