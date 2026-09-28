@@ -73,6 +73,13 @@ Workflow `wf_b80f610e-930`:
 - **Núcleo:** contrato `docs/V23-CORE-CONTRACT.md`, branches `v6/core` e `v6/guide-engine`, desenhos em lotes `v6/guides-N` juntados em `v6/guide-engine`.
 - **Ao retomar:** mostrar as 3 direções ao dono, fazer a onda de telas (sessão guiada, passada estética, UI do Como fazer e do Fôlego) sobre `v6/*` e gerar um IPA novo. Atualizar a página e o PDF da Amanda.
 
+### 5d.1 Estado em 2026-09-28
+
+- **Estética:** 3 direções em `docs/design/v23-aesthetics/directions.html` (artifact LBdKARcqRc6rfFvRE3qRjf). A · Tinta e papel (mais budista), B · Pórtico pintado (mais estoica), C · Jardim de pedra (recomendada). **Esperando o dono escolher.**
+- **Animação de abertura:** protótipo em `docs/design/v23-animation/launch.html` (artifact 3TBNBgXpsETDCSiFp1ouY4). Detalhes sutis no workflow `wf_033bc874-622`, retomado; o crítico mandou cortar pólen, fio de luz e pétalas vivas, e manter amanhecer quente (areia) e pétala do objetivo. O dono disse que o gosto dele é só sinal: não sobrepor o crítico.
+- **Núcleo 2.3:** contrato `docs/V23-CORE-CONTRACT.md`; `v6/core` e `v6/guide-engine` prontos. Lotes de desenhos `v6/guides-N` e a junção foram retomados no workflow `wf_b80f610e-930`.
+- **Decisões do dono para a onda de telas:** `docs/design/v23-owner-notes.md` (Cardio "Coração forte e mais condicionamento", carga opcional com sugestão delicada, vários planos com encaixe e consequências, plano Cardio VO2máx 4×4, sem cardio base). **Copiar essas notas para o contrato da onda de telas.**
+
 ## 6. Próximos passos
 
 1. O usuário instala o IPA do run 35997614062 por cima do app atual, pelo Impactor, e testa.

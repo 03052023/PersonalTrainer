@@ -1,0 +1,35 @@
+# Decisões do dono para a onda de telas da 2.3 (2026-09-27)
+
+Aplicar no contrato da onda de telas; também vão para o HANDOFF quando o main estiver livre.
+
+1. **Nome do objetivo cardiovascular: "Cardio"**, subtítulo "Coração forte e mais condicionamento". Troca o provisório "Fôlego" que o núcleo (v6/core) usou em GoalStyle, textos e SPEC. O raw value continua `endurance`.
+2. **Carga opcional, no espírito do dono:** o uso mais simples do app (só marcar o treino e lembrar os exercícios) funciona sem preencher nada. Quem quiser pode informar carga e repetições diferentes. O app pode **sugerir com delicadeza** quando o dado ajuda no acompanhamento ("Anotar a carga ajuda a sugerir quando subir"), sem obrigar e sem insistir: no máximo uma vez por exercício, com dispensa.
+3. **Animação de abertura com a flor:**
+   - Tela de lançamento estática azul-marinho com a flor Brisa no centro, idêntica ao ícone: `UILaunchScreen` com `UIColorName` e `UIImageName` no project.yml, tarefa [PROJ], mais os assets.
+   - Na primeira tela, a flor gira meia volta, suave (cerca de 0,8 s), e as pétalas se abrem para fora e se dissolvem, revelando a tela Hoje.
+   - Com Reduzir Movimento, só um esmaecimento rápido.
+   - Nunca bloqueia a interação e só roda na abertura a frio.
+   - O movimento do ícone até o centro é o zoom do próprio iOS; o app não controla isso.
+4. **Mais de um plano ao mesmo tempo** (pedido de 2026-09-27): a pessoa pode ativar mais de um plano (ex.: Hipertrofia Equilibrado + Cardio). O app **verifica o encaixe** antes de aceitar: dias disponíveis na semana, se aceita 2 sessões no mesmo dia ou treino todo dia, descanso de ≥ 48 h por grupo muscular (S6), cardio vigoroso nunca nas 24 h antes de um dia de pernas e, no mesmo dia, força antes do cardio ou ≥ 6 h de intervalo (A5), pelo menos 1 dia de descanso completo recomendado. Se não couber, explica e sugere (menos sessões de cardio, cardio leve depois da força nos dias de superior etc.). A tela Hoje mostra as sessões do dia ("Superior + Cardio leve 25 min"). Precisa de regras novas na SPEC (§7.14) e de uma função pura no TrainerCore (encaixe semanal), testada.
+5. **Prévia do Cardio aprovada para referência** (ver a mensagem de 2026-09-27): A contínuo moderado 25–40 min + complemento curto; B intervalos 6–10 × (1 min forte / 2 min leve) com aquecimento e volta à calma; C longo leve 40–60 min; progressão pela duração/número de intervalos; meta OMS 150 min moderados-equivalentes.
+6. **Animação:** conferir se está elegante e satisfatória; se ficar tosca ou desconfortável, mudar (protótipo em docs/design/v23-animation/).
+7. ~~Cardio base em todo plano~~ **CANCELADO pelo dono (2026-09-27): "deixe como está".** Os planos não ganham cardio obrigatório; o cartão de Saúde continua acompanhando os minutos de aeróbico e sugerindo completar a meta, como hoje.
+8. **Plano Cardio focado em VO2máx — APROVADO pelo dono ("boa")** (substitui a prévia do item 5):
+   - A: base aeróbica, 30–45 min contínuos, conversando (modelo polarizado, cerca de 80/20).
+   - B: 4×4, aquecimento de 10 min + 4 × (4 min a 85–95 % da FCmáx + 3 min leves) (Helgerud 2007).
+   - C: longo leve, 45–75 min.
+   - D opcional: 6 × 30 s bem fortes com 2–4 min leves (SIT; Gist 2014).
+   - Progressão: o longo cresce aos poucos; o 4×4 vai de 3 para 4 e depois 5 blocos.
+   - Zonas de FC e VO2máx mostrados quando o relógio fornece.
+   - Referências a verificar no Crossref: Helgerud 2007 (MSSE), Milanović 2016, Stöggl & Sperlich 2014, Gist 2014, Bacon 2013.
+9. **Quando os planos não cabem:** o app mostra todas as mudanças que fazem caber (mais dias por semana, permitir 2 sessões no mesmo dia, cardio leve depois da força, menos sessões de cardio), cada uma com a semana resultante. A pessoa escolhe o que pesa mais.
+10. **Hipertrofia × Força:** mantidos os dois. O "Por quê?" de cada objetivo explica a diferença:
+    - na hipertrofia, cargas leves ou pesadas dão resultado parecido perto do limite (Schoenfeld 2017);
+    - na força máxima, carga alta vence (especificidade).
+11. **Consequências de combinar planos** (2026-09-27): ao adicionar um segundo plano, o app mostra as consequências **positivas, negativas e neutras** da combinação, em frases curtas e com "Por quê?" (referências). É uma tabela determinística por par de objetivos, na SPEC §7.14. Exemplos:
+    - Hipertrofia + Cardio: + coração e VO2máx, + recuperação entre séries; = ganho de músculo quase igual, se o cardio for separado ou moderado (Schumann 2022); − semana mais longa e mais cansaço; − os intervalos fortes na véspera de pernas atrapalham.
+    - Força + Cardio: + condicionamento; − pode reduzir um pouco a força explosiva, sobretudo com cardio intenso no mesmo dia; = força máxima pouco afetada com a separação certa.
+    - Força + Combate ou Hipertrofia + Força: = grande sobreposição (os mesmos levantamentos); o app avisa que é quase redundante e sugere um plano só ou um formato.
+    - Longevidade + qualquer um: + equilíbrio e mobilidade; = pouco conflito.
+12. **Força × Combate:** compartilham a base de força máxima (compostos com 3–6 repetições). O Combate acrescenta potência, condicionamento intermitente, pegada, tronco e pescoço, com menos volume nos grandes levantamentos. O "Por quê?" e a tela de objetivos explicam a diferença; ao combinar os dois, o app marca como "grande sobreposição".
+13. **Detalhes sutis da abertura** (2026-09-28): o resultado do método (crítico + refino, workflow `wf_033bc874-622`) vale como está, inclusive a continuidade, se o crítico mantiver. O dono gostou da luz e do ensō e não gostou da continuidade, mas disse que é só um sinal de gosto para as próximas etapas, não uma correção: NÃO sobrepor o resultado do método.
