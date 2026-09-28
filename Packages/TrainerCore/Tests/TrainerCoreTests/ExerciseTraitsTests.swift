@@ -16,7 +16,7 @@ struct ExerciseTraitsTests {
 
     @Test("RF-43 raw values da medida são estáveis (ficam no JSON do seed)")
     func measureRawValues() {
-        #expect(ExerciseMeasure.allCases.map(\.rawValue) == ["reps", "seconds", "steps"])
+        #expect(ExerciseMeasure.allCases.map(\.rawValue) == ["reps", "seconds", "steps", "minutes"])
     }
 
     struct DecodeCase: Sendable, CustomTestStringConvertible {
@@ -31,6 +31,7 @@ struct ExerciseTraitsTests {
         DecodeCase(json: #"{"atHome": true}"#, expected: ExerciseTraits(measure: .reps, atHome: true)),
         DecodeCase(json: #"{"measure": "seconds"}"#, expected: ExerciseTraits(measure: .seconds, atHome: false)),
         DecodeCase(json: #"{"measure": "steps", "atHome": true}"#, expected: ExerciseTraits(measure: .steps, atHome: true)),
+        DecodeCase(json: #"{"measure": "minutes", "atHome": true}"#, expected: ExerciseTraits(measure: .minutes, atHome: true)),
         DecodeCase(json: #"{"measure": null, "atHome": null}"#, expected: ExerciseTraits(measure: .reps, atHome: false)),
         DecodeCase(json: #"{"slug": "plank", "measure": "seconds", "atHome": true}"#, expected: ExerciseTraits(measure: .seconds, atHome: true)),
     ]
@@ -74,6 +75,34 @@ struct ExerciseTraitsTests {
         #expect(catalog.traits(forSlug: "nao-existe") == .default)
     }
 
+    @Test("RF-43 minutes: o catálogo lê a medida em minutos pelo slug (2.3, D4)")
+    func catalogDecodesMinutesBySlug() throws {
+        let json = """
+        {"version": 4, "exercises": [
+          {"slug": "brisk-walk", "name": "Caminhada rápida", "movementPattern": "cardio", "measure": "minutes", "atHome": true},
+          {"slug": "stationary-bike", "measure": "minutes", "atHome": false}
+        ]}
+        """
+
+        let catalog = try ExerciseTraitsCatalog.decode(seedCatalogJSON: Data(json.utf8))
+
+        #expect(catalog.traits(forSlug: "brisk-walk") == ExerciseTraits(measure: .minutes, atHome: true))
+        #expect(catalog.traits(forSlug: "stationary-bike") == ExerciseTraits(measure: .minutes, atHome: false))
+    }
+
+    @Test("RF-43 minutes: todo aeróbico do seed mede em minutos, e só eles")
+    func seedCardioMeasuresInMinutes() throws {
+        let bundle = try SeedTestFiles.bundle()
+        let traits = try SeedTestFiles.traits()
+        let cardio = bundle.catalog.exercises.filter { $0.movementPattern == .cardio }
+
+        #expect(cardio.count == 10)
+        for exercise in bundle.catalog.exercises {
+            let isMinutes = traits.traits(for: exercise).measure == .minutes
+            #expect(isMinutes == (exercise.movementPattern == .cardio), "\(exercise.slug)")
+        }
+    }
+
     @Test("RF-43 slug repetido: vale a primeira ocorrência")
     func catalogKeepsFirstOccurrence() throws {
         let json = #"{"exercises": [{"slug": "plank", "measure": "seconds"}, {"slug": "plank", "measure": "steps"}]}"#
@@ -104,7 +133,7 @@ struct ExerciseTraitsTests {
         "{ not json",
         #"{"version": 3}"#,
         #"{"exercises": [{"name": "Sem slug"}]}"#,
-        #"{"exercises": [{"slug": "plank", "measure": "minutes"}]}"#,
+        #"{"exercises": [{"slug": "plank", "measure": "hours"}]}"#,
         #"{"exercises": [{"slug": "plank", "atHome": "sim"}]}"#,
     ]
 
@@ -130,7 +159,7 @@ struct ExerciseTraitsTests {
         }
     }
 
-    @Test("RF-43 no seed, carregadas medem em passos, pranchas e isometrias em segundos, o resto em repetições")
+    @Test("RF-43 no seed, aeróbicos medem em minutos, carregadas em passos, pranchas e isometrias em segundos, o resto em repetições")
     func seedMeasuresFollowTheExerciseKind() throws {
         let bundle = try SeedTestFiles.bundle()
         let traits = try SeedTestFiles.traits()
@@ -138,7 +167,9 @@ struct ExerciseTraitsTests {
 
         for exercise in bundle.catalog.exercises {
             let expected: ExerciseMeasure
-            if exercise.movementPattern == .carry {
+            if exercise.movementPattern == .cardio {
+                expected = .minutes
+            } else if exercise.movementPattern == .carry {
                 expected = .steps
             } else if isometrics.contains(exercise.slug) {
                 expected = .seconds
@@ -173,14 +204,16 @@ struct ExerciseTraitsTests {
     @Test("H1 no seed, peso do corpo que exige aparelho não é de casa; sem aparelho, é")
     func seedBodyweightNeedingApparatusIsNotAtHome() throws {
         let traits = try SeedTestFiles.traits()
-        // Barra fixa, paralelas, banco 45°, caixa de salto, apoio para os pés e faixa elástica.
+        // Barra fixa, paralelas, banco 45°, caixa de salto, apoio para os pés, faixa elástica e corda.
         let needsApparatus = [
             "pull-up", "chin-up", "parallel-bar-dip", "inverted-row", "back-extension-45", "box-jump",
-            "hanging-leg-raise", "nordic-hamstring-curl", "neck-isometric-band",
+            "hanging-leg-raise", "nordic-hamstring-curl", "neck-isometric-band", "jump-rope",
         ]
         let noApparatus = [
             "push-up", "plank", "side-plank", "dead-bug", "bird-dog", "glute-bridge", "floor-crunch",
             "box-squat", "jump-squat", "manual-neck-isometric",
+            // H1 (2.3): aeróbicos que se fazem em casa ou na rua, sem aparelho.
+            "brisk-walk", "easy-run", "stair-climb", "run-intervals", "bodyweight-circuit",
         ]
 
         for slug in needsApparatus {

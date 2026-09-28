@@ -25,18 +25,27 @@ public struct DoubleProgressionRule: ProgressionRule {
         now: Date
     ) -> ExercisePrescription {
         let increment = exercise.loadIncrement
+        let isBodyweight = exercise.equipment == .bodyweight
+        // SPEC §7.14 F3: an aerobic exercise never gains load on its own; the machine
+        // level only counts once the person records one.
+        let isCardio = exercise.movementPattern == .cardio
         // SPEC P8: a prescribed load never drops below one increment, except pure
         // bodyweight work, where 0 means "no added load" (SPEC §12).
-        let minimumLoad = exercise.equipment == .bodyweight ? 0 : increment
+        let loadedMinimum = isBodyweight ? 0 : increment
 
         guard let ledger = Self.ledger(for: history) else {
             // SPEC P2. Also reached when the history holds only deload sessions: they
             // never supply a reference load (SPEC 7.5, P3), so there is nothing to build on.
-            return Self.calibration(for: target, increment: increment, minimumLoad: minimumLoad)
+            return Self.calibration(for: target, increment: increment, minimumLoad: loadedMinimum)
         }
 
         let latest = ledger.latest
         let referenceLoad = latest.referenceLoad
+        // SPEC P8 (D3): L = 0 means "no external load" on any equipment. Without load the
+        // minimum is 0 too, so every prescription stays at 0 until the person records a
+        // load (SPEC P10), which then becomes L through P3.
+        let isUnloaded = referenceLoad == 0
+        let minimumLoad = isUnloaded ? 0 : loadedMinimum
         // SPEC P8: the reference may be an off-increment override (SPEC P10), so it is
         // normalised once (rounded down) and every prescription below builds on it.
         let baseLoad = Load.round(referenceLoad, toIncrement: increment)
@@ -63,7 +72,9 @@ public struct DoubleProgressionRule: ProgressionRule {
                 $0.isFailure(repMin: target.repMin) && $0.referenceLoad == referenceLoad
             } ?? false
 
-            if repeatedAtSameLoad {
+            // SPEC P6 (D3): at L = 0 there is nothing to reduce, so a repeated failure is
+            // another `retry` at 0 (bodyweight included).
+            if repeatedAtSameLoad, !isUnloaded {
                 // SPEC P6: new load = min(round↓(0.9·L, inc), L − inc) — a 10 % cut
                 // rounded down, and never less than one full increment below the
                 // reference. `baseLoad − inc` stands in for the raw `L − inc` so an
@@ -86,8 +97,13 @@ public struct DoubleProgressionRule: ProgressionRule {
             )
         }
 
+        // SPEC P4 (D3): without load (L = 0), only bodyweight work that is not aerobic
+        // earns the added load at the top of the range (RF-46, decision 18). Any other
+        // exercise at 0 falls through to P5, which keeps 0 and holds the goal at repMax.
+        let earnsLoad = !isUnloaded || (isBodyweight && !isCardio)
+
         // SPEC P4 (with P7: fewer working sets than S can never count as success).
-        if latest.workingSets.count >= target.sets, latest.lowestReps >= target.repMax {
+        if earnsLoad, latest.workingSets.count >= target.sets, latest.lowestReps >= target.repMax {
             // SPEC P4: the +2·inc jump needs every set to report RIR; a missing value
             // is treated as "unknown effort", not as high reserve. The threshold
             // saturates so an absurd `targetRIR` can never trap (SPEC P11 robustness).
@@ -265,8 +281,12 @@ extension DoubleProgressionRule {
             )
         }
 
-        // SPEC P8 applies to the starting load as well: it must sit on the increment grid.
-        let load = max(Load.round(startingLoad, toIncrement: increment), minimumLoad)
+        // SPEC P2 (D3): a starting load of 0 is "no external load" on any equipment and
+        // stays 0. Otherwise SPEC P8 applies to the starting load as well: it must sit on
+        // the increment grid, and a value between 0 and inc rises to inc as before.
+        let load = startingLoad == 0
+            ? 0
+            : max(Load.round(startingLoad, toIncrement: increment), minimumLoad)
         return prescription(for: target, load: load, targetReps: target.repMin, note: .calibrate)
     }
 

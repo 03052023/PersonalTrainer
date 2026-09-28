@@ -20,20 +20,20 @@ final class GoalPlanCatalogTests: XCTestCase {
         let catalog = GoalPlanCatalog(programs: Programs.seed())
 
         XCTAssertEqual(catalog.entry(for: .strength)?.defaultProgramID, GoalPlanCatalog.strengthID)
-        XCTAssertEqual(catalog.entry(for: .endurance)?.defaultProgramID, GoalPlanCatalog.enduranceID)
+        XCTAssertEqual(catalog.entry(for: .endurance)?.defaultProgramID, GoalPlanCatalog.enduranceCardioID)
         XCTAssertEqual(catalog.entry(for: .longevity)?.defaultProgramID, GoalPlanCatalog.longevityID)
         XCTAssertEqual(catalog.entry(for: .combat)?.defaultProgramID, GoalPlanCatalog.combatID)
 
         let hypertrophy = try XCTUnwrap(catalog.entry(for: .hypertrophy))
         XCTAssertEqual(hypertrophy.formats.map(\.id), [
-            GoalPlanCatalog.hypertrophyFullBodyID,
+            GoalPlanCatalog.hypertrophyBalancedID,
             GoalPlanCatalog.hypertrophyLowerFocusID,
             GoalPlanCatalog.hypertrophyUpperFocusID,
         ])
-        XCTAssertEqual(hypertrophy.formats.map(\.title), ["Corpo todo", "Mais pernas e glúteos", "Mais tronco e braços"])
-        XCTAssertEqual(hypertrophy.formats.map(\.dayCount), [3, 4, 4])
-        XCTAssertEqual(hypertrophy.defaultProgramID, GoalPlanCatalog.hypertrophyFullBodyID, "O ativo")
-        XCTAssertEqual(hypertrophy.dayCountText, "3 ou 4 dias")
+        XCTAssertEqual(hypertrophy.formats.map(\.title), ["Equilibrado", "Mais pernas e glúteos", "Mais tronco e braços"])
+        XCTAssertEqual(hypertrophy.formats.map(\.dayCount), [4, 4, 4])
+        XCTAssertEqual(hypertrophy.defaultProgramID, GoalPlanCatalog.hypertrophyBalancedID, "O ativo")
+        XCTAssertEqual(hypertrophy.dayCountText, "4 dias")
         XCTAssertTrue(hypertrophy.isCurrent)
 
         for goal in [ProgramGoal.strength, .endurance, .longevity, .combat] {
@@ -45,7 +45,80 @@ final class GoalPlanCatalogTests: XCTestCase {
         }
         XCTAssertEqual(catalog.activeGoal, .hypertrophy)
         XCTAssertEqual(catalog.activeFormat?.isExtra, false)
-        XCTAssertEqual(catalog.activeFormat?.title, "Corpo todo")
+        XCTAssertEqual(catalog.activeFormat?.title, "Equilibrado")
+    }
+
+    /// SPEC RF-35 (2.3, D1): o Equilibrado é o primeiro formato, e é o que se escolhe ao tocar na
+    /// Hipertrofia vindo de outro objetivo.
+    func testRF45_catalog_balancedIsFirstFormat() throws {
+        let catalog = GoalPlanCatalog(programs: Programs.seed(activeID: GoalPlanCatalog.strengthID))
+
+        let hypertrophy = try XCTUnwrap(catalog.entry(for: .hypertrophy))
+        XCTAssertEqual(hypertrophy.formats.first?.id, GoalPlanCatalog.hypertrophyBalancedID)
+        XCTAssertEqual(hypertrophy.formats.first?.title, "Equilibrado")
+        XCTAssertEqual(hypertrophy.formats.first?.isExtra, false)
+        XCTAssertEqual(hypertrophy.defaultProgramID, GoalPlanCatalog.hypertrophyBalancedID)
+        XCTAssertEqual(GoalPlanCatalog.hypertrophyFormats.map(\.title), ["Equilibrado", "Mais pernas e glúteos", "Mais tronco e braços"])
+    }
+
+    /// SPEC RF-45 (2.3): o Corpo todo some da tela, como o antigo Empurrar/Inferior/Puxar; ativo, ele
+    /// aparece como formato extra com o título "Corpo todo", e não com o nome do programa.
+    func testRF45_catalog_fullBodyHiddenUnlessActive() throws {
+        let hidden = GoalPlanCatalog(programs: Programs.seed())
+        for entry in hidden.entries {
+            XCTAssertFalse(entry.programIDs.contains(GoalPlanCatalog.hypertrophyFullBodyID), "\(entry.goal)")
+        }
+
+        let active = GoalPlanCatalog(programs: Programs.seed(activeID: GoalPlanCatalog.hypertrophyFullBodyID))
+        let hypertrophy = try XCTUnwrap(active.entry(for: .hypertrophy))
+        XCTAssertEqual(hypertrophy.formats.map(\.id), [
+            GoalPlanCatalog.hypertrophyBalancedID,
+            GoalPlanCatalog.hypertrophyLowerFocusID,
+            GoalPlanCatalog.hypertrophyUpperFocusID,
+            GoalPlanCatalog.hypertrophyFullBodyID,
+        ])
+        let extra = try XCTUnwrap(hypertrophy.formats.last)
+        XCTAssertEqual(extra.title, "Corpo todo")
+        XCTAssertTrue(extra.isExtra)
+        XCTAssertTrue(extra.isActive)
+        XCTAssertEqual(extra.dayCount, 3)
+        XCTAssertEqual(hypertrophy.defaultProgramID, GoalPlanCatalog.hypertrophyFullBodyID, "Marcado como atual")
+        XCTAssertEqual(hypertrophy.dayCountText, "3 ou 4 dias")
+        XCTAssertEqual(active.activeFormat?.title, "Corpo todo")
+        XCTAssertEqual(GoalPlanCatalog.chipText(extra), "Corpo todo · 3 dias")
+    }
+
+    /// SPEC RF-45 e RF-48 (2.3): o plano do Fôlego é o programa do seed `09AB286E…`; o antigo
+    /// "Resistência muscular" das instalações existentes só vale enquanto está ativo.
+    func testRF45_catalog_enduranceResolvesToFolego() throws {
+        var programs = Programs.seed()
+        programs.append(Programs.program(id: GoalPlanCatalog.legacyEnduranceID, name: "Resistência muscular", goal: .endurance))
+        let catalog = GoalPlanCatalog(programs: programs)
+
+        let endurance = try XCTUnwrap(catalog.entry(for: .endurance))
+        XCTAssertEqual(endurance.defaultProgramID, GoalPlanCatalog.enduranceCardioID)
+        XCTAssertEqual(endurance.programIDs, [GoalPlanCatalog.enduranceCardioID])
+        XCTAssertEqual(GoalPlanCatalog.seedPlanID(for: .endurance), GoalPlanCatalog.enduranceCardioID)
+
+        // Quem ainda treina com o antigo continua nele até trocar.
+        let legacyActive = programs.map { program -> ProgramTemplate in
+            ProgramTemplate(
+                id: program.id,
+                name: program.name,
+                days: program.days,
+                isActive: program.id == GoalPlanCatalog.legacyEnduranceID,
+                goal: program.goal,
+                summary: program.summary
+            )
+        }
+        let current = GoalPlanCatalog(programs: legacyActive)
+        XCTAssertEqual(current.entry(for: .endurance)?.defaultProgramID, GoalPlanCatalog.legacyEnduranceID)
+        XCTAssertEqual(current.entry(for: .endurance)?.isCurrent, true)
+
+        // Sem o Fôlego no banco, o antigo inativo ainda serve de plano (o primeiro com o objetivo).
+        let withoutFolego = programs.filter { $0.id != GoalPlanCatalog.enduranceCardioID }
+        let fallback = GoalPlanCatalog(programs: withoutFolego)
+        XCTAssertEqual(fallback.entry(for: .endurance)?.defaultProgramID, GoalPlanCatalog.legacyEnduranceID)
     }
 
     func testRF45_catalog_otherGoalActive_hypertrophyStartsAtFirstFormat() throws {
@@ -56,7 +129,7 @@ final class GoalPlanCatalogTests: XCTestCase {
         XCTAssertEqual(combat.defaultProgramID, GoalPlanCatalog.combatID)
         let hypertrophy = try XCTUnwrap(catalog.entry(for: .hypertrophy))
         XCTAssertFalse(hypertrophy.isCurrent)
-        XCTAssertEqual(hypertrophy.defaultProgramID, GoalPlanCatalog.hypertrophyFullBodyID)
+        XCTAssertEqual(hypertrophy.defaultProgramID, GoalPlanCatalog.hypertrophyBalancedID)
         XCTAssertNil(catalog.activeFormat, "Combate não tem formatos")
     }
 
@@ -68,7 +141,7 @@ final class GoalPlanCatalogTests: XCTestCase {
 
         let hypertrophy = try XCTUnwrap(catalog.entry(for: .hypertrophy))
         XCTAssertEqual(hypertrophy.formats.map(\.id), [
-            GoalPlanCatalog.hypertrophyFullBodyID,
+            GoalPlanCatalog.hypertrophyBalancedID,
             GoalPlanCatalog.hypertrophyLowerFocusID,
             GoalPlanCatalog.hypertrophyUpperFocusID,
             copyID,
@@ -78,7 +151,7 @@ final class GoalPlanCatalogTests: XCTestCase {
         XCTAssertTrue(extra.isExtra)
         XCTAssertTrue(extra.isActive)
         XCTAssertEqual(hypertrophy.defaultProgramID, copyID, "Marcado como atual")
-        XCTAssertEqual(hypertrophy.dayCountText, "3 a 5 dias")
+        XCTAssertEqual(hypertrophy.dayCountText, "4 ou 5 dias")
         XCTAssertEqual(catalog.activeFormat?.id, copyID)
 
         // Inativa, a cópia some da tela (continua no banco).
@@ -103,6 +176,7 @@ final class GoalPlanCatalogTests: XCTestCase {
         let hidden = GoalPlanCatalog(programs: Programs.seed())
         for entry in hidden.entries {
             XCTAssertFalse(entry.programIDs.contains(GoalPlanCatalog.legacyPushLegsPullID), "\(entry.goal)")
+            XCTAssertFalse(entry.programIDs.contains(GoalPlanCatalog.hypertrophyFullBodyID), "\(entry.goal)")
         }
 
         let active = GoalPlanCatalog(programs: Programs.seed(activeID: GoalPlanCatalog.legacyPushLegsPullID))
@@ -117,7 +191,7 @@ final class GoalPlanCatalogTests: XCTestCase {
     func testRF45_catalog_missingSeedFallsBackToFirstByGoal() throws {
         let firstStrength = UUID()
         let secondStrength = UUID()
-        var programs = Programs.seed().filter { $0.id != GoalPlanCatalog.strengthID && $0.id != GoalPlanCatalog.enduranceID }
+        var programs = Programs.seed().filter { $0.id != GoalPlanCatalog.strengthID && $0.id != GoalPlanCatalog.enduranceCardioID }
         programs.append(Programs.program(id: firstStrength, name: "Força A", goal: .strength, dayCount: 2))
         programs.append(Programs.program(id: secondStrength, name: "Força B", goal: .strength, dayCount: 4))
         let catalog = GoalPlanCatalog(programs: programs)

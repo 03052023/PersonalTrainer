@@ -206,17 +206,19 @@ extension CoachService {
     /// (SPEC RF-35, RF-45), com o título leigo. Os mesmos ids e títulos de
     /// `GoalPlanCatalog.hypertrophyFormats`, repetidos aqui porque um serviço não depende de
     /// `Features/` (ARCHITECTURE §3).
+    /// Desde a 2.3 (D1), o primeiro é o Equilibrado; o antigo Corpo todo ficou escondido.
     static let hypertrophyFormats: [(id: UUID, title: String)] = [
-        (UUID(uuidString: "14E3FAC0-8424-4360-AF9D-20D18DCB0E45") ?? UUID(), "Corpo todo"),
+        (UUID(uuidString: "9FE0818F-1417-4953-B357-43D757054FCC") ?? UUID(), "Equilibrado"),
         (UUID(uuidString: "C7DDB9BA-1897-40D8-BDC8-A14EB6219FDD") ?? UUID(), "Mais pernas e glúteos"),
         (UUID(uuidString: "ADE28A46-680B-4701-A51F-992519A8AD63") ?? UUID(), "Mais tronco e braços"),
     ]
 
     /// C2 "Experimentar um novo programa" (SPEC RF-45: objetivo = plano). Na Hipertrofia, o
     /// próximo dos 3 formatos do seed depois do ativo (dando a volta; um ativo que não é formato
-    /// vai para o primeiro), só entre os que existem, têm dias e continuam na Hipertrofia. Nunca um
-    /// programa escondido pela RF-45 (cópia, o antigo Empurrar/Inferior/Puxar). Nos outros
-    /// objetivos, `nil`: a pessoa escolhe na folha "Seu objetivo".
+    /// vai para o primeiro, então o antigo Corpo todo vai para o Equilibrado), só entre os que
+    /// existem, têm dias e continuam na Hipertrofia. Nunca um programa escondido pela RF-45 (cópia,
+    /// o antigo Corpo todo, o antigo Empurrar/Inferior/Puxar). Nos outros objetivos, `nil`: a
+    /// pessoa escolhe na folha "Seu objetivo".
     func switchCandidate() throws -> (program: ProgramTemplate, title: String)? {
         let all = try programs.allPrograms()
         guard let active = all.first(where: { $0.isActive }), active.effectiveGoal == .hypertrophy else {

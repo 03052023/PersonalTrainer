@@ -13,13 +13,20 @@ extension ProgramReviewer {
         let slots: [ExerciseReviewInput]
         /// One entry per session up to `now`, oldest first (`ReviewHistory.sessions`).
         let sessions: [ExerciseHistoryEntry]
-        /// SPEC R1 over `sessions`; `nil` when no session is measurable.
+        /// SPEC R1 over `sessions`; `nil` when no session is measurable, and always `nil`
+        /// for an aerobic exercise (SPEC R8).
         let progress: ExerciseProgress?
 
         /// SPEC R1: no new best in the last 3 measurable sessions. A streak of 3 implies
         /// an earlier session to compare with, so 3 sessions alone are never stagnant.
         var isStagnant: Bool {
             (progress?.sessionsWithoutProgress ?? 0) >= ProgramReviewer.stagnationSessions
+        }
+
+        /// SPEC R8 (2.3): aerobic exercises (pattern `cardio`, §7.14) stay out of R1, R3 and
+        /// the per-exercise R5 suggestions; they still count in R2 and R4.
+        var isCardio: Bool {
+            exercise.movementPattern == .cardio
         }
     }
 
@@ -85,12 +92,15 @@ extension ProgramReviewer {
             // Sessions dated after `now` cannot have happened yet; they are ignored.
             let sessions = ReviewHistory.sessions(from: sortedSlots.flatMap(\.history))
                 .filter { $0.date <= now }
+            // SPEC R8: an estimated 1RM of minutes is not strength, so aerobic exercises have
+            // no R1 progress (never stagnant, no rep-range or swap suggestion).
+            let isCardio = definition.movementPattern == .cardio
             pools.append(
                 ExercisePool(
                     exercise: definition,
                     slots: sortedSlots,
                     sessions: sessions,
-                    progress: progress(of: sessions)
+                    progress: isCardio ? nil : progress(of: sessions)
                 )
             )
         }
@@ -161,10 +171,11 @@ extension ProgramReviewer {
 
     /// SPEC R3: working sets per primary group inside the window. An exercise with several
     /// primary groups counts each set once for each of them. Every primary group of the
-    /// program has an entry, 0 included.
+    /// program has an entry, 0 included. Aerobic exercises are left out (SPEC R8): their
+    /// legs are a counting convention (§7.4), not strength sets.
     static func workingSetsByMuscle(pools: [ExercisePool], window: DateInterval) -> [MuscleGroup: Int] {
         var totals: [MuscleGroup: Int] = [:]
-        for pool in pools {
+        for pool in pools where !pool.isCardio {
             let count = pool.sessions
                 .filter { $0.date >= window.start && $0.date < window.end }
                 .reduce(0) { $0 + ReviewHistory.workingSets($1.sets).count }

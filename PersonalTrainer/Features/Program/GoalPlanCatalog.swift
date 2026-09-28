@@ -8,17 +8,18 @@ import TrainerCore
 /// Regra de RF-45 para um objetivo sem formatos: o programa ativo, se tiver aquele objetivo;
 /// senão, o do seed (se ainda tiver aquele objetivo); senão, o primeiro com aquele
 /// `effectiveGoal`; senão, nenhum ("Sem plano pronto", não escolhível). Na Hipertrofia, os
-/// formatos são os 3 do seed que existirem, nessa ordem; um ativo de Hipertrofia que não é um
-/// deles (cópia, o antigo Empurrar/Inferior/Puxar) entra como formato extra com o próprio nome;
-/// sem nenhum formato, vale o primeiro programa de Hipertrofia como formato único. Os demais
-/// programas ficam no banco e no backup, só fora da tela.
+/// formatos são os 3 do seed que existirem, nessa ordem (Equilibrado, Mais pernas e glúteos, Mais
+/// tronco e braços; SPEC RF-35, versão 2.3); um ativo de Hipertrofia que não é um deles entra como
+/// formato extra: o antigo Corpo todo com o título "Corpo todo", e os outros (cópia, o antigo
+/// Empurrar/Inferior/Puxar) com o próprio nome. Sem nenhum formato, vale o primeiro programa de
+/// Hipertrofia como formato único. Os demais programas ficam no banco e no backup, só fora da tela.
 struct GoalPlanCatalog: Sendable, Hashable {
     /// Um formato da Hipertrofia (RF-35): um programa com um título leigo.
     struct Format: Sendable, Hashable, Identifiable {
         /// `ProgramTemplate.id`.
         let id: UUID
-        /// "Corpo todo", "Mais pernas e glúteos", "Mais tronco e braços" ou o nome do programa
-        /// quando é um formato extra.
+        /// "Equilibrado", "Mais pernas e glúteos", "Mais tronco e braços"; num formato extra,
+        /// "Corpo todo" (o antigo completo) ou o nome do programa.
         let title: String
         let dayCount: Int
         let isActive: Bool
@@ -63,28 +64,41 @@ struct GoalPlanCatalog: Sendable, Hashable {
 
     // MARK: - Ids do seed (`programs.v2.json`)
 
+    /// O Equilibrado (SPEC RF-35, 2.3, D1): 4 dias alternando Superior e Inferior, o padrão do seed.
+    static let hypertrophyBalancedID = UUID(uuidString: "9FE0818F-1417-4953-B357-43D757054FCC") ?? UUID()
+    /// O antigo Corpo todo (3 dias): escondido desde a 2.3, a não ser que esteja ativo.
     static let hypertrophyFullBodyID = UUID(uuidString: "14E3FAC0-8424-4360-AF9D-20D18DCB0E45") ?? UUID()
     static let hypertrophyLowerFocusID = UUID(uuidString: "C7DDB9BA-1897-40D8-BDC8-A14EB6219FDD") ?? UUID()
     static let hypertrophyUpperFocusID = UUID(uuidString: "ADE28A46-680B-4701-A51F-992519A8AD63") ?? UUID()
     /// O antigo Empurrar/Inferior/Puxar: escondido, a não ser que esteja ativo.
     static let legacyPushLegsPullID = UUID(uuidString: "26262EE7-89B0-4048-93F9-1720FD9CBE40") ?? UUID()
     static let strengthID = UUID(uuidString: "32FA941A-31C4-4D4F-86F5-F3EA366BBB49") ?? UUID()
-    static let enduranceID = UUID(uuidString: "CBE66162-1F29-41BE-9FF6-7A9E34C179BA") ?? UUID()
+    /// O plano do Fôlego (SPEC RF-48, 2.3): cardio simples em minutos.
+    static let enduranceCardioID = UUID(uuidString: "09AB286E-D2B2-49C6-8C9F-400D118D8D03") ?? UUID()
+    /// O antigo "Resistência muscular", que saiu do seed na 2.3. Instalações antigas o mantêm no
+    /// banco; ele só vale como plano do Fôlego enquanto estiver ativo (RF-45: "o ativo primeiro").
+    static let legacyEnduranceID = UUID(uuidString: "CBE66162-1F29-41BE-9FF6-7A9E34C179BA") ?? UUID()
     static let longevityID = UUID(uuidString: "2F776C4F-4E46-47AB-9150-7DC04C4A980B") ?? UUID()
     static let combatID = UUID(uuidString: "C1EB32E3-D082-411E-9DB8-5D2AEFFE5B21") ?? UUID()
 
     /// Os 3 formatos da Hipertrofia na ordem da folha (RF-35).
     static let hypertrophyFormats: [(id: UUID, title: String)] = [
-        (hypertrophyFullBodyID, "Corpo todo"),
+        (hypertrophyBalancedID, "Equilibrado"),
         (hypertrophyLowerFocusID, "Mais pernas e glúteos"),
         (hypertrophyUpperFocusID, "Mais tronco e braços"),
     ]
+
+    /// Título leigo de um programa do seed que só aparece como formato extra, enquanto está ativo
+    /// (RF-45). Os outros extras usam o nome do programa.
+    static func extraFormatTitle(for programID: UUID) -> String? {
+        programID == hypertrophyFullBodyID ? "Corpo todo" : nil
+    }
 
     /// O plano do seed de cada objetivo sem formatos.
     static func seedPlanID(for goal: ProgramGoal) -> UUID? {
         switch goal {
         case .strength: return strengthID
-        case .endurance: return enduranceID
+        case .endurance: return enduranceCardioID
         case .longevity: return longevityID
         case .combat: return combatID
         case .hypertrophy: return nil
@@ -92,7 +106,7 @@ struct GoalPlanCatalog: Sendable, Hashable {
     }
 
     /// Os 5 objetivos na ordem das pétalas (DESIGN §4): Longevidade, Hipertrofia, Força,
-    /// Combate, Resistência muscular.
+    /// Combate, Fôlego.
     static var orderedGoals: [ProgramGoal] {
         ProgramGoal.allCases.sorted { $0.petalIndex < $1.petalIndex }
     }
@@ -216,7 +230,7 @@ struct GoalPlanCatalog: Sendable, Hashable {
         if let active, active.effectiveGoal == .hypertrophy, !formats.contains(where: { $0.id == active.id }) {
             formats.append(Format(
                 id: active.id,
-                title: active.name,
+                title: Self.extraFormatTitle(for: active.id) ?? active.name,
                 dayCount: active.days.count,
                 isActive: true,
                 isExtra: true
@@ -259,17 +273,17 @@ struct GoalPlanCatalog: Sendable, Hashable {
         "\(dayCountText(count)) por semana"
     }
 
-    /// "Corpo todo · 3 dias".
+    /// "Equilibrado · 4 dias".
     static func chipText(_ format: Format) -> String {
         "\(format.title) · \(dayCountText(format.dayCount))"
     }
 
-    /// Leitura do VoiceOver do chip, sem o "·": "Corpo todo, 3 dias".
+    /// Leitura do VoiceOver do chip, sem o "·": "Equilibrado, 4 dias".
     static func spokenChipText(_ format: Format) -> String {
         "\(format.title), \(dayCountText(format.dayCount))"
     }
 
-    /// "Dia A — Corpo todo" → "Dia A". Nome sem travessão fica inteiro.
+    /// "Dia A — Superior" → "Dia A". Nome sem travessão fica inteiro.
     static func shortDayName(_ name: String) -> String {
         guard let range = name.range(of: " — ") else {
             return name

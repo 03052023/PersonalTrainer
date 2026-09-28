@@ -57,7 +57,8 @@ enum ReviewFixtures {
         _ primaries: [MuscleGroup],
         name: String? = nil,
         unit: LoadUnit = .kilograms,
-        equipment: Equipment = .barbell
+        equipment: Equipment = .barbell,
+        pattern: MovementPattern? = nil
     ) -> ExerciseDefinition {
         ExerciseDefinition(
             id: id(100 + number),
@@ -66,7 +67,8 @@ enum ReviewFixtures {
             primaryMuscles: primaries,
             equipment: equipment,
             loadUnit: unit,
-            loadIncrement: 2.5
+            loadIncrement: 2.5,
+            movementPattern: pattern
         )
     }
 

@@ -76,7 +76,7 @@ final class PlanTabModelTests: XCTestCase {
         model.refresh()
 
         XCTAssertNil(model.nextDayID)
-        XCTAssertEqual(model.days.count, 3)
+        XCTAssertEqual(model.days.count, 4, "O Equilibrado, ativo por padrão, tem 4 dias")
         XCTAssertNil(model.errorMessage, "A falha do planejador não vira alerta")
     }
 

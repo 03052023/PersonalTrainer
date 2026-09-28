@@ -190,6 +190,30 @@ final class ProgramRepositoryTests: XCTestCase {
         XCTAssertEqual(targets.first?.repMin, defaults.compoundRepRange.lowerBound)
     }
 
+    /// SPEC §7.14 (2.3): o aeróbico conta minutos no campo de reps; trocar o objetivo com padrões
+    /// muda só o RIR dele, como nas carregadas e no pescoço.
+    func testSetGoal_withDefaults_skipsCardioButUpdatesRIR() throws {
+        let fixture = try makeFixture()
+        let walk = insertExercise(slug: "brisk-walk", name: "Caminhada rápida", pattern: .cardio, increment: 2.5, into: fixture.context)
+        let walkTarget = insertTarget(order: 3, exercise: walk, into: fixture.context, day: fixture.dayA)
+        walkTarget.sets = 1
+        walkTarget.repMin = 20
+        walkTarget.repMax = 45
+        walkTarget.restSeconds = 60
+        try fixture.context.save()
+        let defaults = ProgramGoal.hypertrophy.defaults
+
+        try fixture.repository.setGoal(programID: fixture.program.uuid, goal: .hypertrophy, applyDefaults: true)
+
+        let targets = try targetsOfDayA(fixture)
+        let storedWalk = try XCTUnwrap(targets.first { $0.id == walkTarget.uuid })
+        XCTAssertEqual(storedWalk.sets, 1)
+        XCTAssertEqual(storedWalk.repMin, 20, "Minutos, não repetições de força")
+        XCTAssertEqual(storedWalk.repMax, 45)
+        XCTAssertEqual(storedWalk.restSeconds, 60)
+        XCTAssertEqual(storedWalk.targetRIR, defaults.targetRIR)
+    }
+
     func testSetGoal_unknownProgram_throwsProgramNotFound() throws {
         let fixture = try makeFixture()
         let unknown = UUID()
@@ -369,6 +393,27 @@ final class ProgramRepositoryTests: XCTestCase {
         XCTAssertEqual(addedNeck.repMin, 10)
         XCTAssertEqual(addedNeck.repMax, 20)
         XCTAssertEqual(addedNeck.restSeconds, defaults.isolationRestSeconds)
+    }
+
+    /// SPEC §7.14 e docs/V23-CORE-CONTRACT.md §2.4: um aeróbico novo num dia usa `CardioDefaults`
+    /// (1 série de 20–40 min, 60 s de descanso), em qualquer objetivo; só o RIR vem do objetivo.
+    func testAddExercise_cardio_startsWithCardioDefaults() throws {
+        let fixture = try makeFixture()
+        fixture.program.goalRaw = ProgramGoal.endurance.rawValue
+        let bike = insertExercise(slug: "stationary-bike", name: "Bicicleta ergométrica", pattern: .cardio, increment: 1, into: fixture.context)
+        try fixture.context.save()
+
+        let bikeID = try fixture.repository.addExercise(exerciseID: bike.uuid, toDay: fixture.dayB.uuid)
+
+        let dayB = try XCTUnwrap(fixture.repository.program(id: fixture.program.uuid)?.days.last)
+        let added = try XCTUnwrap(dayB.exercises.first { $0.id == bikeID })
+        XCTAssertEqual(added.sets, CardioDefaults.sets)
+        XCTAssertEqual(added.sets, 1)
+        XCTAssertEqual(added.repMin, 20)
+        XCTAssertEqual(added.repMax, 40)
+        XCTAssertEqual(added.restSeconds, 60)
+        XCTAssertEqual(added.targetRIR, ProgramGoal.endurance.defaults.targetRIR)
+        XCTAssertNil(added.startingLoad, "O nível da máquina é opcional (SPEC §7.14 F3)")
     }
 
     func testAddExercise_dayAtMaximum_throwsTooManyExercises() throws {

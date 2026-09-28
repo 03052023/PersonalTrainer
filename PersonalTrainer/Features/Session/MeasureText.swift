@@ -2,17 +2,19 @@ import Foundation
 import TrainerCore
 
 /// Textos pt-BR da medida da série (SPEC RF-43): o mesmo número gravado em `reps` aparece como
-/// repetições, segundos ou passos na prescrição ("3 × 20–40 s"), no registro da série (stepper
-/// "Segundos") e no histórico ("0 kg × 30 s"). Compartilhado por Sessão, Home e Histórico.
+/// repetições, segundos, passos ou minutos na prescrição ("3 × 20–40 s", "1 × 20–40 min"), no
+/// registro da série (stepper "Segundos") e no histórico ("0 kg × 30 s"). Compartilhado por
+/// Sessão, Home e Histórico.
 ///
 /// Só formatação: a progressão (P4–P6) usa o número como ele é, em qualquer medida.
 enum MeasureText {
-    /// Título do stepper de registro: "Repetições", "Segundos", "Passos".
+    /// Título do stepper de registro: "Repetições", "Segundos", "Passos", "Minutos".
     static func title(_ measure: ExerciseMeasure) -> String {
         switch measure {
         case .reps: return "Repetições"
         case .seconds: return "Segundos"
         case .steps: return "Passos"
+        case .minutes: return "Minutos"
         }
     }
 
@@ -22,6 +24,7 @@ enum MeasureText {
         case .reps: return "repetições"
         case .seconds: return "segundos"
         case .steps: return "passos"
+        case .minutes: return "minutos"
         }
     }
 
@@ -32,35 +35,40 @@ enum MeasureText {
         case .reps: return 0...50
         case .seconds: return 0...600
         case .steps: return 0...400
+        // SPEC §7.14: o longo e leve chega a 60 min; 300 cobre qualquer sessão real.
+        case .minutes: return 0...300
         }
     }
 
-    /// Faixa da prescrição depois de "S ×": "8–12", "20–40 s", "20–40 passos".
+    /// Faixa da prescrição depois de "S ×": "8–12", "20–40 s", "20–40 passos", "20–40 min".
     static func range(min: Int, max: Int, measure: ExerciseMeasure) -> String {
         let numbers = "\(min)–\(max)"
         switch measure {
         case .reps: return numbers
         case .seconds: return "\(numbers) s"
         case .steps: return "\(numbers) passos"
+        case .minutes: return "\(numbers) min"
         }
     }
 
-    /// Número de uma série depois de "×": "10", "30 s", "30 passos" (ou "1 passo").
+    /// Número de uma série depois de "×": "10", "30 s", "30 passos" (ou "1 passo"), "30 min".
     static func amount(_ value: Int, measure: ExerciseMeasure) -> String {
         switch measure {
         case .reps: return "\(value)"
         case .seconds: return "\(value) s"
         case .steps: return value == 1 ? "1 passo" : "\(value) passos"
+        case .minutes: return "\(value) min"
         }
     }
 
-    /// Leitura por voz de um número da série: "10 repetições", "1 segundo", "30 passos".
+    /// Leitura por voz de um número da série: "10 repetições", "1 segundo", "30 passos", "1 minuto".
     static func spokenAmount(_ value: Int, measure: ExerciseMeasure) -> String {
         let singular: String
         switch measure {
         case .reps: singular = "repetição"
         case .seconds: singular = "segundo"
         case .steps: singular = "passo"
+        case .minutes: singular = "minuto"
         }
         return value == 1 ? "1 \(singular)" : "\(value) \(pluralNoun(measure))"
     }

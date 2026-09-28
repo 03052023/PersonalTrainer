@@ -76,7 +76,7 @@ enum TodayTargetText {
     }
 
     /// Número com a unidade por extenso, para a letra grande da ficha: "3 repetições",
-    /// "1 repetição", "15 segundos", "30 passos".
+    /// "1 repetição", "15 segundos", "30 passos", "30 minutos".
     static func amount(_ value: Int, measure: ExerciseMeasure) -> String {
         switch measure {
         case .reps:
@@ -85,10 +85,12 @@ enum TodayTargetText {
             return value == 1 ? "1 segundo" : "\(value) segundos"
         case .steps:
             return value == 1 ? "1 passo" : "\(value) passos"
+        case .minutes:
+            return value == 1 ? "1 minuto" : "\(value) minutos"
         }
     }
 
-    /// Número curto, para a linha da tela Hoje: "3", "15 s", "30 passos", "1 passo".
+    /// Número curto, para a linha da tela Hoje: "3", "15 s", "30 passos", "1 passo", "30 min".
     static func compactAmount(_ value: Int, measure: ExerciseMeasure) -> String {
         switch measure {
         case .reps:
@@ -97,6 +99,8 @@ enum TodayTargetText {
             return "\(value) s"
         case .steps:
             return value == 1 ? "1 passo" : "\(value) passos"
+        case .minutes:
+            return "\(value) min"
         }
     }
 

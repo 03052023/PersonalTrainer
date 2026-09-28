@@ -10,6 +10,7 @@ import TrainerCore
 ///   - passos (`.steps`): passos médios da faixa × 1 s. O contrato não fixa o ritmo das
 ///     carregadas; andar com carga dá perto de um passo por segundo, e 3 s por passo dobraria o
 ///     tempo de uma caminhada curta;
+///   - minutos (`.minutes`, aeróbicos): os minutos médios da faixa × 60 s;
 /// - mais 2 min por exercício para preparar (ajustar a carga, trocar de aparelho).
 ///
 /// É só uma ordem de grandeza para a pessoa planejar o dia: aquecimento, séries unilaterais e
@@ -19,6 +20,8 @@ enum SessionDurationEstimate {
     static let secondsPerRep = 3.0
     /// Segundos por passo numa carregada (ver comentário do tipo).
     static let secondsPerStep = 1.0
+    /// Segundos por minuto de aeróbico (SPEC §7.14; docs/V23-CORE-CONTRACT.md §2.4).
+    static let secondsPerMinute = 60.0
     /// Preparação de cada exercício (contrato B7: 2 min).
     static let setupSecondsPerExercise = 120.0
 
@@ -52,6 +55,8 @@ enum SessionDurationEstimate {
             work = averageAmount
         case .steps:
             work = averageAmount * secondsPerStep
+        case .minutes:
+            work = averageAmount * secondsPerMinute
         }
         let rest = Double(max(0, prescription.restSeconds))
         return sets * (work + rest) + setupSecondsPerExercise

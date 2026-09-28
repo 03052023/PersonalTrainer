@@ -1,10 +1,267 @@
 {
-  "version": 3,
+  "version": 4,
   "programs": [
+    {
+      "id": "9FE0818F-1417-4953-B357-43D757054FCC",
+      "name": "Hipertrofia — Equilibrado",
+      "isActive": true,
+      "goal": "hypertrophy",
+      "summary": "Para ganhar massa muscular no corpo todo de forma equilibrada: quatro dias que alternam superior e inferior, com cada grupo trabalhado duas vezes por semana.",
+      "days": [
+        {
+          "id": "95D223C4-3CC5-4E04-8C93-C984000985B8",
+          "name": "Dia A — Superior",
+          "order": 0,
+          "exercises": [
+            {
+              "id": "098974F8-824D-42AC-955F-96206C07E701",
+              "exerciseID": "44979BE9-E276-42B9-AC77-76C831062888",
+              "order": 0,
+              "sets": 4,
+              "repMin": 6,
+              "repMax": 10,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            },
+            {
+              "id": "16A07EDC-FF18-4C2E-98DE-19F566C2B90D",
+              "exerciseID": "3C4F420D-2967-4986-ABB6-E6611E0FCC9C",
+              "order": 1,
+              "sets": 4,
+              "repMin": 6,
+              "repMax": 10,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            },
+            {
+              "id": "B0F9EF2A-CC9C-40EF-A110-EF4941F4B123",
+              "exerciseID": "A6C1ABFC-0F95-409B-A5B4-A67AB0A17B00",
+              "order": 2,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            },
+            {
+              "id": "51F45891-2732-4F62-810E-AE506E810B66",
+              "exerciseID": "FD32CC7D-93CC-4A77-B683-E5810E6586A8",
+              "order": 3,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            },
+            {
+              "id": "2BE7C67A-0D66-492A-BBC0-729823993581",
+              "exerciseID": "F334C89D-BA40-42DB-971F-5582A84259B5",
+              "order": 4,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            }
+          ]
+        },
+        {
+          "id": "C541843E-DA88-424C-B4EA-3C4E704FB4CC",
+          "name": "Dia B — Inferior",
+          "order": 1,
+          "exercises": [
+            {
+              "id": "4977FC2D-4437-42AD-942A-4E43E344719B",
+              "exerciseID": "DDA2E060-ADD5-4505-B4F1-067B7A451951",
+              "order": 0,
+              "sets": 4,
+              "repMin": 6,
+              "repMax": 10,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            },
+            {
+              "id": "72D2CDC7-F724-48B6-A158-C1C0D9027804",
+              "exerciseID": "7B3A13B1-8A31-4CE0-AAC3-F5429C1D1530",
+              "order": 1,
+              "sets": 4,
+              "repMin": 6,
+              "repMax": 10,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            },
+            {
+              "id": "AF5CB98F-0B4E-4D42-94C7-F4AD5D9C486E",
+              "exerciseID": "2CE74B2F-3292-4289-8346-76F17F60AE56",
+              "order": 2,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            },
+            {
+              "id": "F74364B7-4886-405C-9119-7419753A7E82",
+              "exerciseID": "84822646-546B-4E54-9673-A868A06AA70D",
+              "order": 3,
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 15,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            },
+            {
+              "id": "5EE42DC7-EB42-4170-AEAF-E406F27B104F",
+              "exerciseID": "D41B575D-CE48-4ED6-9A79-6103D648370D",
+              "order": 4,
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 15,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            }
+          ]
+        },
+        {
+          "id": "B12962AA-D50C-4769-842E-E2BE84FC5810",
+          "name": "Dia C — Superior",
+          "order": 2,
+          "exercises": [
+            {
+              "id": "B17BD40D-7498-428C-8F64-93B7AD208F79",
+              "exerciseID": "79DD67B9-B416-4492-9080-ECF151567891",
+              "order": 0,
+              "sets": 4,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            },
+            {
+              "id": "14751684-7875-4FF2-A399-7D96F209B248",
+              "exerciseID": "0112D559-1B6C-4E1B-A568-FAD5B05239CB",
+              "order": 1,
+              "sets": 4,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            },
+            {
+              "id": "80A150C8-6111-4519-A9B2-74EF4B73B70D",
+              "exerciseID": "DA046A61-1335-48A4-A255-7E3940965DD2",
+              "order": 2,
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 15,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            },
+            {
+              "id": "5565029E-FF88-4B7E-8A9A-CAE6219B5792",
+              "exerciseID": "D226D440-66D5-4172-9C82-462DBE23132E",
+              "order": 3,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            },
+            {
+              "id": "DAAA4C41-9712-425F-8BFE-3C1D2B7B4BEF",
+              "exerciseID": "C6C9FDF2-F4D2-40BF-8790-80D8B6C21DF3",
+              "order": 4,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            }
+          ]
+        },
+        {
+          "id": "E88898A6-4846-4082-A804-40B8955C7C11",
+          "name": "Dia D — Inferior",
+          "order": 3,
+          "exercises": [
+            {
+              "id": "0D4ED71C-D019-4572-8A99-BE960B16348C",
+              "exerciseID": "E4A32243-EAC3-47F6-B149-BD29570E13D1",
+              "order": 0,
+              "sets": 4,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            },
+            {
+              "id": "1E1935B0-12E6-49B2-9767-E6912FF5252A",
+              "exerciseID": "AF5E71FF-6E05-4EBF-B1EB-C69E2C5FA4FE",
+              "order": 1,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            },
+            {
+              "id": "D84C843B-D027-462C-9881-E635B48F46C7",
+              "exerciseID": "DC290FE8-CBE3-49F1-AD95-0CA2E9865EEF",
+              "order": 2,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 150,
+              "startingLoad": null
+            },
+            {
+              "id": "3ECF4B4C-A4DE-4DBB-A1A0-29A4367C2155",
+              "exerciseID": "672FE619-A847-46B6-A25A-D25744FC607F",
+              "order": 3,
+              "sets": 3,
+              "repMin": 12,
+              "repMax": 15,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            },
+            {
+              "id": "8F1D2C89-21BA-41F5-B406-B45A0DCF1235",
+              "exerciseID": "6525301A-2D1D-4626-A921-D40DF056735E",
+              "order": 4,
+              "sets": 3,
+              "repMin": 8,
+              "repMax": 12,
+              "targetRIR": 2,
+              "restSeconds": 90,
+              "startingLoad": null
+            }
+          ]
+        }
+      ]
+    },
     {
       "id": "14E3FAC0-8424-4360-AF9D-20D18DCB0E45",
       "name": "Hipertrofia — Completo",
-      "isActive": true,
+      "isActive": false,
       "goal": "hypertrophy",
       "summary": "Para quem quer ganhar massa muscular no corpo todo de forma equilibrada, em três dias que misturam superior e inferior, com cada grande grupo trabalhado duas vezes por semana.",
       "days": [
@@ -1101,67 +1358,45 @@
       ]
     },
     {
-      "id": "CBE66162-1F29-41BE-9FF6-7A9E34C179BA",
-      "name": "Resistência muscular",
+      "id": "09AB286E-D2B2-49C6-8C9F-400D118D8D03",
+      "name": "Fôlego",
       "isActive": false,
       "goal": "endurance",
-      "summary": "Para quem quer aguentar mais repetições e esforços prolongados, com cargas moderadas e descansos curtos, em três dias de corpo inteiro.",
+      "summary": "Para ganhar fôlego e disposição: três sessões simples por semana (contínua, intervalos e uma longa e leve), medidas em minutos, com exercícios leves de força.",
       "days": [
         {
-          "id": "4C68E463-53A0-4F85-882A-38A3320B752D",
-          "name": "Dia A — Corpo inteiro",
+          "id": "F5F17962-8804-4FAA-A327-22DFE80063A9",
+          "name": "Dia A — Contínuo",
           "order": 0,
           "exercises": [
             {
-              "id": "4B68AC9B-1A9C-46B6-A55C-0620BE636342",
-              "exerciseID": "E4A32243-EAC3-47F6-B149-BD29570E13D1",
+              "id": "E91E8AD9-396E-4EA8-8106-04732840436D",
+              "exerciseID": "FF3602F0-7208-40EE-88D6-E77A4C9C4EED",
               "order": 0,
-              "sets": 3,
-              "repMin": 12,
-              "repMax": 15,
+              "sets": 1,
+              "repMin": 20,
+              "repMax": 45,
               "targetRIR": 3,
-              "restSeconds": 90,
+              "restSeconds": 60,
               "startingLoad": null
             },
             {
-              "id": "D84B8F4C-2AB7-40BB-85A8-3691DB7E1DF4",
-              "exerciseID": "B595BDE8-25AC-46D2-B014-062F77009243",
+              "id": "3FBDA235-ECED-4BC9-8F53-A60C34CC77F6",
+              "exerciseID": "8F12A38E-B5BB-43EE-9797-F4F792C0E340",
               "order": 1,
-              "sets": 3,
+              "sets": 2,
               "repMin": 12,
-              "repMax": 15,
-              "targetRIR": 3,
-              "restSeconds": 90,
-              "startingLoad": null
-            },
-            {
-              "id": "BA4F1CFA-6408-461F-AD9C-D8B504D13AE0",
-              "exerciseID": "35CE0A33-0152-47EC-AFF7-A5930B5A2926",
-              "order": 2,
-              "sets": 3,
-              "repMin": 12,
-              "repMax": 15,
-              "targetRIR": 3,
-              "restSeconds": 90,
-              "startingLoad": null
-            },
-            {
-              "id": "E3CE6D00-2A64-4BAE-82D4-217F10B165C9",
-              "exerciseID": "DA046A61-1335-48A4-A255-7E3940965DD2",
-              "order": 3,
-              "sets": 3,
-              "repMin": 15,
               "repMax": 20,
               "targetRIR": 3,
               "restSeconds": 60,
               "startingLoad": null
             },
             {
-              "id": "5C003057-6608-4AA9-9FEF-C43493BF0FE0",
-              "exerciseID": "D41B575D-CE48-4ED6-9A79-6103D648370D",
-              "order": 4,
-              "sets": 3,
-              "repMin": 15,
+              "id": "72409E69-1131-4540-82F8-7C6C28B3927F",
+              "exerciseID": "70F15AC6-A7D8-42A8-87C6-F41BF0C5DB05",
+              "order": 2,
+              "sets": 2,
+              "repMin": 12,
               "repMax": 20,
               "targetRIR": 3,
               "restSeconds": 60,
@@ -1170,59 +1405,26 @@
           ]
         },
         {
-          "id": "24355ED0-A4F7-41A2-BA6C-5482CDDF8494",
-          "name": "Dia B — Corpo inteiro",
+          "id": "C7B85C1B-A1A6-4B47-9828-B0AB7A5B7C62",
+          "name": "Dia B — Intervalos",
           "order": 1,
           "exercises": [
             {
-              "id": "76EE21B0-BFAD-4D6C-B5A3-D2507CCC6A99",
-              "exerciseID": "6749668F-6D19-45D8-89D6-939B0CFF482D",
+              "id": "154C8BDD-0E2C-44E0-98FB-2D10497DD908",
+              "exerciseID": "732DE545-F908-43F8-A7AA-9D41D6CA7B0E",
               "order": 0,
-              "sets": 3,
-              "repMin": 12,
-              "repMax": 15,
+              "sets": 4,
+              "repMin": 2,
+              "repMax": 4,
               "targetRIR": 3,
-              "restSeconds": 90,
+              "restSeconds": 180,
               "startingLoad": null
             },
             {
-              "id": "8F1D7B73-19A5-413B-BF10-011FA2433CAC",
-              "exerciseID": "0112D559-1B6C-4E1B-A568-FAD5B05239CB",
+              "id": "2ADA3AD9-9C4F-41DC-9965-ADC8583D827E",
+              "exerciseID": "E7C98312-CD82-467C-B355-7C0B93FB7ECA",
               "order": 1,
-              "sets": 3,
-              "repMin": 12,
-              "repMax": 15,
-              "targetRIR": 3,
-              "restSeconds": 90,
-              "startingLoad": null
-            },
-            {
-              "id": "D7B05EBD-C8B9-47EC-8B74-AD182389998B",
-              "exerciseID": "DE1793B2-82AE-4470-80D2-AA4EFC9A35A3",
-              "order": 2,
-              "sets": 3,
-              "repMin": 12,
-              "repMax": 15,
-              "targetRIR": 3,
-              "restSeconds": 90,
-              "startingLoad": null
-            },
-            {
-              "id": "E764E7DD-CE17-45F2-BE67-27A4CA7BBC85",
-              "exerciseID": "AF5E71FF-6E05-4EBF-B1EB-C69E2C5FA4FE",
-              "order": 3,
-              "sets": 3,
-              "repMin": 15,
-              "repMax": 20,
-              "targetRIR": 3,
-              "restSeconds": 60,
-              "startingLoad": null
-            },
-            {
-              "id": "3B68A086-EE19-496A-9F1F-D99DA00D6CF2",
-              "exerciseID": "84822646-546B-4E54-9673-A868A06AA70D",
-              "order": 4,
-              "sets": 3,
+              "sets": 2,
               "repMin": 15,
               "repMax": 20,
               "targetRIR": 3,
@@ -1232,59 +1434,26 @@
           ]
         },
         {
-          "id": "B5F3B6B3-8D3E-48D6-AC0D-1FE1EE7BB469",
-          "name": "Dia C — Corpo inteiro",
+          "id": "06B5194C-74BA-453C-B053-ADC878FAAFDA",
+          "name": "Dia C — Longo e leve",
           "order": 2,
           "exercises": [
             {
-              "id": "42B07E24-ADCE-4D21-927B-F0BFAA6D6D2C",
-              "exerciseID": "324B4A48-C0F6-4BED-AB33-1BA652E65C50",
+              "id": "5174CDE9-F009-4444-8CA6-E625717142A6",
+              "exerciseID": "24B71417-E6AD-41D6-AAA5-D88873A17EDA",
               "order": 0,
-              "sets": 3,
-              "repMin": 12,
-              "repMax": 15,
+              "sets": 1,
+              "repMin": 30,
+              "repMax": 60,
               "targetRIR": 3,
-              "restSeconds": 90,
+              "restSeconds": 60,
               "startingLoad": null
             },
             {
-              "id": "B27335A6-71BD-45D0-930E-4C8F6DEE533A",
-              "exerciseID": "96A1DEEA-9736-41D3-AF26-37DE762B45DC",
+              "id": "899F925D-A20C-4F8D-AD9B-6084D2AF9102",
+              "exerciseID": "C9ACE1EB-4963-4564-97B0-2EBC2EC0BBCA",
               "order": 1,
-              "sets": 3,
-              "repMin": 12,
-              "repMax": 15,
-              "targetRIR": 3,
-              "restSeconds": 90,
-              "startingLoad": null
-            },
-            {
-              "id": "A9C97FD3-3974-498F-864C-E2697EA1E287",
-              "exerciseID": "7DBBF98E-7765-4E47-9FA5-0D19FCB505DD",
-              "order": 2,
-              "sets": 3,
-              "repMin": 12,
-              "repMax": 15,
-              "targetRIR": 3,
-              "restSeconds": 90,
-              "startingLoad": null
-            },
-            {
-              "id": "F5D8C89E-9300-47DE-8C1B-C47CCD5B049E",
-              "exerciseID": "2CE74B2F-3292-4289-8346-76F17F60AE56",
-              "order": 3,
-              "sets": 3,
-              "repMin": 12,
-              "repMax": 15,
-              "targetRIR": 3,
-              "restSeconds": 90,
-              "startingLoad": null
-            },
-            {
-              "id": "6BB6F823-5D9C-4F0D-B7CB-AE926E194279",
-              "exerciseID": "F334C89D-BA40-42DB-971F-5582A84259B5",
-              "order": 4,
-              "sets": 3,
+              "sets": 2,
               "repMin": 15,
               "repMax": 20,
               "targetRIR": 3,

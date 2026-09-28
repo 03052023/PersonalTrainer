@@ -263,7 +263,7 @@ struct ReviewSuggestionTests {
         #expect(RF.suggestions(report, .switchProgram).allSatisfy { $0.strength == .optional })
     }
 
-    @Test("C2/R5 texto da troca de programa traz o nome e as semanas")
+    @Test("C2/R5 texto da troca fala em \"este plano\" e traz as semanas (R8, 2.3)")
     func switchProgramText() throws {
         let bench = RF.exercise(1, [.chest])
 
@@ -283,9 +283,112 @@ struct ReviewSuggestionTests {
         #expect(suggestion.title == "Experimentar um novo programa")
         #expect(
             suggestion.reason
-                == "Você treina com o programa Programa A há 8 semanas; depois de 8 semanas, mudar de programa "
+                == "Você treina com este plano há 8 semanas; depois de 8 semanas, mudar de plano "
                 + "renova o estímulo, e as cargas de cada exercício são mantidas."
         )
+        #expect(!suggestion.reason.contains("Programa A"), "o nome interno do programa não aparece")
+    }
+
+    // MARK: - R8 (2.3): aeróbicos
+
+    @Test("R8 aeróbico fora de R1: minutos parados não estagnam nem pedem faixa, troca ou semana leve")
+    func cardioIsOutsideR1() {
+        let walk = RF.exercise(1, [.quads, .glutes], name: "Caminhada rápida", equipment: .bodyweight, pattern: .cardio)
+        let bike = RF.exercise(2, [.quads, .glutes], name: "Bicicleta ergométrica", unit: .level, equipment: .machine, pattern: .cardio)
+        let bench = RF.exercise(3, [.chest])
+        let flat = [Double](repeating: 100, count: 7)
+
+        let report = RF.review(
+            RF.input(exercises: [
+                RF.slot(walk, target: 1, history: RF.history(e1rms: flat, exercise: 1)),
+                RF.slot(bike, target: 2, history: RF.history(e1rms: flat, exercise: 2)),
+                RF.slot(bench, target: 3, history: RF.history(e1rms: [100, 102.5, 105, 107.5], exercise: 3)),
+            ])
+        )
+
+        // Sem R8, 2 de 3 exercícios "estagnados" pediriam semana leve, troca e faixa vizinha.
+        #expect(report.stagnantExerciseIDs.isEmpty)
+        #expect(RF.suggestions(report, .deload).isEmpty)
+        #expect(RF.suggestions(report, .changeRepRange).isEmpty)
+        #expect(RF.suggestions(report, .swapExercise).isEmpty)
+    }
+
+    @Test("R8 a estagnação ampla (R5) conta só os exercícios que R1 mede")
+    func stagnationWideIgnoresCardio() throws {
+        let walk = RF.exercise(1, [.quads, .glutes], equipment: .bodyweight, pattern: .cardio)
+        let bench = RF.exercise(2, [.chest])
+        let row = RF.exercise(3, [.back])
+
+        let report = RF.review(
+            RF.input(exercises: [
+                RF.slot(walk, target: 1, history: RF.history(e1rms: [100, 102.5, 105, 107.5], exercise: 1)),
+                RF.slot(bench, target: 2, history: RF.history(e1rms: [100, 100, 100, 100], exercise: 2)),
+                RF.slot(row, target: 3, history: RF.history(e1rms: [100, 102.5, 105, 107.5], exercise: 3)),
+            ])
+        )
+
+        #expect(report.stagnantExerciseIDs == [RF.id(102)])
+        let deload = try #require(RF.suggestions(report, .deload).first)
+        #expect(deload.reason.hasPrefix("1 de 2 exercícios (50%) não melhoram há pelo menos 3 sessões."))
+    }
+
+    @Test("R8 aeróbico fora de R3: os minutos não contam séries por grupo nem recebem +1 série")
+    func cardioIsOutsideR3() {
+        let walk = RF.exercise(1, [.quads, .glutes], equipment: .bodyweight, pattern: .cardio)
+        let squat = RF.exercise(2, [.quads, .glutes], pattern: .squat)
+
+        let cardioOnly = RF.review(
+            RF.input(exercises: [RF.slot(walk, target: 1, history: RF.weeklyHistory([2, 2, 2, 2], exercise: 1))])
+        )
+        let withSquat = RF.review(
+            RF.input(exercises: [
+                RF.slot(walk, target: 1, history: RF.weeklyHistory([2, 2, 2, 2], exercise: 1)),
+                RF.slot(squat, target: 2, history: RF.weeklyHistory([2, 2, 2, 2], exercise: 2)),
+            ])
+        )
+
+        #expect(cardioOnly.weeklySetsByMuscle.isEmpty)
+        #expect(cardioOnly.suggestions.isEmpty)
+        // Só o agachamento soma no quadríceps e só ele recebe as séries a mais.
+        #expect(withSquat.weeklySetsByMuscle[.quads] == 2)
+        let additions = RF.suggestions(withSquat, .addSets)
+        #expect(!additions.isEmpty)
+        #expect(additions.allSatisfy { $0.targetIDs == [RF.id(202)] })
+    }
+
+    @Test("R8 aeróbico continua em R2: notas de repetir a meta contam no cansaço")
+    func cardioStillCountsInR2() throws {
+        let walk = RF.exercise(1, [.quads, .glutes], equipment: .bodyweight, pattern: .cardio)
+        let bench = RF.exercise(2, [.chest])
+
+        let report = RF.review(
+            RF.input(
+                exercises: [
+                    RF.slot(walk, target: 1, history: RF.weeklyHistory([1, 1, 1, 1], exercise: 1)),
+                    RF.slot(bench, target: 2, history: RF.weeklyHistory([12, 12, 12, 12], exercise: 2)),
+                ],
+                prescriptions: [RF.prescription(.retry, exercise: 1), RF.prescription(.hold, exercise: 2)]
+            )
+        )
+
+        #expect(report.fatigueHigh)
+        let deload = try #require(RF.suggestions(report, .deload).first)
+        #expect(deload.rule == "R2")
+    }
+
+    @Test("R8 aeróbico continua em R4: a sessão só de aeróbico conta na aderência")
+    func cardioStillCountsInR4() {
+        let walk = RF.exercise(1, [.quads, .glutes], equipment: .bodyweight, pattern: .cardio)
+
+        let report = RF.review(
+            RF.input(
+                exercises: [RF.slot(walk, target: 1, history: RF.weeklyHistory([1, 1, 1, 1], exercise: 1))],
+                sessions: RF.sessionsInWindow(6)
+            )
+        )
+
+        #expect(report.adherence == 0.5)
+        #expect(RF.kinds(report) == [.reduceDays])
     }
 
     // MARK: - R6

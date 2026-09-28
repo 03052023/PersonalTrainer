@@ -13,7 +13,9 @@ import Foundation
 ///   2. depois, os demais de casa com ao menos um grupo primário em comum, na mesma ordem. É a leitura
 ///      de "mesmo grupo primário" já usada no RF-34. Exercício de pescoço e exercício que não é de
 ///      pescoço nunca são equivalentes por grupo: o grupo costas do pescoço é só convenção de
-///      contagem (SPEC §7.4), e uma isometria de pescoço não substitui uma puxada.
+///      contagem (SPEC §7.4), e uma isometria de pescoço não substitui uma puxada. Pelo mesmo motivo,
+///      desde a 2.3, aeróbico e exercício que não é aeróbico nunca se equivalem por grupo: as pernas
+///      do aeróbico também são convenção.
 ///   Dentro de cada um dos dois passos, os de mesma medida (RF-43) vêm antes dos outros, cada parte
 ///   na ordem do RF-34: o alvo vem do original (H4), e a faixa "8–12" de um pallof press não pode
 ///   virar "8–12 s" de uma prancha lateral quando há um dead bug medido em repetições.
@@ -85,12 +87,16 @@ public enum HomeSubstitution {
 
         let primaryGroups = Set(exercise.primaryMuscles)
         let isNeck = exercise.movementPattern == .neck
+        let isCardio = exercise.movementPattern == .cardio
         var seen = Set(samePattern.map(\.id))
         seen.insert(exercise.id)
         var sameGroup: [ExerciseDefinition] = []
         for candidate in homeCatalog where !primaryGroups.isDisjoint(with: candidate.primaryMuscles) {
             // SPEC §7.4: o "costas" do pescoço é convenção de contagem, não treino de costas.
             guard (candidate.movementPattern == .neck) == isNeck else { continue }
+            // SPEC H2 (2.3): as pernas do aeróbico também são convenção (§7.4); uma caminhada não
+            // substitui um agachamento, nem um agachamento substitui a bicicleta.
+            guard (candidate.movementPattern == .cardio) == isCardio else { continue }
             guard seen.insert(candidate.id).inserted else { continue }
             sameGroup.append(candidate)
         }

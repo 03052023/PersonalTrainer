@@ -81,15 +81,15 @@ final class ProgramRepository: ProgramRepositoring {
         program.goalRaw = goal.rawValue
 
         // SPEC §7.9: o objetivo define faixa de reps, RIR e descanso. Séries e carga inicial ficam
-        // como estão: o contrato de `setGoal` só reescreve esses três parâmetros. Carregadas e
-        // isometrias de pescoço contam passos/segundos no campo de reps: faixa e descanso delas
-        // ficam como estão, só o RIR segue o objetivo.
+        // como estão: o contrato de `setGoal` só reescreve esses três parâmetros. Carregadas,
+        // isometrias de pescoço e aeróbicos contam passos, segundos ou minutos no campo de reps:
+        // faixa e descanso deles ficam como estão, só o RIR segue o objetivo (SPEC §7.14).
         if applyDefaults {
             let defaults = goal.defaults
             for day in program.days {
                 for target in day.exercises {
                     target.targetRIR = defaults.targetRIR
-                    guard Self.stepsOrSecondsRange(target.exercise) == nil else {
+                    guard Self.ownRange(target.exercise) == nil else {
                         continue
                     }
                     let isCompound = Self.isCompound(target.exercise)
@@ -176,12 +176,18 @@ final class ProgramRepository: ProgramRepositoring {
         let goal = day.program.flatMap { ProgramGoal(rawValue: $0.goalRaw) } ?? .hypertrophy
         let defaults = goal.defaults
         let isCompound = Self.isCompound(exercise)
+        // Aeróbicos (SPEC §7.14, 2.3) usam `CardioDefaults`: 1 série de 20–40 min e 60 s de descanso.
         // Carregadas e isometrias de pescoço contam passos/segundos, com descanso curto de acessório;
         // os demais usam a faixa do objetivo para compostos ou isolados.
         let repRange: ClosedRange<Int>
         let restSeconds: Int
-        if let stepsOrSeconds = Self.stepsOrSecondsRange(exercise) {
-            repRange = stepsOrSeconds
+        var sets = defaults.setsPerExercise
+        if Self.isCardio(exercise) {
+            repRange = CardioDefaults.minutes
+            restSeconds = CardioDefaults.restSeconds
+            sets = CardioDefaults.sets
+        } else if let ownRange = Self.ownRange(exercise) {
+            repRange = ownRange
             restSeconds = defaults.isolationRestSeconds
         } else {
             repRange = isCompound ? defaults.compoundRepRange : defaults.isolationRepRange
@@ -193,7 +199,7 @@ final class ProgramRepository: ProgramRepositoring {
         let target = ProgramExerciseModel(
             uuid: UUID(),
             order: nextOrder,
-            sets: defaults.setsPerExercise,
+            sets: sets,
             repMin: repRange.lowerBound,
             repMax: repRange.upperBound,
             targetRIR: defaults.targetRIR,
@@ -492,10 +498,10 @@ final class ProgramRepository: ProgramRepositoring {
         return pattern.isCompound
     }
 
-    /// Faixa padrão de exercícios que contam passos (carregadas, 20–40) ou segundos (isometria de
-    /// pescoço, 10–20) no campo de repetições, como no seed v2. `nil` para os demais, que usam a
-    /// faixa de reps do objetivo (SPEC §7.9).
-    private static func stepsOrSecondsRange(_ exercise: ExerciseModel?) -> ClosedRange<Int>? {
+    /// Faixa padrão de exercícios que contam passos (carregadas, 20–40), segundos (isometria de
+    /// pescoço, 10–20) ou minutos (aeróbicos, `CardioDefaults.minutes`, SPEC §7.14) no campo de
+    /// repetições, como no seed. `nil` para os demais, que usam a faixa de reps do objetivo (SPEC §7.9).
+    private static func ownRange(_ exercise: ExerciseModel?) -> ClosedRange<Int>? {
         guard
             let raw = exercise?.movementPatternRaw,
             let pattern = MovementPattern(rawValue: raw)
@@ -507,9 +513,20 @@ final class ProgramRepository: ProgramRepositoring {
             return 20...40
         case .neck:
             return 10...20
+        case .cardio:
+            return CardioDefaults.minutes
         default:
             return nil
         }
+    }
+
+    /// SPEC §7.14: padrão `cardio` no catálogo. Sem padrão (catálogo antigo, exercício do usuário)
+    /// não é aeróbico.
+    private static func isCardio(_ exercise: ExerciseModel?) -> Bool {
+        guard let raw = exercise?.movementPatternRaw else {
+            return false
+        }
+        return MovementPattern(rawValue: raw) == .cardio
     }
 
     private static func validatedName(_ name: String) throws -> String {
