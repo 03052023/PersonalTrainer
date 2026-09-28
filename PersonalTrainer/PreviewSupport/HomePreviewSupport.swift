@@ -61,8 +61,9 @@ import TrainerCore
             plan: HomePreviewFixture.plan,
             days: HomePreviewFixture.days,
             selectedDayID: nil,
-            goal: .hypertrophy,
             references: HomePreviewFixture.references,
+            isHomeModeOn: false,
+            onToggleHomeMode: { _ in },
             onSelectDay: { _ in },
             onSelectAutomatic: {}
         )
@@ -76,7 +77,6 @@ import TrainerCore
             plan: HomePreviewFixture.makePlan(reason: .frequency(muscle: .quads, done: 0, target: 2)),
             days: HomePreviewFixture.days,
             selectedDayID: nil,
-            goal: .strength,
             references: HomePreviewFixture.references,
             onSelectDay: { _ in },
             onSelectAutomatic: {}
@@ -91,7 +91,6 @@ import TrainerCore
             plan: HomePreviewFixture.makePlan(isDeload: true, reason: .deload(.scheduled)),
             days: HomePreviewFixture.days,
             selectedDayID: nil,
-            goal: .longevity,
             references: HomePreviewFixture.references,
             onSelectDay: { _ in },
             onSelectAutomatic: {}
@@ -102,16 +101,18 @@ import TrainerCore
 
 #Preview("Topo — objetivo") {
     VStack(alignment: .leading, spacing: 24) {
-        GoalHeaderView(goal: .strength)
-        GoalHeaderView(goal: nil)
+        GoalHeaderView(goal: .strength, onChangeGoal: {})
+        GoalHeaderView(goal: nil, onChangeGoal: {})
+        GoalHeaderView(goal: .combat, isSessionInProgress: true, onChangeGoal: {})
+        GoalHeaderView(goal: .longevity)
     }
     .padding()
 }
 
 #Preview("PrescriptionRow") {
     VStack(spacing: 16) {
-        ForEach(HomePreviewFixture.plan.exercises) { exercise in
-            PrescriptionRow(exercise: exercise, references: HomePreviewFixture.references)
+        ForEach(Array(HomePreviewFixture.plan.exercises.enumerated()), id: \.element.id) { index, exercise in
+            PrescriptionRow(index: index, exercise: exercise, references: HomePreviewFixture.references, onSelect: {})
         }
     }
     .padding()

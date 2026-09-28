@@ -1,8 +1,9 @@
 import SwiftUI
 import TrainerCore
 
-/// Edição dos parâmetros de um exercício do programa (RF-16, CA2-4): séries, faixa de
-/// repetições, RIR alvo, descanso e carga inicial opcional.
+/// Edição dos parâmetros de um exercício do plano (RF-16, CA2-4): séries, faixa (em repetições,
+/// segundos ou passos, RF-43), descanso e carga inicial opcional. O RIR alvo não aparece nem é
+/// editável (RF-16, RF-41): o rascunho guarda o valor gravado, que volta igual ao salvar.
 ///
 /// Só edita um rascunho local; quem grava é o `ProgramDetailViewModel` (via `onSave`), depois
 /// que a folha fecha. Os steppers já respeitam os limites do repositório, e o botão de salvar
@@ -42,23 +43,15 @@ struct TargetEditorSheet: View {
 
                 Section {
                     Stepper(value: $draft.repMin, in: draft.repMinRange) {
-                        valueRow("Mínimo", value: "\(draft.repMin)")
+                        valueRow("Mínimo", value: MeasureText.amount(draft.repMin, measure: draft.measure))
                     }
                     Stepper(value: $draft.repMax, in: draft.repMaxRange) {
-                        valueRow("Máximo", value: "\(draft.repMax)")
+                        valueRow("Máximo", value: MeasureText.amount(draft.repMax, measure: draft.measure))
                     }
                 } header: {
-                    Text("Repetições")
+                    Text(MeasureText.title(draft.measure))
                 } footer: {
                     Text("Ao chegar ao máximo em todas as séries, a carga sobe e a meta volta ao mínimo.")
-                }
-
-                Section {
-                    Stepper(value: $draft.targetRIR, in: ProgramDetailViewModel.TargetDraft.rirRange) {
-                        valueRow("RIR alvo", value: "\(draft.targetRIR)")
-                    }
-                } footer: {
-                    Text("Repetições que ainda sobrariam no fim da série (0 = até a falha).")
                 }
 
                 Section("Descanso") {
@@ -76,7 +69,7 @@ struct TargetEditorSheet: View {
                 if let problem = result.validationMessage {
                     Section {
                         Label(problem, systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Theme.textPrimary)
                     }
                 }
             }
@@ -96,9 +89,11 @@ struct TargetEditorSheet: View {
                 }
             }
         }
+        .tint(Theme.accent)
     }
 
-    /// Carga inicial (SPEC P2): sem ela, a 1ª sessão é de calibração com carga digitada.
+    /// Carga inicial (SPEC P2): sem ela, a 1ª sessão é a primeira vez, com a carga escolhida na
+    /// própria sessão.
     private var startingLoadSection: some View {
         Section {
             Toggle("Definir carga inicial", isOn: $hasStartingLoad)
@@ -114,11 +109,12 @@ struct TargetEditorSheet: View {
         } header: {
             Text("Carga inicial")
         } footer: {
-            Text("Sem carga inicial, a primeira sessão serve para calibrar: você informa a carga na primeira série.")
+            Text("Sem carga inicial, você escolhe a carga na primeira sessão deste exercício.")
         }
     }
 
-    /// Rascunho final: steppers + carga inicial só se o interruptor estiver ligado.
+    /// Rascunho final: steppers + carga inicial só se o interruptor estiver ligado. O RIR alvo
+    /// segue o gravado.
     private var result: ProgramDetailViewModel.TargetDraft {
         var value = draft
         value.startingLoad = hasStartingLoad ? startingLoad : nil

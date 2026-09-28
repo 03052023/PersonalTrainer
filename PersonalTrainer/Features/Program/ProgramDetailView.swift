@@ -1,8 +1,10 @@
 import SwiftUI
 import TrainerCore
 
-/// Tela de um programa (T2.6, T2.12): nome (renomear), objetivo com "Por quê?" e lista de dias.
-/// Tocar num dia abre o `DayEditorView`, que compartilha este ViewModel.
+/// "Ajustar exercícios" (SPEC RF-45, RF-16, RF-36; T2.6, T2.22): os dias do plano ativo, com
+/// adicionar, renomear, apagar e reordenar. Tocar num dia abre o `DayEditorView`, que
+/// compartilha este ViewModel. Desde a 2.2 não mostra nome do programa, "Renomear programa" nem
+/// o seletor de objetivo: objetivo e plano são uma escolha só, na folha "Seu objetivo".
 ///
 /// Monta o próprio `ProgramDetailViewModel` a partir dos repositórios recebidos e o guarda em
 /// `@State`; toda escrita vai pelo ViewModel (AGENTS R4).
@@ -10,16 +12,8 @@ struct ProgramDetailView: View {
     @State private var model: ProgramDetailViewModel
     private let references: ReferenceCatalog
 
-    /// Alvo do alerta de renomear: o programa ou um dia (T2.22). Os dois casos compartilham um só
-    /// `.alert`, para não empilhar dois alertas no mesmo nó da lista (o comentário mais abaixo
-    /// explica por que isso importa: é o mesmo motivo que já mantinha este alerta fora do `Group`
-    /// do erro).
-    private enum RenameTarget: Equatable {
-        case program
-        case day(id: UUID, name: String)
-    }
-
-    @State private var renameTarget: RenameTarget?
+    /// Dia com o alerta de renomear aberto (T2.22).
+    @State private var renamingDayID: UUID?
     @State private var nameDraft = ""
 
     // Dias do programa (T2.22, RF-36).
@@ -41,25 +35,27 @@ struct ProgramDetailView: View {
 
     var body: some View {
         Group {
-            if let program = model.program {
-                content(for: program)
+            if model.program != nil {
+                content
             } else if !model.hasLoaded {
                 ProgressView()
             } else if model.didFailToLoad {
                 ContentUnavailableView(
-                    "Não foi possível carregar o programa",
+                    "Não foi possível carregar o plano",
                     systemImage: "exclamationmark.triangle",
                     description: Text("Volte e tente de novo.")
                 )
             } else {
                 ContentUnavailableView(
-                    "Programa não encontrado",
+                    "Plano não encontrado",
                     systemImage: "list.bullet.rectangle",
-                    description: Text("Este programa foi apagado.")
+                    description: Text("Volte e escolha um objetivo.")
                 )
             }
         }
-        // Reaparece ao voltar do editor de dia ou do seletor de objetivo: relê o que foi gravado.
+        .navigationTitle("Ajustar exercícios")
+        .navigationBarTitleDisplayMode(.inline)
+        // Reaparece ao voltar do editor de dia: relê o que foi gravado.
         .onAppear {
             model.refresh()
         }
@@ -70,45 +66,11 @@ struct ProgramDetailView: View {
         }
     }
 
-    private func content(for program: ProgramTemplate) -> some View {
+    private var content: some View {
         List {
-            Section("Nome") {
-                HStack(spacing: 8) {
-                    Text(program.name)
-                        .font(.headline)
-                    if program.isActive {
-                        activeBadge
-                    }
-                    Spacer(minLength: 0)
-                }
-                Button {
-                    nameDraft = program.name
-                    renameTarget = .program
-                } label: {
-                    Label("Renomear", systemImage: "pencil")
-                }
-            }
-
-            Section {
-                NavigationLink {
-                    GoalPickerView(selected: model.goal, references: references) { [model] goal, applyDefaults in
-                        model.setGoal(goal, applyDefaults: applyDefaults)
-                    }
-                } label: {
-                    LabeledContent("Objetivo", value: model.goal.displayName)
-                }
-                WhyButton(topic: model.goal.referenceTopic, catalog: references)
-            } header: {
-                Text("Objetivo")
-            } footer: {
-                if let summary = program.summary, !summary.isEmpty {
-                    Text(summary)
-                }
-            }
-
             Section {
                 if model.days.isEmpty {
-                    Text("Este programa não tem dias de treino.")
+                    Text("Este plano não tem dias.")
                         .foregroundStyle(.secondary)
                 }
                 ForEach(model.days, id: \.id) { day in
@@ -125,21 +87,21 @@ struct ProgramDetailView: View {
                     }
                     .swipeActions(edge: .trailing) {
                         // Sem `role: .destructive`: apagar pede confirmação, e o papel destrutivo
-                        // anima a saída da linha antes da resposta (mesmo cuidado do `ProgramTabView`).
+                        // anima a saída da linha antes da resposta.
                         Button {
                             dayPendingDeletion = day
                         } label: {
                             Label("Apagar", systemImage: "trash")
                         }
-                        .tint(.red)
+                        .tint(Theme.destructive)
                         .disabled(!model.canRemoveDay)
                         Button {
                             nameDraft = day.name
-                            renameTarget = .day(id: day.id, name: day.name)
+                            renamingDayID = day.id
                         } label: {
                             Label("Renomear", systemImage: "pencil")
                         }
-                        .tint(.blue)
+                        .tint(Theme.accent)
                     }
                 }
                 .onMove { source, destination in
@@ -155,42 +117,34 @@ struct ProgramDetailView: View {
             } header: {
                 Text("Dias")
             } footer: {
-                Text("De \(ProgramLimits.minDays) a \(ProgramLimits.maxDays) dias. Hoje: \(ProgramListViewModel.dayCountText(model.days.count)).")
+                Text("Toque num dia para trocar, editar ou reordenar os exercícios. De \(ProgramLimits.minDays) a \(ProgramLimits.maxDays) dias; hoje, \(GoalPlanCatalog.dayCountText(model.days.count)).")
             }
         }
-        .navigationTitle(program.name)
-        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 EditButton()
             }
         }
         // Alerta de renomear preso à lista, e não ao `Group`, para não dividir o mesmo nó com o
-        // alerta de erro. Programa e dia compartilham este único `.alert` (ver `RenameTarget`)
-        // para a mesma razão não valer duas vezes dentro da própria lista.
+        // alerta de erro.
         .alert(
-            renameAlertTitle,
+            "Renomear dia",
             isPresented: Binding(
-                get: { renameTarget != nil },
+                get: { renamingDayID != nil },
                 set: { isPresented in
-                    if !isPresented { renameTarget = nil }
+                    if !isPresented { renamingDayID = nil }
                 }
             )
         ) {
-            TextField(renameFieldLabel, text: $nameDraft)
+            TextField("Nome do dia", text: $nameDraft)
             Button("Cancelar", role: .cancel) {}
             Button("Renomear") {
-                switch renameTarget {
-                case .program:
-                    model.rename(to: nameDraft)
-                case .day(let id, _):
-                    model.renameDay(id: id, to: nameDraft)
-                case nil:
-                    break
+                if let dayID = renamingDayID {
+                    model.renameDay(id: dayID, to: nameDraft)
                 }
             }
         } message: {
-            Text(renameAlertMessage)
+            Text("O nome aparece na tela Hoje e no histórico das próximas sessões.")
         }
         .confirmationDialog(
             "Apagar dia?",
@@ -209,38 +163,7 @@ struct ProgramDetailView: View {
             }
             Button("Cancelar", role: .cancel) {}
         } message: { _ in
-            Text("O histórico de sessões desse dia continua no Histórico; só o dia é removido do programa.")
+            Text("As sessões desse dia continuam no Histórico; só o dia sai do plano.")
         }
-    }
-
-    /// Título, rótulo de campo e mensagem do `.alert` de renomear, conforme `renameTarget`.
-    private var renameAlertTitle: String {
-        switch renameTarget {
-        case .day: return "Renomear dia"
-        case .program, nil: return "Renomear programa"
-        }
-    }
-
-    private var renameFieldLabel: String {
-        switch renameTarget {
-        case .day: return "Nome do dia"
-        case .program, nil: return "Nome do programa"
-        }
-    }
-
-    private var renameAlertMessage: String {
-        switch renameTarget {
-        case .day: return "O nome aparece na rotação de treino e no histórico das próximas sessões."
-        case .program, nil: return "O nome aparece na lista de programas e na tela de treino."
-        }
-    }
-
-    private var activeBadge: some View {
-        Text("Ativo")
-            .font(.caption.weight(.semibold))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Color.green.opacity(0.15), in: Capsule())
-            .foregroundStyle(.green)
     }
 }

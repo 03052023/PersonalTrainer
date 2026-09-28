@@ -93,10 +93,11 @@ struct SubstituteExerciseSheet: View {
     }
 
     private var footerText: String {
-        let history = "O exercício novo tem histórico de carga próprio e começa em calibração se você nunca o fez."
+        // DESIGN §7 (2.2): "Primeira vez" no lugar de "calibração"; a aba Programa virou Plano.
+        let history = "O exercício novo tem o próprio histórico de carga. Se você nunca o fez, ele começa como primeira vez."
         switch context {
         case .session:
-            return "A troca vale só para esta sessão. \(history) Para trabalhar outro músculo, ajuste o dia na aba Programa."
+            return "A troca vale só para esta sessão. \(history) Para trabalhar outro músculo, ajuste os exercícios na aba Plano."
         case .program:
             return "A troca fica no programa. \(history) Para trabalhar outro músculo, use \"Adicionar exercício\" e apague este."
         }

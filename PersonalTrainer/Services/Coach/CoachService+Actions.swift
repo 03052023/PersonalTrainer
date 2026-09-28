@@ -68,8 +68,8 @@ extension CoachService {
     /// - changeRepRange: `updateTarget` com a faixa proposta;
     /// - swapExercise: `replaceExercise` pelo primeiro de `SessionPlanning.programSubstitutes`
     ///   que ainda não está no dia (`swapReplacements`);
-    /// - switchProgram: `activate` do próximo programa com o mesmo objetivo (as cargas ficam, o
-    ///   histórico é por exercício); sem outro, a pessoa escolhe na aba Programa;
+    /// - switchProgram: na Hipertrofia, `activate` do próximo formato do seed (as cargas ficam, o
+    ///   histórico é por exercício); sem outro, a pessoa escolhe na folha "Seu objetivo" (RF-45);
     /// - deload: `SessionPlanning.requestDeload`;
     /// - reduceDays: só informa (contrato), nada muda.
     func applySuggestion(of message: CoachMessage, now: Date) throws -> FollowUp? {
@@ -131,7 +131,7 @@ extension CoachService {
             guard let candidate = try switchCandidate() else {
                 return .chooseProgram
             }
-            try programs.activate(programID: candidate.id)
+            try programs.activate(programID: candidate.program.id)
             return nil
 
         case .deload:
@@ -202,17 +202,41 @@ extension CoachService {
         return replacements
     }
 
-    /// C2 "Experimentar um novo programa": o primeiro programa inativo com o mesmo objetivo do
-    /// ativo e com dias, na ordem de `allPrograms` (ativo primeiro, depois por nome), para a
-    /// escolha ser previsível. `nil` quando não há outro.
-    func switchCandidate() throws -> ProgramTemplate? {
+    /// Os 3 formatos da Hipertrofia do seed (`programs.v2.json`), na ordem da folha "Seu objetivo"
+    /// (SPEC RF-35, RF-45), com o título leigo. Os mesmos ids e títulos de
+    /// `GoalPlanCatalog.hypertrophyFormats`, repetidos aqui porque um serviço não depende de
+    /// `Features/` (ARCHITECTURE §3).
+    static let hypertrophyFormats: [(id: UUID, title: String)] = [
+        (UUID(uuidString: "14E3FAC0-8424-4360-AF9D-20D18DCB0E45") ?? UUID(), "Corpo todo"),
+        (UUID(uuidString: "C7DDB9BA-1897-40D8-BDC8-A14EB6219FDD") ?? UUID(), "Mais pernas e glúteos"),
+        (UUID(uuidString: "ADE28A46-680B-4701-A51F-992519A8AD63") ?? UUID(), "Mais tronco e braços"),
+    ]
+
+    /// C2 "Experimentar um novo programa" (SPEC RF-45: objetivo = plano). Na Hipertrofia, o
+    /// próximo dos 3 formatos do seed depois do ativo (dando a volta; um ativo que não é formato
+    /// vai para o primeiro), só entre os que existem, têm dias e continuam na Hipertrofia. Nunca um
+    /// programa escondido pela RF-45 (cópia, o antigo Empurrar/Inferior/Puxar). Nos outros
+    /// objetivos, `nil`: a pessoa escolhe na folha "Seu objetivo".
+    func switchCandidate() throws -> (program: ProgramTemplate, title: String)? {
         let all = try programs.allPrograms()
-        guard let active = all.first(where: { $0.isActive }) else {
+        guard let active = all.first(where: { $0.isActive }), active.effectiveGoal == .hypertrophy else {
             return nil
         }
-        return all.first { program in
-            !program.isActive && program.effectiveGoal == active.effectiveGoal && !program.days.isEmpty
+        let formats = Self.hypertrophyFormats
+        let start = formats.firstIndex(where: { $0.id == active.id }).map { $0 + 1 } ?? 0
+        for offset in 0..<formats.count {
+            let format = formats[(start + offset) % formats.count]
+            guard
+                format.id != active.id,
+                let program = all.first(where: { $0.id == format.id }),
+                program.effectiveGoal == .hypertrophy,
+                !program.days.isEmpty
+            else {
+                continue
+            }
+            return (program: program, title: format.title)
         }
+        return nil
     }
 
     // MARK: - Texto da confirmação
@@ -242,7 +266,7 @@ extension CoachService {
                 return nil
             }
             let setsText = sets == 1 ? "1 série" : "\(sets) séries"
-            return "\(subject) \(verb) a ter \(setsText) por sessão. Faixa, RIR e descanso continuam iguais."
+            return "\(subject) \(verb) a ter \(setsText) por sessão. Repetições e descanso continuam iguais."
         case .changeRepRange:
             guard let range = suggestion.proposedRepRange, !subject.isEmpty else {
                 return nil
@@ -270,13 +294,13 @@ extension CoachService {
             return Self.joinedNames(pairs) + ". Séries, faixa e descanso continuam os mesmos."
         case .switchProgram:
             if let candidate = try? switchCandidate() {
-                return "O programa ativo passa a ser \(candidate.name). As cargas de cada exercício são mantidas."
+                return "O plano passa a ser \(candidate.title). As cargas de cada exercício são mantidas."
             }
-            return "Você escolhe o novo programa na aba Programa. As cargas de cada exercício são mantidas."
+            return "Você escolhe o novo plano em seguida. As cargas de cada exercício são mantidas."
         case .deload:
             return "As próximas sessões, uma de cada dia do programa, ficam mais leves: cerca de 60% das séries, com cargas 15% menores."
         case .reduceDays:
-            return "Nada muda sozinho: para treinar em menos dias, ajuste o programa na aba Programa."
+            return "Nada muda sozinho: para treinar em menos dias, ajuste o plano na aba Plano."
         }
     }
 
@@ -302,6 +326,6 @@ extension CoachService {
                 return "Não há um exercício parecido no catálogo para a troca; nada foi alterado."
             }
         }
-        return "Não foi possível aplicar a mudança agora. Tente de novo ou ajuste pela aba Programa."
+        return "Não foi possível aplicar a mudança agora. Tente de novo ou ajuste pela aba Plano."
     }
 }

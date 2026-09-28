@@ -3,7 +3,8 @@ import SwiftUI
 import TrainerCore
 
 /// Lista de sessões do histórico, mais recente primeiro (SPEC F5, RF-09, CA1-7), com
-/// "Apagar" por deslize (TASKS T2.13, SPEC RF-19).
+/// "Apagar" por deslize (TASKS T2.13, SPEC RF-19) e "Esta semana" (`WeeklyFrequencyCard`,
+/// RF-17) no topo, desde a 2.2 (`docs/V22-CONTRACT.md` §3.7; saiu da Home).
 ///
 /// Só leitura: `@Query` é o único acesso a dados (ARCHITECTURE §3) e nada aqui escreve (R4).
 /// Apagar passa por `onDeleteSession`, que o integrador liga a `SessionCoordinating.deleteSession(id:)`;
@@ -32,33 +33,38 @@ struct HistoryListView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            List {
+                Section {
+                    WeeklyFrequencyCard(references: references)
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                }
                 if visibleSessions.isEmpty {
                     ContentUnavailableView(
                         "Nenhum treino registrado ainda",
                         systemImage: "clock.arrow.circlepath",
-                        description: Text("As sessões finalizadas ou abandonadas aparecem aqui.")
+                        description: Text("As sessões concluídas ou encerradas aparecem aqui.")
                     )
+                    .listRowSeparator(.hidden)
                 } else {
-                    List {
-                        ForEach(visibleSessions, id: \.uuid) { session in
-                            NavigationLink {
-                                SessionDetailView(session: session, references: references)
+                    ForEach(visibleSessions, id: \.uuid) { session in
+                        NavigationLink {
+                            SessionDetailView(session: session, references: references)
+                        } label: {
+                            SessionRow(session: session)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            // Sem `role: .destructive` de propósito: com esse papel a lista
+                            // anima a remoção da linha antes da confirmação, e a linha
+                            // "volta" se o usuário cancelar.
+                            Button {
+                                pendingDeletionID = session.uuid
+                                isConfirmingDeletion = true
                             } label: {
-                                SessionRow(session: session)
+                                Label("Apagar", systemImage: "trash")
                             }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                // Sem `role: .destructive` de propósito: com esse papel a lista
-                                // anima a remoção da linha antes da confirmação, e a linha
-                                // "volta" se o usuário cancelar.
-                                Button {
-                                    pendingDeletionID = session.uuid
-                                    isConfirmingDeletion = true
-                                } label: {
-                                    Label("Apagar", systemImage: "trash")
-                                }
-                                .tint(.red)
-                            }
+                            .tint(.red)
                         }
                     }
                 }

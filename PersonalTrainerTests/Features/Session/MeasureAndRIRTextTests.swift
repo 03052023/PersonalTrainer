@@ -7,6 +7,9 @@ import XCTest
 /// (SPEC RF-43: "3 × 20–40 s", "30 passos", stepper "Segundos") e RIR explicado (SPEC RF-41:
 /// significado de cada valor, escala e leitura acessível "parar com 2 repetições de reserva").
 /// Só funções puras; a parte visual fica para o simulador.
+///
+/// Versão 2.2: a sessão não mostra mais RIR (SPEC RF-41, decisão 18). O rascunho `SetDraft`, o
+/// `RIRText` e o `PrescriptionSpeech` saíram, com os testes deles (docs/V22-CONTRACT.md §4.6).
 @MainActor
 final class MeasureAndRIRTextTests: XCTestCase {
 
@@ -92,112 +95,6 @@ final class MeasureAndRIRTextTests: XCTestCase {
         XCTAssertEqual(MeasureText.tonnage(of: []), 0)
     }
 
-    // MARK: - RF-43 SetDraft
-
-    func testRF43_setDraft_prescriptionSummary_usesMeasure() {
-        XCTAssertEqual(makeDraft(measure: .reps).prescriptionSummary, "3 × 8–12 · 60 kg · RIR 2", "repetições: formato de sempre")
-        XCTAssertEqual(
-            makeDraft(prescribedLoad: 0, repMin: 20, repMax: 40, measure: .seconds).prescriptionSummary,
-            "3 × 20–40 s · 0 kg · RIR 2"
-        )
-        XCTAssertEqual(
-            makeDraft(prescribedLoad: nil, repMin: 20, repMax: 40, measure: .steps).prescriptionSummary,
-            "3 × 20–40 passos · — · RIR 2"
-        )
-    }
-
-    func testRF43_setDraft_defaultsToReps() {
-        let draft = SetDraft(
-            load: 60,
-            reps: 8,
-            rir: 2,
-            setIndex: 0,
-            plannedSets: 3,
-            prescribedLoad: 60,
-            loadIncrement: 2.5,
-            loadUnit: .kilograms,
-            repMin: 8,
-            repMax: 12,
-            targetReps: 8,
-            targetRIR: 2,
-            note: .hold
-        )
-
-        XCTAssertEqual(draft.measure, .reps)
-    }
-
-    func testRF41_setDraft_prescriptionSpokenText_readsRIRTarget() {
-        XCTAssertEqual(
-            makeDraft(measure: .reps).prescriptionSpokenText,
-            "3 séries de 8 a 12 repetições, 60 kg, parar com 2 repetições de reserva"
-        )
-        XCTAssertEqual(
-            makeDraft(prescribedLoad: nil, repMin: 20, repMax: 40, targetRIR: 1, measure: .seconds).prescriptionSpokenText,
-            "3 séries de 20 a 40 segundos, carga a definir na primeira série, parar com 1 repetição de reserva"
-        )
-    }
-
-    // MARK: - RF-41 RIRText
-
-    func testRF41_meaning_eachValue() {
-        XCTAssertEqual(RIRText.meaning(for: 0), "0 · nenhuma a mais")
-        XCTAssertEqual(RIRText.meaning(for: 1), "1 · mais uma")
-        XCTAssertEqual(RIRText.meaning(for: 2), "2 · mais duas")
-        XCTAssertEqual(RIRText.meaning(for: 3), "3 · com folga")
-        XCTAssertEqual(RIRText.meaning(for: 5), "5 · com folga", "RF-03: o seletor vai até 5; de 3 em diante é folga")
-        XCTAssertEqual(RIRText.meaning(for: nil), "Não informado")
-    }
-
-    func testRF41_scale_matchesSpecLabels() {
-        XCTAssertEqual(RIRText.scale, ["0 · nenhuma a mais", "1 · mais uma", "2 · mais duas", "3+ · com folga"])
-    }
-
-    func testRF41_explainerScale_pairsRPE() {
-        XCTAssertEqual(RIRExplainerSheet.scaleRows.map(\.label), RIRText.scale)
-        XCTAssertEqual(RIRExplainerSheet.scaleRows.map(\.rpe), ["RPE 10", "RPE 9", "RPE 8", "RPE 7 ou menos"], "RPE = 10 − RIR")
-        XCTAssertEqual(RIRExplainerSheet.topic, "topic.rir")
-    }
-
-    func testRF41_spokenTarget_accessibleReading() {
-        XCTAssertEqual(RIRText.spokenTarget(2), "parar com 2 repetições de reserva")
-        XCTAssertEqual(RIRText.spokenTarget(1), "parar com 1 repetição de reserva")
-        XCTAssertEqual(RIRText.spokenTarget(0), "parar sem repetições de reserva")
-        XCTAssertEqual(RIRText.spokenTarget(4), "parar com 4 repetições de reserva")
-    }
-
-    func testRF41_spokenOption_perSegment() {
-        XCTAssertEqual(RIRText.spokenOption(nil), "RIR não informado")
-        XCTAssertEqual(RIRText.spokenOption(0), "RIR 0, nenhuma repetição a mais")
-        XCTAssertEqual(RIRText.spokenOption(2), "RIR 2, mais duas repetições")
-        XCTAssertEqual(RIRText.spokenOption(4), "RIR 4, com folga")
-    }
-
-    // MARK: - RF-41 PrescriptionSpeech
-
-    func testRF41_prescriptionSpeech_withRest() {
-        XCTAssertEqual(
-            PrescriptionSpeech.text(
-                sets: 3,
-                repMin: 8,
-                repMax: 12,
-                measure: .reps,
-                loadText: "60 kg",
-                targetRIR: 2,
-                restSeconds: 120
-            ),
-            "3 séries de 8 a 12 repetições, 60 kg, parar com 2 repetições de reserva, descanso de 2 minutos"
-        )
-    }
-
-    func testRF41_prescriptionSpeech_restWords() {
-        XCTAssertEqual(PrescriptionSpeech.rest(seconds: 120), "descanso de 2 minutos")
-        XCTAssertEqual(PrescriptionSpeech.rest(seconds: 60), "descanso de 1 minuto")
-        XCTAssertEqual(PrescriptionSpeech.rest(seconds: 90), "descanso de 1 minuto e 30 segundos")
-        XCTAssertEqual(PrescriptionSpeech.rest(seconds: 45), "descanso de 45 segundos")
-        XCTAssertEqual(PrescriptionSpeech.rest(seconds: 61), "descanso de 1 minuto e 1 segundo")
-        XCTAssertEqual(PrescriptionSpeech.rest(seconds: 0), "sem descanso")
-    }
-
     // Os testes da `PrescriptionRow` (Home) foram para `Home/PrescriptionRowMeasureTests.swift`
     // na versão 2.2 (docs/V22-CONTRACT.md §1): um arquivo de teste por tarefa.
 
@@ -224,32 +121,5 @@ final class MeasureAndRIRTextTests: XCTestCase {
         // O mesmo caminho que `PrescriptionRow` usa para achar a medida.
         XCTAssertEqual(traits.traits(for: seedPlank).measure, .seconds)
         XCTAssertEqual(traits.traits(for: customPlank).measure, .reps, "SPEC RF-43: personalizado usa reps")
-    }
-
-    // MARK: - Fixtures
-
-    private func makeDraft(
-        prescribedLoad: Double? = 60,
-        repMin: Int = 8,
-        repMax: Int = 12,
-        targetRIR: Int = 2,
-        measure: ExerciseMeasure
-    ) -> SetDraft {
-        SetDraft(
-            load: prescribedLoad ?? 0,
-            reps: repMin,
-            rir: targetRIR,
-            setIndex: 0,
-            plannedSets: 3,
-            prescribedLoad: prescribedLoad,
-            loadIncrement: 2.5,
-            loadUnit: .kilograms,
-            repMin: repMin,
-            repMax: repMax,
-            targetReps: repMin,
-            targetRIR: targetRIR,
-            note: .hold,
-            measure: measure
-        )
     }
 }

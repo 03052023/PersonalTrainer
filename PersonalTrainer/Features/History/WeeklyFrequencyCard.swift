@@ -2,9 +2,12 @@ import SwiftData
 import SwiftUI
 import TrainerCore
 
-/// Card "Esta semana" da Home (SPEC §7.4, RF-17, CA2-6; TASKS T2.7): quantas sessões
+/// Card "Esta semana" (SPEC §7.4, RF-17, CA2-6; TASKS T2.7, T7.7): quantas sessões
 /// concluídas trabalharam cada grupo muscular como primário na semana, contra a meta, em
 /// chips compactos ("Peito 1/2"), com o "Por quê?" da frequência (RF-32).
+///
+/// Desde a 2.2 fica no topo do Histórico, não na tela Hoje (RF-17; `docs/V22-CONTRACT.md` §3.7):
+/// movido de `Features/Home/` para cá com `git mv`, mesmo tipo e mesma API (`init(references:)`).
 ///
 /// Só leitura: `@Query` é o único acesso a dados (ARCHITECTURE §3) e nada aqui escreve (R4).
 /// A conta é de `WeeklyFrequency.report` (TrainerCore); aqui só se escolhe a semana e formata.

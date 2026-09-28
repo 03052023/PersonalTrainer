@@ -3,59 +3,69 @@ import TrainerCore
 import XCTest
 @testable import PersonalTrainer
 
-/// Testes da linha da tela Hoje com a medida do exercício (SPEC RF-43) e a leitura por voz,
-/// movidos de `Session/MeasureAndRIRTextTests.swift` na versão 2.2 (docs/V22-CONTRACT.md §1) para
-/// que cada arquivo de teste tenha uma tarefa dona só: este é da tarefa `home`, que reescreve a
-/// `PrescriptionRow` (a meta de hoje em palavras, sem RIR) e atualiza estes testes junto.
+/// Testes da linha da tela Hoje com a medida do exercício (SPEC RF-43) e a leitura por voz da meta
+/// de hoje (SPEC RF-01, RF-46). A versão 2.2 reescreveu a `PrescriptionRow` para mostrar só a meta
+/// de hoje em palavras — sem RIR, sem faixa e sem descanso (decisão 18; docs/V22-CONTRACT.md
+/// §1.5, §3.3) — e estes testes foram atualizados junto, na tarefa `home`.
 @MainActor
 final class PrescriptionRowMeasureTests: XCTestCase {
 
-    func testRF43_prescriptionRow_summary_perMeasure() {
-        let plank = makePlanned(slug: "plank", repMin: 20, repMax: 40, load: 0, restSeconds: 60)
+    func testRF43_row_perMeasure_withLoad() {
+        let isometry = makePlanned(equipment: .machine, repMin: 20, repMax: 40, targetReps: 20, load: 22.5)
 
-        XCTAssertEqual(PrescriptionRow.summary(for: plank), "3 × 20–40 · 0 kg · RIR 2 · 1 min", "sem medida, repetições")
-        XCTAssertEqual(PrescriptionRow.summary(for: plank, measure: .seconds), "3 × 20–40 s · 0 kg · RIR 2 · 1 min")
-        XCTAssertEqual(PrescriptionRow.summary(for: plank, measure: .steps), "3 × 20–40 passos · 0 kg · RIR 2 · 1 min")
+        XCTAssertEqual(PrescriptionRow.rowText(for: isometry), "3 séries de 20 · 22,5 kg", "sem medida, repetições")
+        XCTAssertEqual(PrescriptionRow.rowText(for: isometry, measure: .seconds), "3 séries de 20 s · 22,5 kg")
+        XCTAssertEqual(PrescriptionRow.rowText(for: isometry, measure: .steps), "3 séries de 20 passos · 22,5 kg")
     }
 
-    func testRF41_prescriptionRow_spokenSummary() {
-        let squat = makePlanned(slug: "agachamento-livre", repMin: 8, repMax: 12, load: 60, restSeconds: 120)
-        let calibration = makePlanned(slug: "supino-reto", repMin: 8, repMax: 12, load: nil, restSeconds: 90)
+    /// SPEC RF-46: peso do corpo sem carga extra não mostra carga nenhuma, em nenhuma medida.
+    func testRF46_row_bodyweightWithoutExtraLoad_hidesLoadPerMeasure() {
+        let plank = makePlanned(equipment: .bodyweight, repMin: 20, repMax: 40, targetReps: 20, load: 0)
+
+        XCTAssertEqual(PrescriptionRow.rowText(for: plank, measure: .seconds), "3 séries de 20 s")
+        XCTAssertEqual(PrescriptionRow.rowText(for: plank, measure: .steps), "3 séries de 20 passos")
+    }
+
+    /// SPEC RF-41 (decisão 18): a leitura por voz não fala RIR nem faixa; primeira vez sem carga
+    /// (P2) diz "escolha a carga", nunca "carga a definir" nem um número de repetições em reserva.
+    func testRF01_row_spokenRowText_noRIRNoRange() {
+        let squat = makePlanned(equipment: .barbell, repMin: 8, repMax: 12, targetReps: 8, load: 60)
+        let calibration = makePlanned(equipment: .barbell, repMin: 8, repMax: 12, targetReps: 8, load: nil)
 
         XCTAssertEqual(
-            PrescriptionRow.spokenSummary(for: squat),
-            "3 séries de 8 a 12 repetições, 60 kg, parar com 2 repetições de reserva, descanso de 2 minutos"
+            PrescriptionRow.spokenRowText(for: squat),
+            "3 séries de 8 repetições, 60 kg"
         )
         XCTAssertEqual(
-            PrescriptionRow.spokenSummary(for: calibration, measure: .reps),
-            "3 séries de 8 a 12 repetições, carga a definir na primeira série, parar com 2 repetições de reserva, descanso de 1 minuto e 30 segundos"
+            PrescriptionRow.spokenRowText(for: calibration, measure: .reps),
+            "3 séries de 8 repetições, escolha a carga"
         )
     }
 
     // MARK: - Fixtures
 
-    private func makePlanned(slug: String, repMin: Int, repMax: Int, load: Double?, restSeconds: Int) -> PlannedExercise {
+    private func makePlanned(equipment: Equipment, repMin: Int, repMax: Int, targetReps: Int, load: Double?) -> PlannedExercise {
         let exercise = ExerciseDefinition(
-            slug: slug,
-            name: slug,
+            slug: "fixture",
+            name: "Exercício fixture",
             primaryMuscles: [.core],
-            equipment: .bodyweight,
+            equipment: equipment,
             loadUnit: .kilograms,
             loadIncrement: 2.5
         )
         return PlannedExercise(
             id: UUID(),
             exercise: exercise,
-            target: ExerciseTarget(exerciseID: exercise.id, order: 0, sets: 3, repMin: repMin, repMax: repMax, restSeconds: restSeconds),
+            target: ExerciseTarget(exerciseID: exercise.id, order: 0, sets: 3, repMin: repMin, repMax: repMax),
             prescription: ExercisePrescription(
                 exerciseID: exercise.id,
                 load: load,
                 sets: 3,
                 repMin: repMin,
                 repMax: repMax,
-                targetReps: repMin,
+                targetReps: targetReps,
                 targetRIR: 2,
-                restSeconds: restSeconds,
+                restSeconds: 60,
                 note: .hold
             )
         )

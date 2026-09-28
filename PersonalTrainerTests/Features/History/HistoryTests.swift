@@ -142,16 +142,85 @@ final class HistoryTests: XCTestCase {
         XCTAssertEqual(SessionDetailView.heartRateText(average: 121, maximum: 0), "121 / — bpm")
     }
 
-    // MARK: - SessionExerciseSection.noteText
+    // MARK: - PrescriptionNote.badgeText (T7.7: `SessionExerciseSection.noteText` → `badgeText`)
 
-    func testNoteText_isPortuguese() {
-        XCTAssertEqual(SessionExerciseSection.noteText(.calibrate), "Calibrar")
-        XCTAssertEqual(SessionExerciseSection.noteText(.increase), "Subir")
-        XCTAssertEqual(SessionExerciseSection.noteText(.hold), "Manter")
-        XCTAssertEqual(SessionExerciseSection.noteText(.retry), "Repetir")
-        XCTAssertEqual(SessionExerciseSection.noteText(.decrease), "Reduzir")
-        XCTAssertEqual(SessionExerciseSection.noteText(.returning), "Retorno")
-        XCTAssertEqual(SessionExerciseSection.noteText(.deload), "Semana leve")
+    func testBadgeText_isPortugueseAndHoldHasNoBadge() {
+        XCTAssertEqual(PrescriptionNote.calibrate.badgeText, "Primeira vez")
+        XCTAssertEqual(PrescriptionNote.increase.badgeText, "Carga maior")
+        XCTAssertNil(PrescriptionNote.hold.badgeText, "SPEC RF-41, decisão 18: 'Manter' não tem selo")
+        XCTAssertEqual(PrescriptionNote.retry.badgeText, "Tentar de novo")
+        XCTAssertEqual(PrescriptionNote.decrease.badgeText, "Carga menor")
+        XCTAssertEqual(PrescriptionNote.returning.badgeText, "Retorno")
+        XCTAssertEqual(PrescriptionNote.deload.badgeText, "Semana leve")
+    }
+
+    // MARK: - SessionExerciseSection.prescriptionRowText (RF-41, RF-46)
+
+    func testRF41_prescriptionRowText_hasNoRIR() {
+        let text = SessionExerciseSection.prescriptionRowText(
+            sets: 3, targetReps: 10, repMin: 8, measure: .reps, load: 60, unit: .kilograms, equipment: .machine
+        )
+        XCTAssertEqual(text, "3 séries de 10 · 60 kg")
+        XCTAssertFalse(text.contains("RIR"))
+    }
+
+    func testRF46_prescriptionRowText_bodyweightWithoutLoad_hidesLoad() {
+        let text = SessionExerciseSection.prescriptionRowText(
+            sets: 3, targetReps: 12, repMin: 10, measure: .reps, load: 0, unit: .kilograms, equipment: .bodyweight
+        )
+        XCTAssertEqual(text, "3 séries de 12")
+    }
+
+    func testRF46_prescriptionRowText_bodyweightWithExtraLoad_showsExtra() {
+        let text = SessionExerciseSection.prescriptionRowText(
+            sets: 3, targetReps: 8, repMin: 6, measure: .reps, load: 2.5, unit: .kilograms, equipment: .bodyweight
+        )
+        XCTAssertEqual(text, "3 séries de 8 · + 2,5 kg extra")
+    }
+
+    func testPrescriptionRowText_missingLoad_offersToChoose() {
+        let text = SessionExerciseSection.prescriptionRowText(
+            sets: 4, targetReps: 6, repMin: 6, measure: .reps, load: nil, unit: .kilograms, equipment: .barbell
+        )
+        XCTAssertEqual(text, "4 séries de 6 · escolha a carga")
+    }
+
+    func testPrescriptionRowText_secondsMeasure_usesSecondsWord() {
+        let text = SessionExerciseSection.prescriptionRowText(
+            sets: 2, targetReps: 20, repMin: 20, measure: .seconds, load: nil, unit: .kilograms, equipment: .bodyweight
+        )
+        XCTAssertEqual(text, "2 séries de 20 s")
+    }
+
+    // MARK: - SessionExerciseSection.setLineText (RF-41, RF-46)
+
+    func testRF41_setLineText_hasNoRIR() {
+        let text = SessionExerciseSection.setLineText(
+            index: 0, load: 60, reps: 10, measure: .reps, unit: .kilograms, equipment: .machine
+        )
+        XCTAssertEqual(text, "1 · 60 kg × 10")
+        XCTAssertFalse(text.contains("RIR"))
+    }
+
+    func testRF46_setLineText_bodyweightWithZeroLoad_showsAmountOnly() {
+        let text = SessionExerciseSection.setLineText(
+            index: 0, load: 0, reps: 10, measure: .reps, unit: .kilograms, equipment: .bodyweight
+        )
+        XCTAssertEqual(text, "1 · 10 repetições")
+    }
+
+    func testSetLineText_stepsMeasure_usesMeasureAmount() {
+        let text = SessionExerciseSection.setLineText(
+            index: 0, load: 24, reps: 30, measure: .steps, unit: .kilograms, equipment: .kettlebell
+        )
+        XCTAssertEqual(text, "1 · 24 kg × 30 passos")
+    }
+
+    func testSetLineText_indexIsZeroBasedAndCountsFromOne() {
+        let text = SessionExerciseSection.setLineText(
+            index: 2, load: 60, reps: 8, measure: .reps, unit: .kilograms, equipment: .machine
+        )
+        XCTAssertTrue(text.hasPrefix("3 ·"))
     }
 
     // MARK: - ExerciseProgressView (T2.10)

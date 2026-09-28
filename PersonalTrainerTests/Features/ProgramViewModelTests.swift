@@ -3,144 +3,15 @@ import TrainerCore
 import XCTest
 @testable import PersonalTrainer
 
-/// T2.6, T2.12, T2.20, T2.21: ViewModels da aba Programa e do onboarding sobre doubles em memória
-/// de `ProgramRepositoring` e `CatalogRepositoring` (o `ProgramRepository` real é de outra tarefa
-/// e tem testes próprios). Nada aqui usa SwiftData. Tudo em `@MainActor` (ARCHITECTURE §10).
+/// T2.6, T2.20, T7.4: o ViewModel de "Ajustar exercícios" (aba Plano) sobre doubles em memória de
+/// `ProgramRepositoring` e `CatalogRepositoring` (o `ProgramRepository` real é de outra tarefa e
+/// tem testes próprios). Desde a 2.2 não há lista de programas, renomear programa nem trocar
+/// objetivo por aqui (RF-45), e o RIR alvo não aparece (RF-16, RF-41). A folha "Seu objetivo" e
+/// o `GoalPlanCatalog` têm testes em `Features/Program/`. Nada aqui usa SwiftData. Tudo em
+/// `@MainActor` (ARCHITECTURE §10).
 @MainActor
 final class ProgramViewModelTests: XCTestCase {
-    private let now = Date(timeIntervalSince1970: 1_758_600_000)
-
-    // MARK: - ProgramListViewModel
-
-    func testList_refresh_keepsRepositoryOrder_activeFirst() {
-        let fixture = ProgramTestFixture()
-        let model = makeListModel(fixture)
-
-        XCTAssertTrue(model.programs.isEmpty, "Nada é lido no init: a view chama refresh()")
-        model.refresh()
-
-        XCTAssertEqual(model.programs.map(\.id), [fixture.fullBody.id, fixture.combat.id, fixture.lowerFocus.id, fixture.upperFocus.id])
-        XCTAssertTrue(model.programs.first?.isActive ?? false)
-        XCTAssertFalse(model.didFailToLoad)
-        XCTAssertNil(model.errorMessage)
-    }
-
-    func testList_refreshFailure_setsMessage_andFlagSurvivesClosingAlert() {
-        let fixture = ProgramTestFixture()
-        fixture.repository.readError = ProgramTestError.boom
-        let model = makeListModel(fixture)
-
-        model.refresh()
-
-        XCTAssertTrue(model.didFailToLoad)
-        XCTAssertEqual(model.errorMessage, "Não foi possível carregar os programas.")
-        model.isPresentingError = false
-        XCTAssertNil(model.errorMessage)
-        XCTAssertTrue(model.didFailToLoad, "Fechar o alerta não vira \"nenhum programa\"")
-
-        fixture.repository.readError = nil
-        model.refresh()
-        XCTAssertFalse(model.didFailToLoad)
-        XCTAssertEqual(model.programs.count, 4)
-    }
-
-    func testList_activate_writesAndRereads() {
-        let fixture = ProgramTestFixture()
-        let model = makeListModel(fixture)
-        model.refresh()
-
-        model.activate(fixture.combat.id)
-
-        XCTAssertEqual(fixture.repository.calls, [.activate(fixture.combat.id)])
-        XCTAssertEqual(model.programs.first?.id, fixture.combat.id, "Relido: o novo ativo sobe para o topo")
-        XCTAssertEqual(model.programs.filter(\.isActive).count, 1)
-    }
-
-    func testList_duplicate_usesCopyName_andInjectedClock() {
-        let fixture = ProgramTestFixture()
-        let model = makeListModel(fixture)
-        model.refresh()
-
-        let copyID = model.duplicate(fixture.fullBody.id)
-
-        XCTAssertEqual(fixture.repository.calls, [.duplicate(fixture.fullBody.id, "Hipertrofia — completo (cópia)", now)])
-        XCTAssertNotNil(copyID)
-        XCTAssertTrue(model.programs.contains { $0.id == copyID && !$0.isActive }, "A cópia entra inativa")
-        XCTAssertNil(model.errorMessage)
-    }
-
-    func testList_requestDeletion_ofActive_isRefusedWithoutWrite() {
-        let fixture = ProgramTestFixture()
-        let model = makeListModel(fixture)
-        model.refresh()
-
-        model.requestDeletion(of: fixture.fullBody.id)
-
-        XCTAssertNil(model.pendingDeletion)
-        XCTAssertEqual(model.errorMessage, "O programa ativo não pode ser apagado. Ative outro programa antes.")
-        XCTAssertTrue(fixture.repository.calls.isEmpty)
-    }
-
-    func testList_requestThenConfirmDeletion_deletesInactive() {
-        let fixture = ProgramTestFixture()
-        let model = makeListModel(fixture)
-        model.refresh()
-
-        model.requestDeletion(of: fixture.lowerFocus.id)
-        XCTAssertEqual(model.pendingDeletion?.id, fixture.lowerFocus.id)
-        XCTAssertTrue(model.isConfirmingDeletion)
-        XCTAssertTrue(fixture.repository.calls.isEmpty, "Só apaga depois da confirmação")
-
-        model.confirmDeletion()
-
-        XCTAssertEqual(fixture.repository.calls, [.delete(fixture.lowerFocus.id)])
-        XCTAssertNil(model.pendingDeletion)
-        XCTAssertFalse(model.programs.contains { $0.id == fixture.lowerFocus.id })
-    }
-
-    func testList_cancelDeletion_clearsPending() {
-        let fixture = ProgramTestFixture()
-        let model = makeListModel(fixture)
-        model.refresh()
-        model.requestDeletion(of: fixture.lowerFocus.id)
-
-        model.isConfirmingDeletion = false
-        model.confirmDeletion()
-
-        XCTAssertNil(model.pendingDeletion)
-        XCTAssertTrue(fixture.repository.calls.isEmpty)
-    }
-
-    func testList_deleteError_isMappedToPortuguese() {
-        let fixture = ProgramTestFixture()
-        let model = makeListModel(fixture)
-        model.refresh()
-        model.requestDeletion(of: fixture.lowerFocus.id)
-        fixture.repository.writeError = ProgramRepositoryError.cannotDeleteActive
-
-        model.confirmDeletion()
-
-        XCTAssertEqual(model.errorMessage, "O programa ativo não pode ser apagado. Ative outro programa antes.")
-    }
-
-    func testList_unknownError_usesFallback() {
-        let fixture = ProgramTestFixture()
-        let model = makeListModel(fixture)
-        model.refresh()
-        fixture.repository.writeError = ProgramTestError.boom
-
-        model.activate(fixture.combat.id)
-
-        XCTAssertEqual(model.errorMessage, "Não foi possível ativar o programa.")
-    }
-
-    func testList_texts() {
-        XCTAssertEqual(ProgramListViewModel.copyName(for: "ABC"), "ABC (cópia)")
-        XCTAssertEqual(ProgramListViewModel.dayCountText(1), "1 dia")
-        XCTAssertEqual(ProgramListViewModel.dayCountText(3), "3 dias")
-    }
-
-    // MARK: - ProgramDetailViewModel: leitura, nome e objetivo
+    // MARK: - ProgramDetailViewModel: leitura
 
     func testDetail_refresh_loadsProgramNamesAndAvailableCatalog() {
         let fixture = ProgramTestFixture()
@@ -151,7 +22,6 @@ final class ProgramViewModelTests: XCTestCase {
 
         XCTAssertTrue(model.hasLoaded)
         XCTAssertEqual(model.program?.id, fixture.fullBody.id)
-        XCTAssertEqual(model.goal, .hypertrophy, "Sem objetivo (v1) = hipertrofia")
         XCTAssertEqual(model.days.map(\.order), [0, 1], "Dias na ordem de `order` (S1)")
         XCTAssertEqual(model.exerciseName(for: fixture.dayATargets[0]), "Supino reto com barra")
         XCTAssertNotNil(model.exercisesByID[fixture.archivedChest.id], "Arquivados continuam com nome")
@@ -168,46 +38,6 @@ final class ProgramViewModelTests: XCTestCase {
         XCTAssertNil(model.program)
         XCTAssertFalse(model.didFailToLoad)
         XCTAssertNil(model.errorMessage)
-    }
-
-    func testDetail_rename_trimsAndWrites() {
-        let fixture = ProgramTestFixture()
-        let model = makeDetailModel(fixture)
-        model.refresh()
-
-        model.rename(to: "  Meu ABC  ")
-
-        XCTAssertEqual(fixture.repository.calls, [.rename(fixture.fullBody.id, "Meu ABC")])
-        XCTAssertEqual(model.program?.name, "Meu ABC")
-    }
-
-    func testDetail_rename_emptyOrUnchanged_doesNotWrite() {
-        let fixture = ProgramTestFixture()
-        let model = makeDetailModel(fixture)
-        model.refresh()
-
-        model.rename(to: "   ")
-        XCTAssertEqual(model.errorMessage, "O nome do programa não pode ficar vazio.")
-
-        model.errorMessage = nil
-        model.rename(to: fixture.fullBody.name)
-        XCTAssertNil(model.errorMessage)
-        XCTAssertTrue(fixture.repository.calls.isEmpty)
-    }
-
-    func testDetail_setGoal_forwardsApplyDefaultsChoice() {
-        let fixture = ProgramTestFixture()
-        let model = makeDetailModel(fixture)
-        model.refresh()
-
-        model.setGoal(.strength, applyDefaults: true)
-        model.setGoal(.endurance, applyDefaults: false)
-
-        XCTAssertEqual(fixture.repository.calls, [
-            .setGoal(fixture.fullBody.id, .strength, true),
-            .setGoal(fixture.fullBody.id, .endurance, false),
-        ])
-        XCTAssertEqual(model.goal, .endurance)
     }
 
     // MARK: - ProgramDetailViewModel: dia (RF-33, RF-34)
@@ -391,6 +221,62 @@ final class ProgramViewModelTests: XCTestCase {
         XCTAssertNil(model.dayErrorMessage)
     }
 
+    /// RF-16/RF-41: o editor não mostra nem muda o RIR alvo; salvar devolve o valor gravado, mesmo
+    /// quando ele difere do padrão do objetivo.
+    func testRF16_editor_keepsStoredRIR() throws {
+        for storedRIR in [0, 3, 4] {
+            let fixture = ProgramTestFixture(dayATargetRIR: storedRIR)
+            let model = makeDetailModel(fixture)
+            model.refresh()
+            let benchTarget = fixture.dayATargets[0]
+
+            var draft = try XCTUnwrap(model.makeDraft(forTargetID: benchTarget.id, inDay: fixture.dayA.id))
+            XCTAssertEqual(draft.targetRIR, storedRIR)
+            draft.sets = 5
+            draft.restSeconds = 90
+
+            model.updateTarget(id: benchTarget.id, with: draft)
+
+            XCTAssertEqual(
+                fixture.repository.calls,
+                [.update(benchTarget.id, 5, 8, 12, storedRIR, 90, nil)],
+                "RIR \(storedRIR) volta igual"
+            )
+            XCTAssertEqual(model.targets(inDay: fixture.dayA.id).first?.targetRIR, storedRIR)
+        }
+    }
+
+    /// RF-43 (pendência B-2): a linha do dia e o editor mostram a medida do exercício.
+    func testDetail_summaryAndDraft_useExerciseMeasure() throws {
+        let fixture = ProgramTestFixture()
+        let model = makeDetailModel(fixture)
+        model.refresh()
+        let traits = ExerciseTraitsCatalog(traitsBySlug: [
+            fixture.triceps.slug: ExerciseTraits(measure: .seconds),
+            fixture.row.slug: ExerciseTraits(measure: .steps),
+        ])
+        let targets = fixture.dayATargets
+        let row = try XCTUnwrap(targets.first { $0.exerciseID == fixture.row.id })
+        let triceps = try XCTUnwrap(targets.first { $0.exerciseID == fixture.triceps.id })
+        let bench = try XCTUnwrap(targets.first { $0.exerciseID == fixture.bench.id })
+
+        XCTAssertEqual(model.summary(for: triceps, traits: traits), "3 × 8–12 s · 2 min")
+        XCTAssertEqual(model.summary(for: row, traits: traits), "3 × 8–12 passos · 2 min")
+        XCTAssertEqual(model.summary(for: bench, traits: traits), "3 × 8–12 · 2 min")
+        XCTAssertEqual(model.summary(for: triceps), "3 × 8–12 · 2 min", "Sem catálogo de medidas: repetições")
+
+        let draft = try XCTUnwrap(model.makeDraft(forTargetID: triceps.id, inDay: fixture.dayA.id, traits: traits))
+        XCTAssertEqual(draft.measure, .seconds)
+        XCTAssertEqual(try XCTUnwrap(model.makeDraft(forTargetID: bench.id, inDay: fixture.dayA.id, traits: traits)).measure, .reps)
+    }
+
+    func testTargetSummary_measureUnits() {
+        let target = ExerciseTarget(exerciseID: UUID(), order: 0, sets: 3, repMin: 20, repMax: 40, targetRIR: 2, restSeconds: 60)
+        XCTAssertEqual(ProgramDetailViewModel.targetSummary(target, unit: .kilograms, measure: .seconds), "3 × 20–40 s · 1 min")
+        XCTAssertEqual(ProgramDetailViewModel.targetSummary(target, unit: .kilograms, measure: .steps), "3 × 20–40 passos · 1 min")
+        XCTAssertEqual(ProgramDetailViewModel.targetSummary(target, unit: .kilograms, measure: .reps), "3 × 20–40 · 1 min")
+    }
+
     func testDetail_updateTarget_invalidDraft_isRejectedWithoutWrite() throws {
         let fixture = ProgramTestFixture()
         let model = makeDetailModel(fixture)
@@ -411,7 +297,7 @@ final class ProgramViewModelTests: XCTestCase {
         model.refresh()
         fixture.repository.writeError = ProgramRepositoryError.invalidParameters("repMax")
 
-        model.rename(to: "Outro nome")
+        model.renameDay(id: fixture.dayA.id, to: "Outro nome")
         XCTAssertEqual(model.errorMessage, "Valores inválidos: repMax")
         XCTAssertNil(model.dayErrorMessage)
 
@@ -432,17 +318,23 @@ final class ProgramViewModelTests: XCTestCase {
 
     // MARK: - Formatação e rascunho
 
-    func testTargetSummary_format() {
+    func testRF41_targetSummary_hasNoRIR() {
         let exerciseID = UUID()
         let plain = ExerciseTarget(exerciseID: exerciseID, order: 0, sets: 3, repMin: 8, repMax: 12, targetRIR: 2, restSeconds: 120)
         let withLoad = ExerciseTarget(exerciseID: exerciseID, order: 0, sets: 4, repMin: 6, repMax: 10, targetRIR: 1, restSeconds: 90, startingLoad: 62.5)
         let plates = ExerciseTarget(exerciseID: exerciseID, order: 0, sets: 3, repMin: 10, repMax: 15, targetRIR: 2, restSeconds: 45, startingLoad: 1)
         let level = ExerciseTarget(exerciseID: exerciseID, order: 0, sets: 2, repMin: 12, repMax: 20, targetRIR: 3, restSeconds: 60, startingLoad: 7)
 
-        XCTAssertEqual(ProgramDetailViewModel.targetSummary(plain, unit: .kilograms), "3 × 8–12 · RIR 2 · 2 min")
-        XCTAssertEqual(ProgramDetailViewModel.targetSummary(withLoad, unit: .kilograms), "4 × 6–10 · RIR 1 · 1 min 30 s · inicial 62,5 kg")
-        XCTAssertEqual(ProgramDetailViewModel.targetSummary(plates, unit: .plates), "3 × 10–15 · RIR 2 · 45 s · inicial 1 placa")
-        XCTAssertEqual(ProgramDetailViewModel.targetSummary(level, unit: .level), "2 × 12–20 · RIR 3 · 1 min · inicial nível 7")
+        XCTAssertEqual(ProgramDetailViewModel.targetSummary(plain, unit: .kilograms), "3 × 8–12 · 2 min")
+        XCTAssertEqual(ProgramDetailViewModel.targetSummary(withLoad, unit: .kilograms), "4 × 6–10 · 1 min 30 s · inicial 62,5 kg")
+        XCTAssertEqual(ProgramDetailViewModel.targetSummary(plates, unit: .plates), "3 × 10–15 · 45 s · inicial 1 placa")
+        XCTAssertEqual(ProgramDetailViewModel.targetSummary(level, unit: .level), "2 × 12–20 · 1 min · inicial nível 7")
+        for target in [plain, withLoad, plates, level] {
+            let text = ProgramDetailViewModel.targetSummary(target, unit: .kilograms)
+            XCTAssertFalse(text.contains("RIR"), text)
+            XCTAssertFalse(text.contains("sobrando"), text)
+            XCTAssertFalse(text.contains("antes do limite"), text)
+        }
         XCTAssertEqual(ProgramDetailViewModel.exerciseCountText(1), "1 exercício")
         XCTAssertEqual(ProgramDetailViewModel.exerciseCountText(5), "5 exercícios")
     }
@@ -520,147 +412,7 @@ final class ProgramViewModelTests: XCTestCase {
         XCTAssertEqual(ProgramDetailViewModel.restText(seconds: 0), "sem descanso")
     }
 
-    func testGoalSummaries_existForEveryGoal() {
-        for goal in ProgramGoal.allCases {
-            XCTAssertFalse(GoalPickerView.summary(for: goal).isEmpty, "\(goal)")
-        }
-    }
-
-    // MARK: - OnboardingViewModel (T2.21, RF-35)
-
-    func testOnboarding_chooseGoal_filtersByEffectiveGoal_andPreselectsActive() {
-        let fixture = ProgramTestFixture()
-        let model = OnboardingViewModel(programs: fixture.repository)
-        model.load()
-        XCTAssertEqual(model.step, .goal)
-        XCTAssertFalse(model.canStart)
-
-        model.chooseGoal(.hypertrophy)
-
-        XCTAssertEqual(model.step, .program)
-        XCTAssertEqual(
-            Set(model.candidates.map(\.id)),
-            [fixture.fullBody.id, fixture.lowerFocus.id, fixture.upperFocus.id],
-            "Programa sem objetivo conta como hipertrofia (effectiveGoal)"
-        )
-        XCTAssertEqual(model.selectedProgramID, fixture.fullBody.id, "O ativo vem pré-selecionado")
-        XCTAssertTrue(model.canStart)
-        XCTAssertFalse(model.showsCombatNotice)
-    }
-
-    func testOnboarding_goalWithoutActive_preselectsFirst_andShowsCombatNotice() {
-        let fixture = ProgramTestFixture()
-        let model = OnboardingViewModel(programs: fixture.repository)
-        model.load()
-
-        model.chooseGoal(.combat)
-
-        XCTAssertEqual(model.candidates.map(\.id), [fixture.combat.id])
-        XCTAssertEqual(model.selectedProgramID, fixture.combat.id)
-        XCTAssertTrue(model.showsCombatNotice)
-    }
-
-    func testOnboarding_start_activatesChosenFormat() {
-        let fixture = ProgramTestFixture()
-        let model = OnboardingViewModel(programs: fixture.repository)
-        model.load()
-        model.chooseGoal(.hypertrophy)
-        model.selectProgram(fixture.lowerFocus.id)
-
-        XCTAssertTrue(model.start())
-
-        XCTAssertEqual(fixture.repository.calls, [.activate(fixture.lowerFocus.id)])
-        XCTAssertNil(model.errorMessage)
-    }
-
-    func testOnboarding_selectProgram_ignoresOtherGoals() {
-        let fixture = ProgramTestFixture()
-        let model = OnboardingViewModel(programs: fixture.repository)
-        model.load()
-        model.chooseGoal(.hypertrophy)
-
-        model.selectProgram(fixture.combat.id)
-
-        XCTAssertEqual(model.selectedProgramID, fixture.fullBody.id)
-    }
-
-    func testOnboarding_start_alreadyActive_doesNotWrite() {
-        let fixture = ProgramTestFixture()
-        let model = OnboardingViewModel(programs: fixture.repository)
-        model.load()
-        model.chooseGoal(.hypertrophy)
-
-        XCTAssertTrue(model.start())
-
-        XCTAssertTrue(fixture.repository.calls.isEmpty)
-    }
-
-    func testOnboarding_goalWithoutProgram_adaptsActiveProgram() {
-        let fixture = ProgramTestFixture()
-        let model = OnboardingViewModel(programs: fixture.repository)
-        model.load()
-
-        model.chooseGoal(.strength)
-
-        XCTAssertTrue(model.candidates.isEmpty)
-        XCTAssertEqual(model.adaptationBase?.id, fixture.fullBody.id)
-        XCTAssertTrue(model.canStart)
-        XCTAssertTrue(model.start())
-        XCTAssertEqual(fixture.repository.calls, [.setGoal(fixture.fullBody.id, .strength, true)], "Já ativo: só troca o objetivo com os padrões")
-    }
-
-    func testOnboarding_goBack_returnsToGoalStep() {
-        let fixture = ProgramTestFixture()
-        let model = OnboardingViewModel(programs: fixture.repository)
-        model.load()
-        model.chooseGoal(.combat)
-
-        model.goBack()
-
-        XCTAssertEqual(model.step, .goal)
-    }
-
-    func testOnboarding_startFailure_keepsOnboardingOpen() {
-        let fixture = ProgramTestFixture()
-        let model = OnboardingViewModel(programs: fixture.repository)
-        model.load()
-        model.chooseGoal(.combat)
-        fixture.repository.writeError = ProgramTestError.boom
-
-        XCTAssertFalse(model.start())
-
-        XCTAssertEqual(model.errorMessage, "Não foi possível ativar o programa. Tente de novo.")
-        model.isPresentingError = false
-        XCTAssertNil(model.errorMessage)
-    }
-
-    func testOnboarding_startWithoutGoal_isRefused() {
-        let fixture = ProgramTestFixture()
-        let model = OnboardingViewModel(programs: fixture.repository)
-        model.load()
-
-        XCTAssertFalse(model.start())
-        XCTAssertEqual(model.errorMessage, "Escolha um objetivo.")
-        XCTAssertTrue(fixture.repository.calls.isEmpty)
-    }
-
-    func testOnboarding_loadFailure_setsMessage() {
-        let fixture = ProgramTestFixture()
-        fixture.repository.readError = ProgramTestError.boom
-        let model = OnboardingViewModel(programs: fixture.repository)
-
-        model.load()
-
-        XCTAssertTrue(model.didFailToLoad)
-        XCTAssertEqual(model.errorMessage, "Não foi possível carregar os programas.")
-    }
-
     // MARK: - Fábricas
-
-    private func makeListModel(_ fixture: ProgramTestFixture) -> ProgramListViewModel {
-        let fixedNow = now
-        return ProgramListViewModel(programs: fixture.repository, now: { fixedNow })
-    }
 
     private func makeDetailModel(_ fixture: ProgramTestFixture) -> ProgramDetailViewModel {
         ProgramDetailViewModel(programID: fixture.fullBody.id, programs: fixture.repository, catalog: fixture.catalog)
@@ -697,8 +449,9 @@ private final class ProgramTestFixture {
     }
 
     /// `dayATargetCount` ≥ 4: os quatro primeiros são supino, remada, elevação lateral e tríceps;
-    /// o resto repete a rosca para chegar ao limite de RF-33.
-    init(dayATargetCount: Int = 4) {
+    /// o resto repete a rosca para chegar ao limite de RF-33. `dayATargetRIR` é o RIR alvo gravado
+    /// nos alvos do dia A (RF-16: volta igual ao salvar).
+    init(dayATargetCount: Int = 4, dayATargetRIR: Int = 2) {
         // Locais primeiro: numa classe, `self` só pode ser lido depois de todas as propriedades
         // armazenadas terem valor.
         let bench = ExerciseDefinition(slug: "supino-reto-barra", name: "Supino reto com barra", primaryMuscles: [.chest], equipment: .barbell, loadUnit: .kilograms, loadIncrement: 2.5, movementPattern: .horizontalPush)
@@ -715,7 +468,7 @@ private final class ProgramTestFixture {
             dayAExercises.append(curl.id)
         }
         let targets = dayAExercises.enumerated().map { index, exerciseID in
-            ExerciseTarget(exerciseID: exerciseID, order: index, sets: 3, repMin: 8, repMax: 12, targetRIR: 2, restSeconds: 120)
+            ExerciseTarget(exerciseID: exerciseID, order: index, sets: 3, repMin: 8, repMax: 12, targetRIR: dayATargetRIR, restSeconds: 120)
         }
         // Gravados fora de ordem de propósito: o ViewModel ordena por `order`.
         let dayA = ProgramDayTemplate(name: "Dia A — Superior", order: 0, exercises: Array(targets.reversed()))
@@ -783,6 +536,7 @@ private enum ProgramTestCall: Equatable {
     case move(UUID, Int)
     case replace(UUID, UUID)
     case update(UUID, Int, Int, Int, Int, Int, Double?)
+    case renameDay(UUID, String)
 }
 
 /// Repositório em memória com o comportamento do contrato (ativo primeiro, renumeração de
@@ -921,6 +675,18 @@ private final class ProgramTestRepository: ProgramRepositoring {
                 )
             }
         }
+    }
+
+    func renameDay(id: UUID, to name: String) throws {
+        try record(.renameDay(id, name))
+        guard let programIndex = programs.firstIndex(where: { $0.days.contains { $0.id == id } }) else {
+            throw ProgramRepositoryError.dayNotFound(id)
+        }
+        let program = programs[programIndex]
+        let days = program.days.map { day in
+            day.id == id ? ProgramDayTemplate(id: day.id, name: name, order: day.order, exercises: day.exercises) : day
+        }
+        programs[programIndex] = Self.rebuild(program, days: days)
     }
 
     // MARK: - Apoio
