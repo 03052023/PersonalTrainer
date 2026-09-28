@@ -10,9 +10,12 @@ import XCTest
 /// explicitamente entre ações (SPEC P11); nada aqui lê `Date()`.
 ///
 /// Os JSON do seed vêm de `Bundle.main`, o bundle do app hospedeiro dos testes (mesma premissa
-/// de `SeedLoaderTests`). Seed v2: o programa ativo é "Hipertrofia — Completo" (3 dias, 5
-/// exercícios cada); o primeiro exercício do Dia A é o supino reto com barra (incremento
-/// 2,5 kg, 6–10 reps, RIR 2, sem `startingLoad`), e as contas abaixo valem para ele.
+/// de `SeedLoaderTests`). Seed 4 (versão 2.3): o programa ativo é "Hipertrofia — Equilibrado" (4 dias,
+/// 5 exercícios cada); o primeiro exercício do Dia A é o supino reto com barra (incremento
+/// 2,5 kg, 4 × 6–10 reps, RIR 2, sem `startingLoad`), e as contas abaixo valem para ele.
+///
+/// O planejador roda com o seletor por frequência desligado: estes testes conferem a rotação
+/// (SPEC S2), e com 4 dias o padrão "auto" (RF-39) usaria S5–S7, que dependem do calendário.
 @MainActor
 final class FullLoopTests: XCTestCase {
     /// Data de referência fixa; cada sessão termina e o relógio avança um dia.
@@ -23,8 +26,8 @@ final class FullLoopTests: XCTestCase {
     func testP4_workingSetsAtRepMax_afterFullRotation_dayAIncreasesByOneIncrement() throws {
         let harness = try makeHarness()
         let days = try programDays(in: harness)
-        XCTAssertEqual(days.count, 3, "o seed padrão tem Dia A, B e C")
-        XCTAssertEqual(days.map { $0.exercises.count }, [5, 5, 5], "SPEC §7.9: 5 exercícios por dia")
+        XCTAssertEqual(days.count, 4, "o seed padrão tem Dia A, B, C e D")
+        XCTAssertEqual(days.map { $0.exercises.count }, [5, 5, 5, 5], "SPEC §7.9: 5 exercícios por dia")
 
         // Plano A em instalação limpa: primeiro exercício sem carga (SPEC P2, sem `startingLoad`).
         let planA = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
@@ -35,9 +38,9 @@ final class FullLoopTests: XCTestCase {
         XCTAssertEqual(first.prescription.note, .calibrate)
         XCTAssertNil(first.prescription.load)
         let increment = first.exercise.loadIncrement
-        // SPEC 7.9 decisão 8: compostos do Completo corpo todo têm 4 séries (não 3 como no
-        // A/B/C legado) — P4 exige "nº de séries de trabalho ≥ S", então o script precisa
-        // do S da própria prescrição, não de um literal.
+        // SPEC 7.9: os compostos principais do Equilibrado têm 4 séries (não 3 como no A/B/C
+        // legado) — P4 exige "nº de séries de trabalho ≥ S", então o script precisa do S da
+        // própria prescrição, não de um literal.
         let firstSets = first.prescription.sets
 
         // `firstSets` séries no topo da faixa a 40 kg, RIR 2 → sucesso (P4) na próxima vez que A voltar.
@@ -51,7 +54,7 @@ final class FullLoopTests: XCTestCase {
         XCTAssertNotNil(storedA.endedAt)
         XCTAssertNil(harness.coordinator.activeSession)
 
-        // SPEC S2: depois de A vem B; depois de B, C; depois de C, A de novo.
+        // SPEC S2: depois de A vem B; depois de B, C; depois de C, D; depois de D, A de novo.
         let planB = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
         XCTAssertEqual(planB.programDayID, days[1].uuid)
         try performSession(planB, firstExercise: nil, in: harness)
@@ -59,6 +62,10 @@ final class FullLoopTests: XCTestCase {
         let planC = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
         XCTAssertEqual(planC.programDayID, days[2].uuid)
         try performSession(planC, firstExercise: nil, in: harness)
+
+        let planD = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
+        XCTAssertEqual(planD.programDayID, days[3].uuid)
+        try performSession(planD, firstExercise: nil, in: harness)
 
         let planA2 = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
         XCTAssertEqual(planA2.programDayID, days[0].uuid)
@@ -89,8 +96,7 @@ final class FullLoopTests: XCTestCase {
             firstExercise: FirstExerciseScript(sets: 3, reps: holdingReps, load: 40, rir: 2),
             in: harness
         )
-        try performSession(try XCTUnwrap(try harness.planner.nextPlan(now: clock)), firstExercise: nil, in: harness)
-        try performSession(try XCTUnwrap(try harness.planner.nextPlan(now: clock)), firstExercise: nil, in: harness)
+        try performRestOfRotation(in: harness)
 
         let planA2 = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
         XCTAssertEqual(planA2.programDayID, days[0].uuid)
@@ -127,6 +133,7 @@ final class FullLoopTests: XCTestCase {
         XCTAssertEqual(planB.programDayID, days[1].uuid)
         try performSession(planB, firstExercise: nil, in: harness)
         try performSession(try XCTUnwrap(try harness.planner.nextPlan(now: clock)), firstExercise: nil, in: harness)
+        try performSession(try XCTUnwrap(try harness.planner.nextPlan(now: clock)), firstExercise: nil, in: harness)
 
         let planA2 = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
         XCTAssertEqual(planA2.programDayID, days[0].uuid)
@@ -152,10 +159,9 @@ final class FullLoopTests: XCTestCase {
         let failingReps = first.prescription.repMin - 2
         let failure = FirstExerciseScript(sets: 3, reps: failingReps, load: 40, rir: 2)
 
-        // Primeira passagem: A falha; B e C só mantêm a rotação andando.
+        // Primeira passagem: A falha; B, C e D só mantêm a rotação andando.
         try performSession(planA1, firstExercise: failure, in: harness)
-        try performSession(try XCTUnwrap(try harness.planner.nextPlan(now: clock)), firstExercise: nil, in: harness)
-        try performSession(try XCTUnwrap(try harness.planner.nextPlan(now: clock)), firstExercise: nil, in: harness)
+        try performRestOfRotation(in: harness)
 
         // SPEC P6, primeira ocorrência: mesma carga, meta repMin, nota retry.
         let planA2 = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
@@ -167,8 +173,7 @@ final class FullLoopTests: XCTestCase {
 
         // Segunda passagem: A falha de novo na mesma carga.
         try performSession(planA2, firstExercise: failure, in: harness)
-        try performSession(try XCTUnwrap(try harness.planner.nextPlan(now: clock)), firstExercise: nil, in: harness)
-        try performSession(try XCTUnwrap(try harness.planner.nextPlan(now: clock)), firstExercise: nil, in: harness)
+        try performRestOfRotation(in: harness)
 
         // SPEC P6, segunda ocorrência: min(arredondar↓(L × 0,9, inc), L − inc), respeitando P8.
         let planA3 = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
@@ -210,9 +215,9 @@ final class FullLoopTests: XCTestCase {
         let planA = try XCTUnwrap(try harness.planner.nextPlan(now: clock))
         let first = try XCTUnwrap(planA.exercises.first)
         let repMax = first.prescription.repMax
-        // SPEC 7.9 decisão 8: no Completo corpo todo os compostos têm 4 séries e os isolados
-        // 3 (não sempre 3 como no A/B/C legado), então o nº de séries de trabalho para o
-        // primeiro exercício vem da prescrição, não de um literal.
+        // SPEC 7.9: no Equilibrado os compostos principais têm 4 séries e os outros 3 (não
+        // sempre 3 como no A/B/C legado), então o nº de séries de trabalho para o primeiro
+        // exercício vem da prescrição, não de um literal.
         let firstSets = first.prescription.sets
 
         let sessionID = try performSession(
@@ -296,12 +301,16 @@ final class FullLoopTests: XCTestCase {
         let container = try ModelContainerFactory.make(.inMemory)
         let context = container.mainContext
         let report = try SeedLoader.loadIfNeeded(context: context, bundle: .main, now: clock)
-        // Seed v2: 8 programas (decisão 8, 2026-09-23: Completo corpo todo com id novo ao
-        // lado do A/B/C legado, docs/V2-FINAL-CONTRACT.md §1.3), só um ativo.
-        XCTAssertEqual(report.insertedPrograms, 8)
+        // Seed 4 (versão 2.3): 9 programas, só o Equilibrado ativo (docs/V23-CORE-CONTRACT.md §2.3).
+        XCTAssertEqual(report.insertedPrograms, 9)
         XCTAssertFalse(report.skipped)
         let coordinator = SessionCoordinator(modelContext: context, appliedEvents: AppliedEventStore.inMemory())
-        let planner = SessionPlanner(modelContext: context, coordinator: coordinator)
+        // SPEC S2: a rotação fixa, sem ler o `UserDefaults` do aparelho (RF-39 fica fora destes testes).
+        let planner = SessionPlanner(
+            modelContext: context,
+            coordinator: coordinator,
+            settings: { PlannerSettings(frequencySelector: .off) }
+        )
         return Harness(container: container, context: context, coordinator: coordinator, planner: planner)
     }
 
@@ -311,8 +320,15 @@ final class FullLoopTests: XCTestCase {
         let active = programs.filter { $0.isActive }
         XCTAssertEqual(active.count, 1, "SPEC S1: exatamente um programa ativo")
         let program = try XCTUnwrap(active.first)
-        XCTAssertEqual(program.name, "Hipertrofia — Completo")
+        XCTAssertEqual(program.name, "Hipertrofia — Equilibrado")
         return program.days.sorted { $0.order < $1.order }
+    }
+
+    /// Os outros dias da rotação depois do Dia A (B, C e D), cada um com 1 série por exercício.
+    private func performRestOfRotation(in harness: Harness) throws {
+        for _ in 0..<3 {
+            try performSession(try XCTUnwrap(try harness.planner.nextPlan(now: clock)), firstExercise: nil, in: harness)
+        }
     }
 
     /// Como registrar o primeiro exercício do plano. `nil` = igual aos demais (1 série leve).

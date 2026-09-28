@@ -27,8 +27,8 @@ enum SeedLoaderError: Error, Equatable {
 /// - Store que já tem o seed 2 ou mais novo (`refreshesExistingBelowInstalledVersion`): só insere
 ///   os exercícios que faltam e não reescreve os existentes. O store ainda não marca um exercício
 ///   do seed editado pelo usuário (TASKS C11, fica para um SchemaV3), então reescrever apagaria
-///   essa edição. O seed 3 (versão 2.1) só acrescenta exercícios de casa (RF-42) e não muda os
-///   campos de nenhum exercício do seed 2.
+///   essa edição. O seed 3 (versão 2.1) só acrescenta exercícios de casa (RF-42) e o seed 4 (versão
+///   2.3), os aeróbicos (RF-48); nenhum dos dois muda os campos de um exercício do seed anterior.
 /// - Programas: insere cada programa do seed cujo `uuid` ainda não existe no store; nunca
 ///   altera nem apaga programas existentes. Se o store já tem um programa ativo, os inseridos
 ///   entram inativos (SPEC S1: um único programa ativo). Primeiro launch: o programa marcado
@@ -45,7 +45,10 @@ enum SeedLoader {
     /// dos arquivos). `SeedValidator` só exige `version >= 1` nos arquivos; a comparação com o
     /// store é feita contra esta constante, não contra o campo do JSON.
     /// 3 = versão 2.1: exercícios de casa (RF-42) e descansos dos programas de foco (§7.9).
-    static let currentSeedVersion = 3
+    /// 4 = versão 2.3: os 10 aeróbicos (RF-48), o Equilibrado (RF-35) e o Fôlego (§7.14). Quem já tem
+    /// o seed 3 recebe os dois programas inativos e mantém o ativo e os antigos (Corpo todo,
+    /// Resistência muscular), porque o loader nunca altera nem apaga um programa existente.
+    static let currentSeedVersion = 4
 
     /// Stores com o seed abaixo desta versão (o v1 da M1, sem `movementPattern`) recebem o upsert
     /// completo do catálogo. Daqui para cima, reaplicar o seed só insere exercícios novos.

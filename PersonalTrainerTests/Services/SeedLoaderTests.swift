@@ -15,8 +15,9 @@ import XCTest
 /// é lido aqui — exatamente como o app fará.
 ///
 /// As contagens exatas vêm do próprio seed decodificado; o contrato do M2 fixa só os mínimos
-/// (≥ 70 exercícios, 8 programas — decisão 8, 2026-09-23: Completo corpo todo com id novo ao
-/// lado do A/B/C legado —, 1 ativo, 5 exercícios por dia no ativo).
+/// (≥ 70 exercícios, 1 ativo, 5 exercícios por dia no ativo). Seed 4 (versão 2.3): 9 programas,
+/// com o Equilibrado ativo, o Corpo todo e o A/B/C legado escondidos e o Fôlego no lugar do antigo
+/// "Resistência muscular".
 @MainActor
 final class SeedLoaderTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_700_000_000)
@@ -30,10 +31,10 @@ final class SeedLoaderTests: XCTestCase {
     func testSeedV2_meetsContractMinimums() throws {
         let seed = try decodeSeed()
 
-        // 3 = versão 2.1 (exercícios de casa, RF-42); os arquivos continuam `*.v2.json`.
-        XCTAssertEqual(SeedLoader.currentSeedVersion, 3)
+        // 4 = versão 2.3 (aeróbicos, Equilibrado e Fôlego); os arquivos continuam `*.v2.json`.
+        XCTAssertEqual(SeedLoader.currentSeedVersion, 4)
         XCTAssertGreaterThanOrEqual(seed.catalog.exercises.count, 70)
-        XCTAssertEqual(seed.programs.programs.count, 8)
+        XCTAssertEqual(seed.programs.programs.count, 9)
         XCTAssertEqual(seed.programs.programs.filter(\.isActive).count, 1)
         XCTAssertNoThrow(try SeedValidator.validate(seed))
     }
@@ -74,7 +75,8 @@ final class SeedLoaderTests: XCTestCase {
         let active = programs.filter(\.isActive)
         XCTAssertEqual(active.map(\.uuid), [seedActive.id])
         let program = try XCTUnwrap(active.first)
-        XCTAssertEqual(program.name, "Hipertrofia — Completo")
+        XCTAssertEqual(program.name, "Hipertrofia — Equilibrado")
+        XCTAssertEqual(program.days.count, 4)
         XCTAssertTrue(programs.allSatisfy { $0.createdAt == now })
 
         // To-many não garante ordem; `order` é a ordem de verdade.
@@ -140,7 +142,7 @@ final class SeedLoaderTests: XCTestCase {
         let rows = try context.fetch(FetchDescriptor<UserSettingsModel>())
         XCTAssertEqual(rows.count, 1)
         let settings = try XCTUnwrap(rows.first)
-        XCTAssertEqual(settings.schemaSeedVersion, 3)
+        XCTAssertEqual(settings.schemaSeedVersion, 4)
         XCTAssertEqual(settings.schemaSeedVersion, SeedLoader.currentSeedVersion)
         XCTAssertTrue(settings.weekStartsOnMonday)
         XCTAssertFalse(settings.healthKitEnabled)
@@ -311,6 +313,84 @@ final class SeedLoaderTests: XCTestCase {
         XCTAssertEqual(settings.schemaSeedVersion, SeedLoader.currentSeedVersion)
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramModel>()), seed.programs.programs.count)
     }
+
+    /// CA8-5 (versão 2.3): um store com o seed 3 recebe o Equilibrado e o Fôlego inativos e os 10
+    /// aeróbicos; o programa ativo continua o mesmo, e nada que existia muda ou some, nem o antigo
+    /// "Resistência muscular", que saiu do seed.
+    func testSeedLoader_v4_insertsBalancedAndFolegoInactive_keepsLegacyEndurance() throws {
+        let context = try makeContext()
+        let seed = try decodeSeed()
+        _ = try SeedLoader.loadIfNeeded(context: context, bundle: appBundle, now: now)
+
+        let balancedID = try XCTUnwrap(UUID(uuidString: "9FE0818F-1417-4953-B357-43D757054FCC"))
+        let folegoID = try XCTUnwrap(UUID(uuidString: "09AB286E-D2B2-49C6-8C9F-400D118D8D03"))
+        let fullBodyID = try XCTUnwrap(UUID(uuidString: "14E3FAC0-8424-4360-AF9D-20D18DCB0E45"))
+        let legacyEnduranceID = try XCTUnwrap(UUID(uuidString: "CBE66162-1F29-41BE-9FF6-7A9E34C179BA"))
+        let cardioSlugs = seed.catalog.exercises.filter { $0.movementPattern == .cardio }.map(\.slug)
+        XCTAssertEqual(cardioSlugs.count, 10)
+
+        // Estado de uma instalação com o seed 3: sem os dois programas novos nem os aeróbicos, com o
+        // Corpo todo ativo e o antigo "Resistência muscular" no banco.
+        for program in try context.fetch(FetchDescriptor<ProgramModel>()) where program.uuid == balancedID || program.uuid == folegoID {
+            context.delete(program)
+        }
+        try context.save()
+        for slug in cardioSlugs {
+            let model = try XCTUnwrap(fetchExercise(slug: slug, in: context), slug)
+            context.delete(model)
+        }
+        for program in try context.fetch(FetchDescriptor<ProgramModel>()) where program.uuid == fullBodyID {
+            program.isActive = true
+        }
+        let installedAt = now.addingTimeInterval(-30 * 86_400)
+        let legacyEndurance = ProgramModel(
+            uuid: legacyEnduranceID,
+            name: "Resistência muscular",
+            isActive: false,
+            createdAt: installedAt,
+            goalRaw: ProgramGoal.endurance.rawValue
+        )
+        context.insert(legacyEndurance)
+        let settings = try XCTUnwrap(context.fetch(FetchDescriptor<UserSettingsModel>()).first)
+        settings.schemaSeedVersion = 3
+        try context.save()
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramModel>()), seed.programs.programs.count - 1)
+
+        let later = now.addingTimeInterval(86_400)
+        let report = try SeedLoader.loadIfNeeded(context: context, bundle: appBundle, now: later)
+
+        XCTAssertEqual(
+            report,
+            SeedLoadReport(
+                insertedExercises: cardioSlugs.count,
+                updatedExercises: 0,
+                insertedPrograms: 2,
+                skipped: false,
+                skippedPrograms: seed.programs.programs.count - 2
+            )
+        )
+        XCTAssertEqual(settings.schemaSeedVersion, SeedLoader.currentSeedVersion)
+        let programs = try context.fetch(FetchDescriptor<ProgramModel>())
+        XCTAssertEqual(programs.count, seed.programs.programs.count + 1, "Os 9 do seed e o antigo que ficou")
+        XCTAssertEqual(programs.filter(\.isActive).map(\.uuid), [fullBodyID], "O ativo antigo continua o único ativo")
+        for id in [balancedID, folegoID] {
+            let inserted = try XCTUnwrap(programs.first { $0.uuid == id }, "\(id)")
+            XCTAssertFalse(inserted.isActive, inserted.name)
+            XCTAssertEqual(inserted.createdAt, later, inserted.name)
+            XCTAssertFalse(inserted.days.isEmpty, inserted.name)
+        }
+        let kept = try XCTUnwrap(programs.first { $0.uuid == legacyEnduranceID })
+        XCTAssertEqual(kept.name, "Resistência muscular")
+        XCTAssertEqual(kept.goalRaw, "endurance")
+        XCTAssertEqual(kept.createdAt, installedAt)
+        XCTAssertFalse(kept.isActive)
+        for slug in cardioSlugs {
+            let inserted = try XCTUnwrap(fetchExercise(slug: slug, in: context), slug)
+            XCTAssertEqual(inserted.movementPatternRaw, "cardio", slug)
+            XCTAssertFalse(inserted.isCustom, slug)
+        }
+    }
+
 
     func testLoadIfNeeded_customExerciseWithSeedSlug_isNeverTouched() throws {
         let context = try makeContext()

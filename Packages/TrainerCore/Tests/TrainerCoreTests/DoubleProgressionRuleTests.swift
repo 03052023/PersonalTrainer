@@ -14,7 +14,8 @@ private let fixedTargetID = UUID(uuidString: "00000000-0000-0000-0000-0000000000
 
 private func makeExercise(
     increment: Double = 2.5,
-    equipment: Equipment = .barbell
+    equipment: Equipment = .barbell,
+    pattern: MovementPattern? = nil
 ) -> ExerciseDefinition {
     ExerciseDefinition(
         id: fixedExerciseID,
@@ -24,7 +25,8 @@ private func makeExercise(
         secondaryMuscles: [.triceps],
         equipment: equipment,
         loadUnit: .kilograms,
-        loadIncrement: increment
+        loadIncrement: increment,
+        movementPattern: pattern
     )
 }
 
@@ -750,6 +752,188 @@ func P4_targetRIRNearIntMax_noBonusAndNoTrap() {
 
     #expect(result.load == 62.5)
     #expect(result.note == .increase)
+}
+
+// MARK: - P8 D3 (2.3): carga opcional em qualquer exercício
+
+/// SPEC P2, P4, P6, P8, P9 e P10 com L = 0 (docs/V23-CORE-CONTRACT.md §2.2). Meta padrão:
+/// 3 séries de 8–12, RIR 2, incremento 2,5.
+struct UnloadedCase: Sendable, CustomTestStringConvertible {
+    let label: String
+    let equipment: Equipment
+    let pattern: MovementPattern?
+    let increment: Double
+    let startingLoad: Double?
+    let history: [ExerciseHistoryEntry]
+    let load: Double?
+    let targetReps: Int
+    let note: PrescriptionNote
+
+    var testDescription: String { label }
+
+    init(
+        _ label: String,
+        equipment: Equipment = .barbell,
+        pattern: MovementPattern? = nil,
+        increment: Double = 2.5,
+        startingLoad: Double? = nil,
+        history: [ExerciseHistoryEntry],
+        load: Double?,
+        targetReps: Int,
+        note: PrescriptionNote
+    ) {
+        self.label = label
+        self.equipment = equipment
+        self.pattern = pattern
+        self.increment = increment
+        self.startingLoad = startingLoad
+        self.history = history
+        self.load = load
+        self.targetReps = targetReps
+        self.note = note
+    }
+}
+
+private let unloadedCases: [UnloadedCase] = [
+    UnloadedCase(
+        "barra sem carga no meio da faixa: fica em 0 e a meta sobe 1",
+        history: [entry(daysAgo: 2, sets: [working(0, 9), working(0, 10), working(0, 10)])],
+        load: 0, targetReps: 10, note: .hold
+    ),
+    UnloadedCase(
+        "barra sem carga no topo: fica em 0 e segura no topo",
+        history: [entry(daysAgo: 2, sets: [working(0, 12), working(0, 12), working(0, 13)])],
+        load: 0, targetReps: 12, note: .hold
+    ),
+    UnloadedCase(
+        "máquina sem carga no topo, mesmo com folga grande: continua 0",
+        equipment: .machine, pattern: .squat, increment: 5,
+        history: [entry(daysAgo: 2, sets: [working(0, 12, rir: 4), working(0, 12, rir: 4), working(0, 12, rir: 5)])],
+        load: 0, targetReps: 12, note: .hold
+    ),
+    UnloadedCase(
+        "peso do corpo que não é aeróbico, sem carga no topo: ganha a carga extra (RF-46)",
+        equipment: .bodyweight, pattern: .horizontalPush,
+        history: [entry(daysAgo: 2, sets: [working(0, 12), working(0, 12), working(0, 12)])],
+        load: 2.5, targetReps: 8, note: .increase
+    ),
+    UnloadedCase(
+        "aeróbico de peso do corpo sem carga no topo: segura no topo, sem carga (§7.14 F3)",
+        equipment: .bodyweight, pattern: .cardio,
+        history: [entry(daysAgo: 2, sets: [working(0, 12, rir: nil), working(0, 12, rir: nil), working(0, 12, rir: nil)])],
+        load: 0, targetReps: 12, note: .hold
+    ),
+    UnloadedCase(
+        "P6 primeira falha em 0: retry em 0",
+        history: [
+            entry(daysAgo: 4, sets: [working(0, 10), working(0, 10), working(0, 10)]),
+            entry(daysAgo: 2, sets: [working(0, 8), working(0, 7), working(0, 7)]),
+        ],
+        load: 0, targetReps: 8, note: .retry
+    ),
+    UnloadedCase(
+        "P6 segunda falha seguida em 0 na barra: retry, não há o que reduzir",
+        history: [
+            entry(daysAgo: 4, sets: [working(0, 7), working(0, 7), working(0, 6)]),
+            entry(daysAgo: 2, sets: [working(0, 7), working(0, 7), working(0, 7)]),
+        ],
+        load: 0, targetReps: 8, note: .retry
+    ),
+    UnloadedCase(
+        "P6 segunda falha seguida em 0 no peso do corpo: retry também",
+        equipment: .bodyweight, pattern: .horizontalPush,
+        history: [
+            entry(daysAgo: 4, sets: [working(0, 7), working(0, 7), working(0, 6)]),
+            entry(daysAgo: 2, sets: [working(0, 7), working(0, 7), working(0, 7)]),
+        ],
+        load: 0, targetReps: 8, note: .retry
+    ),
+    UnloadedCase(
+        "P9 retorno depois de 22 dias em 0: fica em 0",
+        history: [entry(daysAgo: 22, sets: [working(0, 12), working(0, 12), working(0, 12)])],
+        load: 0, targetReps: 8, note: .returning
+    ),
+    UnloadedCase(
+        "P2 startingLoad 0 na barra: 0 com calibrate",
+        startingLoad: 0,
+        history: [],
+        load: 0, targetReps: 8, note: .calibrate
+    ),
+    UnloadedCase(
+        "P2 startingLoad 0 na máquina: 0 com calibrate",
+        equipment: .machine, increment: 5, startingLoad: 0,
+        history: [],
+        load: 0, targetReps: 8, note: .calibrate
+    ),
+    UnloadedCase(
+        "P2 startingLoad entre 0 e inc: sobe para inc, como antes",
+        startingLoad: 1,
+        history: [],
+        load: 2.5, targetReps: 8, note: .calibrate
+    ),
+    UnloadedCase(
+        "P2 startingLoad 0 no peso do corpo: 0",
+        equipment: .bodyweight, startingLoad: 0,
+        history: [],
+        load: 0, targetReps: 8, note: .calibrate
+    ),
+    UnloadedCase(
+        "P10 a primeira carga registrada depois de sessões em 0 vira a referência",
+        history: [
+            entry(daysAgo: 6, sets: [working(0, 12), working(0, 12), working(0, 12)]),
+            entry(daysAgo: 4, sets: [working(0, 12), working(0, 12), working(0, 12)]),
+            entry(daysAgo: 2, sets: [working(20, 10), working(20, 10), working(20, 11)]),
+        ],
+        load: 20, targetReps: 11, note: .hold
+    ),
+    UnloadedCase(
+        "P10 com carga registrada, as regras de sempre voltam: no topo, sobe",
+        history: [
+            entry(daysAgo: 4, sets: [working(0, 12), working(0, 12), working(0, 12)]),
+            entry(daysAgo: 2, sets: [working(20, 12), working(20, 12), working(20, 12)]),
+        ],
+        load: 22.5, targetReps: 8, note: .increase
+    ),
+    UnloadedCase(
+        "P10 falha na primeira carga depois de uma falha em 0: retry na carga, sem reduzir",
+        history: [
+            entry(daysAgo: 4, sets: [working(0, 7), working(0, 7), working(0, 7)]),
+            entry(daysAgo: 2, sets: [working(20, 7), working(20, 7), working(20, 7)]),
+        ],
+        load: 20, targetReps: 8, note: .retry
+    ),
+]
+
+@Test("P8 D3 sem carga (L = 0) a prescrição fica em 0 e progride pelas repetições", arguments: unloadedCases)
+func P8_D3_unloadedTable(_ testCase: UnloadedCase) {
+    let result = prescribe(
+        testCase.history,
+        target: makeTarget(startingLoad: testCase.startingLoad),
+        exercise: makeExercise(increment: testCase.increment, equipment: testCase.equipment, pattern: testCase.pattern)
+    )
+
+    #expect(result.load == testCase.load)
+    #expect(result.targetReps == testCase.targetReps)
+    #expect(result.note == testCase.note)
+}
+
+@Test("P8 D3 equipamento com carga 0 sobe as repetições até o topo e fica lá, sessão após sessão")
+func P8_D3_equipmentAtZero_climbsToTopAndStays() {
+    // Cada sessão registra a meta do dia, sem carga: 9 → 10 → 11 → 12 → 12.
+    var history: [ExerciseHistoryEntry] = [entry(daysAgo: 10, sets: [working(0, 9), working(0, 9), working(0, 9)])]
+    var goals: [Int] = []
+    for daysAgo in [8.0, 6.0, 4.0, 2.0] {
+        let result = prescribe(history, now: referenceNow.addingTimeInterval(-(daysAgo + 1) * day))
+        #expect(result.load == 0)
+        #expect(result.note == .hold)
+        goals.append(result.targetReps)
+        history.append(entry(daysAgo: daysAgo, sets: Array(repeating: working(0, result.targetReps), count: 3)))
+    }
+
+    #expect(goals == [10, 11, 12, 12])
+    let last = prescribe(history)
+    #expect(last.load == 0)
+    #expect(last.targetReps == 12)
 }
 
 // MARK: - P12 no heart rate

@@ -71,6 +71,73 @@ final class MeasureAndRIRTextTests: XCTestCase {
         XCTAssertEqual(MeasureText.stepperRange(.steps).lowerBound, 0)
     }
 
+    /// SPEC RF-43 e §7.14 F1 (2.3, D4): a tabela de docs/V23-CORE-CONTRACT.md §2.4 para `.minutes`.
+    func testRF43_minutesTexts() {
+        XCTAssertEqual(MeasureText.title(.minutes), "Minutos")
+        XCTAssertEqual(MeasureText.pluralNoun(.minutes), "minutos")
+        XCTAssertEqual(MeasureText.stepperRange(.minutes), 0...300)
+        XCTAssertEqual(MeasureText.range(min: 20, max: 40, measure: .minutes), "20–40 min")
+        XCTAssertEqual(MeasureText.amount(30, measure: .minutes), "30 min")
+        XCTAssertEqual(MeasureText.spokenAmount(1, measure: .minutes), "1 minuto")
+        XCTAssertEqual(MeasureText.spokenAmount(30, measure: .minutes), "30 minutos")
+        XCTAssertEqual(
+            MeasureText.spokenSetsAndRange(sets: 4, min: 2, max: 4, measure: .minutes),
+            "4 séries de 2 a 4 minutos"
+        )
+        XCTAssertEqual(TodayTargetText.amount(1, measure: .minutes), "1 minuto")
+        XCTAssertEqual(TodayTargetText.amount(30, measure: .minutes), "30 minutos")
+        XCTAssertEqual(TodayTargetText.compactAmount(30, measure: .minutes), "30 min")
+        XCTAssertEqual(
+            SessionSheetText.firstTimeHint(goal: 30, targetRIR: 3, measure: .minutes),
+            "Escolha uma carga com a qual você aguentaria mais do que isso. Hoje faça 30 minutos."
+        )
+        XCTAssertEqual(
+            SessionSheetText.doneSummary(
+                [SessionSheetText.LoggedSet(load: 0, reps: 30)],
+                unit: .kilograms,
+                equipment: .bodyweight,
+                measure: .minutes
+            ),
+            "30 min"
+        )
+        // As medidas de antes não mudam.
+        XCTAssertEqual(TodayTargetText.compactAmount(30, measure: .seconds), "30 s")
+        XCTAssertEqual(TodayTargetText.amount(30, measure: .steps), "30 passos")
+        XCTAssertEqual(MeasureText.amount(10, measure: .reps), "10")
+    }
+
+    func testRF43_minutesDurationEstimate_countsSixtySecondsPerMinute() {
+        let exercise = ExerciseDefinition(
+            slug: "brisk-walk",
+            name: "Caminhada rápida",
+            primaryMuscles: [.quads, .glutes],
+            equipment: .bodyweight,
+            loadUnit: .kilograms,
+            loadIncrement: 2.5,
+            movementPattern: .cardio
+        )
+        let target = ExerciseTarget(exerciseID: exercise.id, order: 0, sets: 1, repMin: 20, repMax: 40, targetRIR: 3, restSeconds: 60)
+        let planned = PlannedExercise(
+            id: UUID(),
+            exercise: exercise,
+            target: target,
+            prescription: ExercisePrescription(
+                exerciseID: exercise.id,
+                load: nil,
+                sets: 1,
+                repMin: 20,
+                repMax: 40,
+                targetReps: 20,
+                targetRIR: 3,
+                restSeconds: 60,
+                note: .calibrate
+            )
+        )
+
+        // 1 série × (30 min em média × 60 s + 60 s de descanso) + 120 s de preparação.
+        XCTAssertEqual(SessionDurationEstimate.seconds(for: planned, measure: .minutes), 1 * (30 * 60 + 60) + 120, accuracy: 0.001)
+    }
+
     func testRF12_RF43_tonnage_countsOnlyRepsExercises() {
         let date = Date(timeIntervalSince1970: 1_700_000_000)
         let bench: [SetResult] = [

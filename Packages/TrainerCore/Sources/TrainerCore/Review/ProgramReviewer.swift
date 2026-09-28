@@ -84,8 +84,10 @@ public enum ProgramReviewer: Sendable {
         }
 
         let stagnant = pools.filter(\.isStagnant)
-        // SPEC R5: "R1 em ≥ 50 % dos exercícios" — distinct exercises of the program.
-        let stagnationWide = !pools.isEmpty && stagnant.count * 2 >= pools.count
+        // SPEC R5: "R1 em ≥ 50 % dos exercícios" — distinct exercises of the program that R1
+        // measures. Aerobic exercises are outside R1 (SPEC R8), so they are not in the base.
+        let measuredCount = pools.filter { !$0.isCardio }.count
+        let stagnationWide = measuredCount > 0 && stagnant.count * 2 >= measuredCount
         // A deload already running (its prescriptions carry the `deload` note, SPEC §7.5)
         // makes a new deload suggestion redundant.
         let deloadRunning = input.currentPrescriptions.contains { $0.note == .deload }
@@ -94,7 +96,7 @@ public enum ProgramReviewer: Sendable {
                 deloadSuggestion(
                     fatigue: fatigue,
                     stagnantCount: stagnationWide ? stagnant.count : nil,
-                    exerciseCount: pools.count,
+                    exerciseCount: measuredCount,
                     week: week
                 )
             )

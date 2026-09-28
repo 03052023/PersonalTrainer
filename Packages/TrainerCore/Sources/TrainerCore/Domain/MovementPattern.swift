@@ -44,6 +44,10 @@ public enum MovementPattern: String, Codable, Sendable, Hashable, CaseIterable {
     case explosive
     /// Pescoço: isometrias.
     case neck
+    /// Aeróbico (SPEC §7.14, versão 2.3): caminhada, corrida, bicicleta, remo, intervalos. Mede em
+    /// minutos (`ExerciseMeasure.minutes`). O grupo primário (pernas, `quads` primeiro) é convenção de
+    /// contagem (SPEC §7.4), como o "costas" do pescoço.
+    case cardio
 
     /// Nome curto em pt-BR para a UI.
     public var displayName: String {
@@ -68,6 +72,7 @@ public enum MovementPattern: String, Codable, Sendable, Hashable, CaseIterable {
         case .carry: return "Carregar"
         case .explosive: return "Explosivo"
         case .neck: return "Pescoço"
+        case .cardio: return "Aeróbico"
         }
     }
 }

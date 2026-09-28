@@ -11,12 +11,20 @@ final class FlowerAndGoalStyleTests: XCTestCase {
 
     // MARK: - S1: subtítulo do Combate
 
-    func testS1_combatSubtitle() {
+    func testS1_subtitles() {
         XCTAssertEqual(ProgramGoal.longevity.subtitle, "Viver bem por mais tempo")
         XCTAssertEqual(ProgramGoal.hypertrophy.subtitle, "Ganhar massa muscular")
         XCTAssertEqual(ProgramGoal.strength.subtitle, "Ficar mais forte")
         XCTAssertEqual(ProgramGoal.combat.subtitle, "Potência e resistência")
-        XCTAssertEqual(ProgramGoal.endurance.subtitle, "Aguentar mais")
+        // SPEC RF-48 (2.3, D2): o objetivo `endurance` virou Fôlego, cardiovascular.
+        XCTAssertEqual(ProgramGoal.endurance.subtitle, "Mais fôlego e disposição")
+    }
+
+    func testRF48_folegoNameSymbolAndPetal() {
+        XCTAssertEqual(ProgramGoal.endurance.displayName, "Fôlego")
+        XCTAssertEqual(ProgramGoal.endurance.rawValue, "endurance")
+        XCTAssertEqual(ProgramGoal.endurance.symbolName, "wind")
+        XCTAssertEqual(ProgramGoal.endurance.petalIndex, 4)
     }
 
     // MARK: - S10: geometria Brisa

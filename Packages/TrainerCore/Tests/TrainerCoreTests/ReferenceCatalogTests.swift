@@ -107,6 +107,41 @@ func referenceCatalogFileCodableRoundTrip() throws {
     #expect(decoded == catalog)
 }
 
+@Test("RF-48 as 3 referências do Fôlego estão no catálogo, com os DOIs conferidos no Crossref")
+func referenceCatalogFileHasTheCardioReferences() throws {
+    let catalog = try loadReferenceCatalogFile()
+    let byID = Dictionary(catalog.references.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+    let expected: [(id: String, year: Int, doi: String, level: ScientificReference.EvidenceLevel)] = [
+        ("milanovic-2015-hiit", 2015, "10.1007/s40279-015-0365-0", .metaAnalysis),
+        ("foster-2008-talk-test", 2008, "10.1097/01.HCR.0000311504.41775.78", .study),
+        ("helgerud-2007-intervals", 2007, "10.1249/mss.0b013e3180304570", .study),
+    ]
+
+    for row in expected {
+        let reference = try #require(byID[row.id], "ausente: \(row.id)")
+        #expect(reference.year == row.year, "\(row.id)")
+        #expect(reference.doi == row.doi, "\(row.id)")
+        #expect(reference.level == row.level, "\(row.id)")
+    }
+    #expect(byID["milanovic-2015-hiit"]?.source == "Sports Medicine")
+}
+
+@Test("RF-48 o objetivo Fôlego e o tópico do aeróbico citam as diretrizes, o teste da fala e os intervalos")
+func referenceCatalogFileCoversCardioTopics() throws {
+    let catalog = try loadReferenceCatalogFile()
+
+    #expect(catalog.topics["goal.endurance"] == ["garber-2011-acsm", "bull-2020-who", "milanovic-2015-hiit", "foster-2008-talk-test"])
+    #expect(catalog.topics["topic.cardio"] == ["foster-2008-talk-test", "garber-2011-acsm", "milanovic-2015-hiit", "helgerud-2007-intervals"])
+    let goalText = catalog.explanations["goal.endurance"] ?? ""
+    #expect(goalText.hasPrefix("Fôlego"))
+    #expect(goalText.contains("minutos"))
+    #expect(goalText.contains("fala"))
+    let cardioText = catalog.explanations["topic.cardio"] ?? ""
+    #expect(cardioText.contains("cantar"))
+    #expect(cardioText.contains("1 minuto por sessão"))
+    #expect(cardioText.contains("opcional"))
+}
+
 // MARK: - ReferenceCatalog lookups
 
 @Test("RF-32 references(for:) mantém a ordem declarada e ignora ids desconhecidos")
@@ -390,6 +425,8 @@ private enum ReferenceFixture {
         "topic.rir", "topic.volume", "topic.frequency", "topic.maintenance", "topic.substitution",
         "topic.rest", "topic.concurrent", "topic.hrv", "topic.aerobic", "topic.vo2max",
         "topic.sleep", "topic.steps", "topic.e1rm",
+        // 2.3 (RF-48, SPEC §7.14): o teste da fala, a duração em minutos e o nível opcional.
+        "topic.cardio",
     ]
 
     static func reference(
