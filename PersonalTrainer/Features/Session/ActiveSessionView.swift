@@ -173,7 +173,12 @@ struct ActiveSessionView: View {
                 .padding(.bottom, 24)
             }
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: focusedLoadID) { _, newValue in
+            .onChange(of: focusedLoadID) { oldValue, newValue in
+                // RF-44 c: depois de "Anotar carga", a carga digitada é gravada quando o teclado sai do
+                // exercício (fechar, arrastar ou tocar em outro campo).
+                if let oldValue, oldValue != newValue {
+                    model.loadEntryDidEnd(for: oldValue)
+                }
                 guard let newValue else {
                     // Teclado fechado ("OK" ou arrastar): a carga volta a ser só texto.
                     editingLoadID = nil
@@ -235,7 +240,7 @@ struct ActiveSessionView: View {
             isEditingLoad: editingLoadID == exerciseID,
             isExpanded: expandedDoneIDs.contains(exerciseID),
             onOpenInfo: {
-                focusedLoadID = nil
+                endLoadEntry()
                 infoItem = model.infoContent(for: exercise)
             },
             onOpenWhy: { topic in
@@ -258,7 +263,7 @@ struct ActiveSessionView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
             Button {
-                focusedLoadID = nil
+                endLoadEntry()
                 onMinimize()
             } label: {
                 Label("Voltar", systemImage: "chevron.down")
@@ -278,7 +283,7 @@ struct ActiveSessionView: View {
         ToolbarItemGroup(placement: .keyboard) {
             Spacer()
             Button("OK") {
-                focusedLoadID = nil
+                endLoadEntry()
             }
             .fontWeight(.semibold)
         }
@@ -308,7 +313,7 @@ struct ActiveSessionView: View {
 
     /// "Concluir" (RF-44 e): tudo marcado → resumo direto; faltando algo → pergunta uma vez.
     private func conclude() {
-        focusedLoadID = nil
+        endLoadEntry()
         switch model.requestFinish() {
         case .finished:
             if model.isFinished {
@@ -327,13 +332,22 @@ struct ActiveSessionView: View {
     /// O botão grande (RF-44 i): marca a série seguinte do passo atual, como a bolinha vazia; com tudo
     /// feito, é o mesmo "Concluir" da barra.
     private func performGuideStep() {
-        focusedLoadID = nil
+        endLoadEntry()
         switch model.guideStep.action {
         case .finish:
             conclude()
         case .markSet, .markDone:
             model.markGuideStep()
         }
+    }
+
+    /// Fecha o teclado da carga. A carga de "Anotar carga" é gravada antes (RF-44 c): concluir ou minimizar
+    /// logo depois de digitar não pode esperar o `onChange` do foco, que roda depois.
+    private func endLoadEntry() {
+        if let focused = focusedLoadID {
+            model.loadEntryDidEnd(for: focused)
+        }
+        focusedLoadID = nil
     }
 
     /// "Marcar como feitos, como previsto": se alguma gravação falhou, a sessão não é concluída e a

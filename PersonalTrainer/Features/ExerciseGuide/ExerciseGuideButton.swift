@@ -3,8 +3,8 @@ import TrainerCore
 
 /// O botão "Como fazer" (`play.circle`, `accent`; SPEC RF-40 e E1; DESIGN §12 e §13), que abre a folha da guia. Quem
 /// usa só o mostra quando existe guia para o exercício (`ExerciseGuideText.guide(forSlug:isCustom:in:)`): na ficha
-/// da sessão, ao lado do nome (`compact`, só o símbolo); na folha "Informações do exercício" e no catálogo, com o
-/// texto (`full`).
+/// da sessão e na linha do catálogo, ao lado do nome (`compact`, só o símbolo); na folha "Informações do exercício",
+/// com o texto (`full`).
 ///
 /// Apresenta a folha por conta própria, como o `WhyButton`: quem usa não guarda estado.
 struct ExerciseGuideButton: View {

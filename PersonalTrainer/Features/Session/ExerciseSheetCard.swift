@@ -383,7 +383,9 @@ struct ExerciseSheetCard: View {
     // MARK: - Sugestão delicada (SPEC RF-44 c)
 
     /// "Anotar a carga ajuda a sugerir quando subir." com "Anotar carga" e "Agora não", em
-    /// `textSecondary`, sem ícone de alerta (DESIGN §13).
+    /// `textSecondary`, sem ícone de alerta (DESIGN §13). "Anotar carga" abre o teclado da carga (o cartão
+    /// feito se abre para isso); ao fechar o teclado, a carga vai também para as séries de hoje marcadas
+    /// sem carga (`ActiveSessionViewModel.acceptLoadHint`).
     private var loadHint: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(SessionSheetText.loadHint)
@@ -392,7 +394,7 @@ struct ExerciseSheetCard: View {
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 20) {
                 Button {
-                    model.dismissLoadHint(for: exercise.uuid)
+                    model.acceptLoadHint(for: exercise.uuid)
                     if model.isDone(exercise) && !isExpanded {
                         onToggleExpanded()
                     }

@@ -527,6 +527,48 @@ final class ActiveSessionViewModelTests: XCTestCase {
         XCTAssertNil(defaults.stringArray(forKey: ActiveSessionViewModel.loadHintShownKey))
     }
 
+    /// SPEC RF-44 c: "Anotar carga" depois de "Feito" sem carga leva a carga digitada às séries de hoje
+    /// marcadas sem carga; sem isso ela se perderia, porque não há próximas séries (P10).
+    func testRF44c_noteLoadFillsTodaysSetsWithoutLoad() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.markExerciseDone(sessionExerciseID: fixture.bench.uuid)
+        XCTAssertTrue(model.showsLoadHint(fixture.bench))
+
+        model.acceptLoadHint(for: fixture.bench.uuid)
+        XCTAssertFalse(model.showsLoadHint(fixture.bench), "a linha some")
+        model.setWorkingLoad(40, for: fixture.bench.uuid)
+        clock = start.addingTimeInterval(200)
+        model.loadEntryDidEnd(for: fixture.bench.uuid)
+
+        XCTAssertEqual(fixture.bench.sets.map(\.load), [40, 40], "as séries de hoje ganham a carga anotada")
+        XCTAssertEqual(fixture.bench.sets.map(\.reps), [8, 8], "as repetições ficam")
+        XCTAssertEqual(model.loadDisplay(for: fixture.bench), .load("40 kg"))
+        XCTAssertNil(model.errorMessage)
+
+        // Uma vez por "Anotar carga": fechar o teclado de novo não regrava nada.
+        let events = fixture.coordinator.appliedEvents.count
+        model.loadEntryDidEnd(for: fixture.bench.uuid)
+        XCTAssertEqual(fixture.coordinator.appliedEvents.count, events)
+    }
+
+    func testRF44c_noteLoadNeedsATypedLoad_plainEntryOnlyChangesNextSets() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.markSet(sessionExerciseID: fixture.bench.uuid)
+
+        // "Anotar carga" e fechar o teclado sem digitar: nada muda.
+        model.acceptLoadHint(for: fixture.bench.uuid)
+        model.loadEntryDidEnd(for: fixture.bench.uuid)
+        XCTAssertEqual(fixture.bench.sets.map(\.load), [0])
+
+        // Tocar na carga e digitar, sem "Anotar carga", vale só para as próximas séries (P10).
+        model.setWorkingLoad(40, for: fixture.bench.uuid)
+        model.loadEntryDidEnd(for: fixture.bench.uuid)
+        model.markSet(sessionExerciseID: fixture.bench.uuid)
+        XCTAssertEqual(fixture.bench.sets.sorted { $0.index < $1.index }.map(\.load), [0, 40])
+    }
+
     // MARK: - Aeróbico na ficha (SPEC §7.14 F1, F2)
 
     func testF1_cardioOnTheSheet() throws {

@@ -18,7 +18,8 @@ import TrainerCore
 ///   prescrita, a série grava 0 ("sem carga externa"). Depois da primeira série sem carga num
 ///   exercício com equipamento (nem peso do corpo nem aeróbico), a ficha sugere uma vez na vida
 ///   daquele exercício "Anotar a carga ajuda a sugerir quando subir." (`showsLoadHint`); os ids já
-///   sugeridos ficam no `UserDefaults` injetado.
+///   sugeridos ficam no `UserDefaults` injetado. "Anotar carga" leva a carga digitada também às séries
+///   de hoje marcadas sem carga (`acceptLoadHint`, `loadEntryDidEnd`).
 /// - **Sessão guiada** (RF-44 i): o passo atual e o texto do botão grande vêm de `SessionGuide`.
 /// - **Aeróbico** (§7.14 F1, F2): a intensidade pelo teste da fala e a recuperação andando.
 ///
@@ -84,6 +85,9 @@ final class ActiveSessionViewModel {
     /// Exercícios da sessão (`SessionExerciseModel.uuid`) com a sugestão de anotar a carga à vista
     /// (RF-44 c). Some com "Anotar carga" ou "Agora não".
     private(set) var loadHintExerciseIDs: Set<UUID> = []
+    /// Exercícios em que a pessoa tocou "Anotar carga": quando o teclado fecha, a carga digitada vai
+    /// também para as séries de hoje marcadas sem carga (`loadEntryDidEnd`). Estado interno, não de tela.
+    @ObservationIgnored private var loadNoteExerciseIDs: Set<UUID> = []
 
     /// Chave no `UserDefaults` dos exercícios do catálogo (`exerciseUUID`) que já receberam a
     /// sugestão: uma vez só na vida de cada um, respondida ou não (SPEC RF-44 c).
@@ -373,9 +377,54 @@ final class ActiveSessionViewModel {
         loadHintExerciseIDs.contains(exercise.uuid)
     }
 
-    /// "Anotar carga" ou "Agora não": a linha some e nunca volta para aquele exercício.
+    /// "Agora não" (e "Anotar carga"): a linha some e nunca volta para aquele exercício.
     func dismissLoadHint(for sessionExerciseID: UUID) {
         loadHintExerciseIDs.remove(sessionExerciseID)
+    }
+
+    /// "Anotar carga": a linha some e a tela abre o teclado. A carga digitada vale para as próximas séries
+    /// (P10) e, quando o teclado fecha (`loadEntryDidEnd`), também para as séries de hoje deste exercício
+    /// marcadas sem carga. Sem isso, depois de "Feito" (nenhuma série a seguir) a carga anotada se perderia.
+    func acceptLoadHint(for sessionExerciseID: UUID) {
+        dismissLoadHint(for: sessionExerciseID)
+        loadNoteExerciseIDs.insert(sessionExerciseID)
+    }
+
+    /// O teclado da carga saiu do exercício. Só depois de "Anotar carga" e com uma carga maior que 0
+    /// digitada: cada série de trabalho de hoje gravada sem carga (0) recebe essa carga pelo coordinator
+    /// (`setUpdated`, com as repetições e o `rir` que já tinha; AGENTS R4). Vale uma vez por "Anotar carga";
+    /// fora disso, a carga digitada só vale para as próximas séries (P10).
+    func loadEntryDidEnd(for sessionExerciseID: UUID) {
+        guard loadNoteExerciseIDs.contains(sessionExerciseID) else {
+            return
+        }
+        loadNoteExerciseIDs.remove(sessionExerciseID)
+        guard
+            let session,
+            isOpen,
+            let exercise = findExercise(id: sessionExerciseID),
+            let load = chosenLoads[sessionExerciseID],
+            load > 0
+        else {
+            return
+        }
+        let timestamp = now()
+        let setsWithoutLoad = workingSets(of: exercise).filter { $0.load <= 0 }
+        for setLog in setsWithoutLoad {
+            do {
+                try coordinator.updateSet(
+                    sessionID: session.uuid,
+                    setID: setLog.uuid,
+                    load: load,
+                    reps: setLog.reps,
+                    rir: setLog.rir,
+                    now: timestamp
+                )
+            } catch {
+                errorMessage = message(for: error, fallback: "Não foi possível anotar a carga.")
+                return
+            }
+        }
     }
 
     /// Campo de carga apagado: volta à carga de antes (última série ou prescrita).
