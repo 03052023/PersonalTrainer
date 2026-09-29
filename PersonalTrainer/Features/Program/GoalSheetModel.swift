@@ -236,7 +236,8 @@ final class GoalSheetModel {
         alsoLeavingGoal.map { PlanWeekText.alsoLeaves($0) }
     }
 
-    /// Flor grande do topo: na troca, só o tocado; ao adicionar, os ativos e o tocado juntos.
+    /// Flor grande do topo: na troca, só o tocado; ao adicionar, os ativos e o tocado juntos, na ordem de
+    /// M1 (o que seria o principal primeiro, como na flor da tela Hoje).
     var flowerGoals: [ProgramGoal] {
         switch mode {
         case .change, .firstUse:
@@ -246,7 +247,7 @@ final class GoalSheetModel {
             if let selectedGoal, !goals.contains(selectedGoal) {
                 goals.append(selectedGoal)
             }
-            return goals
+            return goals.sorted { ActivePlanOrder.rank(of: $0) < ActivePlanOrder.rank(of: $1) }
         }
     }
 

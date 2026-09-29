@@ -20,7 +20,8 @@ final class FlowerAndGoalStyleTests: XCTestCase {
         XCTAssertEqual(ProgramGoal.endurance.subtitle, "Coração forte e mais condicionamento")
     }
 
-    func testRF48_folegoNameSymbolAndPetal() {
+    /// Owner notes item 1: o nome é "Cardio" (sai o provisório "Fôlego"); o raw value não muda.
+    func testRF48_cardioNameSymbolAndPetal() {
         XCTAssertEqual(ProgramGoal.endurance.displayName, "Cardio")
         XCTAssertEqual(ProgramGoal.endurance.rawValue, "endurance")
         XCTAssertEqual(ProgramGoal.endurance.symbolName, "wind")

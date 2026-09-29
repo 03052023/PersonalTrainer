@@ -63,7 +63,7 @@ enum GoalPlanTestPrograms {
             program(id: GoalPlanCatalog.hypertrophyLowerFocusID, name: "Hipertrofia — Foco inferior", goal: .hypertrophy, dayCount: 4, isActive: activeIDs.contains(GoalPlanCatalog.hypertrophyLowerFocusID)),
             program(id: GoalPlanCatalog.hypertrophyUpperFocusID, name: "Hipertrofia — Foco superior", goal: .hypertrophy, dayCount: 4, isActive: activeIDs.contains(GoalPlanCatalog.hypertrophyUpperFocusID)),
             program(id: GoalPlanCatalog.strengthID, name: "Força", goal: .strength, isActive: activeIDs.contains(GoalPlanCatalog.strengthID)),
-            program(id: GoalPlanCatalog.enduranceCardioID, name: "Fôlego", goal: .endurance, isActive: activeIDs.contains(GoalPlanCatalog.enduranceCardioID)),
+            program(id: GoalPlanCatalog.enduranceCardioID, name: "Cardio", goal: .endurance, isActive: activeIDs.contains(GoalPlanCatalog.enduranceCardioID)),
             program(id: GoalPlanCatalog.longevityID, name: "Longevidade", goal: .longevity, isActive: activeIDs.contains(GoalPlanCatalog.longevityID)),
             program(id: GoalPlanCatalog.combatID, name: "Combate", goal: .combat, isActive: activeIDs.contains(GoalPlanCatalog.combatID), firstDayExercises: [benchID, archivedID, rowID]),
         ]

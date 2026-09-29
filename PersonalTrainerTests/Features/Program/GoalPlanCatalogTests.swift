@@ -88,9 +88,9 @@ final class GoalPlanCatalogTests: XCTestCase {
         XCTAssertEqual(GoalPlanCatalog.chipText(extra), "Corpo todo · 3 dias")
     }
 
-    /// SPEC RF-45 e RF-48 (2.3): o plano do Fôlego é o programa do seed `09AB286E…`; o antigo
+    /// SPEC RF-45 e RF-48 (2.3): o plano do Cardio é o programa do seed `09AB286E…`; o antigo
     /// "Resistência muscular" das instalações existentes só vale enquanto está ativo.
-    func testRF45_catalog_enduranceResolvesToFolego() throws {
+    func testRF45_catalog_enduranceResolvesToCardio() throws {
         var programs = Programs.seed()
         programs.append(Programs.program(id: GoalPlanCatalog.legacyEnduranceID, name: "Resistência muscular", goal: .endurance))
         let catalog = GoalPlanCatalog(programs: programs)
@@ -115,9 +115,9 @@ final class GoalPlanCatalogTests: XCTestCase {
         XCTAssertEqual(current.entry(for: .endurance)?.defaultProgramID, GoalPlanCatalog.legacyEnduranceID)
         XCTAssertEqual(current.entry(for: .endurance)?.isCurrent, true)
 
-        // Sem o Fôlego no banco, o antigo inativo ainda serve de plano (o primeiro com o objetivo).
-        let withoutFolego = programs.filter { $0.id != GoalPlanCatalog.enduranceCardioID }
-        let fallback = GoalPlanCatalog(programs: withoutFolego)
+        // Sem o Cardio no banco, o antigo inativo ainda serve de plano (o primeiro com o objetivo).
+        let withoutCardio = programs.filter { $0.id != GoalPlanCatalog.enduranceCardioID }
+        let fallback = GoalPlanCatalog(programs: withoutCardio)
         XCTAssertEqual(fallback.entry(for: .endurance)?.defaultProgramID, GoalPlanCatalog.legacyEnduranceID)
     }
 

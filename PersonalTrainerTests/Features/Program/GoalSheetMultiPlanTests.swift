@@ -130,6 +130,19 @@ final class GoalSheetMultiPlanTests: XCTestCase {
         XCTAssertTrue(repository.calls.isEmpty, "Montar o fluxo não grava nada")
     }
 
+    /// M1: ao adicionar, a flor da folha põe primeiro o objetivo que seria o principal, mesmo quando é o
+    /// plano que vai entrar (Cardio ativo + Hipertrofia tocada).
+    func testM1_addMode_flowerGoalsFollowPlanOrder() {
+        let repository = GoalPlanTestRepository(programs: Programs.seed(activeID: cardioID))
+        let model = makeModel(repository, mode: .add)
+        model.load()
+
+        XCTAssertEqual(model.flowerGoals, [.endurance], "Sem escolha, só o ativo")
+        model.select(.hypertrophy)
+        XCTAssertEqual(model.flowerGoals, [.hypertrophy, .endurance])
+        XCTAssertEqual(model.confirmTitle, "Adicionar Hipertrofia ao seu plano")
+    }
+
     func testM1_catalogWithTwoActivePlans() throws {
         let catalog = GoalPlanCatalog(programs: Programs.seed(activeIDs: [cardioID, GoalPlanCatalog.strengthID]))
 
