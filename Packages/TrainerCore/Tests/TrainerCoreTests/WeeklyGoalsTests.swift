@@ -4,7 +4,8 @@ import Testing
 
 // MARK: - Fixtures
 
-private let weekStart = Date(timeIntervalSince1970: 1_758_600_000) // 2025-09-23T00:00:00Z (a Monday-ish instant; only used as an opaque stamp here)
+// An arbitrary fixed instant (2025-09-23T04:00:00Z): `WeeklyGoals` never reads the dates of a report, so it is only an opaque stamp here.
+private let weekStart = Date(timeIntervalSince1970: 1_758_600_000)
 private let weekEnd = weekStart.addingTimeInterval(7 * 86_400)
 
 private func frequencyReport(_ entries: [(MuscleGroup, Int, Int)]) -> WeeklyFrequencyReport {

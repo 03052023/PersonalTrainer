@@ -43,6 +43,7 @@ struct HistoryListView: View {
                         description: Text("As sessões concluídas ou encerradas aparecem aqui.")
                     )
                     .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
                 } else {
                     ForEach(visibleSessions, id: \.uuid) { session in
                         NavigationLink {
@@ -50,6 +51,8 @@ struct HistoryListView: View {
                         } label: {
                             SessionRow(session: session)
                         }
+                        // Cada linha é um cartão de papel sobre o papel (DESIGN §14).
+                        .listRowBackground(Theme.surface)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             // Sem `role: .destructive` de propósito: com esse papel a lista
                             // anima a remoção da linha antes da confirmação, e a linha
@@ -67,7 +70,6 @@ struct HistoryListView: View {
             }
             .scrollContentBackground(.hidden)
             .paperBackground()
-            .listRowBackground(Theme.surface)
             .navigationTitle("Histórico")
             .confirmationDialog(
                 "Apagar este treino?",

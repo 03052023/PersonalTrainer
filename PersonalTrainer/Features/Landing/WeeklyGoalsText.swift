@@ -74,9 +74,24 @@ enum WeeklyGoalsText {
         }
     }
 
-    /// "Hipertrofia: 3 de 4 sessões", para o VoiceOver de uma linha (RF-52 ponto 6).
+    /// "Hipertrofia: 3 de 4 sessões nesta semana", para o VoiceOver de uma linha (RF-52 ponto 6). Com a
+    /// meta cumprida, acrescenta ", meta cumprida" (o "✓" da tela); só o fato, nenhum elogio (W6).
     static func accessibilityText(_ goal: WeeklyGoal) -> String {
-        "\(title(goal)): \(valueText(goal))"
+        var text = "\(title(goal)): \(valueText(goal))"
+        guard goal.hasData else {
+            return text
+        }
+        switch goal.kind {
+        case .planSessions, .muscles, .aerobic:
+            text += " nesta semana"
+        case .steps, .sleep, .balance, .mobility:
+            // Passos e sono já dizem "média"; equilíbrio e mobilidade já dizem "nesta semana".
+            break
+        }
+        if goal.isMet && goal.kind != .balance && goal.kind != .mobility {
+            text += ", meta cumprida"
+        }
+        return text
     }
 
     // MARK: - Privado

@@ -12,6 +12,10 @@ enum LandingText {
         "janeiro", "fevereiro", "março", "abril", "maio", "junho",
         "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
     ]
+    private static let monthAbbreviations = [
+        "jan.", "fev.", "mar.", "abr.", "mai.", "jun.",
+        "jul.", "ago.", "set.", "out.", "nov.", "dez.",
+    ]
 
     /// "segunda-feira, 28 de setembro", no calendário e no fuso da pessoa.
     static func dateText(_ date: Date, calendar: Calendar) -> String {
@@ -20,6 +24,22 @@ enum LandingText {
         let monthIndex = calendar.component(.month, from: date) - 1
         let month = monthNames.indices.contains(monthIndex) ? monthNames[monthIndex] : monthNames[0]
         return "\(weekdayFullNames[weekday.rawValue]), \(day) de \(month)"
+    }
+
+    /// "28 set. – 4 out.": o intervalo da semana, do primeiro ao último dia (o `weekEnd` é exclusivo,
+    /// como em `WeeklyFrequencyReport`), no calendário e no fuso da pessoa (DESIGN §9.2). Feito à mão,
+    /// como `dateText`, para a saída não depender do ICU do aparelho.
+    static func weekRangeText(weekStart: Date, weekEnd: Date, calendar: Calendar) -> String {
+        let lastDay = calendar.date(byAdding: .day, value: -1, to: weekEnd) ?? weekEnd.addingTimeInterval(-86_400)
+        return "\(shortDay(weekStart, calendar: calendar)) – \(shortDay(lastDay, calendar: calendar))"
+    }
+
+    /// "28 set."
+    private static func shortDay(_ date: Date, calendar: Calendar) -> String {
+        let day = calendar.component(.day, from: date)
+        let monthIndex = calendar.component(.month, from: date) - 1
+        let month = monthAbbreviations.indices.contains(monthIndex) ? monthAbbreviations[monthIndex] : monthAbbreviations[0]
+        return "\(day) \(month)"
     }
 
     /// "Bom dia" (5h–11h59), "Boa tarde" (12h–17h59), "Boa noite" (18h–4h59), pelo `hour` (0...23)

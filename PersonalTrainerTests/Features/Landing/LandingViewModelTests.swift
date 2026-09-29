@@ -71,6 +71,67 @@ final class LandingViewModelTests: XCTestCase {
         XCTAssertEqual(LandingText.weekSentence(sessionCount: 5), "5 sessões nesta semana.")
     }
 
+    func testRF49_dateText() {
+        XCTAssertEqual(LandingText.dateText(monday, calendar: calendar), "segunda-feira, 28 de setembro")
+        let sunday = monday.addingTimeInterval(6 * 86_400)
+        XCTAssertEqual(LandingText.dateText(sunday, calendar: calendar), "domingo, 4 de outubro")
+    }
+
+    func testRF49_refreshFillsDateGreetingAndGoals() {
+        let planner = LandingTestPlanner()
+        planner.activeGoals = [.hypertrophy]
+        let model = LandingViewModel(
+            planner: planner,
+            coordinator: LandingTestCoordinator(),
+            now: { self.monday },
+            calendar: calendar
+        )
+
+        model.refresh()
+
+        XCTAssertEqual(model.dateText, "segunda-feira, 28 de setembro")
+        XCTAssertEqual(model.greeting, "Bom dia", "10h00 no calendário da pessoa")
+        XCTAssertEqual(model.todayWeekdayIndex, 0, "segunda-feira")
+        XCTAssertEqual(model.activeGoals, [.hypertrophy])
+    }
+
+    func testRF49_weekMarksAccessibilityLabel() {
+        let none = Array(repeating: false, count: 7)
+        XCTAssertEqual(LandingText.weekMarksAccessibilityLabel(marks: none), "Esta semana: nenhuma sessão ainda.")
+        XCTAssertEqual(
+            LandingText.weekMarksAccessibilityLabel(marks: [true, false, true, false, false, false, false]),
+            "Esta semana: sessão na segunda-feira e na quarta-feira."
+        )
+        XCTAssertEqual(
+            LandingText.weekMarksAccessibilityLabel(marks: [false, false, false, false, false, true, false]),
+            "Esta semana: sessão no sábado."
+        )
+        XCTAssertEqual(
+            LandingText.weekMarksAccessibilityLabel(marks: [true, false, true, false, false, true, false]),
+            "Esta semana: sessão na segunda-feira, na quarta-feira e no sábado."
+        )
+    }
+
+    func testRF49_readFailureKeepsThePath() {
+        let plan = makePlan(dayName: "Dia A — Superior", exerciseCount: 5, estimatedMinutes: 55)
+        let planner = LandingTestPlanner()
+        planner.activeGoals = [.hypertrophy]
+        planner.overview = TodayOverview(sessions: [TodaySession(plan: plan, goal: .hypertrophy, isDoneToday: false)])
+        planner.summariesError = LandingTestError.unreadable
+        let model = LandingViewModel(
+            planner: planner,
+            coordinator: LandingTestCoordinator(),
+            now: { self.monday },
+            calendar: calendar
+        )
+
+        model.refresh()
+
+        XCTAssertEqual(model.weekReadErrorMessage, "Não foi possível ler a semana.")
+        XCTAssertEqual(model.weekMarks, Array(repeating: false, count: 7))
+        XCTAssertEqual(model.pathState, .todaySessions(label: "Dia A — Superior", subtitle: "5 exercícios · ≈ 55 min"))
+    }
+
     // MARK: - RF-49: estados do caminho
 
     func testRF49_path_inProgress() {
@@ -181,6 +242,35 @@ final class LandingViewModelTests: XCTestCase {
         XCTAssertEqual(model.pathState, .noGoal)
     }
 
+    func testRF52_weekRangeText() {
+        let start = calendar.startOfDay(for: monday)
+        let end = start.addingTimeInterval(7 * 86_400)
+
+        XCTAssertEqual(
+            LandingText.weekRangeText(weekStart: start, weekEnd: end, calendar: calendar),
+            "28 set. – 4 out."
+        )
+    }
+
+    func testRF52_frequencyReadFailureKeepsTheGoalsAndTheMondayWeek() {
+        let planner = LandingTestPlanner()
+        planner.activeGoals = [.hypertrophy]
+        planner.plansProgress = [PlanWeekProgress(programID: UUID(), goal: .hypertrophy, completed: 1, perWeek: 3)]
+        planner.frequencyError = LandingTestError.unreadable
+        let model = LandingViewModel(
+            planner: planner,
+            coordinator: LandingTestCoordinator(),
+            now: { self.monday },
+            calendar: calendar
+        )
+
+        model.refresh()
+
+        XCTAssertEqual(model.weekRangeText, "28 set. – 4 out.", "sem a leitura, vale a semana de segunda a domingo")
+        XCTAssertFalse(model.weeklyGoals.contains { $0.kind == .muscles }, "sem grupos, a meta de músculos some (W2)")
+        XCTAssertTrue(model.weeklyGoals.contains { $0.kind == .planSessions })
+    }
+
     func testRefresh_populatesWeeklyGoalsFromThePlanner() {
         let planner = LandingTestPlanner()
         planner.activeGoals = [.hypertrophy]
@@ -265,6 +355,10 @@ final class LandingViewModelTests: XCTestCase {
 
 // MARK: - Doubles
 
+private enum LandingTestError: Error {
+    case unreadable
+}
+
 @MainActor
 private final class LandingTestPlanner: SessionPlanning {
     var activeGoals: [ProgramGoal] = []
@@ -272,6 +366,9 @@ private final class LandingTestPlanner: SessionPlanning {
     var completedSummaries: [SessionSummary] = []
     var frequencyReport = WeeklyFrequencyReport(weekStart: .distantPast, weekEnd: .distantPast, entries: [])
     var plansProgress: [PlanWeekProgress] = []
+    /// Quando definido, a leitura correspondente lança, para testar o caminho de falha (RF-49 ponto 5).
+    var summariesError: (any Error)?
+    var frequencyError: (any Error)?
 
     func nextPlan(now: Date) throws -> SessionPlan? { overview.sessions.first?.plan }
     func plan(forDayID dayID: UUID, now: Date) throws -> SessionPlan? { nil }
@@ -279,8 +376,18 @@ private final class LandingTestPlanner: SessionPlanning {
     func activeProgramGoal() throws -> ProgramGoal? { activeGoals.first }
     func activeProgramGoals() throws -> [ProgramGoal] { activeGoals }
     func todayOverview(now: Date) throws -> TodayOverview { overview }
-    func completedSessionSummaries() throws -> [SessionSummary] { completedSummaries }
-    func weeklyFrequency(now: Date) throws -> WeeklyFrequencyReport { frequencyReport }
+    func completedSessionSummaries() throws -> [SessionSummary] {
+        if let summariesError {
+            throw summariesError
+        }
+        return completedSummaries
+    }
+    func weeklyFrequency(now: Date) throws -> WeeklyFrequencyReport {
+        if let frequencyError {
+            throw frequencyError
+        }
+        return frequencyReport
+    }
     func planWeekProgress(now: Date) throws -> [PlanWeekProgress] { plansProgress }
 }
 

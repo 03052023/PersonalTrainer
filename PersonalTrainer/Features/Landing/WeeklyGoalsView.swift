@@ -12,6 +12,13 @@ struct WeeklyGoalsView: View {
     var body: some View {
         List {
             Section {
+                titleBlock
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 4, bottom: 4, trailing: 4))
+            }
+
+            Section {
                 if sessionGoals.isEmpty {
                     Text("Escolha um objetivo para ter metas de treino.")
                         .font(.subheadline)
@@ -21,18 +28,15 @@ struct WeeklyGoalsView: View {
                         WeeklyGoalRow(goal: goal, references: references)
                     }
                 }
-            } header: {
-                Text(weekRangeText)
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.textSecondary)
-                    .textCase(nil)
             }
+            .listRowBackground(Theme.surface)
 
             if let musclesGoal {
                 Section {
                     WeeklyGoalRow(goal: musclesGoal, references: references)
                     muscleGrid
                 }
+                .listRowBackground(Theme.surface)
             }
 
             Section {
@@ -42,12 +46,16 @@ struct WeeklyGoalsView: View {
             } footer: {
                 if showsHealthFooter {
                     Text("Aeróbico, passos e sono vêm do app Saúde.")
+                        .foregroundStyle(Theme.textSecondary)
                 }
             }
+            .listRowBackground(Theme.surface)
         }
         .scrollContentBackground(.hidden)
-        .background(Theme.background)
-        .navigationTitle("Metas da semana")
+        .paperBackground()
+        // O título de verdade é o `titleBlock` (New York, no papel); a barra fica só com a volta.
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
         .task { @MainActor [model] in
             await model.openWeeklyGoals()
         }
@@ -55,6 +63,22 @@ struct WeeklyGoalsView: View {
 
     // MARK: - Peças
 
+    /// Título "Metas da semana" em New York e o intervalo da semana em `textSecondary` (DESIGN §9.2).
+    private var titleBlock: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Metas da semana")
+                .font(.system(.largeTitle, design: .serif, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+            Text(model.weekRangeText)
+                .font(.subheadline)
+                .foregroundStyle(Theme.textSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Os grupos com meta em duas colunas ("Peito 1 de 2"), com um ponto de tinta por vez feita
+    /// (DESIGN §9.2).
     private var muscleGrid: some View {
         let entries = WeeklyFrequencyCard.visibleEntries(model.muscleFrequency)
         return LazyVGrid(
@@ -62,18 +86,30 @@ struct WeeklyGoalsView: View {
             spacing: 8
         ) {
             ForEach(entries, id: \.muscle) { entry in
-                HStack(spacing: 4) {
-                    Circle()
-                        .fill(entry.completed >= entry.target ? Theme.inkMuted : Theme.line)
-                        .frame(width: 6, height: 6)
+                HStack(spacing: 6) {
+                    muscleDots(entry)
                     Text(WeeklyGoalsText.muscleDetailText(entry))
                         .font(.footnote)
                         .foregroundStyle(Theme.textSecondary)
                 }
+                .accessibilityElement(children: .combine)
             }
         }
         .padding(.vertical, 4)
-        .accessibilityElement(children: .contain)
+    }
+
+    /// Um ponto por vez da meta: cheio nas vezes feitas, vazio nas que faltam para a meta (sem passar
+    /// de 5 pontos). Decorativo: o texto ao lado já diz "1 de 2".
+    private func muscleDots(_ entry: WeeklyFrequencyEntry) -> some View {
+        let slots = min(max(entry.target, entry.completed), 5)
+        return HStack(spacing: 3) {
+            ForEach(0..<slots, id: \.self) { index in
+                Circle()
+                    .fill(index < entry.completed ? Theme.inkMuted : Theme.line)
+                    .frame(width: 6, height: 6)
+            }
+        }
+        .accessibilityHidden(true)
     }
 
     // MARK: - Dados derivados
@@ -95,10 +131,5 @@ struct WeeklyGoalsView: View {
         model.weeklyGoals.contains {
             ($0.kind == .aerobic || $0.kind == .steps || $0.kind == .sleep) && !$0.hasData
         }
-    }
-
-    /// "22 set. – 28 set." (mesmo formato de `WeeklyFrequencyCard.weekRangeText`, DESIGN §9.2).
-    private var weekRangeText: String {
-        WeeklyFrequencyCard.weekRangeText(model.muscleFrequency, calendar: .autoupdatingCurrent)
     }
 }

@@ -51,8 +51,10 @@ final class LandingViewModel {
     /// As metas da semana (SPEC RF-52, §7.16), para a tela "Metas da semana" embutida.
     private(set) var weeklyGoals: [WeeklyGoal] = []
     /// A mesma frequência por grupo muscular que alimenta a meta `.muscles`, para a grade de
-    /// detalhe da tela ("Peito 1 de 2") e para `WeeklyFrequencyCard.weekRangeText` (DESIGN §9.2).
+    /// detalhe da tela ("Peito 1 de 2", DESIGN §9.2).
     private(set) var muscleFrequency = WeeklyFrequencyReport(weekStart: .distantPast, weekEnd: .distantPast, entries: [])
+    /// "28 set. – 4 out.": o intervalo da semana, embaixo do título das Metas (DESIGN §9.2).
+    private(set) var weekRangeText = ""
 
     // MARK: Dependências
 
@@ -96,10 +98,14 @@ final class LandingViewModel {
         dateText = LandingText.dateText(referenceDate, calendar: calendar)
         greeting = LandingText.greeting(hour: calendar.component(.hour, from: referenceDate))
 
-        let goals = (try? planner.activeProgramGoals()) ?? []
+        let goals: [ProgramGoal] = read("os objetivos ativos", fallback: []) {
+            try planner.activeProgramGoals()
+        }
         activeGoals = goals
 
-        let overview = (try? planner.todayOverview(now: referenceDate)) ?? .empty
+        let overview: TodayOverview = read("as sessões de hoje", fallback: .empty) {
+            try planner.todayOverview(now: referenceDate)
+        }
         pathState = Self.computePathState(
             activeSession: coordinator.activeSession,
             hasActiveGoal: !goals.isEmpty,
@@ -124,10 +130,24 @@ final class LandingViewModel {
         }
         todayWeekdayIndex = PlanWeekday.of(referenceDate, calendar: calendar).rawValue
 
-        let frequency = (try? planner.weeklyFrequency(now: referenceDate))
-            ?? WeeklyFrequencyReport(weekStart: referenceDate, weekEnd: referenceDate, entries: [])
+        // Sem a leitura, a semana de segunda a domingo dá o intervalo do título; sem grupos, a meta de
+        // músculos some (W2.2) e o resto das Metas segue.
+        let week = WeeklyFrequency.weekInterval(containing: referenceDate, weekStartsOnMonday: true, calendar: calendar)
+        let frequency: WeeklyFrequencyReport = read(
+            "a frequência da semana",
+            fallback: WeeklyFrequencyReport(weekStart: week.start, weekEnd: week.end, entries: [])
+        ) {
+            try planner.weeklyFrequency(now: referenceDate)
+        }
         muscleFrequency = frequency
-        let plans = (try? planner.planWeekProgress(now: referenceDate)) ?? []
+        weekRangeText = LandingText.weekRangeText(
+            weekStart: frequency.weekStart,
+            weekEnd: frequency.weekEnd,
+            calendar: calendar
+        )
+        let plans: [PlanWeekProgress] = read("o progresso dos planos", fallback: []) {
+            try planner.planWeekProgress(now: referenceDate)
+        }
         weeklyGoals = WeeklyGoals.goals(WeeklyGoalsInput(
             plans: plans,
             activeGoals: goals,
@@ -142,6 +162,17 @@ final class LandingViewModel {
     func openWeeklyGoals() async {
         await loadHealth()
         refresh()
+    }
+
+    /// Uma leitura do planejador que nunca derruba a tela: se falhar, registra no log e devolve o
+    /// valor seguro (RF-49 ponto 5).
+    private func read<Value>(_ what: String, fallback: Value, _ body: () throws -> Value) -> Value {
+        do {
+            return try body()
+        } catch {
+            Self.logger.error("Falha ao ler \(what): \(String(describing: error))")
+            return fallback
+        }
     }
 
     // MARK: - Cálculo (puro, testável sem MainActor além da assinatura)

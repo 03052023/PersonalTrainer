@@ -79,6 +79,7 @@ struct SessionExerciseSection: View {
             // Cabeçalho de lista vem em caixa alta por padrão; nomes de exercício não.
             .textCase(nil)
         }
+        .listRowBackground(Theme.surface)
     }
 
     // MARK: - Linhas

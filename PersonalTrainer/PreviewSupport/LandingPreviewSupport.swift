@@ -31,7 +31,7 @@ import TrainerCore
 
 #Preview("Início — tudo feito hoje") {
     LandingPreviewFixture.makeLanding(
-        planner: LandingPreviewFixture.planner(pendingCount: 0),
+        planner: LandingPreviewFixture.planner(pendingCount: 0, isDoneToday: true),
         coordinator: LandingPreviewCoordinator()
     )
 }
@@ -66,8 +66,9 @@ import TrainerCore
 
 @MainActor
 private enum LandingPreviewFixture {
-    /// Data fixa (SPEC P11): previews determinísticos. Uma segunda-feira.
-    static let referenceDate = Date(timeIntervalSince1970: 1_758_600_000)
+    /// Data fixa (SPEC P11): previews determinísticos. Quarta-feira, 30/09/2026, 07:00 em São Paulo
+    /// ("Bom dia"); a sessão de exemplo da semana cai na segunda-feira.
+    static let referenceDate = Date(timeIntervalSince1970: 1_790_762_400)
 
     static let calendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
@@ -91,22 +92,28 @@ private enum LandingPreviewFixture {
     }
 
     /// Um planejador com `pendingCount` sessões pendentes hoje (0, 1 ou 2), o bastante para ver
-    /// todos os estados do caminho (RF-49 ponto 2).
+    /// todos os estados do caminho (RF-49 ponto 2). Com `isDoneToday`, a sessão de hoje já foi feita.
     static func planner(
         pendingCount: Int,
         isRestDay: Bool = false,
+        isDoneToday: Bool = false,
         activeGoals: [ProgramGoal] = [.hypertrophy]
     ) -> any SessionPlanning {
         let plans = (0..<max(pendingCount, activeGoals.isEmpty ? 0 : 1)).map { index in
             makePlan(dayName: index == 0 ? "Dia A — Superior" : "Dia B — Base contínua", suffix: index)
         }
         let sessions = plans.enumerated().map { index, plan in
-            TodaySession(plan: plan, goal: activeGoals[safe: index] ?? activeGoals.first ?? .hypertrophy, isDoneToday: false)
+            TodaySession(
+                plan: plan,
+                goal: activeGoals[safe: index] ?? activeGoals.first ?? .hypertrophy,
+                isDoneToday: isDoneToday
+            )
         }
         let overview = TodayOverview(sessions: sessions, isRestDay: isRestDay)
+        let week = WeeklyFrequency.weekInterval(containing: referenceDate, weekStartsOnMonday: true, calendar: calendar)
         let frequency = WeeklyFrequencyReport(
-            weekStart: referenceDate,
-            weekEnd: calendar.date(byAdding: .day, value: 7, to: referenceDate) ?? referenceDate,
+            weekStart: week.start,
+            weekEnd: week.end,
             entries: MuscleGroup.allCases.map { WeeklyFrequencyEntry(muscle: $0, completed: $0 == .chest ? 2 : 1, target: 2) }
         )
         let plansProgress = activeGoals.enumerated().map { index, goal in
