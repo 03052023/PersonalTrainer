@@ -51,7 +51,7 @@ struct SessionSummaryView: View {
             .padding(.top, 32)
             .padding(.bottom, 16)
         }
-        .background(Theme.background.ignoresSafeArea())
+        .paperBackground()
         .safeAreaInset(edge: .bottom) {
             closeButton
         }
@@ -93,7 +93,7 @@ struct SessionSummaryView: View {
             }
         }
         .padding(.horizontal, 16)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .inkCard()
     }
 
     private func summaryRow(_ title: String, value: String) -> some View {

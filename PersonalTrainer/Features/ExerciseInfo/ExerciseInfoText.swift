@@ -14,20 +14,49 @@ enum ExerciseInfoText {
 
     /// "3 séries de 3 repetições com 62,5 kg. Descanso de 4 min entre as séries."; peso do corpo:
     /// "..., com o peso do corpo. ..."; carga extra: "... com + 2,5 kg extra. ..."; primeira vez:
-    /// "... Na primeira vez você escolhe a carga. ...". Segundos e passos usam a unidade certa
-    /// (`TodayTargetText.amount`).
+    /// "... A carga é opcional. ..." (sem carga, SPEC RF-46 D3). Segundos e passos usam a unidade certa
+    /// (`TodayTargetText.amount`). O aeróbico tem frase própria (`cardioToday`).
     static func today(_ content: ExerciseInfoContent) -> String {
+        if let intensity = content.cardioIntensity {
+            return cardioToday(content, intensity: intensity)
+        }
         let base = "\(TodayTargetText.setsText(content.sets)) de \(TodayTargetText.amount(content.targetReps, measure: content.measure))"
         let sentence: String
         switch content.loadDisplay {
         case .hidden:
             sentence = "\(base), com o peso do corpo."
         case .toChoose:
-            sentence = "\(base). Na primeira vez você escolhe a carga."
+            sentence = "\(base). A carga é opcional."
         case .load(let text), .extra(let text):
             sentence = "\(base) com \(text)."
         }
         return sentence + restClause(seconds: content.restSeconds)
+    }
+
+    /// Aeróbico (SPEC §7.14 F1 e F2): "30 minutos, moderado: dá para conversar, mas não para cantar.";
+    /// intervalos: "4 séries de 3 minutos, forte: só dá para dizer poucas palavras. Recuperação andando de
+    /// 3 min entre as séries. Antes, aqueça 10 minutos andando devagar." O nível da máquina entra só quando
+    /// existe ("No nível 7."). Nada de FC nem ritmo em números.
+    private static func cardioToday(_ content: ExerciseInfoContent, intensity: CardioIntensity) -> String {
+        let minutes = TodayTargetText.amount(content.targetReps, measure: .minutes)
+        let base = content.sets > 1 ? "\(TodayTargetText.setsText(content.sets)) de \(minutes)" : minutes
+        let feel = "\(CardioText.intensityName(intensity).lowercased()): \(CardioText.talkTest(intensity))"
+        var sentence = "\(base), \(feel)."
+        switch content.loadDisplay {
+        case .load(let text):
+            sentence += " No \(text)."
+        case .extra(let text):
+            sentence += " Com \(text)."
+        case .hidden, .toChoose:
+            break
+        }
+        if content.sets > 1 {
+            if content.restSeconds > 0 {
+                sentence += " \(CardioText.recoveryTitle) de \(TodayTargetText.rest(seconds: content.restSeconds)) entre as séries."
+            }
+            sentence += " \(CardioText.intervalsWarmup)"
+        }
+        return sentence
     }
 
     /// " Descanso de 4 min entre as séries."; vazio sem descanso (raro: todo exercício do catálogo
@@ -63,7 +92,9 @@ enum ExerciseInfoText {
         }
 
         let reps = commaAndList(lastSession.sets.map { TodayTargetText.compactAmount($0.reps, measure: content.measure) })
-        if content.equipment == .bodyweight {
+        // SPEC RF-46 (D3): sem carga externa, antes e hoje, a frase é a do peso do corpo, sem "0 kg".
+        let hasNoExternalLoad = representativeLoad <= 0 && (content.load ?? 0) <= 0
+        if content.equipment == .bodyweight || hasNoExternalLoad {
             return bodyweightWhy(content, reps: reps, lastLoad: representativeLoad)
         }
         let lastLoadText = TodayTargetText.loadText(representativeLoad, unit: content.loadUnit)
@@ -176,11 +207,18 @@ enum ExerciseInfoText {
     /// `calibrate` (SPEC P2, RF-41): com carga concreta, a frase de primeira vez com carga;
     /// peso do corpo, a frase de RF-41 para peso do corpo. Nunca usa `lastSession` (não existe).
     private static func calibrateWhy(_ content: ExerciseInfoContent) -> String {
+        if let intensity = content.cardioIntensity {
+            // SPEC §7.14 F2 e F3: o aeróbico se sente pela fala; o nível da máquina é opcional.
+            let goal = TodayTargetText.amount(content.targetReps, measure: .minutes)
+            let level = content.loadUnit == .level ? " O nível da máquina é opcional." : ""
+            return "Primeira vez: faça \(goal) no ritmo em que \(CardioText.talkTest(intensity)); "
+                + "a próxima sessão se ajusta.\(level)"
+        }
         if content.equipment == .bodyweight {
             let goal = TodayTargetText.amount(content.targetReps, measure: content.measure)
             return "Primeira vez: faça \(goal) com boa técnica; a próxima sessão se ajusta."
         }
-        if let load = content.load {
+        if let load = content.load, load > 0 {
             let loadText = TodayTargetText.loadText(load, unit: content.loadUnit)
             return "Primeira vez com este exercício: comece com \(loadText) e ajuste a partir da próxima sessão."
         }
@@ -234,8 +272,9 @@ enum ExerciseInfoText {
 
         let repsTexts = sets.map { TodayTargetText.compactAmount($0.reps, measure: measure) }
         let loadTexts: [String?] = sets.map { set in
+            // SPEC RF-46 (D3): 0 é sem carga (externa ou extra), nunca "0 kg".
+            guard set.load > 0 else { return nil }
             if equipment == .bodyweight {
-                guard set.load > 0 else { return nil }
                 return "+ \(TodayTargetText.loadText(set.load, unit: unit)) extra"
             }
             return TodayTargetText.loadText(set.load, unit: unit)

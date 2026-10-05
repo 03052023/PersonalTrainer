@@ -67,6 +67,7 @@ struct SubstituteExerciseSheet: View {
                 } footer: {
                     Text(footerText)
                 }
+                .listRowBackground(Theme.surface)
 
                 // RF-32: por que trocar por mesmo padrão de movimento mantém o estímulo. A seção
                 // some junto com o botão quando o tópico não tem referências.
@@ -74,8 +75,12 @@ struct SubstituteExerciseSheet: View {
                     Section {
                         WhyButton(topic: Self.whyTopic, catalog: references)
                     }
+                    .listRowBackground(Theme.surface)
                 }
             }
+            // Papel (DESIGN §14): o fundo da lista dá lugar ao papel; as linhas ficam em `surface`.
+            .scrollContentBackground(.hidden)
+            .paperBackground()
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

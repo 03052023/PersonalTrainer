@@ -35,6 +35,9 @@ enum TodayTargetText {
     /// SPEC RF-46: peso do corpo (`equipment == .bodyweight`) com carga 0 ou vazia fica sem carga; com
     /// carga maior que 0 vira "+ N extra". Nos outros equipamentos, carga vazia é a primeira vez
     /// (P2). `equipment` `nil` (exercício que sumiu do catálogo) é tratado como exercício com carga.
+    /// Desde a 2.3 (D3), carga 0 num exercício com equipamento é "sem carga externa": nada de "0 kg"
+    /// nem "nível 0" (RF-46), como no peso do corpo. A ficha da sessão e a folha de informações dizem
+    /// "sem carga" com o próprio mapeamento, antes de chegar aqui.
     static func loadDisplay(load: Double?, unit: LoadUnit, equipment: Equipment?) -> LoadDisplay {
         if equipment == .bodyweight {
             guard let load, load > 0 else {
@@ -44,6 +47,9 @@ enum TodayTargetText {
         }
         guard let load else {
             return .toChoose
+        }
+        guard load > 0 else {
+            return .hidden
         }
         return .load(loadText(load, unit: unit))
     }
@@ -111,8 +117,12 @@ enum TodayTargetText {
 
     /// Linha da tela Hoje: "3 séries de 3 · 62,5 kg", "3 séries de 5", "2 séries de 15 s",
     /// "3 séries de 30 passos · 22,5 kg", "4 séries de 6 · escolha a carga",
-    /// "3 séries de 5 · + 2,5 kg extra".
+    /// "3 séries de 5 · + 2,5 kg extra". Em minutos (aeróbico, SPEC §7.14 F1): "30 min" ou
+    /// "4 × 3 min", nunca "1 série de 30 min"; o nível da máquina só aparece quando existe.
     static func row(sets: Int, goal: Int, measure: ExerciseMeasure, load: LoadDisplay) -> String {
+        if measure == .minutes {
+            return joined(CardioText.amount(sets: sets, minutes: goal), cardioLabel(load), separator: " · ")
+        }
         let base = "\(setsText(sets)) de \(compactAmount(goal, measure: measure))"
         guard let label = loadLabel(load) else {
             return base
@@ -122,7 +132,11 @@ enum TodayTargetText {
 
     /// Letra grande da ficha: "3 repetições · 62,5 kg", "5 repetições", "15 segundos",
     /// "30 passos · 22,5 kg", "6 repetições · escolha a carga", "5 repetições · + 2,5 kg extra".
-    static func headline(goal: Int, measure: ExerciseMeasure, load: LoadDisplay) -> String {
+    /// Em minutos, "30 min" ou, com `sets` maior que 1, "4 × 3 min" (SPEC §7.14 F1).
+    static func headline(goal: Int, measure: ExerciseMeasure, load: LoadDisplay, sets: Int = 1) -> String {
+        if measure == .minutes {
+            return joined(CardioText.amount(sets: sets, minutes: goal), cardioLabel(load), separator: " · ")
+        }
         let base = amount(goal, measure: measure)
         guard let label = loadLabel(load) else {
             return base
@@ -131,7 +145,11 @@ enum TodayTargetText {
     }
 
     /// Leitura do VoiceOver da linha: "3 séries de 3 repetições, 62,5 kg" (sem "·"; "+" vira "mais").
+    /// Em minutos, "30 minutos" ou "4 vezes 3 minutos".
     static func spokenRow(sets: Int, goal: Int, measure: ExerciseMeasure, load: LoadDisplay) -> String {
+        if measure == .minutes {
+            return joined(CardioText.spokenAmount(sets: sets, minutes: goal), cardioLabel(load).map { spoken($0) }, separator: ", ")
+        }
         let base = "\(setsText(sets)) de \(amount(goal, measure: measure))"
         guard let label = loadLabel(load) else {
             return base
@@ -139,8 +157,11 @@ enum TodayTargetText {
         return "\(base), \(spoken(label))"
     }
 
-    /// Leitura do VoiceOver da letra grande: "3 repetições, 62,5 kg".
-    static func spokenHeadline(goal: Int, measure: ExerciseMeasure, load: LoadDisplay) -> String {
+    /// Leitura do VoiceOver da letra grande: "3 repetições, 62,5 kg"; em minutos, "30 minutos".
+    static func spokenHeadline(goal: Int, measure: ExerciseMeasure, load: LoadDisplay, sets: Int = 1) -> String {
+        if measure == .minutes {
+            return joined(CardioText.spokenAmount(sets: sets, minutes: goal), cardioLabel(load).map { spoken($0) }, separator: ", ")
+        }
         let base = amount(goal, measure: measure)
         guard let label = loadLabel(load) else {
             return base
@@ -173,6 +194,24 @@ enum TodayTargetText {
     }
 
     // MARK: - Privado
+
+    /// No aeróbico, o nível da máquina (ou uma carga registrada) é opcional (SPEC §7.14 F3): só aparece
+    /// quando existe. "escolha a carga" não vale para quem só caminha ou pedala.
+    private static func cardioLabel(_ display: LoadDisplay) -> String? {
+        switch display {
+        case .hidden, .toChoose:
+            return nil
+        case .load(let text), .extra(let text):
+            return text
+        }
+    }
+
+    private static func joined(_ base: String, _ label: String?, separator: String) -> String {
+        guard let label else {
+            return base
+        }
+        return "\(base)\(separator)\(label)"
+    }
 
     /// Número pt-BR sem casas desnecessárias: 62.5 → "62,5", 60 → "60".
     private static func decimal(_ value: Double) -> String {

@@ -18,6 +18,8 @@ struct ExerciseInfoSheet: View {
     private let onSkip: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
+    /// Guias do "Como fazer" (SPEC RF-40, RF-47 desde a 2.3): a seção só aparece quando o exercício tem guia (E1).
+    @Environment(\.exerciseGuides) private var guides
 
     init(
         content: ExerciseInfoContent,
@@ -65,6 +67,18 @@ struct ExerciseInfoSheet: View {
                         }
                     }
 
+                    // SPEC RF-47 (2.3): é assim que a tela Hoje chega à guia; na sessão vale o exercício realizado.
+                    if let guide = ExerciseGuideText.guide(forSlug: content.slug, isCustom: content.isCustom, in: guides) {
+                        ExerciseInfoSectionCard(title: ExerciseGuideText.sectionTitle) {
+                            ExerciseGuideButton(
+                                guide: guide,
+                                exerciseName: content.name,
+                                primaryMuscles: content.primaryMuscles,
+                                style: .full
+                            )
+                        }
+                    }
+
                     if onSubstitute != nil || onSkip != nil {
                         actions
                     }
@@ -72,7 +86,7 @@ struct ExerciseInfoSheet: View {
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .background(Theme.background)
+            .paperBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -132,7 +146,7 @@ private struct ExerciseInfoSectionCard<Content: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .inkCard()
     }
 }
 

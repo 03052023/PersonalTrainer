@@ -39,6 +39,47 @@ enum SessionSheetText {
         }
     }
 
+    // MARK: - Carga opcional (SPEC RF-44 c, RF-46; 2.3, D3)
+
+    /// No lugar do número, num exercício com equipamento sem carga (0 ou vazia); toque abre o teclado.
+    static let noLoadText = "sem carga"
+    /// No aeróbico com nível de máquina, quando ninguém pôs um (SPEC §7.14 F3).
+    static let noLevelText = "sem nível"
+
+    /// A sugestão delicada, uma vez na vida de cada exercício (decisão do dono, 2026-09-27).
+    static let loadHint = "Anotar a carga ajuda a sugerir quando subir."
+    static let loadHintAccept = "Anotar carga"
+    static let loadHintDismiss = "Agora não"
+
+    /// Texto da carga na ficha: "62,5 kg", "+ 2,5 kg extra", "sem carga"; peso do corpo sem carga
+    /// extra, `nil`. Diferente da tela Hoje, que ainda diz "escolha a carga" para a primeira vez.
+    static func loadLabel(_ display: TodayTargetText.LoadDisplay) -> String? {
+        switch display {
+        case .hidden:
+            return nil
+        case .toChoose:
+            return noLoadText
+        case .load(let text), .extra(let text):
+            return text
+        }
+    }
+
+    /// "10 repetições · 60 kg", "10 repetições · sem carga", "10 repetições".
+    static func headline(amount: String, loadLabel: String?) -> String {
+        guard let loadLabel else {
+            return amount
+        }
+        return "\(amount) · \(loadLabel)"
+    }
+
+    /// Leitura do VoiceOver da mesma linha: "10 repetições, 60 kg"; "+" vira "mais".
+    static func spokenHeadline(amount: String, loadLabel: String?) -> String {
+        guard let loadLabel else {
+            return amount
+        }
+        return "\(amount), \(spokenLoad(loadLabel))"
+    }
+
     // MARK: - Campo de carga
 
     /// Maior carga aceita no teclado (kg, placas ou nível). Acima disso é erro de digitação.
@@ -96,21 +137,6 @@ enum SessionSheetText {
     static func pendingMessage(names: [String]) -> String {
         let list = namesList(names)
         return names.count == 1 ? "\(list) ainda não foi marcado." : "\(list) ainda não foram marcados."
-    }
-
-    /// Mensagem do diálogo com os pendentes que "Marcar como feitos, como previsto" deixa de fora
-    /// (primeira vez sem carga, RF-44 c e e): "Supino reto e Remada baixa ainda não foram marcados.
-    /// Supino reto precisa da carga da primeira vez e fica de fora."
-    static func pendingMessage(names: [String], needingLoad: [String]) -> String {
-        let base = pendingMessage(names: names)
-        guard !needingLoad.isEmpty else {
-            return base
-        }
-        let list = namesList(needingLoad)
-        let note = needingLoad.count == 1
-            ? "\(list) precisa da carga da primeira vez e fica de fora."
-            : "\(list) precisam da carga da primeira vez e ficam de fora."
-        return "\(base) \(note)"
     }
 
     /// "A", "A e B", "A, B e C".
@@ -278,9 +304,13 @@ enum SessionSheetText {
         }
     }
 
-    /// Texto da carga de uma série (SPEC RF-46): peso do corpo com 0 não mostra nada.
+    /// Texto da carga de uma série (SPEC RF-46): com 0, nada, nem "0 kg" (peso do corpo sem carga extra
+    /// ou, desde a 2.3, equipamento sem carga externa, D3).
     private static func loadLabel(_ load: Double, unit: LoadUnit, equipment: Equipment?) -> String? {
-        TodayTargetText.loadLabel(TodayTargetText.loadDisplay(load: load, unit: unit, equipment: equipment))
+        guard load > 0 else {
+            return nil
+        }
+        return TodayTargetText.loadLabel(TodayTargetText.loadDisplay(load: load, unit: unit, equipment: equipment))
     }
 
     /// "+ 2,5 kg extra" é lido "mais 2,5 kg extra".
