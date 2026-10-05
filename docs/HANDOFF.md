@@ -57,7 +57,7 @@ O dono usou a 2.1 no aparelho (instalação e migração funcionaram) e pediu os
 
 Construído pelo workflow `wf_fdd53fa1-c8f`: contrato em `docs/V22-CONTRACT.md`, 7 tarefas `v5/*` verdes, integração e revisão (13 achados; os 4 major foram corrigidos), `main` 6a26655. IPA no App build 36362402317 (disponível até 2026-10-01T00:41Z). Página e PDF da Amanda atualizados para esse run. Pendências menores no TASKS (A4 carga digitada perdida ao Voltar, A5 evolução de peso do corpo em kg, A7 "Sair sem registrar" deixa sessão abandonada, B6, texto do ProgramReviewer).
 
-## 5d. Versão 2.3 em andamento (2026-09-27)
+## 5d. Versão 2.3 entregue (2026-10-04): App build 37254171858 (IPA até 2026-10-08), main 6eec103; 8 achados minor da revisão ficaram para a 2.4 (ver journal do workflow wf_99b0843b-ca9). Próxima versão (2.4): atividades fora do app (notas, item 19).
 
 Pedidos do dono:
 - D1: "Corpo todo" vira "Equilibrado", 4 dias alternando Superior e Inferior.
