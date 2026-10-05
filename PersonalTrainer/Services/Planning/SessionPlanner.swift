@@ -18,21 +18,25 @@ import TrainerCore
 /// contrato de `SessionPlanning`.
 @MainActor
 final class SessionPlanner: SessionPlanning {
-    private let modelContext: ModelContext
-    private let coordinator: any SessionCoordinating
-    private let progression: any ProgressionRule
-    /// Seletor da sequência (SPEC S2), usado quando o seletor por frequência está desligado.
-    private let selector: any WorkoutSelector
-    private let deloadDecisions: any DeloadDecisionsStoring
+    // Internos (não `private`) porque `SessionPlanner+Plans.swift` (vários planos, SPEC §7.15) os usa.
+    let modelContext: ModelContext
+    let coordinator: any SessionCoordinating
+    let progression: any ProgressionRule
+    /// Seletor da sequência (SPEC S2), usado quando o seletor por frequência está desligado e, com
+    /// dois planos, na rotação de cada um (S8) e na fase do começo da semana (M3).
+    let selector: any WorkoutSelector
+    let deloadDecisions: any DeloadDecisionsStoring
     /// Lido a cada plano: mudar o Ajustes vale já no próximo `nextPlan`.
-    private let settings: () -> PlannerSettings
-    /// Calendário e fuso da semana de treino (SPEC §7.4), para S5–S7.
-    private let calendar: Calendar
+    let settings: () -> PlannerSettings
+    /// Calendário e fuso da semana de treino (SPEC §7.4), para S5–S7, M4, M6 e W2.
+    let calendar: Calendar
     /// Medida e marca "de casa" por `slug` (SPEC RF-42, RF-43): quem é de casa no modo casa (H1)
     /// e como estimar a duração (B7).
-    private let traits: ExerciseTraitsCatalog
+    let traits: ExerciseTraitsCatalog
+    /// Grava as escolhas da semana (SPEC §7.15 M9); quem lê é `settings().weekPreferences`.
+    let storeWeekPreferences: (WeekPreferences) throws -> Void
     /// AGENTS §4: `subsystem` = bundle id, `category` = nome do serviço.
-    private let logger = Logger(
+    let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "PersonalTrainer",
         category: "SessionPlanner"
     )
@@ -45,6 +49,9 @@ final class SessionPlanner: SessionPlanning {
     ///   - calendar: padrão acompanha o fuso e o calendário do aparelho.
     ///   - traits: o app passa `AppEnvironment.traits` (catálogo do bundle). Com o padrão `.empty`,
     ///     nenhum exercício é de casa: o modo casa tiraria todos da sessão, com aviso.
+    ///   - saveWeekPreferences: grava as escolhas da semana (SPEC §7.15 M9). O padrão grava em
+    ///     `UserDefaults.standard`, a mesma suíte que o padrão de `settings` lê; os testes passam uma suíte
+    ///     isolada nos dois.
     init(
         modelContext: ModelContext,
         coordinator: any SessionCoordinating,
@@ -53,7 +60,10 @@ final class SessionPlanner: SessionPlanning {
         deloadDecisions: any DeloadDecisionsStoring = FakeDeloadDecisionsStore(),
         settings: @escaping () -> PlannerSettings = { PlannerSettings.load(from: .standard) },
         calendar: Calendar = .autoupdatingCurrent,
-        traits: ExerciseTraitsCatalog = .empty
+        traits: ExerciseTraitsCatalog = .empty,
+        saveWeekPreferences: @escaping (WeekPreferences) throws -> Void = { preferences in
+            try PlannerSettings.saveWeekPreferences(preferences, to: .standard)
+        }
     ) {
         self.modelContext = modelContext
         self.coordinator = coordinator
@@ -63,61 +73,77 @@ final class SessionPlanner: SessionPlanning {
         self.settings = settings
         self.calendar = calendar
         self.traits = traits
+        self.storeWeekPreferences = saveWeekPreferences
     }
 
     // MARK: - SessionPlanning
 
+    /// Com um plano, a próxima dele (S1–S2 ou S5–S7), como sempre. Com dois (SPEC §7.15 M6), a primeira
+    /// sessão de hoje ainda não feita ou, sem ela, a próxima do principal.
     func nextPlan(now: Date) throws -> SessionPlan? {
-        guard let program = try activeProgram() else {
+        let programs = try activePrograms()
+        guard let principal = programs.first else {
             return nil
         }
-        let snapshot = try programSnapshot(of: program, now: now)
-        guard !snapshot.template.days.isEmpty else {
-            return nil
-        }
-
         // SPEC S2: todas as sessões entram, inclusive as de dias que já não existem no programa;
         // os seletores tratam esse caso e ignoram `inProgress` sozinhos (SPEC S3).
         let sessions = try allSessionSummaries()
         let currentSettings = settings()
-        guard let choice = try chooseNextDay(
-            snapshot: snapshot,
+        guard programs.count > 1 else {
+            return try rotationPlan(
+                for: principal,
+                isPrincipal: true,
+                isMultiPlan: false,
+                sessions: sessions,
+                settings: currentSettings,
+                now: now
+            )
+        }
+        let overview = try multiPlanOverview(
+            programs: programs,
             sessions: sessions,
             settings: currentSettings,
             now: now
-        ) else {
-            return nil
+        )
+        if let pending = overview.nextPending {
+            return pending.plan
         }
-
-        let deload = deloadStatus(snapshot: snapshot, sessions: sessions, settings: currentSettings, now: now)
-        // CA4-5: a semana leve é o que mais muda o treino, então é ela que a Home explica.
-        let reason = deload.planReason ?? choice.reason
-        return try makePlan(
-            snapshot: snapshot,
-            day: choice.day,
-            deload: deload,
-            reason: reason,
-            homeMode: currentSettings.homeModeEnabled,
+        return try rotationPlan(
+            for: principal,
+            isPrincipal: true,
+            isMultiPlan: true,
+            sessions: sessions,
+            settings: currentSettings,
             now: now
         )
     }
 
+    /// SPEC S4 com dois planos: o dia pode ser de qualquer plano ativo (S8).
     func plan(forDayID dayID: UUID, now: Date) throws -> SessionPlan? {
-        guard
-            let program = try activeProgram(),
-            program.days.contains(where: { $0.uuid == dayID })
-        else {
+        let programs = try activePrograms()
+        guard let index = programs.firstIndex(where: { program in program.days.contains { $0.uuid == dayID } }) else {
             return nil
         }
-        let snapshot = try programSnapshot(of: program, now: now)
+        let snapshot = try programSnapshot(of: programs[index], now: now)
         guard let day = snapshot.template.days.first(where: { $0.id == dayID }) else {
             return nil
         }
         // SPEC S4 + §7.5: o dia é da pessoa, mas uma semana leve programada ou em andamento vale
-        // para qualquer dia, senão trocar de dia na Home driblaria o descanso.
+        // para qualquer dia, senão trocar de dia na Home driblaria o descanso. M2: só o principal tem
+        // semana leve, e com dois planos ela olha só as sessões dos dias dele.
         let sessions = try allSessionSummaries()
         let currentSettings = settings()
-        let deload = deloadStatus(snapshot: snapshot, sessions: sessions, settings: currentSettings, now: now)
+        let deload: DeloadStatus
+        if index == 0 {
+            let planSessions = SessionPlanner.sessions(
+                sessions,
+                of: snapshot.template,
+                isMultiPlan: programs.count > 1
+            )
+            deload = deloadStatus(snapshot: snapshot, sessions: planSessions, settings: currentSettings, now: now)
+        } else {
+            deload = .inactive
+        }
         return try makePlan(
             snapshot: snapshot,
             day: day,
@@ -238,15 +264,22 @@ final class SessionPlanner: SessionPlanning {
 
     // MARK: - SessionPlanning (M4)
 
+    /// SPEC §7.15 M2: a semana leve é do principal; com dois planos, só as sessões dos dias dele contam
+    /// (as do segundo plano, normais, partiriam a passagem da semana leve em duas).
     func deloadStatus(now: Date) throws -> DeloadStatus {
-        guard let program = try activeProgram() else {
+        let programs = try activePrograms()
+        guard let program = programs.first else {
             return .inactive
         }
         let snapshot = try programSnapshot(of: program, now: now)
         guard !snapshot.template.days.isEmpty else {
             return .inactive
         }
-        let sessions = try allSessionSummaries()
+        let sessions = SessionPlanner.sessions(
+            try allSessionSummaries(),
+            of: snapshot.template,
+            isMultiPlan: programs.count > 1
+        )
         return deloadStatus(snapshot: snapshot, sessions: sessions, settings: settings(), now: now)
     }
 
@@ -304,8 +337,11 @@ final class SessionPlanner: SessionPlanning {
     /// - `currentPrescriptions`: as de hoje. Em semana leve, as de SPEC §7.5 (nota `deload`),
     ///   o que faz a revisão não sugerir outra semana leve em cima da programada;
     /// - volume alvo do objetivo (SPEC §7.9) e início da semana do `UserSettingsModel`.
+    ///
+    /// Com dois planos, a revisão é do principal (SPEC §7.15 M2).
     func reviewInput(now: Date, recovery: RecoveryContext) throws -> ReviewInput? {
-        guard let program = try activeProgram() else {
+        let programs = try activePrograms()
+        guard let program = programs.first else {
             return nil
         }
         let snapshot = try programSnapshot(of: program, now: now)
@@ -322,7 +358,8 @@ final class SessionPlanner: SessionPlanning {
             .map { $0.startedAt }
             .min()
 
-        let deload = deloadStatus(snapshot: snapshot, sessions: sessions, settings: settings(), now: now)
+        let deloadSessions = programs.count > 1 ? programSessions : sessions
+        let deload = deloadStatus(snapshot: snapshot, sessions: deloadSessions, settings: settings(), now: now)
         let plansDeload = deload.plansDeload
         let prescriptions = snapshot.slots.map { slot in
             plansDeload ? SessionPlanner.deloadPrescription(from: slot.normal, exercise: slot.exercise) : slot.normal
@@ -357,7 +394,7 @@ final class SessionPlanner: SessionPlanning {
 
 // MARK: - Programa ativo já calculado
 
-private extension SessionPlanner {
+extension SessionPlanner {
     /// Um exercício do programa ativo com a prescrição normal de hoje (sem semana leve).
     struct ProgramSlot {
         let dayID: UUID
@@ -452,21 +489,82 @@ private extension SessionPlanner {
             now: now
         )
     }
+
+    /// A próxima sessão de `program` (SPEC S1–S2; S5–S7 só com um plano), com a semana leve só no
+    /// principal (§7.15 M2). Com dois planos, a rotação e a semana leve olham só as sessões dos dias
+    /// daquele plano (S8); com um, todas, como antes da 2.3. `nil` num programa sem dias.
+    func rotationPlan(
+        for program: ProgramModel,
+        isPrincipal: Bool,
+        isMultiPlan: Bool,
+        sessions: [SessionSummary],
+        settings currentSettings: PlannerSettings,
+        now: Date
+    ) throws -> SessionPlan? {
+        let snapshot = try programSnapshot(of: program, now: now)
+        guard !snapshot.template.days.isEmpty else {
+            return nil
+        }
+        let planSessions = SessionPlanner.sessions(sessions, of: snapshot.template, isMultiPlan: isMultiPlan)
+        guard let choice = try chooseNextDay(
+            snapshot: snapshot,
+            sessions: planSessions,
+            settings: currentSettings,
+            allowsFrequencySelector: !isMultiPlan,
+            now: now
+        ) else {
+            return nil
+        }
+
+        let deload: DeloadStatus = isPrincipal
+            ? deloadStatus(snapshot: snapshot, sessions: planSessions, settings: currentSettings, now: now)
+            : .inactive
+        // CA4-5: a semana leve é o que mais muda o treino, então é ela que a Home explica.
+        let reason = deload.planReason ?? choice.reason
+        return try makePlan(
+            snapshot: snapshot,
+            day: choice.day,
+            deload: deload,
+            reason: reason,
+            homeMode: currentSettings.homeModeEnabled,
+            now: now
+        )
+    }
+
+    /// SPEC S8: com dois planos, só as sessões dos dias de `template`; com um plano, todas (S2 como na
+    /// 2.2, em que um plano que não tem o dia da última sessão recomeça no Dia A).
+    nonisolated static func sessions(
+        _ sessions: [SessionSummary],
+        of template: ProgramTemplate,
+        isMultiPlan: Bool
+    ) -> [SessionSummary] {
+        guard isMultiPlan else {
+            return sessions
+        }
+        let dayIDs = Set(template.days.map { $0.id })
+        return sessions.filter { dayIDs.contains($0.programDayID) }
+    }
 }
 
 // MARK: - Escolha do dia (SPEC S1–S2, S5–S7)
 
-private extension SessionPlanner {
+extension SessionPlanner {
     /// Rotação por padrão; com o seletor por frequência ligado (RF-39), `FrequencyAwareSelector`
-    /// com os grupos primários de cada dia e as metas do `UserSettingsModel`.
+    /// com os grupos primários de cada dia e as metas do `UserSettingsModel`. Com dois planos
+    /// (`allowsFrequencySelector` falso), sempre a rotação: SPEC S8 desliga S5–S7, porque a semana
+    /// ideal (§7.15 M4) já distribui os grupos.
     func chooseNextDay(
         snapshot: ProgramSnapshot,
         sessions: [SessionSummary],
         settings: PlannerSettings,
+        allowsFrequencySelector: Bool = true,
         now: Date
     ) throws -> DayChoice? {
         let template = SessionPlanner.trainableTemplate(snapshot.template)
-        guard settings.usesFrequencySelector(programDayCount: template.days.count) else {
+        guard
+            allowsFrequencySelector,
+            settings.usesFrequencySelector(programDayCount: template.days.count)
+        else {
             guard let day = selector.nextDay(program: template, recentSessions: sessions, now: now) else {
                 return nil
             }
@@ -560,7 +658,7 @@ private extension SessionPlanner {
 
 // MARK: - Montagem do plano
 
-private extension SessionPlanner {
+extension SessionPlanner {
     /// Uma prescrição por exercício do dia, na ordem de `order` (SPEC RF-01). Nada é gravado: o
     /// plano é um DTO que `SessionCoordinating.startSession` transforma em snapshots
     /// (ARCHITECTURE §5, decisão 3).
@@ -704,21 +802,53 @@ private extension SessionPlanner {
 
 // MARK: - Leitura do banco
 
-private extension SessionPlanner {
-    /// Programa com `isActive == true`. Deveria haver só um; se houver mais (store editado à mão
-    /// ou bug de repositório), vale o mais antigo, com desempate por `uuid` para ser
-    /// determinístico (SPEC P11). Ordenação em memória: são um ou dois registros.
+extension SessionPlanner {
+    /// O plano principal (SPEC §7.15 M1, M2): o primeiro de `activePrograms()`.
     func activeProgram() throws -> ProgramModel? {
+        try activePrograms().first
+    }
+
+    /// Os planos ativos (SPEC §7.15 M1): no máximo `ActivePlanOrder.maxActivePlans`, um por objetivo
+    /// efetivo, o principal primeiro (prioridade do objetivo, nome e `uuid`, como `ActivePlanOrder`).
+    /// Um store com dois ativos do mesmo objetivo (editado à mão ou de um bug antigo) fica com o mais
+    /// antigo deles, com desempate por `uuid`, como antes da 2.3 (SPEC P11). Ordenação em memória: são
+    /// um ou dois registros.
+    func activePrograms() throws -> [ProgramModel] {
         let descriptor = FetchDescriptor<ProgramModel>(
             predicate: #Predicate<ProgramModel> { $0.isActive == true }
         )
-        let activePrograms = try modelContext.fetch(descriptor)
-        return activePrograms.min { lhs, rhs in
-            if lhs.createdAt != rhs.createdAt {
-                return lhs.createdAt < rhs.createdAt
+        let models = try modelContext.fetch(descriptor)
+        var byGoal: [ProgramGoal: ProgramModel] = [:]
+        for model in models {
+            let goal = model.goal ?? .hypertrophy
+            if let current = byGoal[goal], !SessionPlanner.isOlder(model, than: current) {
+                continue
             }
-            return lhs.uuid.uuidString < rhs.uuid.uuidString
+            byGoal[goal] = model
         }
+        let ordered = byGoal.values.sorted { lhs, rhs in SessionPlanner.comesFirst(lhs, rhs) }
+        return Array(ordered.prefix(ActivePlanOrder.maxActivePlans))
+    }
+
+    /// Mais antigo por `createdAt`, empate pelo `uuid` (SPEC P11).
+    static func isOlder(_ lhs: ProgramModel, than rhs: ProgramModel) -> Bool {
+        if lhs.createdAt != rhs.createdAt {
+            return lhs.createdAt < rhs.createdAt
+        }
+        return lhs.uuid.uuidString < rhs.uuid.uuidString
+    }
+
+    /// A ordem de `ActivePlanOrder.sorted` sobre os modelos: prioridade do objetivo, nome e `uuid`.
+    static func comesFirst(_ lhs: ProgramModel, _ rhs: ProgramModel) -> Bool {
+        let left = ActivePlanOrder.rank(of: lhs.goal ?? .hypertrophy)
+        let right = ActivePlanOrder.rank(of: rhs.goal ?? .hypertrophy)
+        if left != right {
+            return left < right
+        }
+        if lhs.name != rhs.name {
+            return lhs.name < rhs.name
+        }
+        return lhs.uuid.uuidString < rhs.uuid.uuidString
     }
 
     /// `ProgramMapper.template` lança `MappingError.missingExercise` para relação anulada; aqui

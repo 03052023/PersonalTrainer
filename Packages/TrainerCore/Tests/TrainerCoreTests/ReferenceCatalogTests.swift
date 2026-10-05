@@ -107,39 +107,100 @@ func referenceCatalogFileCodableRoundTrip() throws {
     #expect(decoded == catalog)
 }
 
-@Test("RF-48 as 3 referências do Fôlego estão no catálogo, com os DOIs conferidos no Crossref")
-func referenceCatalogFileHasTheCardioReferences() throws {
-    let catalog = try loadReferenceCatalogFile()
-    let byID = Dictionary(catalog.references.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-    let expected: [(id: String, year: Int, doi: String, level: ScientificReference.EvidenceLevel)] = [
-        ("milanovic-2015-hiit", 2015, "10.1007/s40279-015-0365-0", .metaAnalysis),
-        ("foster-2008-talk-test", 2008, "10.1097/01.HCR.0000311504.41775.78", .study),
-        ("helgerud-2007-intervals", 2007, "10.1249/mss.0b013e3180304570", .study),
-    ]
+/// Uma referência conferida no Crossref (id, ano, DOI, nível e revista).
+struct CheckedReferenceRow: Sendable, CustomTestStringConvertible {
+    let id: String
+    let year: Int
+    let doi: String
+    let level: ScientificReference.EvidenceLevel
+    let source: String
 
-    for row in expected {
-        let reference = try #require(byID[row.id], "ausente: \(row.id)")
-        #expect(reference.year == row.year, "\(row.id)")
-        #expect(reference.doi == row.doi, "\(row.id)")
-        #expect(reference.level == row.level, "\(row.id)")
+    var testDescription: String {
+        id
     }
-    #expect(byID["milanovic-2015-hiit"]?.source == "Sports Medicine")
 }
 
-@Test("RF-48 o objetivo Fôlego e o tópico do aeróbico citam as diretrizes, o teste da fala e os intervalos")
+/// As do Cardio da 2.3 (núcleo) e as da onda de telas (docs/V23-UI-CONTRACT.md §4.5), cada DOI conferido no Crossref
+/// (api.crossref.org/works/<doi>: título, autores, ano e revista batem) em 2026-09-28.
+let checkedReferenceRows: [CheckedReferenceRow] = [
+    CheckedReferenceRow(id: "milanovic-2015-hiit", year: 2015, doi: "10.1007/s40279-015-0365-0", level: .metaAnalysis, source: "Sports Medicine"),
+    CheckedReferenceRow(id: "foster-2008-talk-test", year: 2008, doi: "10.1097/01.HCR.0000311504.41775.78", level: .study, source: "Journal of Cardiopulmonary Rehabilitation and Prevention"),
+    CheckedReferenceRow(id: "helgerud-2007-intervals", year: 2007, doi: "10.1249/mss.0b013e3180304570", level: .study, source: "Medicine & Science in Sports & Exercise"),
+    CheckedReferenceRow(id: "schoenfeld-2017-load", year: 2017, doi: "10.1519/JSC.0000000000002200", level: .metaAnalysis, source: "Journal of Strength and Conditioning Research"),
+    CheckedReferenceRow(id: "stoggl-2014-polarized", year: 2014, doi: "10.3389/fphys.2014.00033", level: .study, source: "Frontiers in Physiology"),
+    CheckedReferenceRow(id: "bacon-2013-vo2max", year: 2013, doi: "10.1371/journal.pone.0073182", level: .metaAnalysis, source: "PLoS ONE"),
+    CheckedReferenceRow(id: "gist-2014-sit", year: 2014, doi: "10.1007/s40279-013-0115-0", level: .metaAnalysis, source: "Sports Medicine"),
+    CheckedReferenceRow(id: "tomlin-2001-recovery", year: 2001, doi: "10.2165/00007256-200131010-00001", level: .narrativeReview, source: "Sports Medicine"),
+]
+
+@Test("RF-48 M7 as referências do Cardio e dos planos combinados estão no catálogo, com os DOIs conferidos no Crossref", arguments: checkedReferenceRows)
+func referenceCatalogFileHasTheCheckedReferences(_ row: CheckedReferenceRow) throws {
+    let catalog = try loadReferenceCatalogFile()
+    let reference = try #require(catalog.references.first { $0.id == row.id }, "ausente: \(row.id)")
+
+    #expect(reference.year == row.year)
+    #expect(reference.doi == row.doi)
+    #expect(reference.level == row.level)
+    #expect(reference.source == row.source)
+}
+
+@Test("RF-48 o objetivo Cardio fala da base contínua, do 4 × 4, do longo e leve, da fala e da OMS, sem complementos de força")
 func referenceCatalogFileCoversCardioTopics() throws {
     let catalog = try loadReferenceCatalogFile()
 
-    #expect(catalog.topics["goal.endurance"] == ["garber-2011-acsm", "bull-2020-who", "milanovic-2015-hiit", "foster-2008-talk-test"])
-    #expect(catalog.topics["topic.cardio"] == ["foster-2008-talk-test", "garber-2011-acsm", "milanovic-2015-hiit", "helgerud-2007-intervals"])
+    let goalTopic: [String] = [
+        "garber-2011-acsm", "bull-2020-who", "helgerud-2007-intervals", "milanovic-2015-hiit",
+        "bacon-2013-vo2max", "stoggl-2014-polarized", "foster-2008-talk-test",
+    ]
+    let cardioTopic: [String] = [
+        "foster-2008-talk-test", "garber-2011-acsm", "milanovic-2015-hiit", "helgerud-2007-intervals",
+        "bacon-2013-vo2max", "stoggl-2014-polarized", "gist-2014-sit",
+    ]
+    #expect(catalog.topics["goal.endurance"] == goalTopic)
+    #expect(catalog.topics["topic.cardio"] == cardioTopic)
     let goalText = catalog.explanations["goal.endurance"] ?? ""
     #expect(goalText.hasPrefix("Cardio"))
-    #expect(goalText.contains("minutos"))
-    #expect(goalText.contains("fala"))
+    for fragment in ["minutos", "fala", "base contínua", "4 × 4", "longa e leve", "OMS"] {
+        #expect(goalText.contains(fragment), "\(fragment)")
+    }
+    #expect(!goalText.contains("força completam"))
+    #expect(!goalText.lowercased().contains("complemento"))
     let cardioText = catalog.explanations["topic.cardio"] ?? ""
     #expect(cardioText.contains("cantar"))
     #expect(cardioText.contains("1 minuto por sessão"))
     #expect(cardioText.contains("opcional"))
+    #expect(cardioText.contains("4 × 4"))
+}
+
+@Test("M7 os tópicos novos dos planos combinados citam as referências do contrato")
+func referenceCatalogFileCoversCombinationTopics() throws {
+    let catalog = try loadReferenceCatalogFile()
+
+    let combination: [String] = ["schumann-2022-concurrent", "wilson-2012-concurrent", "tomlin-2001-recovery", "schoenfeld-2016-frequency"]
+    let load: [String] = ["schoenfeld-2017-load", "schoenfeld-2021-loading"]
+    let weekFit: [String] = ["schoenfeld-2016-frequency", "schumann-2022-concurrent", "wilson-2012-concurrent"]
+    #expect(catalog.topics["topic.combination"] == combination)
+    #expect(catalog.topics["topic.load"] == load)
+    #expect(catalog.topics["topic.weekFit"] == weekFit)
+    for topic in ["topic.combination", "topic.load", "topic.weekFit"] {
+        #expect(!(catalog.explanations[topic] ?? "").isEmpty, "\(topic)")
+    }
+}
+
+@Test("RF-45 itens 10 e 12 do dono: o Por quê? explica Hipertrofia × Força e Força × Combate")
+func referenceCatalogFileExplainsGoalDifferences() throws {
+    let catalog = try loadReferenceCatalogFile()
+
+    for topic in ["goal.hypertrophy", "goal.strength"] {
+        #expect(catalog.topics[topic]?.contains("schoenfeld-2017-load") == true, "\(topic)")
+        let text = catalog.explanations[topic] ?? ""
+        #expect(text.contains("cargas leves ou pesadas"), "\(topic)")
+        #expect(text.contains("a carga alta vence"), "\(topic)")
+    }
+    let combat = catalog.explanations["goal.combat"] ?? ""
+    #expect(combat.contains("mesma base de força máxima"))
+    #expect(combat.contains("potência"))
+    #expect(combat.contains("menos volume nos grandes levantamentos"))
 }
 
 // MARK: - ReferenceCatalog lookups
@@ -427,6 +488,8 @@ private enum ReferenceFixture {
         "topic.sleep", "topic.steps", "topic.e1rm",
         // 2.3 (RF-48, SPEC §7.14): o teste da fala, a duração em minutos e o nível opcional.
         "topic.cardio",
+        // 2.3, onda de telas (SPEC §7.15 M7): combinar planos, cargas leves e pesadas e a semana dos dois planos.
+        "topic.combination", "topic.load", "topic.weekFit",
     ]
 
     static func reference(

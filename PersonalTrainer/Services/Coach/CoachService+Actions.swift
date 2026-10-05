@@ -131,7 +131,7 @@ extension CoachService {
             guard let candidate = try switchCandidate() else {
                 return .chooseProgram
             }
-            try programs.activate(programID: candidate.program.id)
+            try switchPrincipal(to: candidate.program.id)
             return nil
 
         case .deload:
@@ -219,9 +219,15 @@ extension CoachService {
     /// existem, têm dias e continuam na Hipertrofia. Nunca um programa escondido pela RF-45 (cópia,
     /// o antigo Corpo todo, o antigo Empurrar/Inferior/Puxar). Nos outros objetivos, `nil`: a
     /// pessoa escolhe na folha "Seu objetivo".
+    ///
+    /// Com dois planos ativos, o "ativo" é o principal (SPEC §7.15 M1, M2), que é o da Hipertrofia
+    /// quando ela está entre os ativos.
     func switchCandidate() throws -> (program: ProgramTemplate, title: String)? {
         let all = try programs.allPrograms()
-        guard let active = all.first(where: { $0.isActive }), active.effectiveGoal == .hypertrophy else {
+        guard
+            let active = ActivePlanOrder.sorted(all.filter { $0.isActive }).first,
+            active.effectiveGoal == .hypertrophy
+        else {
             return nil
         }
         let formats = Self.hypertrophyFormats
@@ -239,6 +245,30 @@ extension CoachService {
             return (program: program, title: format.title)
         }
         return nil
+    }
+
+    /// Troca o plano principal pelo novo formato (SPEC §7.15 M8). Com um plano só, `activate`: fica só o
+    /// novo, como sempre. Com um segundo plano ativo, troca só o principal e mantém o outro: tira o antigo
+    /// e acrescenta o novo, nessa ordem (dois do mesmo objetivo não ficam ativos juntos). Se acrescentar
+    /// falhar, o antigo volta, para a pessoa não ficar sem ele, e o erro sobe.
+    func switchPrincipal(to programID: UUID) throws {
+        let actives = try programs.allPrograms().filter { $0.isActive }
+        guard actives.count > 1, let principal = ActivePlanOrder.sorted(actives).first else {
+            try programs.activate(programID: programID)
+            return
+        }
+        try programs.removeActivePlan(programID: principal.id)
+        do {
+            try programs.addActivePlan(programID: programID)
+        } catch {
+            do {
+                try programs.addActivePlan(programID: principal.id)
+            } catch let restoreError {
+                let reason = String(describing: restoreError)
+                Self.logger.error("O plano anterior não voltou depois da troca que falhou: \(reason, privacy: .public)")
+            }
+            throw error
+        }
     }
 
     // MARK: - Texto da confirmação

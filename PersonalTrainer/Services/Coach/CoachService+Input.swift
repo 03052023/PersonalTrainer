@@ -9,10 +9,11 @@ extension CoachService {
         let sessions = loadSessions()
         // SPEC P9 / C5: a pausa conta da última sessão com ≥ 1 série de trabalho, deload incluído
         // (concluída ou abandonada, como o histórico do motor, SPEC P3).
-        let trainedStarts = sessions
-            .filter { $0.status != .inProgress && $0.workingSetCount > 0 }
-            .map(\.startedAt)
-        let lastSessionStart = trainedStarts.max()
+        let trainedSessions = sessions.filter { $0.status != .inProgress && $0.workingSetCount > 0 }
+        let trainedStarts = trainedSessions.map(\.startedAt)
+        // SPEC §7.15 M2: com dois planos, o C5 olha o principal, com as sessões dos dias dele.
+        let principal = comebackPrincipal()
+        let lastSessionStart = comebackStart(trainedSessions, principal: principal)
         let reviewInput = loadReviewInput(now: now)
         rememberTargets(from: reviewInput)
         let exercises = exerciseCatalog(from: reviewInput)
@@ -22,7 +23,7 @@ extension CoachService {
             activeProgramID: reviewInput?.programID
         )
         let records = personalRecords(sessions: sessions, reviewInput: reviewInput)
-        let nextDay = nextDayName(lastSessionStart: lastSessionStart, now: now)
+        let nextDay = nextDayName(lastSessionStart: lastSessionStart, principalID: principal?.id, now: now)
         let completedCount = sessions.filter { $0.status == .completed }.count
         let longevityDone = longevityMarks(in: log, now: now)
 
@@ -38,9 +39,23 @@ extension CoachService {
             loadUnits: exercises.mapValues { $0.loadUnit },
             lastBackupAt: lastBackupAt,
             completedSessionCount: completedCount,
-            goal: activeGoal(),
+            goal: reminderGoal(),
             longevityDoneThisWeek: longevityDone
         )
+    }
+
+    /// O objetivo que o `CoachInput` recebe. Só o C8 o lê, e desde a 2.3 ele vale quando qualquer plano
+    /// ativo é de Longevidade, principal ou não (SPEC §7.15 M2). Fora disso, o objetivo do principal.
+    func reminderGoal() -> ProgramGoal? {
+        do {
+            if try planner.activeProgramGoals().contains(.longevity) {
+                return .longevity
+            }
+        } catch {
+            let reason = String(describing: error)
+            Self.logger.error("Objetivos dos planos ativos indisponíveis: \(reason, privacy: .public)")
+        }
+        return activeGoal()
     }
 
     // MARK: - Fontes
@@ -247,12 +262,46 @@ extension CoachService {
 
     // MARK: - C5 Retomada
 
-    /// O próximo dia da rotação, só quando o C5 pode falar (evita calcular o plano à toa).
-    func nextDayName(lastSessionStart: Date?, now: Date) -> String? {
+    /// O plano principal quando há dois planos ativos (SPEC §7.15 M1, M2): é ele que o C5 olha. `nil` com um
+    /// plano só, que segue o C5 de sempre, com todas as sessões. Numa falha de leitura dos programas, `nil`
+    /// (com log): o C5 de sempre é o melhor que dá para fazer.
+    func comebackPrincipal() -> ProgramTemplate? {
+        do {
+            let actives = try programs.allPrograms().filter { $0.isActive }
+            guard actives.count > 1 else {
+                return nil
+            }
+            return ActivePlanOrder.sorted(actives).first
+        } catch {
+            let reason = String(describing: error)
+            Self.logger.error("Programas indisponíveis para o C5: \(reason, privacy: .public)")
+            return nil
+        }
+    }
+
+    /// A pausa do C5 conta da última sessão com série de trabalho (SPEC P9). Com dois planos, só as dos dias
+    /// do principal (M2): o cardio de ontem não apaga uma semana sem a força, cujas cargas P9 reduz.
+    func comebackStart(_ trainedSessions: [SessionSummary], principal: ProgramTemplate?) -> Date? {
+        guard let principal else {
+            return trainedSessions.map(\.startedAt).max()
+        }
+        let dayIDs = Set(principal.days.map(\.id))
+        return trainedSessions
+            .filter { dayIDs.contains($0.programDayID) }
+            .map(\.startedAt)
+            .max()
+    }
+
+    /// O próximo dia da rotação, só quando o C5 pode falar (evita calcular o plano à toa). Com dois planos,
+    /// o próximo do principal (SPEC §7.15 M2, S8); com um, o `nextPlan(now:)` de sempre.
+    func nextDayName(lastSessionStart: Date?, principalID: UUID?, now: Date) -> String? {
         guard let lastSessionStart, calendarDays(from: lastSessionStart, to: now) >= Self.comebackDays else {
             return nil
         }
         do {
+            if let principalID {
+                return try planner.nextPlan(forProgramID: principalID, now: now)?.programDayName
+            }
             return try planner.nextPlan(now: now)?.programDayName
         } catch {
             let reason = String(describing: error)

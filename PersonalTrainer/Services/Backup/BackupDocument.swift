@@ -217,7 +217,8 @@ extension BackupDocument {
     /// - Ids únicos por tipo (os `.unique` do esquema e os que o app usa como chave: dia do
     ///   programa, alvo, exercício da sessão) e `slug` único no catálogo.
     /// - Todo alvo de programa aponta para um exercício do próprio backup.
-    /// - No máximo um programa ativo (SPEC S1) e uma sessão em andamento (RF-02).
+    /// - No máximo dois planos ativos, de objetivos efetivos diferentes (SPEC §7.15 M1, desde a 2.3), e
+    ///   uma sessão em andamento (RF-02).
     /// - `statusRaw` conhecido: os mappers do planner falham com status desconhecido.
     ///
     /// Exercícios de sessão podem apontar para fora do catálogo: o snapshot guarda nome e
@@ -245,14 +246,14 @@ extension BackupDocument {
         var programIDs: Set<UUID> = []
         var dayIDs: Set<UUID> = []
         var targetIDs: Set<UUID> = []
-        var activePrograms = 0
+        var activeGoals: [ProgramGoal] = []
         for record in programs {
             let program = record.template
             guard programIDs.insert(program.id).inserted else {
                 throw BackupError.referentialIntegrity("Programa repetido (\(program.id.uuidString)).")
             }
             if program.isActive {
-                activePrograms += 1
+                activeGoals.append(program.effectiveGoal)
             }
             for day in program.days {
                 guard dayIDs.insert(day.id).inserted else {
@@ -270,8 +271,12 @@ extension BackupDocument {
                 }
             }
         }
-        guard activePrograms <= 1 else {
-            throw BackupError.referentialIntegrity("Há mais de um programa ativo.")
+        // SPEC §7.15 M1: até dois planos ativos, de objetivos efetivos diferentes.
+        guard activeGoals.count <= ActivePlanOrder.maxActivePlans else {
+            throw BackupError.referentialIntegrity("Há mais de dois planos ativos.")
+        }
+        guard Set(activeGoals).count == activeGoals.count else {
+            throw BackupError.referentialIntegrity("Há dois planos ativos com o mesmo objetivo.")
         }
 
         var sessionIDs: Set<UUID> = []

@@ -34,6 +34,23 @@ public struct PlanDemand: Sendable, Hashable {
     /// Grupos que fazem de um dia de força um "dia de pernas" (A5).
     public static let lowerBodyGroups: Set<MuscleGroup> = [.quads, .hamstrings, .glutes, .calves]
 
+    /// A mesma demanda com as sessões rodadas para começar em `programDayID` (SPEC §7.15 M3): é a fase do
+    /// plano, a sessão que a rotação (S2, S8) daria no começo da semana. A ordem da rotação não muda, só o
+    /// ponto de partida. Um dia que não está no plano deixa a demanda como está.
+    public func startingAt(programDayID: UUID) -> PlanDemand {
+        guard let index = sessions.firstIndex(where: { $0.programDayID == programDayID }), index > 0 else {
+            return self
+        }
+        let rotated = Array(sessions[index...]) + Array(sessions[..<index])
+        return PlanDemand(
+            programID: programID,
+            goal: goal,
+            name: name,
+            sessions: rotated,
+            sessionsPerWeek: sessionsPerWeek
+        )
+    }
+
     /// Monta a demanda de um programa (SPEC §7.15 M3):
     /// - um dia com algum exercício de padrão `cardio` é de aeróbico, com a intensidade do mais forte;
     /// - os outros são de força, com os grupos primários de todos os exercícios do dia;
