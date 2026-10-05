@@ -526,9 +526,9 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
 
 **Decidido pelo dono em 2026-10-05:** o app do iPhone vai para a App Store do Brasil (SPEC decisão 22; regras L1–L8 na SPEC §7.18). Worktrees `C:\Users\leona\Developer\pt-wt\w9-<key>`, branches `v9/<key>`.
 
-**Objetivo:** um build do iPhone que a App Store aceita, enviado pelo GitHub Actions, sem Mac. Nada sai do aparelho (rótulo "Dados não coletados"), o app não fala de sideload, mostra só os avisos indispensáveis e pede avaliação do jeito menos invasivo. A ficha da loja e as páginas de privacidade, suporte e termos ficam escritas.
+**Objetivo:** um build do iPhone que a App Store aceita, enviado pelo GitHub Actions, sem Mac. O app não envia dados a ninguém (rótulo "Dados não coletados"), o app não fala de sideload, mostra só os avisos indispensáveis e pede avaliação do jeito menos invasivo. A ficha da loja e as páginas de privacidade, suporte e termos ficam escritas.
 
-**Pendentes do dono** (nenhum agente decide): o nome na loja e o bundle ID (T11.10); a classificação de idade (entra na T11.9); o modelo do plano pago e o uso de IA (fora do M6; SPEC §3.4, decisão 13 em revisão).
+**Pendentes do dono** (nenhum agente decide): o bundle ID (T11.10; o nome na loja já foi decidido: "Magister: Treino com Ciência"); a classificação de idade (entra na T11.9); o modelo do plano pago e o uso de IA (fora do M6; SPEC §3.4, decisão 13 em revisão).
 
 **Critérios de aceitação M6**
 
@@ -552,7 +552,7 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
   - Dependências: nenhuma.
   - Aceite: SPEC e AGENTS dizem o mesmo sobre a loja; os pendentes do dono estão listados sem decisão (SPEC decisão 22).
 
-- [~] **T11.1 [PROJ] Reduzir os builds de CI** — agente ci · `v9/ci-reduce`
+- [x] **T11.1 [PROJ] Reduzir os builds de CI** — agente ci · `v9/ci-reduce` (runs 37314805402 sem IPA e 37316606216 com IPA, verdes)
   - Escopo: `.github/workflows/app-build.yml` e, se preciso, `.github/workflows/core-tests.yml` e `Scripts/build-app.sh`.
   - Fazer: em push para `ci/**`, o App build compila e roda os testes; o IPA só sai quando o run é manual (`workflow_dispatch`), quando o branch termina em `-final` ou quando a mensagem do commit contém `[ipa]`. Commits só de documentação não disparam o App build (AGENTS §2).
   - Dependências: nenhuma. As outras [PROJ] do M6 (T11.3, T11.7, T11.8) esperam por ela.
@@ -605,11 +605,11 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
 
 - [ ] **T11.9 Textos da loja: política, suporte, termos e ficha**
   - Escopo: `docs/store/` (pasta nova, em pt-BR): a política de privacidade, a página de suporte, os termos de uso e a ficha da loja.
-  - Fazer: a política com os fatos de L1 (nada sai do aparelho; o que o app lê e grava no Saúde; o backup; apagar o app apaga os dados dele, e os treinos gravados no Saúde ficam no app Saúde, onde a pessoa pode apagá-los); o suporte (o contato entra quando o dono decidir, sem dado pessoal no repositório); os termos com a frase de L5; a ficha da loja (nome e subtítulo depois da T11.10, descrição, palavras-chave, o rótulo "Dados não coletados" e a classificação de idade quando o dono decidir). Linguagem de L8, sem promessas absolutas, frases curtas. As páginas precisam de um endereço público (o site do dono, pendente).
-  - Dependências: T11.0. O nome final espera a T11.10.
+  - Fazer: a política com os fatos de L1 (o app não envia dados a ninguém; o backup do iPhone no iCloud é da Apple; o que o app lê e grava no Saúde; o backup; apagar o app apaga os dados dele, e os treinos gravados no Saúde ficam no app Saúde, onde a pessoa pode apagá-los); o suporte (o contato entra quando o dono decidir, sem dado pessoal no repositório); os termos com a frase de L5; a ficha da loja (nome "Magister: Treino com Ciência", subtítulo a escolher, descrição, palavras-chave, o rótulo "Dados não coletados" e a classificação de idade quando o dono decidir). Linguagem de L8, sem promessas absolutas, frases curtas. As páginas precisam de um endereço público (o site do dono, pendente).
+  - Dependências: T11.0. Textos com "com base científica", nunca "validado cientificamente" (decisão 22).
   - Aceite: CA11-9.
 
-- [ ] **T11.10 [USER] Nome e bundle ID da loja** — bloqueada pelo dono
+- [ ] **T11.10 [USER] Bundle ID da loja** — bloqueada pelo dono (o nome já foi decidido em 2026-10-05: "Magister: Treino com Ciência")
   - Fazer (só o dono): escolher o nome na loja e o bundle ID da loja. O Impactor já instala a cópia de teste como `com.personaltrainer.app.<TEAMID>`, então a versão da loja é outro app no iPhone em qualquer caso, e os dados passam pelo backup (exportar na cópia de teste, importar na da loja). Depois do primeiro envio, o bundle ID não muda mais (AGENTS §7). Também esperam o dono: a classificação de idade (entra na T11.9) e o modelo do plano pago com o uso de IA (fora do M6).
   - Dependências: nenhuma. Bloqueia o bundle ID da T11.3, a T11.7 e o nome final da T11.9.
   - Aceite: as escolhas anotadas na SPEC, como complemento da decisão 22, numa tarefa de documentos.
