@@ -13,22 +13,29 @@ private enum LandingRoute: Hashable {
 /// `onOpenToday` seleciona a aba "Hoje"; `onOpenSession` abre a sessão em andamento pelo mesmo
 /// caminho do "Retomar" de sempre. O modelo relê em `refresh()`; o integrador chama de novo ao
 /// voltar para a aba e ao voltar ao primeiro plano (docs/V23-UI-CONTRACT.md §5).
+///
+/// Desde a 2.4 (docs/V24-CONTRACT.md §4.5): com `activities`, as Metas da semana ganham a seção "Fora do
+/// app" (RF-53); o cartão "Hoje" mostra "Também hoje: …" quando há fixa de hoje sem "Feito" (RF-49).
 struct LandingView: View {
     @Bindable private var model: LandingViewModel
     private let references: ReferenceCatalog
     private let onOpenToday: () -> Void
     private let onOpenSession: (UUID) -> Void
+    /// `nil` (previews, testes): as Metas ficam sem a seção "Fora do app".
+    private let activities: ActivitiesModel?
 
     init(
         model: LandingViewModel,
         references: ReferenceCatalog,
         onOpenToday: @escaping () -> Void,
-        onOpenSession: @escaping (UUID) -> Void
+        onOpenSession: @escaping (UUID) -> Void,
+        activities: ActivitiesModel? = nil
     ) {
         self.model = model
         self.references = references
         self.onOpenToday = onOpenToday
         self.onOpenSession = onOpenSession
+        self.activities = activities
     }
 
     var body: some View {
@@ -53,7 +60,7 @@ struct LandingView: View {
             .navigationDestination(for: LandingRoute.self) { route in
                 switch route {
                 case .weeklyGoals:
-                    WeeklyGoalsView(model: model, references: references)
+                    WeeklyGoalsView(model: model, references: references, activities: activities)
                 }
             }
         }
@@ -146,6 +153,13 @@ struct LandingView: View {
                 Text(subtitle)
                     .font(.subheadline)
                     .foregroundStyle(Theme.textSecondary)
+            }
+            // SPEC RF-49, §7.17 X2 (DESIGN §9.1 ponto 3): linha pequena, só o fato.
+            if let alsoToday = model.alsoTodayText {
+                Text(alsoToday)
+                    .font(.footnote)
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Button(pathButtonTitle, action: performPathAction)
                 .buttonStyle(.primary)
