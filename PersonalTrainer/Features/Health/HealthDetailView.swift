@@ -32,7 +32,10 @@ struct HealthDetailView: View {
                     aerobicSection(report.aerobic)
                     vo2MaxSection(report.vo2Max)
                     recoverySection(report.recovery)
-                    stepsSection(report.steps)
+                    // SPEC §7.16 W7: passos só com um plano ativo de Longevidade ou de Cardio.
+                    if model.showsSteps {
+                        stepsSection(report.steps)
+                    }
                     suggestionsSection
                 } else if model.needsAuthorization {
                     connectSection
@@ -45,6 +48,8 @@ struct HealthDetailView: View {
             }
             footerSection
         }
+        .scrollContentBackground(.hidden)
+        .paperBackground()
         .navigationTitle("Saúde")
         // Fechamentos isolados ao MainActor capturando só o ViewModel, como na HomeView.
         .refreshable { @MainActor [model] in

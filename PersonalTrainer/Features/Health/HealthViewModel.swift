@@ -80,6 +80,10 @@ final class HealthViewModel {
     /// Onde "Ok, entendi" grava e lê a dispensa de sugestões — o mesmo log do diálogo da Home
     /// (SPEC §7.11, V21-CONTRACT B3 A4/B8; ver `HealthSuggestionDismissal`).
     private let logStore: any CoachLogStoring
+    /// SPEC §7.16 W7 (docs/V23-UI-CONTRACT.md §4.3): passos só aparecem com um plano ativo de
+    /// Longevidade ou de Cardio. O padrão `{ true }` mantém o comportamento de antes desta regra
+    /// para testes e previews que não passam a checagem.
+    private let showsStepsCheck: @MainActor () -> Bool
     /// Incrementado a cada `dismiss(_:)`. `visibleSuggestions` o lê só para o Observation
     /// invalidar a view na hora: o log em si é um arquivo externo, não uma propriedade rastreada.
     private var dismissalTick = 0
@@ -111,7 +115,8 @@ final class HealthViewModel {
         now: @escaping () -> Date,
         calendar: Calendar = .current,
         defaults: UserDefaults = .standard,
-        logStore: any CoachLogStoring = LiveCoachLogStore()
+        logStore: any CoachLogStoring = LiveCoachLogStore(),
+        showsSteps: @escaping @MainActor () -> Bool = { true }
     ) {
         self.reader = reader
         self.sessionsProvider = sessionsProvider
@@ -120,6 +125,7 @@ final class HealthViewModel {
         self.calendar = calendar
         self.defaults = defaults
         self.logStore = logStore
+        self.showsStepsCheck = showsSteps
         self.needsAuthorization = !defaults.bool(forKey: Keys.readAuthorized)
 
         let storedYear = defaults.integer(forKey: Keys.birthYear)
@@ -136,15 +142,24 @@ final class HealthViewModel {
         reader.isAvailable
     }
 
+    /// SPEC §7.16 W7: só com um plano ativo de Longevidade ou de Cardio. Some a linha de passos
+    /// do cartão (`HealthCardView`), a seção do detalhe (`HealthDetailView`) e a sugestão de
+    /// passos baixos (`visibleSuggestions`, abaixo).
+    var showsSteps: Bool {
+        showsStepsCheck()
+    }
+
     /// Sugestões do relatório menos as dispensadas agora no log do diálogo (SPEC §7.11 C3), a
-    /// mesma fonte que o feed da Home consulta — ver `HealthSuggestionDismissal`.
+    /// mesma fonte que o feed da Home consulta — ver `HealthSuggestionDismissal`. Sem `showsSteps`
+    /// (W7), `.lowSteps` nunca aparece aqui nem no feed, que lê esta mesma lista.
     var visibleSuggestions: [HealthSuggestion] {
         _ = dismissalTick
         guard let report else { return [] }
         let log = logStore.load()
         let referenceDate = now()
         return report.suggestions.filter { suggestion in
-            !HealthSuggestionDismissal.isDismissed(suggestion.kind, log: log, now: referenceDate, calendar: calendar)
+            guard showsSteps || suggestion.kind != .lowSteps else { return false }
+            return !HealthSuggestionDismissal.isDismissed(suggestion.kind, log: log, now: referenceDate, calendar: calendar)
         }
     }
 

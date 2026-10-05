@@ -3,8 +3,10 @@ import SwiftUI
 import TrainerCore
 
 /// Lista de sessões do histórico, mais recente primeiro (SPEC F5, RF-09, CA1-7), com
-/// "Apagar" por deslize (TASKS T2.13, SPEC RF-19) e "Esta semana" (`WeeklyFrequencyCard`,
-/// RF-17) no topo, desde a 2.2 (`docs/V22-CONTRACT.md` §3.7; saiu da Home).
+/// "Apagar" por deslize (TASKS T2.13, SPEC RF-19). Desde a 2.3, o painel "Esta semana"
+/// (`WeeklyFrequencyCard`, RF-17) saiu daqui: mudou para a tela "Metas da semana" do Início
+/// (SPEC RF-52, §7.16; docs/V23-UI-CONTRACT.md §4.3). O tipo `WeeklyFrequencyCard` continua
+/// existindo (suas funções estáticas são reaproveitadas lá e testadas em `HomeViewModelTests`).
 ///
 /// Só leitura: `@Query` é o único acesso a dados (ARCHITECTURE §3) e nada aqui escreve (R4).
 /// Apagar passa por `onDeleteSession`, que o integrador liga a `SessionCoordinating.deleteSession(id:)`;
@@ -34,12 +36,6 @@ struct HistoryListView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    WeeklyFrequencyCard(references: references)
-                        .listRowInsets(EdgeInsets())
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                }
                 if visibleSessions.isEmpty {
                     ContentUnavailableView(
                         "Nenhum treino registrado ainda",
@@ -47,6 +43,7 @@ struct HistoryListView: View {
                         description: Text("As sessões concluídas ou encerradas aparecem aqui.")
                     )
                     .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
                 } else {
                     ForEach(visibleSessions, id: \.uuid) { session in
                         NavigationLink {
@@ -54,6 +51,8 @@ struct HistoryListView: View {
                         } label: {
                             SessionRow(session: session)
                         }
+                        // Cada linha é um cartão de papel sobre o papel (DESIGN §14).
+                        .listRowBackground(Theme.surface)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             // Sem `role: .destructive` de propósito: com esse papel a lista
                             // anima a remoção da linha antes da confirmação, e a linha
@@ -69,6 +68,8 @@ struct HistoryListView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .paperBackground()
             .navigationTitle("Histórico")
             .confirmationDialog(
                 "Apagar este treino?",
