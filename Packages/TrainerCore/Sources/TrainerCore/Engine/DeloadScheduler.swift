@@ -58,6 +58,74 @@ public enum DeloadScheduler: Sendable {
         weeksBetweenDeloads: Int = DeloadPolicy.defaultWeeksBetweenDeloads,
         now: Date
     ) -> DeloadStatus {
+        evaluation(
+            normalPrescriptions: normalPrescriptions,
+            histories: histories,
+            sessions: sessions,
+            programDayCount: programDayCount,
+            decisions: decisions,
+            weeksBetweenDeloads: weeksBetweenDeloads,
+            now: now
+        ).status
+    }
+
+    /// The numbers behind `status` when it is `.pending(.manyDecreases)` or `.pending(.scheduled)`, for the
+    /// C1 reason (SPEC §7.11 C1; TASKS B11). Same inputs, the same count and the same re-arm as `status`
+    /// (both read one evaluation, so they never disagree); `nil` in every other case, including a manual
+    /// request and a lighter week already running.
+    ///
+    /// - (a): `decreasedExercises` of `countedExercises` are the `decrease` notes after the re-arm and
+    ///   the prescriptions other than `calibrate`, exactly what `DeloadPolicy.trigger` compared.
+    /// - (b): `weeksSinceAnchor` counts whole weeks (7 × 24 h) from the start of the last lighter week
+    ///   (`anchorIsLastDeload`) or, when there was never one, from the first session: the instant the
+    ///   C1 text names. A "Seguir normal" postpones (b) but is not that instant, so after one the
+    ///   number can be larger than N, and the sentence stays true.
+    public static func triggerDetail(
+        normalPrescriptions: [ExercisePrescription],
+        histories: [UUID: [ExerciseHistoryEntry]],
+        sessions: [SessionSummary],
+        programDayCount: Int,
+        decisions: DeloadDecisions,
+        weeksBetweenDeloads: Int = DeloadPolicy.defaultWeeksBetweenDeloads,
+        now: Date
+    ) -> DeloadTriggerDetail? {
+        evaluation(
+            normalPrescriptions: normalPrescriptions,
+            histories: histories,
+            sessions: sessions,
+            programDayCount: programDayCount,
+            decisions: decisions,
+            weeksBetweenDeloads: weeksBetweenDeloads,
+            now: now
+        ).detail
+    }
+}
+
+// MARK: - Evaluation
+
+private extension DeloadScheduler {
+    /// `status` and, for (a) and (b), the numbers behind it.
+    struct Evaluation: Sendable {
+        let status: DeloadStatus
+        let detail: DeloadTriggerDetail?
+
+        static let inactive = Evaluation(status: .inactive, detail: nil)
+    }
+
+    static let secondsPerWeek: TimeInterval = 7 * 86_400
+
+    /// Cap for `weeksSinceAnchor`, far above any real history, so the conversion to `Int` can never trap.
+    static let maxReportedWeeks = 100_000
+
+    static func evaluation(
+        normalPrescriptions: [ExercisePrescription],
+        histories: [UUID: [ExerciseHistoryEntry]],
+        sessions: [SessionSummary],
+        programDayCount: Int,
+        decisions: DeloadDecisions,
+        weeksBetweenDeloads: Int,
+        now: Date
+    ) -> Evaluation {
         // A program without days has nothing to plan, light or not.
         guard programDayCount > 0 else {
             return .inactive
@@ -67,11 +135,11 @@ public enum DeloadScheduler: Sendable {
         let lastRun = latestRun(in: ordered, programDayCount: programDayCount)
 
         if let lastRun, lastRun.isRunning(programDayCount: programDayCount) {
-            return .active(start: lastRun.start)
+            return Evaluation(status: .active(start: lastRun.start), detail: nil)
         }
 
         if isManualRequestPending(decisions.manualRequestedAt, sessions: ordered) {
-            return .pending(trigger: .manual)
+            return Evaluation(status: .pending(trigger: .manual), detail: nil)
         }
 
         // Past this point the last run, if any, has completed its pass.
@@ -86,34 +154,39 @@ public enum DeloadScheduler: Sendable {
 
         // `DeloadPolicy.trigger` falls back to `firstSessionDate` only when the
         // anchor is nil, which is exactly the (b) rule with a dismissal folded in.
-        let trigger = DeloadPolicy.trigger(
+        let firstSessionDate = ordered.first?.startedAt
+        guard let trigger = DeloadPolicy.trigger(
             currentPrescriptions: counted,
             lastDeloadStart: latest(lastRun?.start, decisions.dismissedAt),
-            firstSessionDate: ordered.first?.startedAt,
+            firstSessionDate: firstSessionDate,
             weeksBetweenDeloads: weeksBetweenDeloads,
             now: now
-        )
-        if let trigger {
-            return .pending(trigger: trigger)
+        ) else {
+            return .inactive
         }
-        return .inactive
+
+        // The same base as `DeloadPolicy` (a): every prescription but `calibrate`.
+        let judged = counted.filter { $0.note != .calibrate }
+        // The instant the C1 sentence names (see `triggerDetail`).
+        let namedAnchor = lastRun?.start ?? firstSessionDate
+        let detail = DeloadTriggerDetail(
+            trigger: trigger,
+            decreasedExercises: judged.filter { $0.note == .decrease }.count,
+            countedExercises: judged.count,
+            weeksSinceAnchor: namedAnchor.map { wholeWeeks(from: $0, to: now) } ?? 0,
+            anchorIsLastDeload: lastRun != nil,
+            weeksBetweenDeloads: weeksBetweenDeloads
+        )
+        return Evaluation(status: .pending(trigger: trigger), detail: detail)
     }
 
-    /// The numbers behind `status` when it is `.pending(.manyDecreases)` or `.pending(.scheduled)`, for the
-    /// C1 reason (SPEC §7.11 C1; TASKS B11). Same inputs and the same re-arm as `status`; `nil` in every
-    /// other case, including a manual request.
-    ///
-    /// 2.4 scaffold (docs/V24-CONTRACT.md §3.1): always `nil` for now; the `engine` task fills it.
-    public static func triggerDetail(
-        normalPrescriptions: [ExercisePrescription],
-        histories: [UUID: [ExerciseHistoryEntry]],
-        sessions: [SessionSummary],
-        programDayCount: Int,
-        decisions: DeloadDecisions,
-        weeksBetweenDeloads: Int = DeloadPolicy.defaultWeeksBetweenDeloads,
-        now: Date
-    ) -> DeloadTriggerDetail? {
-        nil
+    /// Whole weeks of elapsed time (7 × 24 h, as SPEC §7.5 (b) counts), never negative.
+    static func wholeWeeks(from start: Date, to end: Date) -> Int {
+        let weeks = (end.timeIntervalSince(start) / secondsPerWeek).rounded(.down)
+        guard weeks.isFinite, weeks > 0 else {
+            return 0
+        }
+        return weeks >= Double(maxReportedWeeks) ? maxReportedWeeks : Int(weeks)
     }
 }
 

@@ -80,7 +80,8 @@ enum ReviewFixtures {
         sets: Int = 3,
         repMin: Int = 8,
         repMax: Int = 12,
-        history: [ExerciseHistoryEntry] = []
+        history: [ExerciseHistoryEntry] = [],
+        measure: ExerciseMeasure = .reps
     ) -> ExerciseReviewInput {
         ExerciseReviewInput(
             exercise: exercise,
@@ -89,7 +90,8 @@ enum ReviewFixtures {
             sets: sets,
             repMin: repMin,
             repMax: repMax,
-            history: history
+            history: history,
+            measure: measure
         )
     }
 

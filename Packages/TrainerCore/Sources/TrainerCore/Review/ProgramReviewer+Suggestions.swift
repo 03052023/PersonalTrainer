@@ -9,9 +9,10 @@ extension ProgramReviewer {
     static func reduceDaysSuggestion(attendance: Attendance, programDayCount: Int, week: String) -> ProgramSuggestion {
         let perWeek = Double(attendance.completed) / Double(windowWeeks)
         let fewerDays = programDayCount - 1
+        // SPEC R4 (2.4): on screen a goal is a plan (RF-45), so the reason says "um plano de N dias".
         let reason = "Nas últimas 4 semanas você concluiu \(attendance.completed) de "
             + "\(attendance.expected) treinos previstos (\(ReviewText.percent(attendance.completed, of: attendance.expected))), "
-            + "cerca de \(ReviewText.number(perWeek)) por semana; um programa de "
+            + "cerca de \(ReviewText.number(perWeek)) por semana; um plano de "
             + "\(ReviewText.count(fewerDays, "dia", "dias")) pode caber melhor na sua rotina "
             + "antes de pensar em mais séries."
         return ProgramSuggestion(
@@ -236,9 +237,10 @@ extension ProgramReviewer {
     /// progress (one suggestion for all its slots), otherwise move each slot to the
     /// neighbouring rep range.
     static func exerciseChangeSuggestions(for pool: ExercisePool, week: String) -> [ProgramSuggestion] {
-        // SPEC R8: no rep-range or swap suggestion for an aerobic exercise (its `progress` is
-        // already `nil`; the guard keeps the rule explicit).
-        guard !pool.isCardio, let progress = pool.progress else { return [] }
+        // SPEC R8: no rep-range or swap suggestion for an aerobic exercise nor, since 2.4, for
+        // one measured in seconds or steps (their `progress` is already `nil`; the guard keeps
+        // the rule explicit).
+        guard !pool.isOutsideR1, let progress = pool.progress else { return [] }
         let name = pool.exercise.name
         let stall = "\(name) está há \(progress.sessionsWithoutProgress) sessões sem superar sua melhor "
             + "marca estimada (\(ReviewText.estimate(progress.bestE1RM, unit: pool.exercise.loadUnit)))"
@@ -306,7 +308,7 @@ extension ProgramReviewer {
 
         let weeks = (calendar.dateComponents([.day], from: start, to: now).day ?? days) / 7
         // SPEC R8 (2.3): na tela, objetivo = plano (RF-45), então o motivo fala em "este plano" e
-        // não mostra o nome interno do programa.
+        // não mostra o nome interno do programa; desde a 2.4, o título também fala em "plano".
         let reason = "Você treina com este plano há "
             + "\(ReviewText.count(weeks, "semana", "semanas")); depois de "
             + "\(ReviewText.count(input.mesocycleWeeks, "semana", "semanas")), mudar de plano "
@@ -315,7 +317,7 @@ extension ProgramReviewer {
             id: "switchProgram:\(input.programID.uuidString):\(week)",
             kind: .switchProgram,
             rule: "R5",
-            title: "Experimentar um novo programa",
+            title: "Experimentar um novo plano",
             reason: reason,
             strength: .optional,
             referenceTopic: "topic.substitution"

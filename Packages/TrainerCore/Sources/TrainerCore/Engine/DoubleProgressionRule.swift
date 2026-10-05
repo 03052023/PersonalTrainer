@@ -6,7 +6,15 @@ import Foundation
 /// reaches `repMax` (P4), and only falls when a failure repeats at the same load
 /// (P6) or after a long pause (P9). Everything is derived from the history on each
 /// call; no progression state is persisted (ARCHITECTURE ADR 003).
+///
+/// Aerobic intervals without load (SPEC §7.14 F6, 2.4) also grow in blocks: the number
+/// of sets of the prescription follows the blocks done in the reference session, and a
+/// session with every block at the top of the range earns one more block, up to
+/// `maxIntervalBlocks`.
 public struct DoubleProgressionRule: ProgressionRule {
+    /// SPEC §7.14 F6: the most blocks the intervals of an aerobic exercise can reach.
+    public static let maxIntervalBlocks = 5
+
     /// SPEC P9: an exercise last trained more than this long ago is "returning".
     private static let pauseThreshold: TimeInterval = 21 * 86_400
 
@@ -51,11 +59,20 @@ public struct DoubleProgressionRule: ProgressionRule {
         let baseLoad = Load.round(referenceLoad, toIncrement: increment)
         let reducedLoad = Load.round(referenceLoad * Self.reductionFactor, toIncrement: increment)
 
+        // SPEC §7.14 F6: intervals (an aerobic exercise with S ≥ 2) without load count
+        // blocks. B = the working sets of the reference session (P3), within [S, 5]; with
+        // a level recorded (L > 0), F3 applies and the blocks stay at S. Sessions with
+        // fewer blocks than S never shrink the prescription below S (P7 keeps them
+        // from earning the next block).
+        let blocks: Int? = isCardio && isUnloaded && target.sets >= 2
+            ? Self.intervalBlocks(done: latest.workingSets.count, planned: target.sets)
+            : nil
+
         // SPEC P9: prevails over P4–P6. The pause is measured from the most recent
         // session with ≥ 1 working set *including* deload sessions — a deload week is
         // still training and resets the pause — while L keeps coming from the latest
         // non-deload session (SPEC 7.5, P3). Sessions without working sets never count
-        // (SPEC P7).
+        // (SPEC P7). F6: after a pause the intervals go back to S blocks (the target's).
         if now.timeIntervalSince(ledger.lastTrainedDate) > Self.pauseThreshold {
             return Self.prescription(
                 for: target,
@@ -89,11 +106,29 @@ public struct DoubleProgressionRule: ProgressionRule {
                 )
             }
 
+            // F6: an unloaded interval session that failed keeps its B blocks.
             return Self.prescription(
                 for: target,
                 load: max(baseLoad, minimumLoad),
+                sets: blocks,
                 targetReps: target.repMin,
                 note: .retry
+            )
+        }
+
+        // SPEC §7.14 F6: at least B blocks, all at the top of the range, and below 5 →
+        // one more block, with the minutes back at the minimum and still no load. At 5
+        // blocks the intervals stay at the top (P5 below, P8 D3).
+        if let blocks,
+           blocks < Self.maxIntervalBlocks,
+           latest.workingSets.count >= blocks,
+           latest.lowestReps >= target.repMax {
+            return Self.prescription(
+                for: target,
+                load: max(baseLoad, minimumLoad),
+                sets: blocks + 1,
+                targetReps: target.repMin,
+                note: .increase
             )
         }
 
@@ -118,13 +153,26 @@ public struct DoubleProgressionRule: ProgressionRule {
         }
 
         // SPEC P5: every set reached repMin but not all reached repMax (or fewer than
-        // S sets were done, SPEC P7). Keep the load and chase one more rep.
+        // S sets were done, SPEC P7). Keep the load and chase one more rep. F6: unloaded
+        // intervals keep their B blocks.
         return Self.prescription(
             for: target,
             load: max(baseLoad, minimumLoad),
+            sets: blocks,
             targetReps: min(target.repMax, latest.lowestReps.saturatingAdding(1)),
             note: .hold
         )
+    }
+}
+
+// MARK: - Interval blocks
+
+extension DoubleProgressionRule {
+    /// SPEC §7.14 F6: B = the blocks done in the reference session, within [S, 5]. A target
+    /// above 5 blocks (hand-edited) keeps its own S: the range [S, 5] is then empty, and
+    /// the program's number is the conservative reading.
+    static func intervalBlocks(done: Int, planned: Int) -> Int {
+        max(planned, min(done, maxIntervalBlocks))
     }
 }
 
@@ -290,11 +338,13 @@ extension DoubleProgressionRule {
         return prescription(for: target, load: load, targetReps: target.repMin, note: .calibrate)
     }
 
-    /// Structural fields (sets, rep range, rest) always come from the target; only
-    /// load, rep goal, note and — for SPEC P2 without load — RIR are decided here.
+    /// Structural fields (sets, rep range, rest) come from the target; only load, rep
+    /// goal, note, the blocks of unloaded aerobic intervals (SPEC §7.14 F6, `sets`) and —
+    /// for SPEC P2 without load — RIR are decided here.
     private static func prescription(
         for target: ExerciseTarget,
         load: Double?,
+        sets: Int? = nil,
         targetReps: Int,
         targetRIR: Int? = nil,
         note: PrescriptionNote
@@ -302,7 +352,7 @@ extension DoubleProgressionRule {
         ExercisePrescription(
             exerciseID: target.exerciseID,
             load: load,
-            sets: target.sets,
+            sets: sets ?? target.sets,
             repMin: target.repMin,
             repMax: target.repMax,
             targetReps: targetReps,

@@ -41,8 +41,8 @@ public struct CoachInput: Sendable {
     /// C8: blocks already marked this week (`balanceKey`, `mobilityKey`).
     public var longevityDoneThisWeek: Set<String>
     /// C1: the numbers behind a scheduled lighter week (`DeloadScheduler.triggerDetail`), for the reason
-    /// with numbers (TASKS B11). `nil` keeps the reason without numbers. 2.4 scaffold
-    /// (docs/V24-CONTRACT.md §3.1): not read yet; the `engine` task uses it.
+    /// with numbers (TASKS B11). Used only when its `trigger` is the one in `deload`; `nil` keeps the
+    /// reason without numbers.
     public var deloadDetail: DeloadTriggerDetail?
 
     public init(

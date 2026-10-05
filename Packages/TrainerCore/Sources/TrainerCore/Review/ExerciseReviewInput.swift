@@ -18,8 +18,8 @@ public struct ExerciseReviewInput: Sendable, Hashable {
     public let repMax: Int
     public let history: [ExerciseHistoryEntry]
     /// What the set number counts (SPEC RF-43), from the seed traits. Seconds and steps stay out of R1 and
-    /// of the per-exercise R5 suggestions, like the aerobic exercises (SPEC R8, 2.4). 2.4 scaffold
-    /// (docs/V24-CONTRACT.md §3.1): not read yet; the `engine` task uses it.
+    /// of the per-exercise R5 suggestions, like the aerobic exercises (SPEC R8, 2.4); they still count in
+    /// R2, R3 and R4.
     public let measure: ExerciseMeasure
 
     public init(

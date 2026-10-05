@@ -188,6 +188,30 @@ struct DeloadSchedulerTests {
         #expect(empty == DeloadDecisions())
         #expect(onlyManual == DeloadDecisions(manualRequestedAt: Date(timeIntervalSinceReferenceDate: 100)))
     }
+
+    // MARK: - C1 with numbers (2.4, TASKS B11)
+
+    @Test("C1 triggerDetail igual ao status: números só em (a) e (b), com o mesmo rearme, em qualquer ordem",
+          arguments: DeloadSchedulerTests.Scenario.everyTable)
+    func C1_triggerDetailMatchesStatus(_ scenario: Scenario) {
+        for permutation in Permutation.allCases {
+            let status = Fixture.status(scenario, permutation: permutation)
+            let detail = Fixture.detail(scenario, permutation: permutation)
+
+            if case let .pending(trigger) = status, trigger != .manual {
+                #expect(detail?.trigger == trigger, "\(permutation)")
+            } else {
+                #expect(detail == nil, "\(permutation)")
+            }
+        }
+    }
+
+    @Test("C1 triggerDetail traz os números do gatilho", arguments: DeloadSchedulerTests.DetailCase.all)
+    func C1_triggerDetailNumbers(_ testCase: DetailCase) {
+        for permutation in Permutation.allCases {
+            #expect(Fixture.detail(testCase.scenario, permutation: permutation) == testCase.expected, "\(permutation)")
+        }
+    }
 }
 
 // MARK: - Scenario tables
@@ -569,6 +593,100 @@ extension DeloadSchedulerTests {
                      manual: 3,
                      expected: .pending(.manual)),
         ]
+
+        /// Every scenario of the tables above, for the C1 numbers (`triggerDetail` follows `status`).
+        static let everyTable: [Scenario] = [
+            triggers, priority, keepNormal, rearm, scheduledAnchor, sequences, manual, determinism,
+        ].flatMap { $0 }
+    }
+
+    /// SPEC §7.11 C1 with numbers (2.4, TASKS B11): the scenario and the detail it gives.
+    struct DetailCase: Sendable, CustomTestStringConvertible {
+        let scenario: Scenario
+        let expected: DeloadTriggerDetail
+
+        var testDescription: String { scenario.label }
+
+        static let all: [DetailCase] = [
+            DetailCase(
+                scenario: Scenario("(a) 1 de 2 com decrease; 1ª sessão há 10 dias",
+                                   sessions: [.normal(1, 10)], exercises: [.decrease(2), .hold(2)],
+                                   expected: .pending(.manyDecreases)),
+                expected: DeloadTriggerDetail(trigger: .manyDecreases, decreasedExercises: 1, countedExercises: 2,
+                                              weeksSinceAnchor: 1, anchorIsLastDeload: false, weeksBetweenDeloads: 6)
+            ),
+            DetailCase(
+                scenario: Scenario("(a) calibrate fica fora da conta: 1 de 2",
+                                   sessions: [.normal(1, 10)],
+                                   exercises: [.decrease(2), .hold(2), ExerciseSpec(note: .calibrate, entries: [])],
+                                   expected: .pending(.manyDecreases)),
+                expected: DeloadTriggerDetail(trigger: .manyDecreases, decreasedExercises: 1, countedExercises: 2,
+                                              weeksSinceAnchor: 1, anchorIsLastDeload: false, weeksBetweenDeloads: 6)
+            ),
+            DetailCase(
+                scenario: Scenario("(a) 4 de 7; 1ª sessão há 20 dias",
+                                   sessions: [.normal(1, 20)],
+                                   exercises: [.decrease(2), .decrease(2), .decrease(2), .decrease(2),
+                                               .hold(2), .hold(2), .hold(2)],
+                                   expected: .pending(.manyDecreases)),
+                expected: DeloadTriggerDetail(trigger: .manyDecreases, decreasedExercises: 4, countedExercises: 7,
+                                              weeksSinceAnchor: 2, anchorIsLastDeload: false, weeksBetweenDeloads: 6)
+            ),
+            DetailCase(
+                scenario: Scenario("(a) rearme: a redução de antes do deload entra no total sem contar → 1 de 2",
+                                   sessions: Scenario.finishedDeload, exercises: [.decrease(2), .decrease(12)],
+                                   expected: .pending(.manyDecreases)),
+                expected: DeloadTriggerDetail(trigger: .manyDecreases, decreasedExercises: 1, countedExercises: 2,
+                                              weeksSinceAnchor: 1, anchorIsLastDeload: true, weeksBetweenDeloads: 6)
+            ),
+            DetailCase(
+                scenario: Scenario("(a) e (b) juntos: vale (a), com as semanas também",
+                                   sessions: [.normal(1, 60)], exercises: [.decrease(2), .hold(2)],
+                                   expected: .pending(.manyDecreases)),
+                expected: DeloadTriggerDetail(trigger: .manyDecreases, decreasedExercises: 1, countedExercises: 2,
+                                              weeksSinceAnchor: 8, anchorIsLastDeload: false, weeksBetweenDeloads: 6)
+            ),
+            DetailCase(
+                scenario: Scenario("(b) sem deload: 1ª sessão há 42 dias → 6 semanas desde a primeira sessão",
+                                   sessions: [.normal(1, 42), .normal(2, 40)], expected: .pending(.scheduled)),
+                expected: DeloadTriggerDetail(trigger: .scheduled, weeksSinceAnchor: 6, anchorIsLastDeload: false,
+                                              weeksBetweenDeloads: 6)
+            ),
+            DetailCase(
+                scenario: Scenario("(b) N = 4: 28 dias → 4 semanas",
+                                   sessions: [.normal(1, 28)], weeks: 4, expected: .pending(.scheduled)),
+                expected: DeloadTriggerDetail(trigger: .scheduled, weeksSinceAnchor: 4, anchorIsLastDeload: false,
+                                              weeksBetweenDeloads: 4)
+            ),
+            DetailCase(
+                scenario: Scenario("(b) a última semana leve começou há 42 dias → 6 semanas desde ela",
+                                   sessions: [.normal(1, 200), .deload(2, 42), .deload(3, 40), .deload(4, 38)],
+                                   expected: .pending(.scheduled)),
+                expected: DeloadTriggerDetail(trigger: .scheduled, weeksSinceAnchor: 6, anchorIsLastDeload: true,
+                                              weeksBetweenDeloads: 6)
+            ),
+            DetailCase(
+                scenario: Scenario("(b) vale o último de vários deloads: 50 dias → 7 semanas",
+                                   sessions: [.deload(1, 150), .deload(2, 149), .deload(3, 148), .normal(4, 140),
+                                              .deload(5, 50), .deload(6, 49), .deload(7, 48), .normal(8, 1)],
+                                   expected: .pending(.scheduled)),
+                expected: DeloadTriggerDetail(trigger: .scheduled, weeksSinceAnchor: 7, anchorIsLastDeload: true,
+                                              weeksBetweenDeloads: 6)
+            ),
+            DetailCase(
+                scenario: Scenario("(b) Seguir normal há 42 dias, sem deload: o número conta da 1ª sessão (100 dias)",
+                                   sessions: [.normal(1, 100)], dismissed: 42, expected: .pending(.scheduled)),
+                expected: DeloadTriggerDetail(trigger: .scheduled, weeksSinceAnchor: 14, anchorIsLastDeload: false,
+                                              weeksBetweenDeloads: 6)
+            ),
+            DetailCase(
+                scenario: Scenario("(b) Seguir normal há 42 dias, deload há 100: o número conta do deload",
+                                   sessions: [.normal(1, 200), .deload(2, 100), .deload(3, 99), .deload(4, 98)],
+                                   dismissed: 42, expected: .pending(.scheduled)),
+                expected: DeloadTriggerDetail(trigger: .scheduled, weeksSinceAnchor: 14, anchorIsLastDeload: true,
+                                              weeksBetweenDeloads: 6)
+            ),
+        ]
     }
 }
 
@@ -651,6 +769,23 @@ private enum Fixture {
     ) -> DeloadStatus {
         let permutedHistories = Self.histories(scenario.exercises).mapValues { permuted($0, permutation) }
         return DeloadScheduler.status(
+            normalPrescriptions: permuted(prescriptions(scenario.exercises), permutation),
+            histories: permutedHistories,
+            sessions: permuted(scenario.sessions.map { session($0) }, permutation),
+            programDayCount: scenario.days,
+            decisions: decisions(scenario),
+            weeksBetweenDeloads: scenario.weeks,
+            now: now
+        )
+    }
+
+    /// `DeloadScheduler.triggerDetail` with exactly the inputs `status` gets.
+    static func detail(
+        _ scenario: DeloadSchedulerTests.Scenario,
+        permutation: DeloadSchedulerTests.Permutation = .original
+    ) -> DeloadTriggerDetail? {
+        let permutedHistories = Self.histories(scenario.exercises).mapValues { permuted($0, permutation) }
+        return DeloadScheduler.triggerDetail(
             normalPrescriptions: permuted(prescriptions(scenario.exercises), permutation),
             histories: permutedHistories,
             sessions: permuted(scenario.sessions.map { session($0) }, permutation),

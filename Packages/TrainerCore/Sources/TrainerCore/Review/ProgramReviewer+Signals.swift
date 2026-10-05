@@ -14,7 +14,7 @@ extension ProgramReviewer {
         /// One entry per session up to `now`, oldest first (`ReviewHistory.sessions`).
         let sessions: [ExerciseHistoryEntry]
         /// SPEC R1 over `sessions`; `nil` when no session is measurable, and always `nil`
-        /// for an aerobic exercise (SPEC R8).
+        /// outside R1 (`isOutsideR1`, SPEC R8).
         let progress: ExerciseProgress?
 
         /// SPEC R1: no new best in the last 3 measurable sessions. A streak of 3 implies
@@ -27,6 +27,28 @@ extension ProgramReviewer {
         /// the per-exercise R5 suggestions; they still count in R2 and R4.
         var isCardio: Bool {
             exercise.movementPattern == .cardio
+        }
+
+        /// SPEC R8: out of R1 (no estimated 1RM, never stagnant, not in the 50 % base of R5)
+        /// and of the per-exercise R5 suggestions (neighbouring range and swap): the aerobic
+        /// exercises (2.3) and, since 2.4, those measured in seconds or steps (RF-43), because
+        /// Epley only holds for repetitions. Seconds and steps stay in R2, R3 and R4.
+        var isOutsideR1: Bool {
+            isCardio || ProgramReviewer.measureIsOutsideR1(of: slots)
+        }
+    }
+
+    /// SPEC R8 (2.4): a slot measured in seconds or steps. The measure comes from the
+    /// exercise's traits, so every slot of one exercise carries the same one; any slot
+    /// saying so is enough, which keeps the answer independent of the slot order (SPEC R7).
+    static func measureIsOutsideR1(of slots: [ExerciseReviewInput]) -> Bool {
+        slots.contains { slot in
+            switch slot.measure {
+            case .seconds, .steps:
+                return true
+            case .reps, .minutes:
+                return false
+            }
         }
     }
 
@@ -92,15 +114,15 @@ extension ProgramReviewer {
             // Sessions dated after `now` cannot have happened yet; they are ignored.
             let sessions = ReviewHistory.sessions(from: sortedSlots.flatMap(\.history))
                 .filter { $0.date <= now }
-            // SPEC R8: an estimated 1RM of minutes is not strength, so aerobic exercises have
-            // no R1 progress (never stagnant, no rep-range or swap suggestion).
-            let isCardio = definition.movementPattern == .cardio
+            // SPEC R8: an estimated 1RM of minutes, seconds or steps is not strength, so those
+            // exercises have no R1 progress (never stagnant, no rep-range or swap suggestion).
+            let isOutsideR1 = definition.movementPattern == .cardio || measureIsOutsideR1(of: sortedSlots)
             pools.append(
                 ExercisePool(
                     exercise: definition,
                     slots: sortedSlots,
                     sessions: sessions,
-                    progress: isCardio ? nil : progress(of: sessions)
+                    progress: isOutsideR1 ? nil : progress(of: sessions)
                 )
             )
         }
