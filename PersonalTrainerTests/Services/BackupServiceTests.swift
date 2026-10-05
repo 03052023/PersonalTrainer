@@ -644,11 +644,11 @@ final class BackupServiceTests: XCTestCase {
 
         XCTAssertEqual(
             BackupService(modelContext: context, appVersion: "t", timeZone: utc).suggestedFileName(now: date),
-            "PersonalTrainer-backup-2026-09-23.json"
+            "Magister-backup-2026-09-23.json"
         )
         XCTAssertEqual(
             BackupService(modelContext: context, appVersion: "t", timeZone: saoPaulo).suggestedFileName(now: date),
-            "PersonalTrainer-backup-2026-09-22.json"
+            "Magister-backup-2026-09-22.json"
         )
     }
 

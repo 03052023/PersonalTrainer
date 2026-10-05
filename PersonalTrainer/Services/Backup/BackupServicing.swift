@@ -1,8 +1,9 @@
 import Foundation
 
 /// Backup completo em JSON (T2.4, SPEC RF-18, ARCHITECTURE §12). Implementação: `BackupService`.
-/// O arquivo é exportado pelo `fileExporter` (app Arquivos / iCloud Drive) e importado pelo
-/// `fileImporter`. A importação substitui TODOS os dados, depois de confirmação na UI.
+/// O arquivo é exportado pelo `fileExporter` (a pessoa escolhe o local, no app Arquivos) e importado
+/// pelo `fileImporter`, que aceita qualquer `.json`. A importação substitui TODOS os dados, depois de
+/// confirmação na UI. Nenhum texto do app sugere um serviço de nuvem para o arquivo (SPEC §7.18 L2).
 @MainActor
 protocol BackupServicing: AnyObject {
     /// JSON UTF-8 legível (`BackupDocument`, `schemaVersion` = 1), determinístico (`sortedKeys`).
@@ -10,7 +11,7 @@ protocol BackupServicing: AnyObject {
     /// Valida o arquivo inteiro antes de tocar no banco; em erro nada é alterado.
     /// Lança `BackupError.inProgressSession` se houver sessão em andamento.
     func importBackup(_ data: Data) throws -> BackupImportReport
-    /// Nome sugerido: "PersonalTrainer-backup-2026-09-23.json".
+    /// Nome sugerido: "Magister-backup-2026-09-23.json" (SPEC §7.18 L2, L8).
     func suggestedFileName(now: Date) -> String
 }
 

@@ -42,6 +42,43 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(model.alert?.title, "Não foi possível salvar")
     }
 
+    // MARK: - Textos do backup (SPEC §7.18 L2)
+
+    func testL2_exportSuccessSuggestsAPlaceOfYourOwn() throws {
+        let (defaults, suite) = try makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let model = makeModel(defaults: defaults)
+        model.prepareExport()
+
+        model.handleExportResult(.success(URL(fileURLWithPath: "/tmp/Magister-backup-2026-10-05.json")))
+
+        let message = try XCTUnwrap(model.alert?.message)
+        XCTAssertTrue(message.contains("Guarde-o num lugar só seu"))
+        XCTAssertFalse(message.lowercased().contains("icloud"))
+        XCTAssertEqual(
+            message,
+            "Magister-backup-2026-10-05.json foi salvo. Guarde-o num lugar só seu antes de reinstalar ou apagar o app."
+        )
+    }
+
+    func testL2_importReadFailureHasNoICloud() throws {
+        let (defaults, suite) = try makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let model = makeModel(defaults: defaults)
+        let missing = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("Magister-backup-\(UUID().uuidString).json")
+
+        model.handleImportSelection(.success(missing))
+
+        XCTAssertFalse(model.isConfirmingImport, "Sem arquivo lido, não há o que confirmar")
+        let message = try XCTUnwrap(model.alert?.message)
+        XCTAssertEqual(
+            message,
+            "O arquivo escolhido não pôde ser lido. Confira se ele terminou de baixar e tente de novo."
+        )
+        XCTAssertFalse(message.lowercased().contains("icloud"))
+    }
+
     // MARK: - Planejamento (RF-39, §7.5 b)
 
     func testRF39_frequencySelector_defaultsToAuto_andPersistsTheChoice() throws {

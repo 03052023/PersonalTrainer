@@ -2,9 +2,10 @@ import SwiftUI
 import TrainerCore
 
 /// "Mais opções" (T7.5, SPEC RF-39, §7.5 b; contrato V22 §3.5): o seletor por frequência
-/// ("Escolher o dia pela semana"), as semanas entre semanas leves, as referências científicas e a
-/// versão do app. Aberta a partir de uma linha do Ajustes; não traz a própria `NavigationStack`
-/// (o `SettingsView` já tem uma).
+/// ("Escolher o dia pela semana"), as semanas entre semanas leves, as referências científicas e o
+/// "Sobre" (versão do app, página "Privacidade", avaliação quando o app tem ID na loja e o aviso de
+/// saúde). Aberta a partir de uma linha do Ajustes; não traz a própria `NavigationStack` (o
+/// `SettingsView` já tem uma).
 ///
 /// Só leitura de `model`, exceto pelos dois ajustes de planejamento, que gravam pelos métodos do
 /// `SettingsViewModel` (AGENTS R4: nenhuma escrita direta em `UserDefaults` aqui).
@@ -86,11 +87,26 @@ struct MoreOptionsView: View {
         }
     }
 
+    /// SPEC §7.18 L2, L3 e L5: versão, página "Privacidade", o item passivo "Avaliar o Magister" e,
+    /// no rodapé, a única linha de aviso de saúde. O item de avaliação só existe com o ID do app na
+    /// loja (`AppLinks`); sem ele, a linha não aparece e nada provisório toma o lugar.
     private var aboutSection: some View {
         Section {
             LabeledContent("Versão", value: model.appVersion)
+            NavigationLink {
+                PrivacyView()
+            } label: {
+                Label(PrivacyText.aboutPrivacy, systemImage: "hand.raised")
+            }
+            if let reviewURL = AppLinks.writeReviewURL {
+                Link(destination: reviewURL) {
+                    Label(PrivacyText.rateApp, systemImage: "star")
+                }
+            }
         } header: {
             Text("Sobre")
+        } footer: {
+            Text(PrivacyText.healthNotice)
         }
     }
 }
