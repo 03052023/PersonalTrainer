@@ -186,10 +186,11 @@ struct ProgramTabView: View {
     }
 
     /// "Atividades fixas" (2.4, DESIGN §9.3 ponto 3): depois dos planos e antes de "Ajustar exercícios".
-    /// Só com um plano ativo na tela, como os dias dele.
+    /// Também sem objetivo: a fixa pode nascer nas Metas ("Toda semana") e aparece na tela Hoje, então
+    /// precisa de um lugar para ser editada ou apagada.
     @ViewBuilder
     private var fixedActivities: some View {
-        if let activities, model.activeProgram != nil {
+        if let activities, model.hasLoaded {
             FixedActivitiesSection(model: activities)
         }
     }

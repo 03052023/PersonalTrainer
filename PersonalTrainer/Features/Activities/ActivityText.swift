@@ -43,7 +43,8 @@ enum ActivityText {
     // MARK: - Confirmações
 
     static let deleteQuestion = "Apagar esta atividade?"
-    static let deleteEntryMessage = "Ela sai das metas da semana."
+    /// Vale para todo tipo: pilates, ioga e cross nunca contaram em meta nenhuma (X3).
+    static let deleteEntryMessage = "O registro sai desta semana."
     /// SPEC X2: apagar uma fixa não apaga os registros já feitos.
     static let deleteFixedMessage = "Os registros já feitos continuam."
 

@@ -36,6 +36,10 @@ final class CoachService {
         /// String (`UUID`) do programa sobre o qual a última revisão rodou; só o `CoachService`
         /// usa, para tirar do feed as sugestões de um programa que deixou de ser o ativo.
         static let lastReviewProgramID = "coachLastReviewProgramID"
+        /// Date: o primeiro "Feito" do C8 que gravou um registro nas atividades fora do app (2.4). Só as
+        /// marcas do log de antes dele valem 1 nas Metas (SPEC §7.16 W2.6); as de depois já existem como
+        /// registro, e apagar o registro desfaz a vez.
+        static let longevityEntriesSince = "coachLongevityEntriesSince"
     }
 
     /// Identificador do lembrete de expiração (um só: reagendar substitui).

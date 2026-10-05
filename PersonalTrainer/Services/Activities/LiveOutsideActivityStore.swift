@@ -11,7 +11,8 @@ import TrainerCore
 /// - Datas no formato padrão do `JSONEncoder` (segundos desde 2001 como `Double`): o início de um
 ///   registro volta exatamente o mesmo instante, e o "Feito" de uma fixa continua no mesmo dia.
 /// - Leitura tolerante: arquivo ausente é o normal antes do primeiro registro; arquivo ilegível vira
-///   `OutsideActivityLog.empty` com log, e o app segue sem as atividades (X8).
+///   `OutsideActivityLog.empty` com log, e o app segue sem as atividades (X8). O ilegível é guardado ao
+///   lado com outro nome, para a próxima gravação não apagar o que havia nele.
 final class LiveOutsideActivityStore: OutsideActivityStoring {
     static let fileName = "outside-activities.json"
 
@@ -53,13 +54,37 @@ final class LiveOutsideActivityStore: OutsideActivityStoring {
         guard FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) else {
             return OutsideActivityLog.empty
         }
+        let data: Data
         do {
-            let data = try Data(contentsOf: fileURL)
+            data = try Data(contentsOf: fileURL)
+        } catch {
+            let reason = String(describing: error)
+            logger.error("Atividades fora do app sem leitura agora; seguindo sem elas: \(reason, privacy: .public)")
+            return OutsideActivityLog.empty
+        }
+        do {
             return try JSONDecoder().decode(OutsideActivityLog.self, from: data)
         } catch {
             let reason = String(describing: error)
-            logger.error("Atividades fora do app ilegíveis; seguindo sem elas: \(reason, privacy: .public)")
+            logger.error("Atividades fora do app ilegíveis; o arquivo fica guardado ao lado: \(reason, privacy: .public)")
+            keepAside(fileURL)
             return OutsideActivityLog.empty
+        }
+    }
+
+    /// X8: um arquivo que não decodifica (corrompido, ou gravado por uma versão com um tipo que esta não
+    /// conhece) muda de nome antes que a próxima gravação o substitua, e nada se perde de vez:
+    /// `outside-activities.unreadable-<uuid>.json`, na mesma pasta.
+    private func keepAside(_ fileURL: URL) {
+        let base = fileURL.deletingPathExtension().lastPathComponent
+        let destination = fileURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("\(base).unreadable-\(UUID().uuidString).json", isDirectory: false)
+        do {
+            try FileManager.default.moveItem(at: fileURL, to: destination)
+        } catch {
+            let reason = String(describing: error)
+            logger.error("Não foi possível guardar o arquivo ilegível das atividades: \(reason, privacy: .public)")
         }
     }
 

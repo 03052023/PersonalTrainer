@@ -64,6 +64,28 @@ final class OutsideActivityStoreTests: XCTestCase {
         XCTAssertEqual(LiveOutsideActivityStore(fileURL: fileURL).load(), log)
     }
 
+    /// X8: o arquivo que não decodifica sai do caminho, intacto, antes da próxima gravação; nada se perde.
+    func testX8_unreadableFileIsKeptAside() throws {
+        let directory = try makeDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let fileURL = directory.appendingPathComponent(LiveOutsideActivityStore.fileName, isDirectory: false)
+        let unreadable = Data("{\"entries\":[{\"kind\":\"tipo-novo\"}]}".utf8)
+        try unreadable.write(to: fileURL)
+        let store = LiveOutsideActivityStore(fileURL: fileURL)
+
+        XCTAssertEqual(store.load(), OutsideActivityLog.empty)
+        let log = sampleLog()
+        try store.save(log)
+
+        let names = try FileManager.default.contentsOfDirectory(atPath: directory.path(percentEncoded: false))
+        let aside = names.filter { $0.hasPrefix("outside-activities.unreadable-") && $0.hasSuffix(".json") }
+        XCTAssertEqual(aside.count, 1)
+        let asideName = try XCTUnwrap(aside.first)
+        let kept = try Data(contentsOf: directory.appendingPathComponent(asideName, isDirectory: false))
+        XCTAssertEqual(kept, unreadable, "o original fica guardado como estava")
+        XCTAssertEqual(LiveOutsideActivityStore(fileURL: fileURL).load(), log)
+    }
+
     func testX8_fileWithoutFixed_decodesMissingKeysAsEmpty() throws {
         let directory = try makeDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }

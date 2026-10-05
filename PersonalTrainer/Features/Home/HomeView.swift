@@ -133,7 +133,11 @@ struct HomeView: View {
                 },
                 onSelectExercise: { exercise in
                     infoContent = model.infoContent(for: exercise, measure: measure(for: exercise))
-                }
+                },
+                // SPEC RF-49 (B8 da 2.3): o mesmo detalhe dos dois modos e do Início. Na força não muda
+                // ("5 exercícios · ≈ 55 min"); numa sessão só de aeróbico, os minutos ("30 min").
+                customDetail: TodayPlansText.detailText(for: plan),
+                customDetailSpoken: TodayPlansText.detailSpokenText(for: plan)
             )
         } else if model.didFailToLoad {
             ContentUnavailableView(

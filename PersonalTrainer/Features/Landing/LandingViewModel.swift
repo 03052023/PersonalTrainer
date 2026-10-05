@@ -254,13 +254,13 @@ final class LandingViewModel {
         guard let first = pending.first else {
             return .allDone
         }
-        // B8 da 2.3 (SPEC RF-49): os mesmos textos da tela Hoje. Uma sessão: o nome curto do dia
-        // ("Superior") e o detalhe do cartão da tela Hoje ("5 exercícios · ≈ 55 min"; numa sessão só de
-        // aeróbico, "30 min"). Duas: a linha de cima da tela Hoje, sem o "Hoje:" que o cartão já diz
-        // ("Superior + Cardio moderado 30 min").
+        // B8 da 2.3 (SPEC RF-49): os mesmos textos da tela Hoje. Uma sessão: o nome do dia e o detalhe do
+        // cartão da tela Hoje, iguais com um plano ou dois ("Dia A — Superior", "5 exercícios · ≈ 55 min";
+        // numa sessão só de aeróbico, "30 min"). Duas: a linha de cima da tela Hoje, sem o "Hoje:" que o
+        // cartão já diz ("Superior + Cardio moderado 30 min").
         if pending.count == 1 {
             return .todaySessions(
-                label: TodayPlansText.shortDayTitle(first.plan.programDayName),
+                label: first.plan.programDayName,
                 subtitle: TodayPlansText.detailText(for: first.plan)
             )
         }

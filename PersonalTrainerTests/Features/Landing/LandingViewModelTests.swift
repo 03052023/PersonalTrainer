@@ -129,7 +129,7 @@ final class LandingViewModelTests: XCTestCase {
 
         XCTAssertEqual(model.weekReadErrorMessage, "Não foi possível ler a semana.")
         XCTAssertEqual(model.weekMarks, Array(repeating: false, count: 7))
-        XCTAssertEqual(model.pathState, .todaySessions(label: "Superior", subtitle: "5 exercícios · ≈ 55 min"))
+        XCTAssertEqual(model.pathState, .todaySessions(label: "Dia A — Superior", subtitle: "5 exercícios · ≈ 55 min"))
     }
 
     func testRF49_pathReadFailure_saysNothingFalse() {
@@ -158,7 +158,7 @@ final class LandingViewModelTests: XCTestCase {
         planner.goalsError = nil
         model.refresh()
 
-        XCTAssertEqual(model.pathState, .todaySessions(label: "Superior", subtitle: "5 exercícios · ≈ 55 min"))
+        XCTAssertEqual(model.pathState, .todaySessions(label: "Dia A — Superior", subtitle: "5 exercícios · ≈ 55 min"))
     }
 
     // MARK: - RF-49: estados do caminho
@@ -181,8 +181,8 @@ final class LandingViewModelTests: XCTestCase {
 
         let state = LandingViewModel.computePathState(activeSession: nil, hasActiveGoal: true, overview: overview)
 
-        // B8 (2.4): o nome curto do dia, como na linha da tela Hoje.
-        XCTAssertEqual(state, .todaySessions(label: "Superior", subtitle: "5 exercícios · ≈ 55 min"))
+        // B8 (2.4): o nome do dia e o detalhe do cartão da tela Hoje, iguais com um plano ou dois.
+        XCTAssertEqual(state, .todaySessions(label: "Dia A — Superior", subtitle: "5 exercícios · ≈ 55 min"))
     }
 
     func testRF49_path_twoSessions() {
@@ -258,23 +258,25 @@ final class LandingViewModelTests: XCTestCase {
         XCTAssertEqual(label, "Superior + Cardio moderado 30 min")
         XCTAssertEqual("Hoje: \(label)", TodayPlansText.todayLine([strength, cardio]), "a mesma fala da tela Hoje")
 
-        // Uma sessão de força: o nome curto do dia e o detalhe do cartão da tela Hoje.
+        // Uma sessão de força: o nome do dia e o detalhe do cartão da tela Hoje (o mesmo nos dois modos).
         let single = LandingViewModel.computePathState(
             activeSession: nil,
             hasActiveGoal: true,
             overview: TodayOverview(sessions: [TodaySession(plan: strength, goal: .hypertrophy, isDoneToday: false)])
         )
-        XCTAssertEqual(single, .todaySessions(label: "Superior", subtitle: PlanCard.detailText(for: strength)))
+        XCTAssertEqual(single, .todaySessions(label: "Dia A — Superior", subtitle: PlanCard.detailText(for: strength)))
+        XCTAssertEqual(TodayPlansText.detailText(for: strength), PlanCard.detailText(for: strength))
     }
 
     func testRF49_cardioSubtitle() {
-        // Numa sessão só de aeróbico, "30 min" no lugar de "1 exercício · ≈ 41 min" (RF-49, B8).
+        // Numa sessão só de aeróbico, "30 min" no lugar de "1 exercício · ≈ 41 min" (RF-49, B8): o mesmo
+        // detalhe que o cartão da tela Hoje mostra com um plano ou dois.
         let cardio = makeCardioPlan(dayName: "Dia A — Base contínua", minutes: 30)
         let overview = TodayOverview(sessions: [TodaySession(plan: cardio, goal: .endurance, isDoneToday: false)])
 
         let state = LandingViewModel.computePathState(activeSession: nil, hasActiveGoal: true, overview: overview)
 
-        XCTAssertEqual(state, .todaySessions(label: "Base contínua", subtitle: "30 min"))
+        XCTAssertEqual(state, .todaySessions(label: "Dia A — Base contínua", subtitle: "30 min"))
         XCTAssertEqual(TodayPlansText.detailText(for: cardio), "30 min")
     }
 

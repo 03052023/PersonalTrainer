@@ -205,8 +205,8 @@ private struct RootTabs: View {
         )
         self._healthModel = State(initialValue: health)
         // SPEC RF-49/RF-52: o Início e as Metas da semana. O relatório do Saúde é o mesmo do cartão
-        // da tela Hoje; `loadIfStale` só lê o que já foi autorizado (nunca pede, AGENTS §7). O
-        // equilíbrio e a mobilidade "feitos nesta semana" vêm do log do diálogo (C8).
+        // da tela Hoje; `loadIfStale` só lê o que já foi autorizado (nunca pede, AGENTS §7). Do log do
+        // diálogo (C8), só os "Feito" de antes da 2.4 valem 1 (W2.6); os de depois contam pelo registro.
         let coachService = environment.coach
         let landing = LandingViewModel(
             planner: environment.planner,
@@ -219,7 +219,7 @@ private struct RootTabs: View {
                 await health.loadIfStale()
             },
             longevityDone: { [coachService, environment] in
-                coachService.longevityMarks(in: coachService.logStore.load(), now: environment.now())
+                coachService.legacyLongevityMarks(in: coachService.logStore.load(), now: environment.now())
             },
             // SPEC §7.16 W2.3, W2.6 e §7.17 X3, X6: o aeróbico das atividades sem o Saúde e as vezes
             // de equilíbrio e mobilidade registradas.
@@ -230,15 +230,17 @@ private struct RootTabs: View {
         self._landingModel = State(initialValue: landing)
         // SPEC RF-53: depois de cada gravação das atividades, o relatório de saúde é refeito com a
         // última leitura (sem reler o HealthKit), e o Início e a tela Hoje releem, nesta ordem, para
-        // as Metas lerem o relatório já recalculado.
+        // as Metas lerem o relatório já recalculado. O diálogo também relê: equilíbrio ou mobilidade
+        // registrados tiram o lembrete do C8 da semana (X6).
         let activities = ActivitiesModel(
             store: environment.activities,
             now: environment.now,
             calendar: .autoupdatingCurrent,
-            onChange: { [health, landing, home] in
+            onChange: { [health, landing, home, coachService] in
                 health.activitiesDidChange()
                 landing.refresh()
                 home.refresh()
+                RootTabs.refresh(coach: coachService, health: health, allowsHighlight: false)
             }
         )
         self._activitiesModel = State(initialValue: activities)

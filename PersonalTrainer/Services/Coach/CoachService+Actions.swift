@@ -64,6 +64,10 @@ extension CoachService {
         log.entries.append(entry)
         do {
             try activities.save(log)
+            // W2.6: daqui em diante, o "Feito" conta pelo registro, não pela marca do log.
+            if defaults.object(forKey: DefaultsKey.longevityEntriesSince) == nil {
+                defaults.set(now, forKey: DefaultsKey.longevityEntriesSince)
+            }
         } catch {
             let reason = String(describing: error)
             Self.logger.error("Registro do C8 não foi gravado nas atividades: \(reason, privacy: .public)")

@@ -39,12 +39,12 @@ public enum WeeklyFit {
     /// sem os 48 h; caberia sem a véspera; senão, os dois.
     ///
     /// Os lugares são os dias disponíveis, o dobro com 2 por dia só quando um plano tem aeróbico e o outro
-    /// tem força: duas forças (ou dois aeróbicos) nunca dividem o dia (achado B9 da 2.3).
+    /// tem força: duas forças (ou dois aeróbicos) nunca dividem o dia (achado B9 da 2.3). Desde a 2.4, as
+    /// fixas descontam o lugar que ocupam (X4), em `WeeklyFitSearch.availablePlaces()`.
     static func problems(of search: WeeklyFitSearch) -> [FitProblem] {
         guard search.exists(rules: .structureOnly) else {
             let needed = search.perWeek.reduce(0, +)
-            let perDay = search.preferences.allowsTwoSessionsPerDay && search.mixesCardioAndStrength ? 2 : 1
-            return [.notEnoughDays(needed: needed, available: search.preferences.availableDays.count * perDay)]
+            return [.notEnoughDays(needed: needed, available: search.availablePlaces())]
         }
         if search.exists(rules: WeeklyFitSearch.Rules(muscleRecovery: false, cardioBeforeLegs: true)) {
             return [.muscleRecovery]

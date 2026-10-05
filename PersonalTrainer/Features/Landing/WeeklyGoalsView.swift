@@ -160,7 +160,12 @@ struct WeeklyGoalsView: View {
                     Text(ActivityText.aerobicFromActivitiesOnly)
                 }
                 if showsHealthFooter {
-                    Text("Aeróbico, passos e sono vêm do app Saúde.")
+                    // Com o aeróbico só das atividades, a linha de cima já diz de onde ele vem.
+                    if model.aerobicFromActivitiesOnly {
+                        Text("Passos e sono vêm do app Saúde.")
+                    } else {
+                        Text("Aeróbico, passos e sono vêm do app Saúde.")
+                    }
                 }
             }
             .foregroundStyle(Theme.textSecondary)

@@ -635,6 +635,7 @@ enum FixedFitFixture {
     static let crossMonday = demand("000000000001", .cross, .monday)
     static let crossTuesday = demand("000000000002", .cross, .tuesday)
     static let crossThursday = demand("000000000003", .cross, .thursday)
+    static let crossWednesday = demand("000000000005", .cross, .wednesday)
     static let crossSunday = demand("000000000004", .cross, .sunday)
     static let spinningMonday = demand("000000000011", .spinning, .monday)
     static let spinningTuesday = demand("000000000012", .spinning, .tuesday)
@@ -721,13 +722,34 @@ let fixedFitCases: [FixedFitCase] = [
         problems: []
     ),
     FixedFitCase(
-        label: "força de plano com aula de luta fixa no mesmo dia: sem as chaves, não cabe",
+        label: "força de plano com aula de luta fixa no mesmo dia: sem as chaves, não cabe, e o dia não conta como lugar",
         plans: [FitFixture.upperOnly],
         preferences: WeekPreferences(availableDays: [.tuesday]),
         fixed: [FixedFitFixture.fightTuesday],
         rows: [],
         notes: [],
-        problems: [.notEnoughDays(needed: 1, available: 1)]
+        problems: [.notEnoughDays(needed: 1, available: 0)]
+    ),
+    FixedFitCase(
+        label: "M5 com fixas: cross na segunda e na quarta deixa 3 lugares de força, e o motivo conta 6, não 10",
+        plans: [FitFixture.balanced, FitFixture.cardioPlan],
+        preferences: WeekPreferences(
+            availableDays: [.monday, .tuesday, .wednesday, .thursday, .friday],
+            allowsTwoSessionsPerDay: true
+        ),
+        fixed: [FixedFitFixture.crossMonday, FixedFitFixture.crossWednesday],
+        rows: [],
+        notes: [],
+        problems: [.notEnoughDays(needed: 7, available: 6)]
+    ),
+    FixedFitCase(
+        label: "M5 com fixas: o spinning forte da quarta ocupa o dia sem as chaves, e o motivo conta 5 dias, não 6",
+        plans: [FitFixture.balanced, FitFixture.cardioPlan],
+        preferences: WeekPreferences(sessionsPerWeek: [FitFixture.cardioID: 2]),
+        fixed: [FixedFitFixture.spinningWednesday],
+        rows: [],
+        notes: [],
+        problems: [.notEnoughDays(needed: 6, available: 5)]
     ),
     FixedFitCase(
         label: "força de plano com aula de luta fixa: com Cardio leve depois da força, cabe",
@@ -754,7 +776,7 @@ let fixedFitCases: [FixedFitCase] = [
         fixed: [FixedFitFixture.spinningTuesday],
         rows: [],
         notes: [],
-        problems: [.notEnoughDays(needed: 1, available: 1)]
+        problems: [.notEnoughDays(needed: 1, available: 0)]
     ),
     FixedFitCase(
         label: "aeróbico de plano com cross fixo no mesmo dia: o cross é de pernas, então Cardio leve depois da força não basta",
@@ -763,7 +785,7 @@ let fixedFitCases: [FixedFitCase] = [
         fixed: [FixedFitFixture.crossTuesday],
         rows: [],
         notes: [],
-        problems: [.notEnoughDays(needed: 1, available: 1)]
+        problems: [.notEnoughDays(needed: 1, available: 0)]
     ),
     FixedFitCase(
         label: "aeróbico de plano com cross fixo no mesmo dia: com 2 por dia, cabe",

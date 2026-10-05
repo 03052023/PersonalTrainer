@@ -1098,6 +1098,80 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertFalse(fixture.service.messages.contains { $0.itemKey == CoachInput.mobilityKey })
     }
 
+    /// SPEC C8, §7.17 X6: equilíbrio registrado em "Fora do app" nesta semana já está feito. O lembrete de
+    /// equilíbrio some (o de mobilidade fica), e nenhum "Feito" a mais grava a mesma vez de novo.
+    func testX6_registeredBalanceSilencesC8() throws {
+        let registered = OutsideActivityEntry(
+            kind: .balance,
+            start: now.addingTimeInterval(-3_600),
+            minutes: 15,
+            intensity: .light
+        )
+        let activities = FakeOutsideActivityStore(log: OutsideActivityLog(entries: [registered]))
+        let fixture = try makeFixture(activities: activities)
+        defer { fixture.cleanUp() }
+        fixture.planner.goalToReturn = .longevity
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+
+        XCTAssertFalse(fixture.service.messages.contains { $0.itemKey == CoachInput.balanceKey })
+        XCTAssertTrue(fixture.service.messages.contains { $0.itemKey == CoachInput.mobilityKey })
+        XCTAssertEqual(activities.saveCount, 0)
+
+        // Na semana seguinte, o registro antigo não conta: o lembrete volta.
+        fixture.clock.now = date(2026, 10, 1)
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        XCTAssertTrue(fixture.service.messages.contains { $0.itemKey == CoachInput.balanceKey })
+    }
+
+    /// SPEC §7.16 W2.6: só um "Feito" de antes da 2.4 (sem registro) vale 1 nas Metas. Depois do primeiro
+    /// "Feito" que grava um registro, as marcas novas contam só pelo registro: apagá-lo desfaz a vez.
+    func testW26_deletingC8EntryUndoesCount() throws {
+        let oldMark = CoachLogEntry(
+            messageID: "longevity:\(CoachInput.mobilityKey):old",
+            rule: .longevity,
+            itemKey: CoachInput.mobilityKey,
+            action: .done,
+            date: date(2026, 9, 22)
+        )
+        let activities = FakeOutsideActivityStore()
+        let fixture = try makeFixture(
+            logStore: FakeCoachLogStore(log: CoachLog(entries: [oldMark])),
+            activities: activities
+        )
+        defer { fixture.cleanUp() }
+        fixture.planner.goalToReturn = .longevity
+
+        // Antes de qualquer "Feito" da 2.4, a marca antiga vale 1.
+        XCTAssertEqual(
+            fixture.service.legacyLongevityMarks(in: fixture.logStore.log, now: now),
+            [CoachInput.mobilityKey]
+        )
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        let balance = try XCTUnwrap(fixture.service.messages.first { $0.itemKey == CoachInput.balanceKey })
+        fixture.service.handle(.done, on: balance)
+        XCTAssertEqual(activities.log.entries.map(\.kind), [.balance])
+
+        // O "Feito" novo esconde o lembrete, mas nas Metas conta só pelo registro; a marca antiga continua.
+        XCTAssertEqual(
+            fixture.service.longevityMarks(in: fixture.logStore.log, now: now),
+            [CoachInput.balanceKey, CoachInput.mobilityKey]
+        )
+        XCTAssertEqual(
+            fixture.service.legacyLongevityMarks(in: fixture.logStore.log, now: now),
+            [CoachInput.mobilityKey]
+        )
+
+        // Apagar o registro do C8 (na seção "Fora do app") tira a vez das Metas: nem registro nem marca.
+        try activities.save(OutsideActivityLog.empty)
+        let week = WeeklyFrequency.weekInterval(containing: now, weekStartsOnMonday: true, calendar: calendar)
+        XCTAssertEqual(OutsideActivities.longevityCounts(entries: activities.log.entries, week: week), [:])
+        XCTAssertFalse(
+            fixture.service.legacyLongevityMarks(in: fixture.logStore.log, now: now).contains(CoachInput.balanceKey)
+        )
+    }
+
     /// SPEC §7.15 M2: o C8 vale quando qualquer plano ativo é de Longevidade, principal ou não.
     func testM2_longevityRemindersWithSecondPlan() throws {
         let fixture = try makeFixture()

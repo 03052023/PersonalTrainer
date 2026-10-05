@@ -286,6 +286,74 @@ struct WeeklyFitSearch: Sendable {
         return false
     }
 
+    // MARK: - Lugares (M5)
+
+    /// M5 `notEnoughDays`: quantas sessões de plano a estrutura do dia comporta nos dias disponíveis.
+    /// - Um dia tem lugar de força de plano se a estrutura aceita uma força ao lado das fixas dele (X4), e
+    ///   o mesmo para o aeróbico; sem fixas, todo dia tem os dois.
+    /// - Com 2 por dia (só quando um plano tem aeróbico e outro tem força, B9), cada tipo conta à parte, até
+    ///   as sessões que os planos pedem dele na semana.
+    /// - Sem isso, um dia leva uma sessão de plano: o máximo é o menor corte entre o que se pede e os dias
+    ///   que aceitam cada tipo.
+    /// Sem fixas e sem 2 por dia, dá os dias disponíveis sempre que faltam lugares, como antes; o número
+    /// nunca passa das sessões pedidas, e a frase do motivo nunca diz que cabem mais do que se pede.
+    func availablePlaces() -> Int {
+        var strengthNeeded = 0
+        var cardioNeeded = 0
+        for (index, plan) in plans.enumerated() where !plan.sessions.isEmpty && index < perWeek.count {
+            // A primeira semana da órbita (a fase, M3): um plano pode ter dias dos dois tipos.
+            for position in 0..<perWeek[index] {
+                switch plan.sessions[position % plan.sessions.count].kind {
+                case .strength:
+                    strengthNeeded += 1
+                case .cardio:
+                    cardioNeeded += 1
+                }
+            }
+        }
+        var strengthDays = 0
+        var cardioDays = 0
+        var eitherDays = 0
+        for day in preferences.availableDays {
+            let fixedHere = fixedPlacements[day.rawValue]
+            let takesStrength = isStructureValid(fixedHere + [WeeklyFitSearch.easiestPlanSession(.strength)])
+            let takesCardio = isStructureValid(fixedHere + [WeeklyFitSearch.easiestPlanSession(.cardio)])
+            if takesStrength {
+                strengthDays += 1
+            }
+            if takesCardio {
+                cardioDays += 1
+            }
+            if takesStrength || takesCardio {
+                eitherDays += 1
+            }
+        }
+        if preferences.allowsTwoSessionsPerDay && mixesCardioAndStrength {
+            return min(strengthNeeded, strengthDays) + min(cardioNeeded, cardioDays)
+        }
+        return min(
+            strengthNeeded + cardioNeeded,
+            strengthDays + cardioNeeded,
+            strengthNeeded + cardioDays,
+            eitherDays
+        )
+    }
+
+    /// A sessão de plano mais fácil de pôr ao lado de uma fixa: força sem grupos e sem pernas, ou aeróbico
+    /// leve. Assim o lugar só some quando nenhuma sessão daquele tipo caberia no dia.
+    static func easiestPlanSession(_ kind: PlanSessionKind) -> Placement {
+        let id = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+        switch kind {
+        case .strength:
+            return Placement(plan: 0, session: PlanSessionDemand(programDayID: id, dayName: "", kind: .strength))
+        case .cardio:
+            return Placement(
+                plan: 0,
+                session: PlanSessionDemand(programDayID: id, dayName: "", kind: .cardio, cardioIntensity: .light)
+            )
+        }
+    }
+
     // MARK: - Escolha e semana
 
     /// Os critérios de M4. As fixas contam como as outras sessões: são iguais em toda escolha, então só
