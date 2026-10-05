@@ -42,6 +42,10 @@ struct LandingView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 24)
+                // Atrás de tudo e rola junto com o conteúdo (DESIGN §9.1).
+                .background(alignment: .topTrailing) {
+                    mountainWash
+                }
             }
             .paperBackground()
             .navigationTitle("Início")
@@ -60,17 +64,23 @@ struct LandingView: View {
 
     // MARK: - Cabeçalho: aguada, data, flor, saudação e objetivos
 
+    /// A aguada de montanha no canto de cima, à direita (DESIGN §9.1): cerca de 55 % da largura da
+    /// tela e 140 pt de altura. Decorativa; o `GeometryReader` fica num `background`, então não
+    /// muda o tamanho da coluna.
+    private var mountainWash: some View {
+        GeometryReader { proxy in
+            MountainWashView()
+                .frame(width: proxy.size.width * 0.55, height: 140)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+        }
+    }
+
     private var header: some View {
         VStack(spacing: 20) {
-            ZStack(alignment: .top) {
-                MountainWashView()
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 140)
-                Text(model.dateText)
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.textSecondary)
-                    .padding(.top, 12)
-            }
+            Text(model.dateText)
+                .font(.subheadline)
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.top, 12)
 
             FlowerView(activeGoals: model.activeGoals, size: 168)
                 .publishesGoalFlowerAnchor()

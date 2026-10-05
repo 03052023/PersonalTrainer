@@ -31,6 +31,14 @@ final class WeeklyGoalsTextTests: XCTestCase {
         XCTAssertEqual(WeeklyGoalsText.valueText(goal(.mobility, done: 0, target: 1)), "Ainda não marcado nesta semana")
     }
 
+    func testRF52_valueText_singularWhenTheTargetIsOne() {
+        XCTAssertEqual(
+            WeeklyGoalsText.valueText(goal(.planSessions, done: 0, target: 1, planGoal: .longevity)),
+            "0 de 1 sessão"
+        )
+        XCTAssertEqual(WeeklyGoalsText.valueText(goal(.muscles, done: 0, target: 1)), "0 de 1 grupo 2 vezes")
+    }
+
     func testRF52_valueText_overTheTargetShowsTheRealNumber() {
         // W3: passar da meta mostra o número real, com a marca cheia.
         XCTAssertEqual(

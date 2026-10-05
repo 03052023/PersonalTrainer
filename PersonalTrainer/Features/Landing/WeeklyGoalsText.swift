@@ -36,9 +36,12 @@ enum WeeklyGoalsText {
         }
         switch goal.kind {
         case .planSessions:
-            return "\(wholeNumber(done)) de \(wholeNumber(goal.target)) sessões"
+            // O substantivo concorda com a meta ("0 de 1 sessão", "3 de 4 sessões").
+            let noun = wholeNumber(goal.target) == 1 ? "sessão" : "sessões"
+            return "\(wholeNumber(done)) de \(wholeNumber(goal.target)) \(noun)"
         case .muscles:
-            return "\(wholeNumber(done)) de \(wholeNumber(goal.target)) grupos 2 vezes"
+            let noun = wholeNumber(goal.target) == 1 ? "grupo" : "grupos"
+            return "\(wholeNumber(done)) de \(wholeNumber(goal.target)) \(noun) 2 vezes"
         case .aerobic:
             return "\(wholeNumber(done)) de \(wholeNumber(goal.target)) min"
         case .steps:
