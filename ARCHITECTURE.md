@@ -383,13 +383,14 @@ Tipos: escrita `HKWorkoutType`; leitura `heartRate` (M2). M5 acrescenta só leit
 PersonalTrainer/                        ← raiz do repo (Windows: C:\Users\leona\Developer\PersonalTrainer)
 ├── SPEC.md · ARCHITECTURE.md · TASKS.md · AGENTS.md · README.md · WINDOWS_SETUP.md
 ├── project.yml                          [PROJ] fonte do PersonalTrainer.xcodeproj (gerado no CI, fora do Git)
-├── .github/workflows/                   [PROJ] core-tests.yml (Linux) · app-build.yml (macOS, manual) · device-probe.yml
+├── .github/workflows/                   [PROJ] core-tests.yml (Linux) · app-build.yml (macOS; desde a 2.5 só o iPhone, sem o Watch, e confere o manifesto de privacidade — SPEC §7.18 L1, L6) · device-probe.yml
 ├── Scripts/                             swift-test.ps1 (Windows) · check-boundaries.sh · build-app.sh · build-device-probe.sh · check-device-probe.py
 ├── Packages/
 │   └── TrainerCore/
 │       ├── Package.swift
 │       ├── Sources/TrainerCore/{Domain,Engine,Sync,Summary}/   (M4: Review/ · M5: Health/ — separados de Engine/ por R2; 2.3: Summary/WeeklyGoals, as Metas da semana, SPEC §7.16)
-│       │   ├── Coach/   diálogo do app (SPEC §7.11 C1–C8): CoachFeedBuilder, CoachLog, ReviewSchedule, ProvisioningProfileParser; lê Review/ e Health/, recebe o estado do deload pronto
+│       │   ├── Coach/   diálogo do app (SPEC §7.11 C1–C3, C5–C8; a C4 saiu na 2.5, §7.18 L4): CoachFeedBuilder, CoachLog, ReviewSchedule; lê Review/ e Health/, recebe o estado do deload pronto
+│       │   ├── AppStore/   (2.5) pedido de avaliação (SPEC §7.18 L3): RatingPromptPolicy, RatingPromptInput, RatingSessionEnding; função pura, datas e versões por parâmetro, sem Date(). Pasta própria porque a regra é da distribuição na loja, não do diálogo (Coach/) nem do motor (Engine/)
 │       │   ├── Plans/   (2.3, onda de telas) vários planos (SPEC §7.15 M1–M9): PlanDemand, WeeklyFit (encaixe semanal), PlanCombination (consequências), ActivePlanOrder, WeekPreferences, PlanWeekProgress; só Foundation, sem Date(), sem FC
 │       │   ├── Activities/   (2.4) atividades fora do app (SPEC §7.17 X1–X8): OutsideActivityKind, OutsideActivityEntry, FixedOutsideActivity, OutsideActivityLog e OutsideActivities (aeróbico, encaixe, recuperação, equilíbrio e mobilidade); só Foundation, sem Date(), sem FC
 │       │   └── Guide/   (2.3) "Como fazer" (SPEC §7.12 E1–E10): formato das guias (ExerciseGuide, ExerciseGuideCatalog, GuideFrame, GuidePose…), cinemática (GuideKinematics, GuideSkeleton, GuideRig), partes que se movem e seta (GuideMotion), tempo (GuideTiming) e ExerciseGuideValidator; só Foundation, sem Date(), função pura de t
@@ -405,13 +406,15 @@ PersonalTrainer/                        ← raiz do repo (Windows: C:\Users\leon
 │   │                   (2.4) Activities/ (atividades fora do app: ActivitiesModel, a folha de registro, "Fora do app", "Atividades fixas" e "Também hoje" — SPEC RF-53, §7.17)
 │   ├── PreviewSupport/ doubles privados de SessionPlanning/SessionCoordinating para #Preview (fora de Features/ para o grep R4 ficar limpo)
 │   ├── Services/       Planning/ · Session/ · RestTimer/ · Seed/ · Notifications/ · HealthKit/ · WatchSync/ · (M2) Backup/ · References/ ·
-│   │                   (M4) Decisions/ (decisões de semana leve em JSON) · Coach/ (diálogo, SPEC §7.11: CoachService, log em JSON, validade da instalação) ·
+│   │                   (M4) Decisions/ (decisões de semana leve em JSON) · Coach/ (diálogo, SPEC §7.11: CoachService, log em JSON; sem a validade da instalação desde a 2.5) ·
 │   │                   (2.3, onda de telas) ExerciseGuides/ (ExerciseGuideLibrary: lê exercise-guides.v1.json, valida e cai em .empty com log — SPEC E8) ·
-│   │                   (2.4) Activities/ (OutsideActivityStoring + Live + Fake: outside-activities.json em Application Support — SPEC §7.17 X8)
+│   │                   (2.4) Activities/ (OutsideActivityStoring + Live + Fake: outside-activities.json em Application Support — SPEC §7.17 X8) ·
+│   │                   (2.5) RatingPrompt/ (RatingPromptStoring + Live + Fake: versão e data do último pedido de avaliação em UserDefaults e se o app veio da loja; RatingPromptGate — SPEC §7.18 L3)
 │   ├── Persistence/    Schema/{SchemaV1,CurrentSchema}.swift · MigrationPlan.swift · ModelContainerFactory.swift · Mappers/ · Repositories/
-│   ├── Resources/      Seed/exercises.v1.json · Seed/program-default.v1.json · (2.3) Seed/exercise-guides.v1.json (gerado pela junção dos lotes) · (Assets.xcassets)
+│   ├── Resources/      Seed/exercises.v1.json · Seed/program-default.v1.json · (2.3) Seed/exercise-guides.v1.json (gerado pela junção dos lotes) · (Assets.xcassets) ·
+│   │                   (2.5) PrivacyInfo.xcprivacy (manifesto de privacidade, na raiz do .app — SPEC §7.18 L1)
 │   └── Support/        PersonalTrainer.entitlements · Info.plist (gerado, fora do Git)
-├── PersonalTrainerWatch/                (target watchOS — placeholder até M3)
+├── PersonalTrainerWatch/                (target watchOS — placeholder até M3; desde a 2.5 fora da dependência do app do iPhone, SPEC §7.18 L6)
 │   ├── App/ · Features/ · Services/ · Support/PersonalTrainerWatch.entitlements
 ├── PersonalTrainerTests/                (XCTest, hospedado no app; compila só no CI)
 └── Validation/DeviceProbe/              (T0.0: probe isolado com gerador Python próprio; não é o app)

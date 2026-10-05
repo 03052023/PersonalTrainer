@@ -1,6 +1,6 @@
 # Guia de design: Magister
 
-Versão 1.5 · 2026-10-05 (2.4: atividades fora do app, §9.3, e os ajustes do §13). Vale para iPhone e Apple Watch. Decisões do dono registradas na SPEC (decisões 15, 16, 18, 20 e 21): nome **Magister**, ícone de cinco pétalas creme separadas com miolo areia sobre **azul-marinho**, desde a 2.2 no desenho **Brisa** (pétalas com giro leve e feitas à mão), nada de cultura de academia, uma interface simples (cada tela responde a uma pergunta) e, desde a 2.3, a direção visual **A · Tinta e papel** (§3, §14), só no visual: nenhuma mensagem de efeito em tela alguma (§6).
+Versão 1.6 · 2026-10-05 (2.5: Privacidade e aviso de saúde no Sobre, sem textos de sideload, palavras do §7; antes, 1.5: atividades fora do app, §9.3, e os ajustes do §13). Vale para iPhone e Apple Watch. Decisões do dono registradas na SPEC (decisões 15, 16, 18, 20 e 21): nome **Magister**, ícone de cinco pétalas creme separadas com miolo areia sobre **azul-marinho**, desde a 2.2 no desenho **Brisa** (pétalas com giro leve e feitas à mão), nada de cultura de academia, uma interface simples (cada tela responde a uma pergunta) e, desde a 2.3, a direção visual **A · Tinta e papel** (§3, §14), só no visual: nenhuma mensagem de efeito em tela alguma (§6).
 
 ## 0. O nome
 
@@ -112,7 +112,7 @@ Trate por "você". Explique o porquê em uma frase e mostre a referência. Use f
 | queimar calorias | gasto de energia |
 | você perdeu a sequência | (não usar; mostre só o fato: "1 sessão nesta semana.") |
 
-**Sem mensagens de efeito** (SPEC decisão 20, itens 15 e 16 do dono, 2026-09-28). Nenhuma tela tem citação, frase inspiracional, mensagem estoica ou budista, "mensagem do dia", elogio ou frase de efeito: nem o Início, nem a abertura, nem a sessão, nem o resumo, nem os estados vazios, nem o Ajustes. Os textos dizem o que é e o que fazer, com números quando houver ("Hoje é dia de descanso.", "3 de 4 sessões"). A calma vem do visual (§14), não de frases. Os avisos funcionais do diálogo (SPEC §7.11 C1–C8: semana leve, revisão, saúde, validade da instalação, backup) continuam, porque são recursos.
+**Sem mensagens de efeito** (SPEC decisão 20, itens 15 e 16 do dono, 2026-09-28). Nenhuma tela tem citação, frase inspiracional, mensagem estoica ou budista, "mensagem do dia", elogio ou frase de efeito: nem o Início, nem a abertura, nem a sessão, nem o resumo, nem os estados vazios, nem o Ajustes. Os textos dizem o que é e o que fazer, com números quando houver ("Hoje é dia de descanso.", "3 de 4 sessões"). A calma vem do visual (§14), não de frases. Os avisos funcionais do diálogo (SPEC §7.11: semana leve, revisão, saúde, retomada, melhor marca, backup e Longevidade) continuam, porque são recursos. Desde a 2.5 não há aviso de validade da instalação nem texto de sideload (SPEC §7.18 L4), e a página Privacidade e o aviso de saúde do Sobre são informação, não mensagem de efeito (L2, L5).
 
 ## 7. Vocabulário da interface
 
@@ -139,6 +139,8 @@ Selos da nota da prescrição (2.2), só quando há novidade:
 Outras palavras da 2.2: "Informações do exercício", "Da última vez", "Por que esta carga", "Marcar como feitos, como previsto", "Encerrar só com o que marquei", "Sair sem registrar", "Voltar ao treino", "escolha a carga", "+ 2,5 kg extra", "Trocar" (objetivo), "Ajustar exercícios", "Mais opções".
 
 Palavras da 2.4: "Fora do app", "Registrar atividade", "Atividades fixas", "Acrescentar atividade fixa", "Toda semana", "Também hoje", "Feito", "Apagar atividade", "Duração", "Intensidade", "Leve", "Moderada", "Forte", "Mais um bloco", "1 de 2 vezes", e os nomes dos tipos da SPEC §7.17 ("Pilates", "Cross ou funcional", "Aula de luta"…). A carga vazia diz "sem carga" também na tela Hoje (antes "escolha a carga").
+
+Palavras da 2.5 (SPEC §7.18): "Privacidade", "Avaliar o Magister", "Bicicleta indoor" (antes "Spinning ou bicicleta", marca de terceiros), "Guarde-o num lugar só seu", "Seus treinos ficam no iPhone" e a linha fixa "O Magister não substitui a orientação de um médico ou de um profissional de educação física." Saem "Avisos", "Avisar na véspera de o app expirar" e "Como renovar". Para o app, nunca "personal", "treinador" ou "coach" (L8); para a base, "com base científica" ou "baseado em estudos publicados", nunca "validado cientificamente".
 
 Palavras da 2.3: "Início", "Metas da semana", "Ver a sessão de hoje", "Retomar a sessão", "Ver o dia", "Marcar série", "Marcar como feito", "Concluir a sessão", "Agora: …", "A seguir: …", "sem carga", "Anotar carga", "Agora não", "Como fazer", "Recuperação andando", "Adicionar X ao seu plano", "Tirar este plano", "Sua semana", "Seus dias", "Aceito 2 sessões no mesmo dia", "Cardio leve depois da força", "Treinar mesmo assim", "Ganha", "Fica igual", "Custa", "sem dados". Intensidade do Cardio pelo teste da fala: "Leve: a conversa é fácil", "Moderado: dá para conversar, mas não para cantar", "Forte: só dá para dizer poucas palavras".
 
