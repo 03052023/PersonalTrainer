@@ -19,6 +19,8 @@ struct PersonalTrainerApp: App {
             })
             .environment(environment)
             .environment(\.exerciseTraits, environment.traits)
+            // SPEC RF-40: o "Como fazer" da ficha, das informações do exercício e do catálogo.
+            .environment(\.exerciseGuides, environment.exerciseGuides)
             .modelContainer(environment.modelContainer)
         }
     }

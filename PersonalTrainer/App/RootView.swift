@@ -4,11 +4,12 @@ import TrainerCore
 import UIKit
 import UniformTypeIdentifiers
 
-/// Raiz da navegação (T1.1, M2-CONTRACT §7; SPEC F1/F4/F5; DESIGN §8): abas "Hoje" (Home),
-/// "Histórico", "Plano" e "Ajustes", com a sessão ativa apresentada por cima em
-/// `fullScreenCover`, o onboarding do primeiro launch em `.sheet`, a troca de objetivo pelo topo
-/// da tela Hoje (SPEC RF-45) em `.sheet` e o destaque do diálogo (SPEC §7.11) numa folha própria.
-/// Cada aba traz a própria `NavigationStack`, então nada aqui as aninha em outra.
+/// Raiz da navegação (T1.1, M2-CONTRACT §7; SPEC F1/F4/F5, RF-49, RF-50; DESIGN §8): abas
+/// "Início" (Landing, a primeira desde a 2.3), "Hoje" (Home), "Histórico", "Plano" e "Ajustes", com
+/// a abertura a frio por cima das abas, a sessão ativa apresentada por cima em `fullScreenCover`, o
+/// onboarding do primeiro launch em `.sheet`, a troca de objetivo pelo topo da tela Hoje (SPEC
+/// RF-45) em `.sheet` e o destaque do diálogo (SPEC §7.11) numa folha própria. Cada aba traz a
+/// própria `NavigationStack`, então nada aqui as aninha em outra.
 ///
 /// O `AppEnvironment` chega pelo ambiente (`PersonalTrainerApp` injeta com `.environment`).
 /// Como `@Environment` só é legível depois do `init`, quem guarda o `HomeViewModel` e o
@@ -21,6 +22,10 @@ import UniformTypeIdentifiers
 struct RootView: View {
     @Environment(AppEnvironment.self) private var environment
     private let onRetryStoreLoad: (() -> Void)?
+    /// SPEC RF-50: a abertura roda só na abertura a frio. Fica aqui, e não em `RootTabs`, para não
+    /// voltar quando as abas aparecem depois de "Tentar de novo" na tela de erro do store (a
+    /// abertura nunca cobre essa tela).
+    @State private var isLaunchPending = true
 
     init(onRetryStoreLoad: (() -> Void)? = nil) {
         self.onRetryStoreLoad = onRetryStoreLoad
@@ -33,8 +38,11 @@ struct RootView: View {
                 dataFiles: ModelContainerFactory.existingPersistentStoreFiles(),
                 onRetry: onRetryStoreLoad
             )
+            .onAppear {
+                isLaunchPending = false
+            }
         } else {
-            RootTabs(environment: environment)
+            RootTabs(environment: environment, isLaunchPending: $isLaunchPending)
         }
     }
 }
@@ -93,9 +101,12 @@ private enum CoachDestination: Identifiable {
     }
 }
 
-/// Abas + apresentação da sessão, do onboarding e do diálogo. Dona do `HomeViewModel`, do
-/// `HealthViewModel` e do `SettingsViewModel` (um de cada por processo), da aba selecionada e do
-/// que está apresentado.
+/// Abas + apresentação da sessão, do onboarding e do diálogo. Dona do `LandingViewModel`, do
+/// `HomeViewModel`, do `HealthViewModel` e do `SettingsViewModel` (um de cada por processo), da aba
+/// selecionada e do que está apresentado.
+///
+/// A abertura (SPEC RF-50) fica por cima das abas enquanto `isLaunchPending` é verdadeiro; o
+/// onboarding e o destaque do diálogo esperam ela terminar (`finishLaunch`).
 ///
 /// A exportação do backup e os alertas do Ajustes ficam aqui, na raiz, e não dentro da aba: o
 /// "Fazer backup" do diálogo (SPEC §7.11 C7) abre a exportação direto, de qualquer aba (B10), e o
@@ -113,6 +124,7 @@ private struct RootTabs: View {
     }
 
     private enum RootTab: Hashable {
+        case landing
         case today
         case history
         case plan
@@ -123,14 +135,23 @@ private struct RootTabs: View {
     /// de inferior só olha a semana corrente e a próxima).
     private static let recentSessionWindow: TimeInterval = 14 * 86_400
 
+    /// Rede de segurança da abertura: se por algum motivo o relógio dela não avisar o fim (0,92 s;
+    /// 0,60 s com Reduzir Movimento), a raiz encerra sozinha depois disto, para o onboarding e o
+    /// destaque do diálogo nunca ficarem presos atrás dela.
+    private static let launchFallbackDelay: Duration = .seconds(3)
+
     private let environment: AppEnvironment
     private let coach: CoachService
+    @State private var landingModel: LandingViewModel
     @State private var homeModel: HomeViewModel
     @State private var healthModel: HealthViewModel
     @State private var settingsModel: SettingsViewModel
     @State private var presentedSession: PresentedSession? = nil
     @State private var coachDestination: CoachDestination? = nil
-    @State private var selectedTab: RootTab = .today
+    /// SPEC RF-49: o app abre no Início.
+    @State private var selectedTab: RootTab = .landing
+    /// SPEC RF-50: verdadeiro só na abertura a frio, até a abertura terminar (dono: `RootView`).
+    @Binding private var isLaunchPending: Bool
     /// Verdadeiro enquanto o onboarding ou a sessão estão na tela (ou ainda não se sabe, antes do
     /// `onAppear`): o destaque do diálogo espera.
     @State private var blocksCoachSheet = true
@@ -149,19 +170,54 @@ private struct RootTabs: View {
     /// derivado: a marca só vira `true` dentro do onboarding, que fecha a sheet por `onDone`.
     @State private var isShowingOnboarding = false
 
-    init(environment: AppEnvironment) {
+    init(environment: AppEnvironment, isLaunchPending: Binding<Bool>) {
         self.environment = environment
         self.coach = environment.coach
+        self._isLaunchPending = isLaunchPending
         let home = HomeViewModel(
             planner: environment.planner,
             coordinator: environment.coordinator,
             now: environment.now
         )
         self._homeModel = State(initialValue: home)
-        // Depois de importar um backup, pedir uma semana leve ou mudar o modo casa, o plano mudou:
-        // a Home relê. O diálogo relê ao voltar para "Hoje", longe dos alertas do Ajustes; depois
-        // de uma importação ele também esquece a revisão guardada em memória (A5).
+        // A4/B8: o mesmo log do diálogo do `CoachService`. "Ok, entendi" no detalhe do Saúde e
+        // "Entendi" no feed gravam e leem a mesma resposta, nos dois sentidos.
+        // SPEC §7.16 W7 (item 18 do dono): passos só com um plano ativo de Longevidade ou Cardio,
+        // no cartão, no detalhe e na sugestão de passos baixos (que também sai do feed do diálogo).
+        let health = HealthViewModel(
+            reader: environment.healthReader,
+            sessionsProvider: { [environment] in
+                RootTabs.recentSessions(from: environment)
+            },
+            now: environment.now,
+            logStore: environment.coach.logStore,
+            showsSteps: { [environment] in
+                WeeklyGoals.showsSteps(activeGoals: (try? environment.planner.activeProgramGoals()) ?? [])
+            }
+        )
+        self._healthModel = State(initialValue: health)
+        // SPEC RF-49/RF-52: o Início e as Metas da semana. O relatório do Saúde é o mesmo do cartão
+        // da tela Hoje; `loadIfStale` só lê o que já foi autorizado (nunca pede, AGENTS §7). O
+        // equilíbrio e a mobilidade "feitos nesta semana" vêm do log do diálogo (C8).
         let coachService = environment.coach
+        let landing = LandingViewModel(
+            planner: environment.planner,
+            coordinator: environment.coordinator,
+            now: environment.now,
+            healthReport: { [health] in
+                health.report
+            },
+            loadHealth: { [health] in
+                await health.loadIfStale()
+            },
+            longevityDone: { [coachService, environment] in
+                coachService.longevityMarks(in: coachService.logStore.load(), now: environment.now())
+            }
+        )
+        self._landingModel = State(initialValue: landing)
+        // Depois de importar um backup, pedir uma semana leve ou mudar o modo casa, o plano mudou:
+        // o Início e a Home releem. O diálogo relê ao voltar para "Hoje", longe dos alertas do
+        // Ajustes; depois de uma importação ele também esquece a revisão guardada em memória (A5).
         self._settingsModel = State(initialValue: SettingsViewModel(
             backup: environment.backup,
             planner: environment.planner,
@@ -170,19 +226,10 @@ private struct RootTabs: View {
             onImported: { [coachService] in
                 coachService.resetAfterImport()
             },
-            onDataChanged: { [home] in
+            onDataChanged: { [home, landing] in
                 home.refresh()
+                landing.refresh()
             }
-        ))
-        // A4/B8: o mesmo log do diálogo do `CoachService`. "Ok, entendi" no detalhe do Saúde e
-        // "Entendi" no feed gravam e leem a mesma resposta, nos dois sentidos.
-        self._healthModel = State(initialValue: HealthViewModel(
-            reader: environment.healthReader,
-            sessionsProvider: { [environment] in
-                RootTabs.recentSessions(from: environment)
-            },
-            now: environment.now,
-            logStore: environment.coach.logStore
         ))
     }
 
@@ -195,23 +242,35 @@ private struct RootTabs: View {
         tabs
         // DESIGN §3: `accent` é o tint global (não há AccentColor no catálogo de imagens).
         .tint(Theme.accent)
+        // SPEC RF-50: a abertura a frio por cima das abas, com os objetivos ativos (o principal
+        // primeiro, M2) para corar a pétala dele. O Início já está montado e aceitando toques
+        // desde o primeiro quadro; o fim libera o onboarding e o destaque do diálogo.
+        .launchOverlay(goals: landingModel.activeGoals, isEnabled: isLaunchPending, onFinished: {
+            finishLaunch()
+        })
         // Programa ativo, dias, objetivo e ajustes podem ter mudado nas outras abas: ao voltar
-        // para "Hoje", a Home e o diálogo releem (além do próprio `onAppear` da Home).
+        // para "Início" ou "Hoje", a tela relê (além do próprio `onAppear` dela); em "Hoje", o
+        // diálogo também.
         .onChange(of: selectedTab) { _, newTab in
-            if newTab == .today {
+            switch newTab {
+            case .landing:
+                landingModel.refresh()
+            case .today:
                 homeModel.refresh()
                 refreshCoach()
+            case .history, .plan, .settings:
+                break
             }
         }
         // A Home não recebe `onAppear` ao dispensar um cover: relê aqui para mostrar a próxima
-        // sessão recalculada (SPEC F4) e trocar Retomar → Começar. O diálogo relê ao fechar a
-        // sessão (marcos pessoais, C6).
+        // sessão recalculada (SPEC F4) e trocar Retomar → Começar (no Início, "Retomar a sessão"
+        // → "Ver a sessão de hoje"). O diálogo relê ao fechar a sessão (marcos pessoais, C6).
         .fullScreenCover(item: $presentedSession, onDismiss: {
             // RF-44 g: a ficha liga a tela acesa e desliga ao sumir; isto só garante que ela
             // nunca fica ligada fora da sessão, mesmo se o `onDisappear` da ficha não vier.
             UIApplication.shared.isIdleTimerDisabled = false
             blocksCoachSheet = false
-            homeModel.refresh()
+            refreshScreens()
             refreshCoach()
         }) { presented in
             SessionFlowView(sessionID: presented.id, environment: environment, onClose: {
@@ -230,13 +289,15 @@ private struct RootTabs: View {
                 catalog: environment.catalog,
                 onDone: {
                     isShowingOnboarding = false
-                    homeModel.refresh()
+                    refreshScreens()
                 }
             )
         }
-        // RF-45: trocar de objetivo pelo topo da tela Hoje (ou pelo diálogo, C2). A folha só
-        // chama `onFinish`; quem fecha é daqui. Com sessão em andamento, "Trocar" fica bloqueado
-        // dentro da folha. O destaque do diálogo espera ela fechar.
+        // RF-45: trocar de objetivo pelo topo da tela Hoje, pelo "Escolher um objetivo" do Início
+        // ou pelo diálogo (C2). A folha só chama `onFinish`; quem fecha é daqui. Com sessão em
+        // andamento, "Trocar" fica bloqueado dentro da folha. O destaque do diálogo espera ela
+        // fechar. Com o planejador, a folha também oferece "Adicionar X ao seu plano" (SPEC
+        // §7.15 M8): o encaixe na semana e as preferências passam por ele.
         .sheet(isPresented: $isShowingGoalSheet, onDismiss: {
             blocksCoachSheet = false
         }) {
@@ -246,10 +307,12 @@ private struct RootTabs: View {
                 references: environment.references,
                 mode: .change,
                 isSessionInProgress: homeModel.activeSessionID != nil,
+                planner: environment.planner,
+                now: environment.now,
                 onFinish: { didChange in
                     isShowingGoalSheet = false
                     if didChange {
-                        homeModel.refresh()
+                        refreshScreens()
                         refreshCoach()
                     }
                 }
@@ -271,6 +334,9 @@ private struct RootTabs: View {
                 onAction: { action in
                     coach.handle(action, on: message)
                     homeModel.didHandleCoachAction(action)
+                    // O destaque costuma aparecer sobre o Início (é a aba da abertura): uma
+                    // resposta que muda o plano (semana leve, troca de programa) aparece nele.
+                    landingModel.refresh()
                 },
                 applyDetail: coach.applySummary(for: message)
             )
@@ -296,9 +362,10 @@ private struct RootTabs: View {
             }
         }
         // Sugestões de saúde (C3) e tendências de recuperação (R6) chegam com a leitura do Saúde,
-        // que termina depois da abertura.
+        // que termina depois da abertura. As Metas da semana (aeróbico, passos, sono) também.
         .onChange(of: healthModel.report) { _, _ in
             refreshCoach()
+            landingModel.refresh()
         }
         // A4/B8: "Ok, entendi" no detalhe do Saúde (empilhado na aba Hoje) grava no log do
         // diálogo; o feed da Home relê na hora, sem esperar a volta ao primeiro plano. O sentido
@@ -308,17 +375,28 @@ private struct RootTabs: View {
         }
         .onAppear {
             connectCoachNavigation()
-            if hasCompletedOnboarding {
-                blocksCoachSheet = false
-            } else {
-                isShowingOnboarding = true
+            // SPEC RF-50: com a abertura na tela, o onboarding e o destaque esperam o fim dela.
+            if !isLaunchPending {
+                releaseAfterLaunch()
             }
+        }
+        // Rede de segurança da abertura (`launchFallbackDelay`). O `try?` cobre o cancelamento
+        // da tarefa quando a raiz some; aí nada mais é feito.
+        .task {
+            try? await Task.sleep(for: RootTabs.launchFallbackDelay)
+            guard !Task.isCancelled, isLaunchPending else {
+                return
+            }
+            finishLaunch()
         }
         // Ao abrir e a cada volta ao primeiro plano. Nada aqui pede autorização (AGENTS §7).
         .onChange(of: scenePhase, initial: true) { _, newPhase in
             guard newPhase == .active else {
                 return
             }
+            // SPEC RF-49: o Início relê ao voltar ao primeiro plano (a data, a saudação e a
+            // semana podem ter mudado com o app em segundo plano).
+            landingModel.refresh()
             let now = environment.now()
             // RF-13/RF-14 (CA2-1, CA2-2): o gravador revisita as sessões recentes: o treino do app
             // Exercício e as amostras de FC do relógio costumam chegar ao Saúde depois do
@@ -340,9 +418,27 @@ private struct RootTabs: View {
         }
     }
 
-    /// As quatro abas (DESIGN §8).
+    /// As cinco abas (DESIGN §8).
     private var tabs: some View {
         TabView(selection: $selectedTab) {
+            // SPEC RF-49: o Início, a primeira aba, aberta no lançamento. "Ver a sessão de hoje" e
+            // "Ver o dia" levam à aba Hoje; "Escolher um objetivo" também abre lá a folha "Seu
+            // objetivo"; "Retomar a sessão" usa o mesmo caminho do "Retomar" da tela Hoje.
+            LandingView(
+                model: landingModel,
+                references: environment.references,
+                onOpenToday: {
+                    openToday()
+                },
+                onOpenSession: { sessionID in
+                    openSession(sessionID)
+                }
+            )
+            .tabItem {
+                Label("Início", systemImage: "house")
+            }
+            .tag(RootTab.landing)
+
             // Começar e Retomar chegam pelo mesmo caminho: `HomeViewModel.startSession()`
             // devolve o id da sessão nova ou o da que já estava em andamento (SPEC S3, RF-02),
             // inclusive após relançar o app com uma sessão aberta (CA1-4).
@@ -367,7 +463,7 @@ private struct RootTabs: View {
             // Home relê porque a rotação e as cargas derivam do histórico (T2.13, ADR 003).
             HistoryListView(references: environment.references, onDeleteSession: { sessionID in
                 try environment.coordinator.deleteSession(id: sessionID)
-                homeModel.refresh()
+                refreshScreens()
             })
             .tabItem {
                 Label("Histórico", systemImage: "clock.arrow.circlepath")
@@ -443,6 +539,47 @@ private struct RootTabs: View {
                 }
             }
         )
+    }
+
+    // MARK: - Abertura
+
+    /// Fim da abertura (SPEC RF-50), pelo relógio dela, por um toque que a adiantou ou pela rede
+    /// de segurança: tira a camada e libera o onboarding e o destaque do diálogo. Uma vez só.
+    private func finishLaunch() {
+        guard isLaunchPending else {
+            return
+        }
+        isLaunchPending = false
+        releaseAfterLaunch()
+    }
+
+    /// Primeiro launch: o onboarding (RF-45). Senão, o destaque do diálogo já pode aparecer, a
+    /// menos que um toque durante a abertura já tenha aberto a sessão ou a folha "Seu objetivo"
+    /// (aí o `onDismiss` delas é que libera).
+    private func releaseAfterLaunch() {
+        if !hasCompletedOnboarding {
+            isShowingOnboarding = true
+        } else if presentedSession == nil && !isShowingGoalSheet {
+            blocksCoachSheet = false
+        }
+    }
+
+    // MARK: - Início e Hoje
+
+    /// O caminho do Início para a tela Hoje (SPEC RF-49). Sem objetivo, o botão é "Escolher um
+    /// objetivo": além de ir para "Hoje", abre lá a folha "Seu objetivo", a mesma do "Escolher"
+    /// do topo da tela Hoje.
+    private func openToday() {
+        selectedTab = .today
+        if landingModel.pathState == .noGoal {
+            openGoalSheet()
+        }
+    }
+
+    /// O plano, o histórico ou o objetivo mudaram: o Início e a Home releem.
+    private func refreshScreens() {
+        homeModel.refresh()
+        landingModel.refresh()
     }
 
     // MARK: - Sessão
