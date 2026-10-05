@@ -126,11 +126,13 @@ final class CoachService {
 
     /// - Parameter activities: o app passa o `LiveOutsideActivityStore` do resto do app; o padrão em
     ///   memória serve aos testes e previews.
+    /// - Parameter expiry: andaime da 2.5 (docs/V25-CONTRACT.md §3): o app já não passa o leitor do
+    ///   perfil (SPEC §7.18 L4); a tarefa `sideload` tira o parâmetro e o leitor.
     init(
         planner: any SessionPlanning,
         programs: any ProgramRepositoring,
         log: any CoachLogStoring,
-        expiry: ProvisioningExpiryReader,
+        expiry: ProvisioningExpiryReader = .unavailable,
         notifications: any NotificationScheduling,
         now: @escaping () -> Date,
         calendar: Calendar,

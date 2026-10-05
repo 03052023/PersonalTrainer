@@ -109,12 +109,11 @@ extension AppEnvironment {
 
         // Diálogo (SPEC §7.11): o `refresh` só acontece com as abas na tela, então no modo de
         // erro do store nada é lido nem gravado por ele. Permissão de notificação só por ação da
-        // pessoa (AGENTS §7).
+        // pessoa (AGENTS §7). Desde a 2.5 o app não lê a validade da instalação (SPEC §7.18 L4).
         let coach = CoachService(
             planner: planner,
             programs: programs,
             log: LiveCoachLogStore(),
-            expiry: ProvisioningExpiryReader(bundle: .main),
             notifications: notifications,
             now: { Date() },
             calendar: .current,
@@ -186,7 +185,6 @@ extension AppEnvironment {
             planner: planner,
             programs: programs,
             log: FakeCoachLogStore(),
-            expiry: .unavailable,
             notifications: notifications,
             now: { fixedNow },
             calendar: .current,

@@ -86,15 +86,12 @@ private struct StoreLoadErrorView: View {
 /// Destinos pedidos pelas respostas do diálogo (SPEC §7.11), numa folha só. Fora de `RootTabs`
 /// para a conformidade a `Identifiable` não depender do isolamento da view.
 private enum CoachDestination: Identifiable {
-    /// C4 "Como renovar".
-    case renewalHelp
-    /// C6 "Ver evolução" (`ExerciseDefinition.id` e o nome para o título).
+    /// C6 "Ver evolução" (`ExerciseDefinition.id` e o nome para o título). A C4 ("Como renovar") saiu
+    /// na 2.5 (SPEC §7.18 L4).
     case progress(exerciseID: UUID, name: String)
 
     var id: String {
         switch self {
-        case .renewalHelp:
-            return "renewalHelp"
         case .progress(let exerciseID, _):
             return "progress-\(exerciseID.uuidString)"
         }
@@ -358,9 +355,9 @@ private struct RootTabs: View {
                 }
             )
         }
-        // SPEC §7.11: destaque na abertura quando há algo novo e importante (C4, C1, C5, C2).
+        // SPEC §7.11: destaque na abertura quando há algo novo e importante (C1, C5, C2).
         // `highlightDidDismiss` no `onDismiss` é obrigatório: é ele que faz a navegação pedida na
-        // folha ("Como renovar", "Começar", escolher programa) depois que ela fecha.
+        // folha ("Começar", escolher programa) depois que ela fecha.
         .sheet(item: highlightBinding(highlight), onDismiss: {
             isHighlightOnScreen = false
             coach.highlightDidDismiss()
@@ -602,7 +599,7 @@ private struct RootTabs: View {
     }
 
     /// Item da folha do destaque: nada enquanto outra apresentação está na tela (onboarding,
-    /// sessão, "Como renovar"), para o SwiftUI não tentar abrir uma folha sobre outra; o destaque
+    /// sessão, "Ver evolução"), para o SwiftUI não tentar abrir uma folha sobre outra; o destaque
     /// continua guardado no `CoachService` e aparece quando ela fecha. Fechar a folha pelo gesto
     /// só dispensa o destaque: a mensagem continua na Home.
     private func highlightBinding(_ highlight: CoachMessage?) -> Binding<CoachMessage?> {
@@ -721,10 +718,6 @@ private struct RootTabs: View {
         coach.onBackupRequested = {
             settings.prepareExport()
         }
-        // C4 "Como renovar".
-        coach.onRenewalHelpRequested = {
-            destination.wrappedValue = .renewalHelp
-        }
         // C5 "Começar": o mesmo caminho do botão da Home, com a sessão que a mensagem nomeia (a
         // próxima do principal, M2). Desde a 2.3 o app abre no Início e a Home só relê ao aparecer:
         // na abertura a frio ela ainda não leu o plano nem a sessão em andamento, então relê antes.
@@ -753,15 +746,6 @@ private struct RootTabs: View {
     @ViewBuilder
     private func coachDestinationView(_ destination: CoachDestination) -> some View {
         switch destination {
-        case .renewalHelp:
-            // A view já traz a própria `NavigationStack` e o botão "Fechar".
-            RenewalHelpView(
-                expiry: coach.provisioningExpiry,
-                isReminderEnabled: coach.isExpiryReminderEnabled,
-                onReminderChange: { enabled in
-                    coach.setExpiryReminderEnabled(enabled)
-                }
-            )
         case .progress(let exerciseID, let name):
             NavigationStack {
                 ExerciseProgressView(exerciseUUID: exerciseID, exerciseName: name)
