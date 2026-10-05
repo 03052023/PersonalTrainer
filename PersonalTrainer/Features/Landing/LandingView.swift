@@ -168,6 +168,8 @@ struct LandingView: View {
             return "Hoje é dia de descanso."
         case .noGoal:
             return "Escolha um objetivo para ver a sua primeira sessão."
+        case .unavailable:
+            return "Não foi possível ler a sessão de hoje."
         }
     }
 
@@ -184,7 +186,7 @@ struct LandingView: View {
             return "Retomar a sessão"
         case .todaySessions:
             return "Ver a sessão de hoje"
-        case .allDone, .restDay:
+        case .allDone, .restDay, .unavailable:
             return "Ver o dia"
         case .noGoal:
             return "Escolher um objetivo"

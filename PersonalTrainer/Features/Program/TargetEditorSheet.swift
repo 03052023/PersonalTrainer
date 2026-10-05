@@ -35,43 +35,47 @@ struct TargetEditorSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Séries") {
-                    Stepper(value: $draft.sets, in: ProgramDetailViewModel.TargetDraft.setsRange) {
-                        valueRow("Séries", value: "\(draft.sets)")
+                // Papel (DESIGN §14): as linhas em `surface`, como nas outras listas da direção.
+                Group {
+                    Section("Séries") {
+                        Stepper(value: $draft.sets, in: ProgramDetailViewModel.TargetDraft.setsRange) {
+                            valueRow("Séries", value: "\(draft.sets)")
+                        }
                     }
-                }
 
-                Section {
-                    Stepper(value: $draft.repMin, in: draft.repMinRange) {
-                        valueRow("Mínimo", value: MeasureText.amount(draft.repMin, measure: draft.measure))
-                    }
-                    Stepper(value: $draft.repMax, in: draft.repMaxRange) {
-                        valueRow("Máximo", value: MeasureText.amount(draft.repMax, measure: draft.measure))
-                    }
-                } header: {
-                    Text(MeasureText.title(draft.measure))
-                } footer: {
-                    Text("Ao chegar ao máximo em todas as séries, a carga sobe e a meta volta ao mínimo.")
-                }
-
-                Section("Descanso") {
-                    Stepper(
-                        value: $draft.restSeconds,
-                        in: ProgramDetailViewModel.TargetDraft.restRange,
-                        step: ProgramDetailViewModel.TargetDraft.restStep
-                    ) {
-                        valueRow("Descanso", value: ProgramDetailViewModel.restText(seconds: draft.restSeconds))
-                    }
-                }
-
-                startingLoadSection
-
-                if let problem = result.validationMessage {
                     Section {
-                        Label(problem, systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(Theme.textPrimary)
+                        Stepper(value: $draft.repMin, in: draft.repMinRange) {
+                            valueRow("Mínimo", value: MeasureText.amount(draft.repMin, measure: draft.measure))
+                        }
+                        Stepper(value: $draft.repMax, in: draft.repMaxRange) {
+                            valueRow("Máximo", value: MeasureText.amount(draft.repMax, measure: draft.measure))
+                        }
+                    } header: {
+                        Text(MeasureText.title(draft.measure))
+                    } footer: {
+                        Text("Ao chegar ao máximo em todas as séries, a carga sobe e a meta volta ao mínimo.")
+                    }
+
+                    Section("Descanso") {
+                        Stepper(
+                            value: $draft.restSeconds,
+                            in: ProgramDetailViewModel.TargetDraft.restRange,
+                            step: ProgramDetailViewModel.TargetDraft.restStep
+                        ) {
+                            valueRow("Descanso", value: ProgramDetailViewModel.restText(seconds: draft.restSeconds))
+                        }
+                    }
+
+                    startingLoadSection
+
+                    if let problem = result.validationMessage {
+                        Section {
+                            Label(problem, systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(Theme.textPrimary)
+                        }
                     }
                 }
+                .listRowBackground(Theme.surface)
             }
             // Papel (DESIGN §14): o fundo do formulário dá lugar ao papel.
             .scrollContentBackground(.hidden)

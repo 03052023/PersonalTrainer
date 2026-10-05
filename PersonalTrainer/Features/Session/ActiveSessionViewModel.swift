@@ -435,7 +435,9 @@ final class ActiveSessionViewModel {
     // MARK: - Marcar (SPEC RF-44 b)
 
     /// Bolinha vazia: grava 1 série com a meta de hoje e a carga de `workingLoad`, `rir = nil`,
-    /// `isWarmup = false`, e inicia o descanso do exercício (RF-05). Só com série faltando.
+    /// `isWarmup = false`, e inicia o descanso do exercício (RF-05). Só com série faltando. A última
+    /// série da sessão não inicia descanso nem pede a permissão de avisos: não há mais o que esperar, e o
+    /// botão grande já vira "Concluir a sessão" (RF-44 i).
     func markSet(sessionExerciseID: UUID) {
         guard
             let session,
@@ -450,8 +452,11 @@ final class ActiveSessionViewModel {
             return
         }
         markCount += 1
-        requestNotificationAuthorizationIfNeeded()
         offerLoadHintIfNeeded(for: exercise, loggedLoad: loggedLoad)
+        guard !pendingExercises.isEmpty else {
+            return
+        }
+        requestNotificationAuthorizationIfNeeded()
         if exercise.restSeconds > 0 {
             restSourceExerciseID = exercise.uuid
             restTimer.start(seconds: exercise.restSeconds, now: timestamp)
@@ -784,14 +789,42 @@ final class ActiveSessionViewModel {
 
     // MARK: - Resumo (SPEC RF-44 h)
 
-    /// Objetivo do programa ativo, para a flor do resumo. Falha → sem pétala preenchida (log).
+    /// Objetivo da sessão, para a flor do resumo (RF-44 h). Com dois planos (SPEC §7.15), o do plano que
+    /// tem o dia desta sessão: uma caminhada do Cardio enche a pétala do Cardio, não a do principal. Sem
+    /// achar o dia (saiu do plano), ou com um plano só, o do programa ativo. Falha → sem pétala (log).
     func activeGoal() -> ProgramGoal? {
+        do {
+            if let goal = try sessionPlanGoal() {
+                return goal
+            }
+        } catch {
+            logger.error("Falha ao ler o plano da sessão: \(String(describing: error), privacy: .public)")
+        }
         do {
             return try planner.activeProgramGoal()
         } catch {
             logger.error("Falha ao ler o objetivo ativo: \(String(describing: error), privacy: .public)")
             return nil
         }
+    }
+
+    /// Com dois planos ativos, o objetivo daquele que tem o dia desta sessão; `nil` com um plano só ou se
+    /// nenhum plano ativo tem o dia.
+    private func sessionPlanGoal() throws -> ProgramGoal? {
+        guard let dayID = session?.programDayUUID else {
+            return nil
+        }
+        let plans = try planner.planWeekProgress(now: now())
+        guard plans.count > 1 else {
+            return nil
+        }
+        for plan in plans {
+            let days = try planner.days(ofProgramID: plan.programID)
+            if days.contains(where: { $0.id == dayID }) {
+                return plan.goal
+            }
+        }
+        return nil
     }
 
     /// Nome do dia da próxima sessão ("Dia B — …"). Falha → a linha some do resumo (log).

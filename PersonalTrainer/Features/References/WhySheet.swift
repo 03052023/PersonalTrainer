@@ -18,13 +18,17 @@ struct WhySheet: View {
     var body: some View {
         NavigationStack {
             List {
-                explanationSection
-                referencesSection
-                Section {
-                    Text("Critério: diretrizes, consensos e meta-análises primeiro; estudo isolado só quando não há síntese, marcado como evidência limitada.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                // Papel (DESIGN §14): as linhas em `surface`, como nas outras listas da direção.
+                Group {
+                    explanationSection
+                    referencesSection
+                    Section {
+                        Text("Critério: diretrizes, consensos e meta-análises primeiro; estudo isolado só quando não há síntese, marcado como evidência limitada.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .listRowBackground(Theme.surface)
             }
             // Papel (DESIGN §14): o fundo da lista dá lugar ao papel.
             .scrollContentBackground(.hidden)
@@ -113,6 +117,12 @@ extension WhySheet {
         "topic.hrv": "Variabilidade da frequência cardíaca",
         "topic.aerobic": "Aeróbico semanal",
         "topic.vo2max": "VO2max",
+        "topic.cardio": "Cardio",
+        "topic.steps": "Passos",
+        "topic.sleep": "Sono",
+        "topic.combination": "Combinar planos",
+        "topic.load": "Carga e objetivo",
+        "topic.weekFit": "Encaixe na semana",
     ]
 
     /// Regra da SPEC por trás de cada tópico, exibida abaixo da explicação.

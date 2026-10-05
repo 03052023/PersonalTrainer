@@ -34,24 +34,28 @@ struct ExercisePickerView: View {
     var body: some View {
         NavigationStack {
             List {
-                if !suggestedExercises.isEmpty {
-                    Section {
-                        ForEach(suggestedExercises, id: \.id) { exercise in
-                            row(for: exercise)
+                // Papel (DESIGN §14): as linhas em `surface`, como nas outras listas da direção.
+                Group {
+                    if !suggestedExercises.isEmpty {
+                        Section {
+                            ForEach(suggestedExercises, id: \.id) { exercise in
+                                row(for: exercise)
+                            }
+                        } header: {
+                            Text("Sugeridos")
                         }
-                    } header: {
-                        Text("Sugeridos")
+                    }
+                    ForEach(sections) { section in
+                        Section {
+                            ForEach(section.exercises, id: \.id) { exercise in
+                                row(for: exercise)
+                            }
+                        } header: {
+                            Text(section.title)
+                        }
                     }
                 }
-                ForEach(sections) { section in
-                    Section {
-                        ForEach(section.exercises, id: \.id) { exercise in
-                            row(for: exercise)
-                        }
-                    } header: {
-                        Text(section.title)
-                    }
-                }
+                .listRowBackground(Theme.surface)
             }
             // Papel (DESIGN §14): o fundo da lista dá lugar ao papel.
             .scrollContentBackground(.hidden)

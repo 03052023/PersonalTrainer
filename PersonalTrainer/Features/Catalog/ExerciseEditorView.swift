@@ -19,15 +19,19 @@ struct ExerciseEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                nameSection
-                primarySection
-                secondarySection
-                loadSection
-                patternSection
-                notesSection
-                if model.isSeedExercise {
-                    seedNoticeSection
+                // Papel (DESIGN §14): as linhas em `surface`, como nas outras listas da direção.
+                Group {
+                    nameSection
+                    primarySection
+                    secondarySection
+                    loadSection
+                    patternSection
+                    notesSection
+                    if model.isSeedExercise {
+                        seedNoticeSection
+                    }
                 }
+                .listRowBackground(Theme.surface)
             }
             // Papel (DESIGN §14): o fundo do formulário dá lugar ao papel.
             .scrollContentBackground(.hidden)

@@ -70,57 +70,61 @@ struct ProgramDetailView: View {
 
     private var content: some View {
         List {
-            Section {
-                if model.days.isEmpty {
-                    Text("Este plano não tem dias.")
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(model.days, id: \.id) { day in
-                    NavigationLink {
-                        DayEditorView(model: model, dayID: day.id, references: references)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(day.name)
-                                .font(.body.weight(.medium))
-                            Text(ProgramDetailViewModel.exerciseCountText(day.exercises.count))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+            // Papel (DESIGN §14): as linhas em `surface`, como nas outras listas da direção.
+            Group {
+                Section {
+                    if model.days.isEmpty {
+                        Text("Este plano não tem dias.")
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(model.days, id: \.id) { day in
+                        NavigationLink {
+                            DayEditorView(model: model, dayID: day.id, references: references)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(day.name)
+                                    .font(.body.weight(.medium))
+                                Text(ProgramDetailViewModel.exerciseCountText(day.exercises.count))
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .swipeActions(edge: .trailing) {
+                            // Sem `role: .destructive`: apagar pede confirmação, e o papel destrutivo
+                            // anima a saída da linha antes da resposta.
+                            Button {
+                                dayPendingDeletion = day
+                            } label: {
+                                Label("Apagar", systemImage: "trash")
+                            }
+                            .tint(Theme.destructive)
+                            .disabled(!model.canRemoveDay)
+                            Button {
+                                nameDraft = day.name
+                                renamingDayID = day.id
+                            } label: {
+                                Label("Renomear", systemImage: "pencil")
+                            }
+                            .tint(Theme.accent)
                         }
                     }
-                    .swipeActions(edge: .trailing) {
-                        // Sem `role: .destructive`: apagar pede confirmação, e o papel destrutivo
-                        // anima a saída da linha antes da resposta.
-                        Button {
-                            dayPendingDeletion = day
-                        } label: {
-                            Label("Apagar", systemImage: "trash")
-                        }
-                        .tint(Theme.destructive)
-                        .disabled(!model.canRemoveDay)
-                        Button {
-                            nameDraft = day.name
-                            renamingDayID = day.id
-                        } label: {
-                            Label("Renomear", systemImage: "pencil")
-                        }
-                        .tint(Theme.accent)
+                    .onMove { source, destination in
+                        model.moveDays(fromOffsets: source, toOffset: destination)
                     }
-                }
-                .onMove { source, destination in
-                    model.moveDays(fromOffsets: source, toOffset: destination)
-                }
 
-                Button {
-                    model.addDay()
-                } label: {
-                    Label("Adicionar dia", systemImage: "plus.circle.fill")
+                    Button {
+                        model.addDay()
+                    } label: {
+                        Label("Adicionar dia", systemImage: "plus.circle.fill")
+                    }
+                    .disabled(!model.canAddDay)
+                } header: {
+                    Text("Dias")
+                } footer: {
+                    Text("Toque num dia para trocar, editar ou reordenar os exercícios. De \(ProgramLimits.minDays) a \(ProgramLimits.maxDays) dias; hoje, \(GoalPlanCatalog.dayCountText(model.days.count)).")
                 }
-                .disabled(!model.canAddDay)
-            } header: {
-                Text("Dias")
-            } footer: {
-                Text("Toque num dia para trocar, editar ou reordenar os exercícios. De \(ProgramLimits.minDays) a \(ProgramLimits.maxDays) dias; hoje, \(GoalPlanCatalog.dayCountText(model.days.count)).")
             }
+            .listRowBackground(Theme.surface)
         }
         .scrollContentBackground(.hidden)
         .toolbar {

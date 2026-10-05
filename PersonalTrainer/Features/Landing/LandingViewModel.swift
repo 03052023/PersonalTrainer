@@ -28,6 +28,9 @@ final class LandingViewModel {
         /// Nenhum objetivo ativo: "Escolher um objetivo" abre `onOpenToday()` (a folha "Seu
         /// objetivo" abre pela tela Hoje).
         case noGoal
+        /// A leitura dos objetivos ou das sessões de hoje falhou, ou o plano não tem sessão (RF-49 ponto
+        /// 5): nada é afirmado, e "Ver o dia" continua abrindo `onOpenToday()`.
+        case unavailable
     }
 
     // MARK: Estado exposto
@@ -98,19 +101,37 @@ final class LandingViewModel {
         dateText = LandingText.dateText(referenceDate, calendar: calendar)
         greeting = LandingText.greeting(hour: calendar.component(.hour, from: referenceDate))
 
-        let goals: [ProgramGoal] = read("os objetivos ativos", fallback: []) {
-            try planner.activeProgramGoals()
+        // RF-49 ponto 5: uma falha nestas duas leituras nunca vira "Tudo feito por hoje." nem "Escolha um
+        // objetivo" para quem já tem um; o caminho fica neutro, com o botão para a tela Hoje.
+        var didFailPathRead = false
+        let goals: [ProgramGoal]
+        do {
+            goals = try planner.activeProgramGoals()
+        } catch {
+            Self.logger.error("Falha ao ler os objetivos ativos: \(String(describing: error))")
+            goals = []
+            didFailPathRead = true
         }
         activeGoals = goals
 
-        let overview: TodayOverview = read("as sessões de hoje", fallback: .empty) {
-            try planner.todayOverview(now: referenceDate)
+        let overview: TodayOverview
+        do {
+            overview = try planner.todayOverview(now: referenceDate)
+        } catch {
+            Self.logger.error("Falha ao ler as sessões de hoje: \(String(describing: error))")
+            overview = .empty
+            didFailPathRead = true
         }
-        pathState = Self.computePathState(
-            activeSession: coordinator.activeSession,
-            hasActiveGoal: !goals.isEmpty,
-            overview: overview
-        )
+        let activeSession = coordinator.activeSession
+        if didFailPathRead && activeSession == nil {
+            pathState = .unavailable
+        } else {
+            pathState = Self.computePathState(
+                activeSession: activeSession,
+                hasActiveGoal: !goals.isEmpty,
+                overview: overview
+            )
+        }
 
         do {
             let summaries = try planner.completedSessionSummaries()
@@ -194,10 +215,13 @@ final class LandingViewModel {
         if overview.isRestDay {
             return .restDay
         }
+        // Sessions vazio com objetivo ativo só acontece com um programa sem dias (raríssimo, planner
+        // malformado): um estado neutro, nunca "Tudo feito por hoje." sem nada feito (RF-49 ponto 5).
+        guard !overview.sessions.isEmpty else {
+            return .unavailable
+        }
         let pending = overview.sessions.filter { !$0.isDoneToday }
         guard let first = pending.first else {
-            // Sessions vazio com objetivo ativo só acontece com um programa sem dias (raríssimo,
-            // planner malformado): trata como "tudo feito" em vez de travar a tela (AGENTS R11).
             return .allDone
         }
         if pending.count == 1 {

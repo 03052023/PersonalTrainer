@@ -220,6 +220,31 @@ final class SessionPlannerMultiPlanTests: XCTestCase {
         XCTAssertEqual(try fixture.planner.nextPlan(now: now)?.programID, fixture.hypertrophy.uuid)
     }
 
+    /// RF-49: com um plano só, o Início também sabe que a sessão de hoje já foi feita ("Tudo feito por
+    /// hoje."). Ontem não conta, nem sessão sem série de trabalho, nem a de um plano inativo.
+    func testRF49_todayOverview_singlePlanDoneToday() throws {
+        let fixture = try makeFixture(cardioIsActive: false)
+        let now = date(2026, 9, 28)
+        insertSession(.completed, day: fixture.hypertrophyDays[0], exercise: fixture.bench, startedAt: date(2026, 9, 27), into: fixture.context)
+        insertSession(.completed, day: fixture.hypertrophyDays[1], exercise: fixture.squat, startedAt: date(2026, 9, 28, hour: 7), workingSets: 0, into: fixture.context)
+        insertSession(.completed, day: fixture.cardioDays[0], exercise: fixture.walk, startedAt: date(2026, 9, 28, hour: 8), into: fixture.context)
+        try fixture.context.save()
+
+        let notYet = try fixture.planner.todayOverview(now: now)
+        XCTAssertEqual(notYet.sessions.map(\.id), [fixture.hypertrophy.uuid])
+        XCTAssertEqual(notYet.sessions.map(\.isDoneToday), [false])
+
+        insertSession(.completed, day: fixture.hypertrophyDays[1], exercise: fixture.squat, startedAt: date(2026, 9, 28, hour: 9), into: fixture.context)
+        try fixture.context.save()
+
+        let done = try fixture.planner.todayOverview(now: now)
+        XCTAssertEqual(done.sessions.map(\.id), [fixture.hypertrophy.uuid])
+        XCTAssertEqual(done.sessions.map(\.isDoneToday), [true])
+        XCTAssertNil(done.nextPending)
+        XCTAssertTrue(done.otherSessions.isEmpty)
+        XCTAssertFalse(done.isRestDay)
+    }
+
     // MARK: - M9
 
     func testM9_weekPreferencesRoundTrip() throws {

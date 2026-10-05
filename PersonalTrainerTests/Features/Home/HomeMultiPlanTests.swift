@@ -61,6 +61,22 @@ final class HomeMultiPlanTests: XCTestCase {
         XCTAssertEqual(planner.startedPlans, [cardio], "\"Começar esta\" começa o cartão tocado")
     }
 
+    func testC5_startPrincipalSession_startsWhatTheMessageNames() {
+        let strength = makeStrengthPlan(dayName: "Dia C — Superior")
+        let cardio = makeCardioPlan()
+        // A semana ideal põe hoje só o Cardio; a próxima do principal fica em `otherSessions`.
+        let planner = MultiPlanTestPlanner(overview: TodayOverview(
+            sessions: [TodaySession(plan: cardio, goal: .endurance, isDoneToday: false)],
+            otherSessions: [TodaySession(plan: strength, goal: .hypertrophy, isDoneToday: false)]
+        ))
+        let model = makeModel(planner)
+        model.refresh()
+
+        XCTAssertEqual(model.primaryCard?.id, cardioID, "o \"Começar\" da tela abre a de hoje")
+        XCTAssertEqual(model.startPrincipalSession(), planner.sessionIDToReturn)
+        XCTAssertEqual(planner.startedPlans, [strength], "o C5 nomeia a próxima do principal e começa ela")
+    }
+
     func testM6_today_doneTodayMovesToNext() {
         let nextStrength = makeStrengthPlan(dayName: "Dia B — Inferior")
         let cardio = makeCardioPlan()

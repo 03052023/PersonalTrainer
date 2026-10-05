@@ -132,6 +132,35 @@ final class LandingViewModelTests: XCTestCase {
         XCTAssertEqual(model.pathState, .todaySessions(label: "Dia A — Superior", subtitle: "5 exercícios · ≈ 55 min"))
     }
 
+    func testRF49_pathReadFailure_saysNothingFalse() {
+        let plan = makePlan(dayName: "Dia A — Superior", exerciseCount: 5, estimatedMinutes: 55)
+        let planner = LandingTestPlanner()
+        planner.activeGoals = [.hypertrophy]
+        planner.overview = TodayOverview(sessions: [TodaySession(plan: plan, goal: .hypertrophy, isDoneToday: false)])
+        planner.overviewError = LandingTestError.unreadable
+        let model = LandingViewModel(
+            planner: planner,
+            coordinator: LandingTestCoordinator(),
+            now: { self.monday },
+            calendar: calendar
+        )
+
+        model.refresh()
+
+        XCTAssertEqual(model.pathState, .unavailable, "uma falha nas sessões de hoje nunca vira \"Tudo feito por hoje.\"")
+
+        planner.overviewError = nil
+        planner.goalsError = LandingTestError.unreadable
+        model.refresh()
+
+        XCTAssertEqual(model.pathState, .unavailable, "nem \"Escolha um objetivo\" para quem já tem um")
+
+        planner.goalsError = nil
+        model.refresh()
+
+        XCTAssertEqual(model.pathState, .todaySessions(label: "Dia A — Superior", subtitle: "5 exercícios · ≈ 55 min"))
+    }
+
     // MARK: - RF-49: estados do caminho
 
     func testRF49_path_inProgress() {
@@ -192,6 +221,12 @@ final class LandingViewModelTests: XCTestCase {
         let state = LandingViewModel.computePathState(activeSession: nil, hasActiveGoal: false, overview: .empty)
 
         XCTAssertEqual(state, .noGoal)
+    }
+
+    func testRF49_path_goalWithoutSessions_isNeutralNotAllDone() {
+        let state = LandingViewModel.computePathState(activeSession: nil, hasActiveGoal: true, overview: .empty)
+
+        XCTAssertEqual(state, .unavailable)
     }
 
     func testRF49_path_inProgressWinsOverEverythingElse() {
@@ -369,13 +404,25 @@ private final class LandingTestPlanner: SessionPlanning {
     /// Quando definido, a leitura correspondente lança, para testar o caminho de falha (RF-49 ponto 5).
     var summariesError: (any Error)?
     var frequencyError: (any Error)?
+    var goalsError: (any Error)?
+    var overviewError: (any Error)?
 
     func nextPlan(now: Date) throws -> SessionPlan? { overview.sessions.first?.plan }
     func plan(forDayID dayID: UUID, now: Date) throws -> SessionPlan? { nil }
     func startSession(from plan: SessionPlan, now: Date) throws -> UUID { UUID() }
     func activeProgramGoal() throws -> ProgramGoal? { activeGoals.first }
-    func activeProgramGoals() throws -> [ProgramGoal] { activeGoals }
-    func todayOverview(now: Date) throws -> TodayOverview { overview }
+    func activeProgramGoals() throws -> [ProgramGoal] {
+        if let goalsError {
+            throw goalsError
+        }
+        return activeGoals
+    }
+    func todayOverview(now: Date) throws -> TodayOverview {
+        if let overviewError {
+            throw overviewError
+        }
+        return overview
+    }
     func completedSessionSummaries() throws -> [SessionSummary] {
         if let summariesError {
             throw summariesError

@@ -19,11 +19,14 @@ struct HealthDetailView: View {
 
     var body: some View {
         List {
+            // Papel (DESIGN §14): as linhas em `surface`, seção por seção, porque o alerta de
+            // recuperação tem fundo próprio.
             if !model.isHealthAvailable {
                 Section {
                     Text(HealthViewModel.unavailableMessage)
                         .foregroundStyle(.secondary)
                 }
+                .listRowBackground(Theme.surface)
             } else {
                 if let message = model.errorMessage {
                     errorSection(message)
@@ -90,6 +93,7 @@ struct HealthDetailView: View {
         } footer: {
             Text("Meta semanal: \(Format.integer(aerobic.target)) min moderados-equivalentes (a OMS recomenda de 150 a 300). 1 min vigoroso conta como 2. Os treinos vêm do app Exercício do Apple Watch ou de qualquer app que grave no Saúde.")
         }
+        .listRowBackground(Theme.surface)
     }
 
     // MARK: - VO2máx (RF-28, A3)
@@ -133,6 +137,7 @@ struct HealthDetailView: View {
         } footer: {
             Text("Seu relógio estima o VO2máx em caminhadas, corridas e trilhas ao ar livre, usando GPS e frequência cardíaca. Sem essas atividades, o valor fica desatualizado.")
         }
+        .listRowBackground(Theme.surface)
     }
 
     private func bandText(_ vo2Max: Vo2MaxSummary) -> String {
@@ -158,33 +163,37 @@ struct HealthDetailView: View {
 
     private func recoverySection(_ recovery: RecoverySummary) -> some View {
         Section {
-            comparisonRow(
-                title: "HRV (SDNN)",
-                unit: "ms",
-                recent: recovery.hrv7,
-                baseline: recovery.hrv28,
-                fractionDigits: 0,
-                topic: "topic.hrv"
-            )
-            comparisonRow(
-                title: "FC de repouso",
-                unit: "bpm",
-                recent: recovery.restingHR7,
-                baseline: recovery.restingHR28,
-                fractionDigits: 0,
-                topic: nil
-            )
-            comparisonRow(
-                title: "Sono",
-                unit: "h",
-                recent: recovery.sleep7,
-                baseline: recovery.sleep28,
-                fractionDigits: 1,
-                topic: "topic.sleep"
-            )
-            LabeledContent("Noites com dados (7 dias)") {
-                Text("\(recovery.nightsWithData7) de 7")
+            // Os alertas, abaixo, ficam com o fundo próprio (`alertRow`).
+            Group {
+                comparisonRow(
+                    title: "HRV (SDNN)",
+                    unit: "ms",
+                    recent: recovery.hrv7,
+                    baseline: recovery.hrv28,
+                    fractionDigits: 0,
+                    topic: "topic.hrv"
+                )
+                comparisonRow(
+                    title: "FC de repouso",
+                    unit: "bpm",
+                    recent: recovery.restingHR7,
+                    baseline: recovery.restingHR28,
+                    fractionDigits: 0,
+                    topic: nil
+                )
+                comparisonRow(
+                    title: "Sono",
+                    unit: "h",
+                    recent: recovery.sleep7,
+                    baseline: recovery.sleep28,
+                    fractionDigits: 1,
+                    topic: "topic.sleep"
+                )
+                LabeledContent("Noites com dados (7 dias)") {
+                    Text("\(recovery.nightsWithData7) de 7")
+                }
             }
+            .listRowBackground(Theme.surface)
             ForEach(recovery.alerts, id: \.self) { alert in
                 alertRow(alert, recovery: recovery)
             }
@@ -304,6 +313,7 @@ struct HealthDetailView: View {
         } footer: {
             Text("Média diária dos últimos 7 dias, contada pelo iPhone e pelo seu relógio.")
         }
+        .listRowBackground(Theme.surface)
     }
 
     // MARK: - Sugestões (A3–A5)
@@ -328,6 +338,7 @@ struct HealthDetailView: View {
         } header: {
             Text("Sugestões")
         }
+        .listRowBackground(Theme.surface)
     }
 
     // MARK: - Estados sem relatório
@@ -342,6 +353,7 @@ struct HealthDetailView: View {
                     .foregroundStyle(.orange)
             }
         }
+        .listRowBackground(Theme.surface)
     }
 
     private var connectSection: some View {
@@ -355,6 +367,7 @@ struct HealthDetailView: View {
             }
             .disabled(model.isRequestingAuthorization)
         }
+        .listRowBackground(Theme.surface)
     }
 
     private var loadingSection: some View {
@@ -365,6 +378,7 @@ struct HealthDetailView: View {
                     .foregroundStyle(.secondary)
             }
         }
+        .listRowBackground(Theme.surface)
     }
 
     private var emptySection: some View {
@@ -375,6 +389,7 @@ struct HealthDetailView: View {
                 description: Text("Puxe para baixo para tentar de novo.")
             )
         }
+        .listRowBackground(Theme.surface)
     }
 
     // MARK: - Rodapé
@@ -389,5 +404,6 @@ struct HealthDetailView: View {
         } footer: {
             Text("Estes dados só servem de contexto; nunca mudam a carga da musculação. Se algo não aparece, confira as permissões no app Saúde: toque na sua foto › Apps › Magister.")
         }
+        .listRowBackground(Theme.surface)
     }
 }

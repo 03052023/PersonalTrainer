@@ -220,6 +220,20 @@ final class HomeViewModel {
         return start(card.plan)
     }
 
+    /// "Começar" do diálogo (SPEC §7.11 C5; §7.15 M2): a próxima sessão do plano principal, a que a
+    /// mensagem nomeia ("Hoje o plano é Dia C — Superior"), mesmo num dia em que a semana ideal só tem
+    /// a do outro plano. Com um plano, o mesmo que `startSession()`; com sessão em andamento, só retoma.
+    func startPrincipalSession() -> UUID? {
+        guard activeSessionID == nil, isMultiPlan, let overview, let principal = goals.first else {
+            return startSession()
+        }
+        let sessions = overview.sessions + overview.otherSessions
+        guard let session = sessions.first(where: { $0.goal == principal }) else {
+            return startSession()
+        }
+        return start(manualPlans[session.id] ?? session.plan)
+    }
+
     /// "Treinar mesmo assim" (M6): mostra as outras sessões e deixa começar uma delas.
     func trainAnyway() {
         guard showsTrainAnyway else { return }

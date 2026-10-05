@@ -306,7 +306,9 @@ private struct RootTabs: View {
                 catalog: environment.catalog,
                 references: environment.references,
                 mode: .change,
-                isSessionInProgress: homeModel.activeSessionID != nil,
+                // Direto do coordinator: o espelho da Home só existe depois que a aba Hoje aparece,
+                // e a folha também abre do Início e do diálogo (C2) logo na abertura.
+                isSessionInProgress: environment.coordinator.activeSession != nil,
                 planner: environment.planner,
                 now: environment.now,
                 onFinish: { didChange in
@@ -646,10 +648,13 @@ private struct RootTabs: View {
         coach.onRenewalHelpRequested = {
             destination.wrappedValue = .renewalHelp
         }
-        // C5 "Começar": o mesmo caminho do botão da Home.
+        // C5 "Começar": o mesmo caminho do botão da Home, com a sessão que a mensagem nomeia (a
+        // próxima do principal, M2). Desde a 2.3 o app abre no Início e a Home só relê ao aparecer:
+        // na abertura a frio ela ainda não leu o plano nem a sessão em andamento, então relê antes.
         coach.onStartRequested = {
             tab.wrappedValue = .today
-            if let sessionID = home.startSession() {
+            home.refresh()
+            if let sessionID = home.startPrincipalSession() {
                 blocks.wrappedValue = true
                 session.wrappedValue = PresentedSession(id: sessionID)
             }

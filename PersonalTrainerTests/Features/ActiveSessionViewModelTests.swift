@@ -260,6 +260,23 @@ final class ActiveSessionViewModelTests: XCTestCase {
         XCTAssertFalse(fixture.timer.isRunning, "\"Feito\" não inicia descanso")
     }
 
+    func testRF44i_lastSetOfTheSession_startsNoRest() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.markExerciseDone(sessionExerciseID: fixture.bench.uuid)
+        model.markSet(sessionExerciseID: fixture.legPress.uuid)
+        model.markSet(sessionExerciseID: fixture.legPress.uuid)
+        XCTAssertTrue(fixture.timer.isRunning, "ainda falta uma série")
+        fixture.timer.skip()
+
+        model.markSet(sessionExerciseID: fixture.legPress.uuid)
+
+        XCTAssertEqual(model.workingSetCount(of: fixture.legPress), 3)
+        XCTAssertTrue(model.pendingExercises.isEmpty)
+        XCTAssertFalse(fixture.timer.isRunning, "nada mais a esperar: o botão já é \"Concluir a sessão\"")
+        XCTAssertEqual(model.guideStep.action, .finish)
+    }
+
     func testRF44_dot_zeroRest_doesNotStartTimer() throws {
         let fixture = try makeFixture()
         fixture.legPress.restSeconds = 0
@@ -1256,6 +1273,27 @@ final class ActiveSessionViewModelTests: XCTestCase {
         XCTAssertNil(model.errorMessage, "o resumo só omite a linha")
     }
 
+    func testRF44_summary_twoPlans_flowerOfTheSessionPlan() throws {
+        let fixture = try makeFixture()
+        fixture.planner.activeGoalResult = .hypertrophy
+        let hypertrophyID = UUID()
+        let cardioID = UUID()
+        fixture.planner.planWeekProgressResult = [
+            PlanWeekProgress(programID: hypertrophyID, goal: .hypertrophy, completed: 1, perWeek: 4),
+            PlanWeekProgress(programID: cardioID, goal: .endurance, completed: 0, perWeek: 3),
+        ]
+        fixture.planner.daysByProgramID = [
+            hypertrophyID: [ProgramDayTemplate(name: "Dia A — Superior", order: 0)],
+            cardioID: [ProgramDayTemplate(id: fixture.session.programDayUUID, name: "Dia A — Base contínua", order: 0)],
+        ]
+        let model = makeViewModel(fixture)
+
+        XCTAssertEqual(model.activeGoal(), .endurance, "uma sessão do Cardio enche a pétala do Cardio")
+
+        fixture.planner.daysByProgramID[cardioID] = []
+        XCTAssertEqual(model.activeGoal(), .hypertrophy, "dia que nenhum plano tem: o principal")
+    }
+
     // MARK: - Totais
 
     func testStats_countsWorkingSetsOnly() throws {
@@ -1779,6 +1817,18 @@ private final class SessionTestPlanner: SessionPlanning {
             throw activeGoalError
         }
         return activeGoalResult
+    }
+
+    /// Os planos ativos (SPEC §7.15), para o resumo de uma sessão do segundo plano.
+    var planWeekProgressResult: [PlanWeekProgress] = []
+    var daysByProgramID: [UUID: [ProgramDayTemplate]] = [:]
+
+    func planWeekProgress(now: Date) throws -> [PlanWeekProgress] {
+        planWeekProgressResult
+    }
+
+    func days(ofProgramID programID: UUID) throws -> [ProgramDayTemplate] {
+        daysByProgramID[programID] ?? []
     }
 
     func lastSession(forExerciseID exerciseID: UUID) throws -> ExerciseLastSession? {

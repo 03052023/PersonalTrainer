@@ -45,8 +45,9 @@ extension SessionPlanner {
 
     // MARK: - Tela Hoje (M6)
 
-    /// Com um plano, a próxima sessão dele, como na 2.2. Com dois, as sessões da semana ideal para o dia de
-    /// hoje (M6).
+    /// Com um plano, a próxima sessão dele, como na 2.2, com "Feito hoje" para o Início (RF-49: "Tudo feito
+    /// por hoje." e "Ver o dia"; a tela Hoje com um plano não lê isto). Com dois, as sessões da semana ideal
+    /// para o dia de hoje (M6).
     func todayOverview(now: Date) throws -> TodayOverview {
         let programs = try activePrograms()
         guard let principal = programs.first else {
@@ -66,7 +67,11 @@ extension SessionPlanner {
                 return TodayOverview.empty
             }
             return TodayOverview(sessions: [
-                TodaySession(plan: plan, goal: principal.goal ?? .hypertrophy, isDoneToday: false),
+                TodaySession(
+                    plan: plan,
+                    goal: principal.goal ?? .hypertrophy,
+                    isDoneToday: wasTrainedToday(principal, sessions: sessions, now: now)
+                ),
             ])
         }
         return try multiPlanOverview(programs: programs, sessions: sessions, settings: currentSettings, now: now)
@@ -86,9 +91,6 @@ extension SessionPlanner {
         settings currentSettings: PlannerSettings,
         now: Date
     ) throws -> TodayOverview {
-        let startOfToday = calendar.startOfDay(for: now)
-        let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday)
-            ?? startOfToday.addingTimeInterval(86_400)
         var nextSessions: [TodaySession] = []
         for (index, program) in programs.enumerated() {
             guard let plan = try rotationPlan(
@@ -101,14 +103,7 @@ extension SessionPlanner {
             ) else {
                 continue
             }
-            let dayIDs = Set(program.days.map { $0.uuid })
-            let isDoneToday = sessions.contains { session in
-                dayIDs.contains(session.programDayID)
-                    && session.status != .inProgress
-                    && session.workingSetCount >= 1
-                    && session.startedAt >= startOfToday
-                    && session.startedAt < startOfTomorrow
-            }
+            let isDoneToday = wasTrainedToday(program, sessions: sessions, now: now)
             nextSessions.append(TodaySession(plan: plan, goal: program.goal ?? .hypertrophy, isDoneToday: isDoneToday))
         }
 
@@ -143,6 +138,22 @@ extension SessionPlanner {
             isRestDay: todaySessions.isEmpty,
             fitsWeek: true
         )
+    }
+
+    /// "Feito hoje" (M6, RF-49): hoje, no calendário do planejador, houve uma sessão concluída ou abandonada
+    /// com ao menos uma série de trabalho num dia de `program`.
+    func wasTrainedToday(_ program: ProgramModel, sessions: [SessionSummary], now: Date) -> Bool {
+        let startOfToday = calendar.startOfDay(for: now)
+        let startOfTomorrow = calendar.date(byAdding: .day, value: 1, to: startOfToday)
+            ?? startOfToday.addingTimeInterval(86_400)
+        let dayIDs = Set(program.days.map { $0.uuid })
+        return sessions.contains { session in
+            dayIDs.contains(session.programDayID)
+                && session.status != .inProgress
+                && session.workingSetCount >= 1
+                && session.startedAt >= startOfToday
+                && session.startedAt < startOfTomorrow
+        }
     }
 
     // MARK: - Semana (M4, M5, M9)

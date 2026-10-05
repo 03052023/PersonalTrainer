@@ -257,7 +257,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Hoje")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.textSecondary)
                 .textCase(.uppercase)
                 .accessibilityHidden(true)
             Text(TodayPlansText.restDay)
