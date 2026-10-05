@@ -677,7 +677,8 @@ final class ProgramRepositoryTests: XCTestCase {
             Case(label: "repMin 0", sets: 3, repMin: 0, repMax: 12, rir: 2, rest: 120, load: nil),
             Case(label: "repMin = repMax", sets: 3, repMin: 10, repMax: 10, rir: 2, rest: 120, load: nil),
             Case(label: "repMin > repMax", sets: 3, repMin: 12, repMax: 8, rir: 2, rest: 120, load: nil),
-            Case(label: "repMax 51", sets: 3, repMin: 8, repMax: 51, rir: 2, rest: 120, load: nil),
+            // SPEC RF-16 (2.4): o teto comum é 300 (segundos); o editor limita cada medida.
+            Case(label: "repMax 301", sets: 3, repMin: 8, repMax: 301, rir: 2, rest: 120, load: nil),
             Case(label: "RIR -1", sets: 3, repMin: 8, repMax: 12, rir: -1, rest: 120, load: nil),
             Case(label: "RIR 6", sets: 3, repMin: 8, repMax: 12, rir: 6, rest: 120, load: nil),
             Case(label: "descanso 14", sets: 3, repMin: 8, repMax: 12, rir: 2, rest: 14, load: nil),
@@ -708,6 +709,38 @@ final class ProgramRepositoryTests: XCTestCase {
             }
         }
         XCTAssertEqual(try targetsOfDayA(fixture), before)
+    }
+
+    /// SPEC RF-16 (2.4, achado B-2 da 2.1): a faixa vai até 300 no repositório. Antes o limite de 50
+    /// recusava o "Longo e leve" do Cardio (45–75 min); o editor limita cada medida (50 repetições,
+    /// 300 s, 100 passos, 180 min).
+    func testB2_repositoryAcceptsMinutesUpTo300() throws {
+        let fixture = try makeFixture()
+        let id = fixture.squatTarget.uuid
+
+        // "Longo e leve": 45–75 min.
+        try fixture.repository.updateTarget(id: id, sets: 1, repMin: 45, repMax: 75, targetRIR: 2, restSeconds: 60, startingLoad: nil)
+        var updated = try XCTUnwrap(try targetsOfDayA(fixture).first)
+        XCTAssertEqual(updated.repMin, 45)
+        XCTAssertEqual(updated.repMax, 75)
+
+        // O teto: 300 (segundos).
+        try fixture.repository.updateTarget(id: id, sets: 3, repMin: 299, repMax: 300, targetRIR: 2, restSeconds: 60, startingLoad: nil)
+        updated = try XCTUnwrap(try targetsOfDayA(fixture).first)
+        XCTAssertEqual(updated.repMin, 299)
+        XCTAssertEqual(updated.repMax, 300)
+
+        // Acima do teto, a mensagem nova, sem falar em repetições.
+        XCTAssertThrowsError(
+            try fixture.repository.updateTarget(id: id, sets: 3, repMin: 30, repMax: 301, targetRIR: 2, restSeconds: 60, startingLoad: nil)
+        ) { error in
+            XCTAssertEqual(
+                error as? ProgramRepositoryError,
+                .invalidParameters("A faixa deve ir de 1 a 300, com o mínimo menor que o máximo.")
+            )
+        }
+        updated = try XCTUnwrap(try targetsOfDayA(fixture).first)
+        XCTAssertEqual(updated.repMax, 300, "Nada muda numa faixa recusada")
     }
 
     func testUpdateTarget_unknownTarget_throwsTargetNotFound() throws {

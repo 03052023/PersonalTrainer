@@ -9,7 +9,8 @@ import TrainerCore
 /// - Com dois planos, cada um tem a própria rotação (S8) e o seletor por frequência (S5–S7) fica desligado;
 ///   a semana leve e a revisão são só do principal (M2).
 /// - A semana ideal é a de `WeeklyFit.fit` (M4, M5), com cada plano rodado até a fase do começo da semana
-///   (M3: S2 com as sessões iniciadas antes de segunda 00:00).
+///   (M3: S2 com as sessões iniciadas antes de segunda 00:00) e, desde a 2.4, as atividades fixas fora do
+///   app presas ao dia delas (§7.17 X4).
 /// - As escolhas da semana ficam em `PlannerSettings.weekPreferences` (M9), fora do backup.
 ///
 /// Só lê o banco (AGENTS R4); `now` é sempre parâmetro (SPEC P11).
@@ -265,6 +266,11 @@ extension SessionPlanner {
 
     /// `WeeklyFit.fit` com a demanda de cada plano rodada até a fase do começo da semana (M3). A semana do
     /// encaixe começa sempre na segunda (M4).
+    ///
+    /// SPEC §7.17 X4 (2.4): as atividades fixas fora do app entram presas ao dia delas, desde que existem
+    /// (não esperam o "Feito"). Valem para todos os que usam o encaixe: a semana da aba Plano
+    /// (`weekSchedule`), a conferência antes de ativar ou mudar os dias (`fitCheck`) e as sessões de hoje
+    /// com dois planos (`multiPlanOverview`), para a tela Hoje e a aba Plano mostrarem a mesma semana.
     func weekFit(
         programs: [ProgramModel],
         preferences: WeekPreferences,
@@ -277,7 +283,8 @@ extension SessionPlanner {
             let demand = try phasedDemand(of: program, preferences: preferences, sessions: sessions, weekStart: weekStart)
             demands.append(demand)
         }
-        return WeeklyFit.fit(demands, preferences: preferences)
+        let fixed = OutsideActivities.fixedDemands(activities.load().fixed)
+        return WeeklyFit.fit(demands, preferences: preferences, fixed: fixed)
     }
 
     /// SPEC §7.15 M3: a demanda de `program` (os dias com exercícios, o catálogo e a duração estimada de cada

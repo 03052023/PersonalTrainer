@@ -35,6 +35,10 @@ final class SessionPlanner: SessionPlanning {
     let traits: ExerciseTraitsCatalog
     /// Grava as escolhas da semana (SPEC §7.15 M9); quem lê é `settings().weekPreferences`.
     let storeWeekPreferences: (WeekPreferences) throws -> Void
+    /// As atividades fora do app (SPEC §7.17), lidas a cada uso e nunca gravadas aqui: os registros
+    /// entram na recuperação do S6 (X5) e as fixas no encaixe da semana (X4). Nada daqui muda a
+    /// prescrição (X7).
+    let activities: any OutsideActivityStoring
     /// AGENTS §4: `subsystem` = bundle id, `category` = nome do serviço.
     let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "PersonalTrainer",
@@ -52,6 +56,8 @@ final class SessionPlanner: SessionPlanning {
     ///   - saveWeekPreferences: grava as escolhas da semana (SPEC §7.15 M9). O padrão grava em
     ///     `UserDefaults.standard`, a mesma suíte que o padrão de `settings` lê; os testes passam uma suíte
     ///     isolada nos dois.
+    ///   - activities: as atividades fora do app (SPEC §7.17). O app passa o `LiveOutsideActivityStore`
+    ///     do resto do app; o padrão em memória, vazio, planeja como antes da 2.4.
     init(
         modelContext: ModelContext,
         coordinator: any SessionCoordinating,
@@ -63,7 +69,8 @@ final class SessionPlanner: SessionPlanning {
         traits: ExerciseTraitsCatalog = .empty,
         saveWeekPreferences: @escaping (WeekPreferences) throws -> Void = { preferences in
             try PlannerSettings.saveWeekPreferences(preferences, to: .standard)
-        }
+        },
+        activities: any OutsideActivityStoring = FakeOutsideActivityStore()
     ) {
         self.modelContext = modelContext
         self.coordinator = coordinator
@@ -74,6 +81,7 @@ final class SessionPlanner: SessionPlanning {
         self.calendar = calendar
         self.traits = traits
         self.storeWeekPreferences = saveWeekPreferences
+        self.activities = activities
     }
 
     // MARK: - SessionPlanning
@@ -85,8 +93,8 @@ final class SessionPlanner: SessionPlanning {
         guard let principal = programs.first else {
             return nil
         }
-        // SPEC S2: todas as sessões entram, inclusive as de dias que já não existem no programa;
-        // os seletores tratam esse caso e ignoram `inProgress` sozinhos (SPEC S3).
+        // SPEC S2: todas as sessões entram; desde a 2.4 (A3), os seletores olham só as de dias do
+        // próprio programa e ignoram `inProgress` sozinhos (SPEC S3).
         let sessions = try allSessionSummaries()
         let currentSettings = settings()
         guard programs.count > 1 else {
@@ -283,6 +291,34 @@ final class SessionPlanner: SessionPlanning {
         return deloadStatus(snapshot: snapshot, sessions: sessions, settings: settings(), now: now)
     }
 
+    /// SPEC §7.11 C1 com números (achado B11 da 2.1): as mesmas entradas de `deloadStatus(now:)` (o
+    /// principal e, com dois planos, só as sessões dos dias dele, M2), passadas a
+    /// `DeloadScheduler.triggerDetail`, que faz a mesma conta e o mesmo rearme do status.
+    func deloadTriggerDetail(now: Date) throws -> DeloadTriggerDetail? {
+        let programs = try activePrograms()
+        guard let program = programs.first else {
+            return nil
+        }
+        let snapshot = try programSnapshot(of: program, now: now)
+        guard !snapshot.template.days.isEmpty else {
+            return nil
+        }
+        let sessions = SessionPlanner.sessions(
+            try allSessionSummaries(),
+            of: snapshot.template,
+            isMultiPlan: programs.count > 1
+        )
+        return DeloadScheduler.triggerDetail(
+            normalPrescriptions: snapshot.slots.map { $0.normal },
+            histories: snapshot.histories,
+            sessions: sessions,
+            programDayCount: snapshot.template.days.count,
+            decisions: deloadDecisions.load(),
+            weeksBetweenDeloads: settings().deloadWeeks,
+            now: now
+        )
+    }
+
     func requestDeload(now: Date) throws {
         let status = try deloadStatus(now: now)
         guard case .inactive = status else {
@@ -364,6 +400,8 @@ final class SessionPlanner: SessionPlanning {
         let prescriptions = snapshot.slots.map { slot in
             plansDeload ? SessionPlanner.deloadPrescription(from: slot.normal, exercise: slot.exercise) : slot.normal
         }
+        // SPEC R8 (2.4): a medida do seed vai junto, para segundos e passos ficarem fora de R1 e das
+        // sugestões de R5 por exercício.
         let exercises = snapshot.slots.map { slot in
             ExerciseReviewInput(
                 exercise: slot.exercise,
@@ -372,7 +410,8 @@ final class SessionPlanner: SessionPlanning {
                 sets: slot.target.sets,
                 repMin: slot.target.repMin,
                 repMax: slot.target.repMax,
-                history: snapshot.histories[slot.exercise.id] ?? []
+                history: snapshot.histories[slot.exercise.id] ?? [],
+                measure: traits.traits(for: slot.exercise).measure
             )
         }
         let week = try weekSettings()
@@ -531,8 +570,11 @@ extension SessionPlanner {
         )
     }
 
-    /// SPEC S8: com dois planos, só as sessões dos dias de `template`; com um plano, todas (S2 como na
-    /// 2.2, em que um plano que não tem o dia da última sessão recomeça no Dia A).
+    /// SPEC S8: com dois planos, só as sessões dos dias de `template`; com um plano, todas. Desde a 2.4
+    /// (S2, achado A3 da 2.3), a rotação olha só os dias do plano dentro do próprio motor: a sessão de um
+    /// dia que não é do plano (outro programa, dia apagado) é ignorada, e o plano que fica depois de
+    /// "Tirar este plano" segue de onde estava, em vez de recomeçar no Dia A. Com um plano, todas as
+    /// sessões continuam indo ao seletor e à semana leve, como antes.
     nonisolated static func sessions(
         _ sessions: [SessionSummary],
         of template: ProgramTemplate,
@@ -577,11 +619,14 @@ extension SessionPlanner {
         for slot in snapshot.slots {
             dayMuscles[slot.dayID, default: []].formUnion(slot.exercise.primaryMuscles)
         }
+        // SPEC §7.17 X5: os registros de fora do app entram nos 48 h do S6 (força) e na véspera das pernas
+        // (aeróbico forte), cada um pela janela dele; nunca na meta semanal do S5.
         let frequencySelector = FrequencyAwareSelector(
             weeklyTargets: week.targets,
             calendar: calendar,
             weekStartsOnMonday: week.startsOnMonday,
-            dayMuscles: dayMuscles
+            dayMuscles: dayMuscles,
+            recoveryLoads: OutsideActivities.recoveryLoads(entries: activities.load().entries)
         )
         guard let day = frequencySelector.nextDay(program: template, recentSessions: sessions, now: now) else {
             return nil
@@ -787,7 +832,8 @@ extension SessionPlanner {
         )
     }
 
-    /// SPEC §7.5 sobre a prescrição normal do dia (C), com o mínimo de P8.
+    /// SPEC §7.5 sobre a prescrição normal do dia (C), com o mínimo de P8. Num aeróbico (padrão
+    /// `cardio`, SPEC §7.14 F5, desde a 2.4), a semana leve também encurta os minutos.
     nonisolated static func deloadPrescription(
         from normal: ExercisePrescription,
         exercise: ExerciseDefinition
@@ -795,7 +841,8 @@ extension SessionPlanner {
         DeloadPolicy.deloadPrescription(
             from: normal,
             loadIncrement: exercise.loadIncrement,
-            isBodyweight: exercise.equipment == .bodyweight
+            isBodyweight: exercise.equipment == .bodyweight,
+            isCardio: exercise.movementPattern == .cardio
         )
     }
 }

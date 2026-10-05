@@ -39,9 +39,34 @@ extension CoachService {
                 return nil
             }
             return .progress(exerciseID)
-        case .ok, .notNow, .neverAgain, .understood, .remindTomorrow, .later, .done, .skip:
-            // Só o log: ele esconde a mensagem, e no C8 "Feito" é a própria marca da semana.
+        case .done:
+            // C8: a resposta no log é a marca da semana; desde a 2.4, o bloco feito também vira um
+            // registro nas atividades fora do app (SPEC §7.17 X6).
+            if message.rule == .longevity {
+                recordLongevityActivity(for: message, now: now)
+            }
             return nil
+        case .ok, .notNow, .neverAgain, .understood, .remindTomorrow, .later, .skip:
+            // Só o log: ele esconde a mensagem.
+            return nil
+        }
+    }
+
+    /// SPEC §7.17 X6: o "Feito" do C8 grava 10 min leves de equilíbrio ou de mobilidade
+    /// (`OutsideActivities.longevityEntry`), para as Metas da semana contarem as vezes (W2.6). Uma falha
+    /// só vai para o log: a marca do C8 é a resposta no log do diálogo, que continua sendo gravada.
+    func recordLongevityActivity(for message: CoachMessage, now: Date) {
+        guard let entry = OutsideActivities.longevityEntry(key: message.itemKey, at: now) else {
+            Self.logger.error("C8 sem registro de atividade: bloco desconhecido \(message.itemKey, privacy: .public).")
+            return
+        }
+        var log = activities.load()
+        log.entries.append(entry)
+        do {
+            try activities.save(log)
+        } catch {
+            let reason = String(describing: error)
+            Self.logger.error("Registro do C8 não foi gravado nas atividades: \(reason, privacy: .public)")
         }
     }
 

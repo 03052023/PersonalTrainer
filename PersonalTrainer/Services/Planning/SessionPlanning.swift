@@ -62,6 +62,21 @@ protocol SessionPlanning: AnyObject {
     // v2.3, Metas da semana (docs/V23-UI-CONTRACT.md §3.3; SPEC §7.16) — padrões na extensão abaixo.
     func planWeekProgress(now: Date) throws -> [PlanWeekProgress]
     func weeklyFrequency(now: Date) throws -> WeeklyFrequencyReport
+
+    // v2.4 (docs/V24-CONTRACT.md §4.3; SPEC §7.11 C1) — padrão na extensão abaixo.
+    func deloadTriggerDetail(now: Date) throws -> DeloadTriggerDetail?
+}
+
+// MARK: - Semana leve com números (v2.4; implementada por `SessionPlanner` na `data`)
+
+extension SessionPlanning {
+    /// Os números por trás de uma semana leve programada (SPEC §7.11 C1, achado B11 da 2.1), com as mesmas
+    /// entradas de `deloadStatus(now:)`: o plano principal e as sessões dele (§7.15 M2). `nil` fora de
+    /// `.pending(.manyDecreases)` e `.pending(.scheduled)`, sem programa ativo e no pedido manual. O padrão
+    /// devolve `nil`, para doubles e previews: o C1 fica com o texto sem números.
+    func deloadTriggerDetail(now: Date) throws -> DeloadTriggerDetail? {
+        nil
+    }
 }
 
 // MARK: - Metas da semana (v2.3; implementadas por `SessionPlanner` na `plans-core`)

@@ -185,6 +185,41 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertEqual(message.id, "deload:2026-09-24", "Uma sessão de deload depois do since mostra que ele era de outra semana leve")
     }
 
+    /// SPEC §7.11 C1 com números (2.4, achado B11 da 2.1): o `CoachInput` recebe os números do planejador
+    /// quando a semana leve está programada, e só então o planejador é consultado.
+    func testC1_inputCarriesTheDeloadDetailWhenScheduled() throws {
+        let fixture = try makeFixture()
+        defer { fixture.cleanUp() }
+        let detail = DeloadTriggerDetail(
+            trigger: .manyDecreases,
+            decreasedExercises: 4,
+            countedExercises: 7
+        )
+        fixture.planner.deloadDetailToReturn = detail
+
+        // Sem semana leve programada: sem números, e o planejador nem calcula.
+        var log = CoachLog()
+        XCTAssertNil(fixture.service.makeInput(log: &log, now: now).deloadDetail)
+        XCTAssertEqual(fixture.planner.deloadTriggerDetailCalls, [])
+
+        // Programada: os números vão ao C1.
+        fixture.planner.deloadStatusToReturn = .pending(trigger: .manyDecreases)
+        XCTAssertEqual(fixture.service.makeInput(log: &log, now: now).deloadDetail, detail)
+        XCTAssertEqual(fixture.planner.deloadTriggerDetailCalls, [now])
+
+        // Durante a passagem, de novo sem números.
+        fixture.planner.deloadStatusToReturn = .active(start: now)
+        XCTAssertNil(fixture.service.makeInput(log: &log, now: now).deloadDetail)
+        XCTAssertEqual(fixture.planner.deloadTriggerDetailCalls.count, 1)
+
+        // Uma falha de leitura deixa o C1 sem números, e a mensagem continua.
+        fixture.planner.deloadStatusToReturn = .pending(trigger: .scheduled)
+        fixture.planner.deloadDetailError = CoachTestError.disk
+        XCTAssertNil(fixture.service.makeInput(log: &log, now: now).deloadDetail)
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        XCTAssertTrue(fixture.service.messages.contains { $0.rule == .deload })
+    }
+
     func testHandle_keepNormal_dismissesDeloadAndForgetsSince() throws {
         let fixture = try makeFixture()
         defer { fixture.cleanUp() }
@@ -1008,6 +1043,61 @@ final class CoachServiceTests: XCTestCase {
         )
     }
 
+    /// SPEC §7.17 X6 (2.4): o "Feito" do C8 também grava 10 min leves de equilíbrio ou de mobilidade nas
+    /// atividades fora do app, para as Metas contarem as vezes. "Pular" não grava nada, e uma falha ao
+    /// gravar não tira a marca do C8.
+    func testX6_coachDoneLogsLongevityEntry() throws {
+        let activities = FakeOutsideActivityStore()
+        let fixture = try makeFixture(activities: activities)
+        defer { fixture.cleanUp() }
+        fixture.planner.goalToReturn = .longevity
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        let balance = try XCTUnwrap(fixture.service.messages.first { $0.itemKey == CoachInput.balanceKey })
+        fixture.service.handle(.done, on: balance)
+
+        XCTAssertEqual(activities.saveCount, 1)
+        let entry = try XCTUnwrap(activities.log.entries.first)
+        XCTAssertEqual(activities.log.entries.count, 1)
+        XCTAssertEqual(entry.kind, .balance)
+        XCTAssertEqual(entry.start, now)
+        XCTAssertEqual(entry.minutes, OutsideActivities.longevityEntryMinutes)
+        XCTAssertEqual(entry.minutes, 10)
+        XCTAssertEqual(entry.intensity, .light)
+        XCTAssertNil(entry.fixedActivityID)
+        // As Metas contam a vez na semana (W2.6): segunda 21/09 a domingo 27/09.
+        let week = DateInterval(start: date(2026, 9, 21, hour: 0), duration: 7 * 86_400)
+        XCTAssertEqual(
+            OutsideActivities.longevityCounts(entries: activities.log.entries, week: week),
+            [CoachInput.balanceKey: 1]
+        )
+        XCTAssertNil(fixture.service.errorMessage)
+
+        // "Pular" só esconde a mensagem: nada vai às atividades.
+        let mobility = try XCTUnwrap(fixture.service.messages.first { $0.itemKey == CoachInput.mobilityKey })
+        fixture.service.handle(.skip, on: mobility)
+        XCTAssertEqual(activities.saveCount, 1)
+        XCTAssertEqual(activities.log.entries.count, 1)
+        XCTAssertFalse(fixture.service.messages.contains { $0.rule == .longevity })
+    }
+
+    func testX6_coachDoneWithActivitiesFailure_keepsTheC8Mark() throws {
+        let activities = FakeOutsideActivityStore()
+        activities.saveError = CoachTestError.disk
+        let fixture = try makeFixture(activities: activities)
+        defer { fixture.cleanUp() }
+        fixture.planner.goalToReturn = .longevity
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        let mobility = try XCTUnwrap(fixture.service.messages.first { $0.itemKey == CoachInput.mobilityKey })
+        fixture.service.handle(.done, on: mobility)
+
+        XCTAssertEqual(activities.log.entries, [])
+        XCTAssertNil(fixture.service.errorMessage, "A falha vai para o log; a marca do C8 continua")
+        XCTAssertEqual(fixture.service.longevityMarks(in: fixture.logStore.log, now: now), [CoachInput.mobilityKey])
+        XCTAssertFalse(fixture.service.messages.contains { $0.itemKey == CoachInput.mobilityKey })
+    }
+
     /// SPEC §7.15 M2: o C8 vale quando qualquer plano ativo é de Longevidade, principal ou não.
     func testM2_longevityRemindersWithSecondPlan() throws {
         let fixture = try makeFixture()
@@ -1155,6 +1245,7 @@ final class CoachServiceTests: XCTestCase {
         let defaults: UserDefaults
         let suite: String
         let clock: CoachTestClock
+        let activities: FakeOutsideActivityStore
 
         func cleanUp() {
             defaults.removePersistentDomain(forName: suite)
@@ -1165,7 +1256,8 @@ final class CoachServiceTests: XCTestCase {
         expiry: Date? = nil,
         logStore: FakeCoachLogStore? = nil,
         authorizationToGrant: Bool = true,
-        traits: ExerciseTraitsCatalog = .empty
+        traits: ExerciseTraitsCatalog = .empty,
+        activities: FakeOutsideActivityStore = FakeOutsideActivityStore()
     ) throws -> Fixture {
         let suite = "CoachServiceTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -1190,7 +1282,8 @@ final class CoachServiceTests: XCTestCase {
             now: { clock.now },
             calendar: calendar,
             defaults: defaults,
-            traits: traits
+            traits: traits,
+            activities: activities
         )
         return Fixture(
             service: service,
@@ -1200,7 +1293,8 @@ final class CoachServiceTests: XCTestCase {
             notifications: notifications,
             defaults: defaults,
             suite: suite,
-            clock: clock
+            clock: clock,
+            activities: activities
         )
     }
 
@@ -1340,6 +1434,10 @@ final class CoachTestPlanner: SessionPlanning {
     /// `nil`: `programSubstitutes` devolve o mesmo que `substitutes` (sem modo casa, as duas
     /// listas coincidem, como no `SessionPlanner`).
     var programSubstitutesToReturn: [ExerciseDefinition]?
+    /// C1 com números (2.4): o que `deloadTriggerDetail(now:)` devolve, ou o erro que ela lança.
+    var deloadDetailToReturn: DeloadTriggerDetail?
+    var deloadDetailError: (any Error)?
+    private(set) var deloadTriggerDetailCalls: [Date] = []
     private(set) var requestDeloadCalls: [Date] = []
     private(set) var dismissDeloadCalls: [Date] = []
     private(set) var nextPlanCalls: [Date] = []
@@ -1382,6 +1480,14 @@ final class CoachTestPlanner: SessionPlanning {
 
     func deloadStatus(now: Date) throws -> DeloadStatus {
         deloadStatusToReturn
+    }
+
+    func deloadTriggerDetail(now: Date) throws -> DeloadTriggerDetail? {
+        deloadTriggerDetailCalls.append(now)
+        if let deloadDetailError {
+            throw deloadDetailError
+        }
+        return deloadDetailToReturn
     }
 
     func requestDeload(now: Date) throws {
