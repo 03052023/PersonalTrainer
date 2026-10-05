@@ -38,7 +38,7 @@ final class PrescriptionRowMeasureTests: XCTestCase {
         )
         XCTAssertEqual(
             PrescriptionRow.spokenRowText(for: calibration, measure: .reps),
-            "3 séries de 8 repetições, escolha a carga"
+            "3 séries de 8 repetições, sem carga"
         )
     }
 

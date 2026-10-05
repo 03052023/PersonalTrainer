@@ -166,4 +166,15 @@ struct ExerciseInfoContent: Sendable, Hashable, Identifiable {
     var cardioIntensity: CardioIntensity? {
         CardioText.intensity(pattern: movementPattern, slug: slug, sets: sets, repMax: repMax)
     }
+
+    /// Nível (ou carga) de hoje maior que 0. No aeróbico, vale F3 (sobe o nível) em vez dos blocos de F6.
+    var hasLevel: Bool {
+        (load ?? 0) > 0
+    }
+
+    /// O selo da nota (DESIGN §7), o mesmo da ficha: nos intervalos do Cardio sem nível, a nota `increase`
+    /// diz "Mais um bloco" (SPEC §7.14 F6, RF-47; 2.4). `nil` = sem selo.
+    var badgeText: String? {
+        note.badgeText(isCardio: isCardio, hasLevel: hasLevel, loadUnit: loadUnit)
+    }
 }

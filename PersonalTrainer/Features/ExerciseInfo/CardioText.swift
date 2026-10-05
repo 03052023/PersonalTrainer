@@ -56,6 +56,26 @@ enum CardioText {
     /// Linha fixa dos intervalos (SPEC F2, Dia B): o aquecimento não se marca.
     static let intervalsWarmup = "Antes, aqueça 10 minutos andando devagar."
 
+    /// Até quantos blocos os intervalos crescem (SPEC §7.14 F6; o mesmo número de
+    /// `DoubleProgressionRule.maxIntervalBlocks` no motor).
+    static let maxIntervalBlocks = 5
+
+    /// Como os intervalos progridem, para a seção "Hoje" das informações (SPEC RF-47, §7.14 F3 e F6; achado
+    /// B10 da 2.3: o nome "Intervalos 4 × 4" fica e a folha explica). Sem nível nem carga: "Cada bloco sobe
+    /// 1 min por sessão até 4 min. No topo, entra mais um bloco, até 5." Com um nível registrado vale F3, sem
+    /// blocos novos: "… No topo, sobe 1 nível e os minutos recomeçam."; com uma carga em kg (raro), "… No
+    /// topo, a carga sobe e os minutos recomeçam."
+    static func intervalsProgression(repMax: Int, hasLevel: Bool, loadUnit: LoadUnit = .level) -> String {
+        let climb = "Cada bloco sobe 1 min por sessão até \(repMax) min."
+        guard hasLevel else {
+            return "\(climb) No topo, entra mais um bloco, até \(maxIntervalBlocks)."
+        }
+        if loadUnit == .level {
+            return "\(climb) No topo, sobe 1 nível e os minutos recomeçam."
+        }
+        return "\(climb) No topo, a carga sobe e os minutos recomeçam."
+    }
+
     /// Linha pequena do cartão: nos intervalos, "4 séries · recuperação andando 3 min"; numa série só, `nil`
     /// (não há descanso a mostrar).
     static func detail(sets: Int, restSeconds: Int) -> String? {

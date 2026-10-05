@@ -154,6 +154,80 @@ final class MeasureHistoryTests: XCTestCase {
         )
     }
 
+    /// SPEC RF-46 (2.4; achado A5 da 2.2): sem carga em nenhuma série, a evolução mostra a melhor marca de
+    /// cada sessão na medida do exercício, sem "0 kg", sem 1RM estimado e sem a explicação de Epley.
+    func testRF46_progressWithoutLoadUsesMeasure() throws {
+        let container = try ModelContainerFactory.make(.inMemory)
+        let context = container.mainContext
+        let pushUp = insertExercise(slug: "push-up", name: "Flexão", into: context)
+        let base = Date(timeIntervalSince1970: 1_700_000_000)
+        insertSession(
+            startedAt: base,
+            exercises: [(pushUp, [(0, 10, false), (0, 12, false), (0, 11, false)])],
+            into: context
+        )
+        insertSession(
+            startedAt: base.addingTimeInterval(86_400),
+            exercises: [(pushUp, [(0, 8, true), (0, 13, false), (0, 12, false)])],
+            into: context
+        )
+        try context.save()
+        let pushUpUUID = pushUp.uuid
+        let sessionExercises = try context.fetch(FetchDescriptor<SessionExerciseModel>(
+            predicate: #Predicate<SessionExerciseModel> { $0.exerciseUUID == pushUpUUID }
+        ))
+
+        let points = ExerciseProgressView.points(from: sessionExercises, measure: .reps)
+
+        XCTAssertFalse(ExerciseProgressView.usesLoad(points), "nenhuma série teve carga")
+        XCTAssertEqual(points.map(\.bestSetReps), [12, 13], "a melhor marca de cada sessão, sem o aquecimento")
+        let detail = ExerciseProgressView.detailLine(points[0], loadUnit: .kilograms, measure: .reps, hasLoad: false)
+        XCTAssertEqual(detail, "Melhor série 12 repetições · 3 séries")
+        XCTAssertFalse(detail.contains("kg"), "sem \"0 kg\"")
+        XCTAssertFalse(detail.contains("1RM"), "sem 1RM estimado")
+        let footer = ExerciseProgressView.amountFooter(measure: .reps)
+        XCTAssertEqual(footer, "Melhor série de cada sessão, em repetições. Aquecimentos não entram.")
+        XCTAssertFalse(footer.contains("Epley"))
+
+        // Na medida de cada exercício.
+        let point = ExerciseProgressView.ProgressPoint(
+            id: UUID(),
+            date: base,
+            dayName: "Dia A",
+            estimatedOneRepMax: 0,
+            maxLoad: 0,
+            bestSetLoad: 0,
+            bestSetReps: 45,
+            workingSetCount: 1
+        )
+        XCTAssertEqual(
+            ExerciseProgressView.detailLine(point, loadUnit: .kilograms, measure: .seconds, hasLoad: false),
+            "Melhor série 45 segundos · 1 série"
+        )
+        XCTAssertEqual(
+            ExerciseProgressView.detailLine(point, loadUnit: .level, measure: .minutes, hasLoad: false),
+            "Melhor série 45 minutos · 1 série"
+        )
+        XCTAssertEqual(
+            ExerciseProgressView.amountFooter(measure: .minutes),
+            "Melhor série de cada sessão, em minutos. Aquecimentos não entram."
+        )
+
+        // Uma sessão com carga basta para voltar ao gráfico de carga.
+        let loaded = ExerciseProgressView.ProgressPoint(
+            id: UUID(),
+            date: base,
+            dayName: "Dia A",
+            estimatedOneRepMax: 0,
+            maxLoad: 2.5,
+            bestSetLoad: 2.5,
+            bestSetReps: 8,
+            workingSetCount: 3
+        )
+        XCTAssertTrue(ExerciseProgressView.usesLoad(points + [loaded]))
+        withExtendedLifetime(container) {}
+    }
+
     func testRF43_estimatesOneRepMax_onlyForKilogramsAndReps() {
         XCTAssertTrue(ExerciseProgressView.estimatesOneRepMax(loadUnit: .kilograms, measure: .reps))
         XCTAssertFalse(ExerciseProgressView.estimatesOneRepMax(loadUnit: .kilograms, measure: .seconds))

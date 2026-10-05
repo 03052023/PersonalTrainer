@@ -1313,6 +1313,215 @@ final class ActiveSessionViewModelTests: XCTestCase {
         XCTAssertEqual(model.workingSetCount(of: fixture.legPress), 2)
     }
 
+    // MARK: - Ajustes da 2.4 (RF-44 j, RF-34, F6)
+
+    /// SPEC RF-44 j (2.4; achado A4 da 2.2): a carga digitada antes da 1ª série sobrevive ao "Voltar" e ao
+    /// app fechar. Fica no `UserDefaults` injetado, numa chave por sessão, e volta quando a ficha é recriada.
+    func testRF44j_chosenLoadSurvivesRecreation() throws {
+        let fixture = try makeFixture()
+        let defaults = makeDefaults()
+        let key = ActiveSessionViewModel.chosenLoadsKey(sessionID: fixture.session.uuid)
+        XCTAssertEqual(key, "session.chosenLoads.\(fixture.session.uuid.uuidString)")
+
+        let first = makeViewModel(fixture, defaults: defaults)
+        first.setWorkingLoad(40, for: fixture.bench.uuid)
+        first.setWorkingLoad(105, for: fixture.legPress.uuid)
+        XCTAssertTrue(fixture.coordinator.appliedEvents.isEmpty, "o teclado não grava série")
+        XCTAssertNotNil(defaults.dictionary(forKey: key))
+
+        // "Voltar": a ficha some; ao retomar, outra é criada para a mesma sessão.
+        let second = makeViewModel(fixture, defaults: defaults)
+
+        XCTAssertEqual(second.chosenLoad(for: fixture.bench.uuid), 40)
+        XCTAssertEqual(second.chosenLoad(for: fixture.legPress.uuid), 105)
+        XCTAssertEqual(second.loadDisplay(for: fixture.bench), .load("40 kg"))
+        second.markSet(sessionExerciseID: fixture.bench.uuid)
+        XCTAssertEqual(fixture.bench.sets.first?.load, 40, "a 1ª série usa a carga digitada antes do Voltar")
+
+        // Apagar o campo também vale para a próxima ficha.
+        second.clearWorkingLoad(for: fixture.legPress.uuid)
+        let third = makeViewModel(fixture, defaults: defaults)
+        XCTAssertNil(third.chosenLoad(for: fixture.legPress.uuid))
+        XCTAssertEqual(third.workingLoad(for: fixture.legPress), 100, "volta à prescrita")
+        XCTAssertEqual(third.chosenLoad(for: fixture.bench.uuid), 40)
+
+        // Por sessão: outra sessão não herda a carga digitada nesta.
+        let other = try addSecondSession(fixture, catalog: fixture.benchCatalog)
+        let otherModel = ActiveSessionViewModel(
+            sessionID: other.session.uuid,
+            coordinator: fixture.coordinator,
+            planner: fixture.planner,
+            restTimer: fixture.timer,
+            notifications: FakeNotificationScheduler(),
+            now: { self.clock },
+            loadHintDefaults: defaults
+        )
+        XCTAssertNil(otherModel.chosenLoad(for: other.exercise.uuid))
+        XCTAssertNil(otherModel.workingLoad(for: other.exercise), "a outra sessão continua sem carga")
+    }
+
+    /// SPEC RF-44 j: a chave some quando a sessão é concluída ou encerrada e ao abrir uma sessão que já
+    /// terminou; o que não vale mais (exercício fora da sessão, carga fora da faixa) é ignorado.
+    func testRF44j_chosenLoadClearedWhenFinished() throws {
+        let defaults = makeDefaults()
+
+        // Concluída.
+        let finished = try makeFixture()
+        let finishedKey = ActiveSessionViewModel.chosenLoadsKey(sessionID: finished.session.uuid)
+        let finishedModel = makeViewModel(finished, defaults: defaults)
+        finishedModel.setWorkingLoad(110, for: finished.legPress.uuid)
+        XCTAssertNotNil(defaults.object(forKey: finishedKey))
+        finishedModel.markExerciseDone(sessionExerciseID: finished.legPress.uuid)
+        finishedModel.markExerciseDone(sessionExerciseID: finished.bench.uuid)
+        XCTAssertEqual(finishedModel.requestFinish(), .finished)
+        XCTAssertNil(defaults.object(forKey: finishedKey), "concluída: a carga digitada some")
+
+        // Encerrada ("Sair sem registrar").
+        let abandoned = try makeFixture()
+        let abandonedKey = ActiveSessionViewModel.chosenLoadsKey(sessionID: abandoned.session.uuid)
+        let abandonedModel = makeViewModel(abandoned, defaults: defaults)
+        abandonedModel.setWorkingLoad(50, for: abandoned.bench.uuid)
+        XCTAssertNotNil(defaults.object(forKey: abandonedKey))
+        abandonedModel.abandon()
+        XCTAssertTrue(abandonedModel.isFinished)
+        XCTAssertNil(defaults.object(forKey: abandonedKey), "encerrada: a carga digitada some")
+
+        // Uma chave que ficou de uma sessão que já terminou some ao abrir a ficha, e nada volta.
+        let stale = try makeFixture()
+        let staleKey = ActiveSessionViewModel.chosenLoadsKey(sessionID: stale.session.uuid)
+        defaults.set([stale.legPress.uuid.uuidString: 90.0], forKey: staleKey)
+        stale.session.statusRaw = SessionStatus.completed.rawValue
+        stale.session.endedAt = start.addingTimeInterval(3_600)
+        try stale.coordinator.context.save()
+        let staleModel = makeViewModel(stale, defaults: defaults)
+        XCTAssertTrue(staleModel.isFinished)
+        XCTAssertNil(defaults.object(forKey: staleKey))
+        XCTAssertNil(staleModel.chosenLoad(for: stale.legPress.uuid))
+
+        // O que não vale mais é ignorado.
+        let messy = try makeFixture()
+        let messyKey = ActiveSessionViewModel.chosenLoadsKey(sessionID: messy.session.uuid)
+        let stored: [String: Double] = [
+            "não é um id": 10,
+            UUID().uuidString: 20,
+            messy.legPress.uuid.uuidString: 5_000,
+            messy.bench.uuid.uuidString: 42.5,
+        ]
+        defaults.set(stored, forKey: messyKey)
+        let messyModel = makeViewModel(messy, defaults: defaults)
+        XCTAssertNil(messyModel.chosenLoad(for: messy.legPress.uuid), "acima de 1.000 é erro de digitação")
+        XCTAssertEqual(messyModel.workingLoad(for: messy.legPress), 100)
+        XCTAssertEqual(messyModel.chosenLoad(for: messy.bench.uuid), 42.5)
+    }
+
+    /// SPEC RF-44 j (2.4; achado B6 da 2.2): o cartão do exercício que acabou de ser concluído (pela bolinha,
+    /// pelo "Feito" ou pelo botão grande) continua aberto até a pessoa marcar uma série de outro exercício.
+    /// "Recolher" continua.
+    func testRF44j_justFinishedCardStaysOpenUntilOtherMark() throws {
+        let fixture = try makeFixture()
+        let row = addExercise(fixture, order: 2, name: "Remada baixa", equipment: .machine, prescribedLoad: 30, sets: 1)
+        try fixture.coordinator.context.save()
+        let model = makeViewModel(fixture)
+        XCTAssertFalse(model.isExpanded(fixture.legPress), "pendente não depende disto")
+
+        // Pela bolinha: a última série conclui o leg press, e o cartão continua aberto.
+        model.markSet(sessionExerciseID: fixture.legPress.uuid)
+        model.markSet(sessionExerciseID: fixture.legPress.uuid)
+        XCTAssertNil(model.justFinishedExerciseID, "ainda falta uma série")
+        model.markSet(sessionExerciseID: fixture.legPress.uuid)
+        XCTAssertTrue(model.isDone(fixture.legPress))
+        XCTAssertEqual(model.justFinishedExerciseID, fixture.legPress.uuid)
+        XCTAssertTrue(model.isExpanded(fixture.legPress), "acabou de ser concluído: aberto")
+
+        // Corrigir continua a um toque: a bolinha cheia abre a correção, e o cartão não recolhe.
+        let lastSetID = try XCTUnwrap(model.workingSets(of: fixture.legPress).last?.uuid)
+        model.beginEditingSet(id: lastSetID)
+        XCTAssertNotNil(model.editingSet)
+        model.cancelEditingSet()
+        XCTAssertTrue(model.isExpanded(fixture.legPress))
+
+        // Uma série de outro exercício recolhe.
+        fixture.timer.skip()
+        model.markSet(sessionExerciseID: fixture.bench.uuid)
+        XCTAssertFalse(model.isExpanded(fixture.legPress), "marcou outro exercício: recolhe")
+        XCTAssertNil(model.justFinishedExerciseID, "o supino ainda tem série a fazer")
+
+        // Pelo "Feito": o supino fica aberto.
+        model.markExerciseDone(sessionExerciseID: fixture.bench.uuid)
+        XCTAssertTrue(model.isExpanded(fixture.bench))
+        XCTAssertEqual(model.justFinishedExerciseID, fixture.bench.uuid)
+
+        // "Recolher" continua.
+        model.toggleExpanded(sessionExerciseID: fixture.bench.uuid)
+        XCTAssertFalse(model.isExpanded(fixture.bench))
+        XCTAssertNil(model.justFinishedExerciseID)
+
+        // Pelo botão grande: a remada é o passo atual e fica aberta ao ser concluída.
+        XCTAssertEqual(model.guideStep.exerciseID, row.uuid)
+        model.markGuideStep()
+        XCTAssertTrue(model.isDone(row))
+        XCTAssertTrue(model.isExpanded(row))
+        XCTAssertFalse(model.isExpanded(fixture.bench))
+
+        // A linha compacta abre com um toque e fecha com "Recolher".
+        model.toggleExpanded(sessionExerciseID: fixture.legPress.uuid)
+        XCTAssertTrue(model.isExpanded(fixture.legPress))
+        XCTAssertTrue(model.isExpanded(row), "abrir outro não fecha o que acabou de ser concluído")
+        model.toggleExpanded(sessionExerciseID: fixture.legPress.uuid)
+        XCTAssertFalse(model.isExpanded(fixture.legPress))
+    }
+
+    /// SPEC RF-34 (2.4; achado B-5 da 2.1): em modo casa, a folha "Trocar" sem opções diz "Nenhuma opção de
+    /// casa parecida com este exercício."; fora dele, o texto de sempre. A ficha passa o modo casa da sessão.
+    func testRF34_homeModeEmptyText() throws {
+        XCTAssertEqual(
+            SubstituteExerciseSheet.emptyText(isHomeMode: true),
+            "Nenhuma opção de casa parecida com este exercício."
+        )
+        XCTAssertEqual(
+            SubstituteExerciseSheet.emptyText(isHomeMode: false),
+            "Nenhum exercício parecido com este no catálogo."
+        )
+
+        let fixture = try makeFixture()
+        fixture.planner.substitutesResult = []
+        let defaults = makeDefaults()
+        let model = makeViewModel(fixture, defaults: defaults)
+
+        model.beginSubstitution(sessionExerciseID: fixture.bench.uuid)
+        XCTAssertTrue(model.isShowingSubstituteSheet)
+        XCTAssertFalse(model.isSubstitutingAtHome, "sem o modo casa")
+        model.cancelSubstitution()
+
+        defaults.set(true, forKey: PlannerSettings.homeModeKey)
+        model.beginSubstitution(sessionExerciseID: fixture.bench.uuid)
+        XCTAssertTrue(model.isShowingSubstituteSheet)
+        XCTAssertTrue(model.substituteSuggestions.isEmpty)
+        XCTAssertTrue(model.isSubstitutingAtHome, "a mesma chave que o planner lê")
+    }
+
+    /// SPEC §7.14 F6 (2.4): na ficha, o selo de `increase` nos intervalos do Cardio sem nível diz "Mais um
+    /// bloco"; com nível, "Nível maior"; na força, como sempre.
+    func testF6_badgeMoreBlocksOnTheSheet() throws {
+        let fixture = try makeFixture()
+        let run = addExercise(fixture, order: 2, name: "Intervalos de corrida", equipment: .bodyweight, prescribedLoad: nil, sets: 5)
+        run.exercise?.slug = "run-intervals"
+        run.exercise?.movementPattern = .cardio
+        run.noteRaw = PrescriptionNote.increase.rawValue
+        try fixture.coordinator.context.save()
+        let model = makeViewModel(fixture)
+
+        XCTAssertEqual(model.badgeText(for: run), "Mais um bloco")
+        XCTAssertEqual(model.badgeText(for: fixture.legPress), "Carga maior", "força: como sempre")
+        XCTAssertEqual(model.badgeText(for: fixture.bench), "Primeira vez")
+
+        // Bicicleta em intervalos com nível registrado: F3, sobe o nível.
+        fixture.legPressCatalog.movementPattern = .cardio
+        fixture.legPressCatalog.loadUnitRaw = LoadUnit.level.rawValue
+        fixture.legPress.prescribedLoad = 7
+        XCTAssertEqual(model.badgeText(for: fixture.legPress), "Nível maior")
+    }
+
     // MARK: - Fixtures
 
     private struct Fixture {

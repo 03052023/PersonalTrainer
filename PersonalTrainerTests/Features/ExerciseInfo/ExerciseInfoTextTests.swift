@@ -321,7 +321,8 @@ final class ExerciseInfoTextTests: XCTestCase {
         XCTAssertEqual(
             ExerciseInfoText.today(intervals),
             "4 séries de 3 minutos, forte: só dá para dizer poucas palavras. "
-                + "Recuperação andando de 3 min entre as séries. Antes, aqueça 10 minutos andando devagar."
+                + "Recuperação andando de 3 min entre as séries. Antes, aqueça 10 minutos andando devagar. "
+                + "Cada bloco sobe 1 min por sessão até 4 min. No topo, entra mais um bloco, até 5."
         )
 
         let bikeWithLevel = makeContent(
@@ -341,6 +342,64 @@ final class ExerciseInfoTextTests: XCTestCase {
                 + "O nível da máquina é opcional."
         )
         XCTAssertEqual(ExerciseInfoText.whyTitle(bikeWithoutLevel), "Por que assim hoje", "sem nível, nada de \"escolha a carga\"")
+    }
+
+    /// SPEC RF-47 e §7.14 F6 (2.4; achado B10 da 2.3): nos intervalos do Cardio, a seção "Hoje" explica a
+    /// progressão (cada bloco sobe 1 min até o topo; no topo, mais um bloco, até 5), e o "Por que" da nota
+    /// `increase` fala do bloco novo. Com um nível registrado vale F3; o aeróbico de uma série não muda.
+    func testRF47_intervalsProgressionText() {
+        XCTAssertEqual(
+            CardioText.intervalsProgression(repMax: 4, hasLevel: false),
+            "Cada bloco sobe 1 min por sessão até 4 min. No topo, entra mais um bloco, até 5."
+        )
+        XCTAssertEqual(
+            CardioText.intervalsProgression(repMax: 4, hasLevel: true),
+            "Cada bloco sobe 1 min por sessão até 4 min. No topo, sobe 1 nível e os minutos recomeçam."
+        )
+        XCTAssertEqual(
+            CardioText.intervalsProgression(repMax: 4, hasLevel: true, loadUnit: .kilograms),
+            "Cada bloco sobe 1 min por sessão até 4 min. No topo, a carga sobe e os minutos recomeçam."
+        )
+        XCTAssertEqual(CardioText.maxIntervalBlocks, 5)
+
+        // O Dia B depois de um bloco a mais: 5 × 3 min, com a nota `increase`.
+        let fiveBlocks = makeContent(
+            note: .increase, equipment: .bodyweight, measure: .minutes, load: nil, sets: 5, targetReps: 3,
+            repMin: 3, repMax: 4, restSeconds: 180,
+            lastSession: lastSession(sets: [(0, 4), (0, 4), (0, 4), (0, 4)]),
+            slug: "run-intervals", pattern: .cardio
+        )
+        XCTAssertEqual(
+            ExerciseInfoText.today(fiveBlocks),
+            "5 séries de 3 minutos, forte: só dá para dizer poucas palavras. "
+                + "Recuperação andando de 3 min entre as séries. Antes, aqueça 10 minutos andando devagar. "
+                + "Cada bloco sobe 1 min por sessão até 4 min. No topo, entra mais um bloco, até 5."
+        )
+        XCTAssertEqual(fiveBlocks.badgeText, "Mais um bloco", "o mesmo selo da ficha")
+        XCTAssertEqual(
+            ExerciseInfoText.why(fiveBlocks),
+            "Na última vez você fez 4 min, 4 min, 4 min e 4 min, o máximo de 3 a 4. "
+                + "Hoje entra mais um bloco e a meta volta para 3 minutos."
+        )
+
+        // Bicicleta em intervalos com nível: F3, sem blocos novos.
+        let bikeWithLevel = makeContent(
+            note: .increase, equipment: .machine, measure: .minutes, load: 8, unit: .level, sets: 4, targetReps: 3,
+            repMin: 3, repMax: 4, restSeconds: 180, slug: "bike-intervals", pattern: .cardio
+        )
+        XCTAssertTrue(ExerciseInfoText.today(bikeWithLevel).hasSuffix("No topo, sobe 1 nível e os minutos recomeçam."))
+        XCTAssertEqual(bikeWithLevel.badgeText, "Nível maior")
+
+        // Uma série só (caminhada): nada de blocos.
+        let walk = makeContent(
+            note: .hold, equipment: .bodyweight, measure: .minutes, load: nil, sets: 1, targetReps: 30,
+            repMin: 30, repMax: 45, restSeconds: 60, slug: "brisk-walk", pattern: .cardio
+        )
+        XCTAssertFalse(ExerciseInfoText.today(walk).contains("bloco"))
+
+        // Força: o selo de sempre.
+        let squat = makeContent(note: .increase)
+        XCTAssertEqual(squat.badgeText, "Carga maior")
     }
 
     /// SPEC RF-46 (D3): 0 num exercício com equipamento é "sem carga externa", nunca "0 kg".

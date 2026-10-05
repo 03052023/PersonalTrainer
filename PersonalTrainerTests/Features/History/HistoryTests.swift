@@ -71,9 +71,16 @@ final class HistoryTests: XCTestCase {
         let container = try ModelContainerFactory.make(.inMemory)
         let context = container.mainContext
         let base = Date(timeIntervalSince1970: 1_700_000_000)
+        let squat = insertExercise(slug: "agachamento-livre", name: "Agachamento livre", into: context)
         insertSession(status: .completed, startedAt: base, into: context)
         insertSession(status: .inProgress, startedAt: base.addingTimeInterval(2 * 86_400), into: context)
-        insertSession(status: .abandoned, startedAt: base.addingTimeInterval(86_400), into: context)
+        // Encerrada com uma série: continua no histórico (SPEC P3, RF-09).
+        insertSession(
+            status: .abandoned,
+            startedAt: base.addingTimeInterval(86_400),
+            exercises: [(squat, [(60, 8, false)])],
+            into: context
+        )
         try context.save()
 
         let descriptor = FetchDescriptor<WorkoutSessionModel>(
@@ -108,6 +115,52 @@ final class HistoryTests: XCTestCase {
         context.insert(session)
 
         XCTAssertEqual(HistoryListView.filterVisible([session]).count, 1)
+    }
+
+    /// SPEC RF-09 (2.4, decisão 21; achado A7 da 2.2): a sessão encerrada sem nenhuma série ("Sair sem
+    /// registrar") não aparece na lista, mas continua no store; uma série qualquer (até um aquecimento antigo)
+    /// basta para ela aparecer. As concluídas sempre aparecem.
+    func testRF09_emptyAbandonedHidden() throws {
+        let container = try ModelContainerFactory.make(.inMemory)
+        let context = container.mainContext
+        let squat = insertExercise(slug: "agachamento-livre", name: "Agachamento livre", into: context)
+        let base = Date(timeIntervalSince1970: 1_700_000_000)
+        let emptyAbandoned = insertSession(
+            status: .abandoned,
+            startedAt: base.addingTimeInterval(3 * 86_400),
+            exercises: [(squat, [])],
+            into: context
+        )
+        let abandonedWithoutExercises = insertSession(
+            status: .abandoned,
+            startedAt: base.addingTimeInterval(2 * 86_400),
+            exercises: [],
+            into: context
+        )
+        let abandonedWithWarmup = insertSession(
+            status: .abandoned,
+            startedAt: base.addingTimeInterval(86_400),
+            exercises: [(squat, [(40, 12, true)])],
+            into: context
+        )
+        let completed = insertSession(
+            status: .completed,
+            startedAt: base,
+            exercises: [(squat, [(60, 8, false)])],
+            into: context
+        )
+        try context.save()
+
+        let descriptor = FetchDescriptor<WorkoutSessionModel>(
+            sortBy: [SortDescriptor(\WorkoutSessionModel.startedAt, order: .reverse)]
+        )
+        let all = try context.fetch(descriptor)
+        let visible = HistoryListView.filterVisible(all)
+
+        XCTAssertEqual(visible.map(\.uuid), [abandonedWithWarmup.uuid, completed.uuid])
+        XCTAssertFalse(visible.contains { $0.uuid == emptyAbandoned.uuid }, "Sair sem registrar não aparece")
+        XCTAssertFalse(visible.contains { $0.uuid == abandonedWithoutExercises.uuid })
+        XCTAssertEqual(all.count, 4, "nada é apagado")
     }
 
     // MARK: - HistoryListView.deletionMessage (T2.13)
@@ -182,7 +235,7 @@ final class HistoryTests: XCTestCase {
         let text = SessionExerciseSection.prescriptionRowText(
             sets: 4, targetReps: 6, repMin: 6, measure: .reps, load: nil, unit: .kilograms, equipment: .barbell
         )
-        XCTAssertEqual(text, "4 séries de 6 · escolha a carga")
+        XCTAssertEqual(text, "4 séries de 6 · sem carga")
     }
 
     func testPrescriptionRowText_secondsMeasure_usesSecondsWord() {

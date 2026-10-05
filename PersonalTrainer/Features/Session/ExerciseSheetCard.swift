@@ -15,6 +15,10 @@ import TrainerCore
 /// aeróbico mostra "30 min" ou "4 × 3 min" com a intensidade pelo teste da fala no lugar da carga, o
 /// nível opcional, a recuperação andando e a linha fixa de aquecimento dos intervalos (§7.14 F1, F2).
 ///
+/// Desde a 2.4 (RF-44 j): o exercício que acabou de ser concluído continua com o cartão inteiro até a pessoa
+/// marcar outro exercício (`ActiveSessionViewModel.isExpanded`), e o selo dos intervalos diz "Mais um
+/// bloco" (F6).
+///
 /// Lê o `ActiveSessionViewModel` e grava só por ele (AGENTS R4). O selo, o "Como fazer" e o nome são
 /// botões separados, lado a lado, nunca um dentro do outro.
 struct ExerciseSheetCard: View {
@@ -559,9 +563,10 @@ struct ExerciseSheetCard: View {
         )
     }
 
-    /// Selo leigo da nota (DESIGN §7): some sem novidade (`hold`) ou sem referência no catálogo.
+    /// Selo leigo da nota (DESIGN §7): some sem novidade (`hold`) ou sem referência no catálogo. Nos
+    /// intervalos do Cardio, `increase` diz "Mais um bloco" (SPEC §7.14 F6, 2.4).
     private var badge: (text: String, topic: String)? {
-        guard let note = exercise.note, let text = note.badgeText else {
+        guard let note = exercise.note, let text = model.badgeText(for: exercise) else {
             return nil
         }
         let topic = ReferenceCatalog.topic(for: note)

@@ -52,7 +52,7 @@ enum SessionSheetText {
     static let loadHintDismiss = "Agora não"
 
     /// Texto da carga na ficha: "62,5 kg", "+ 2,5 kg extra", "sem carga"; peso do corpo sem carga
-    /// extra, `nil`. Diferente da tela Hoje, que ainda diz "escolha a carga" para a primeira vez.
+    /// extra, `nil`. Desde a 2.4, a tela Hoje diz o mesmo "sem carga" (`TodayTargetText.toChooseText`).
     static func loadLabel(_ display: TodayTargetText.LoadDisplay) -> String? {
         switch display {
         case .hidden:
