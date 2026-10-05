@@ -10,12 +10,20 @@ import TrainerCore
 /// Só leitura: recebe o modelo por `init` e nunca toca o `ModelContext` (R4). Não lê
 /// `AppEnvironment`; quem navega até aqui é `HistoryListView`. A tonelagem soma só exercícios
 /// medidos em repetições (SPEC RF-12 com RF-43), com a medida lida de `\.exerciseTraits`.
+///
+/// Desde a 2.4 (SPEC §7.14 F7): numa sessão em que todo exercício com série é aeróbico, a seção "Coração"
+/// mostra o tempo em cada intensidade pela FC do relógio e o último VO2máx, lidos de `\.cardioHeartRate`.
+/// Só leitura, sem conselho; sem FC e sem VO2máx, a seção não aparece.
 @MainActor
 struct SessionDetailView: View {
     let session: WorkoutSessionModel
     let references: ReferenceCatalog
 
     @Environment(\.exerciseTraits) private var traits
+    /// FC por minuto, zonas e VO2máx (SPEC F7); padrão `.none`, sem nada.
+    @Environment(\.cardioHeartRate) private var cardioHeartRate
+    /// A FC média de cada minuto da sessão, lida uma vez ao abrir (SPEC F7). Vazia até a leitura terminar.
+    @State private var minuteHeartRates: [Double] = []
 
     init(session: WorkoutSessionModel, references: ReferenceCatalog) {
         self.session = session
@@ -39,6 +47,9 @@ struct SessionDetailView: View {
                 }
             }
             .listRowBackground(Theme.surface)
+            if let heart = heartContent {
+                heartSection(heart)
+            }
             ForEach(orderedExercises, id: \.uuid) { sessionExercise in
                 SessionExerciseSection(sessionExercise: sessionExercise, references: references)
             }
@@ -47,6 +58,66 @@ struct SessionDetailView: View {
         .paperBackground()
         .navigationTitle(session.programDayName)
         .navigationBarTitleDisplayMode(.inline)
+        .task(id: session.uuid) {
+            await loadMinuteHeartRates()
+        }
+    }
+
+    // MARK: - Coração (SPEC §7.14 F7)
+
+    /// "Coração": a barra fina em três tons de `health` com "Leve 6 min · Moderada 22 min · Forte 12 min" e,
+    /// quando há, "VO2máx: 42,1 (bom)", em `textSecondary` (DESIGN §13, "Na 2.4"). Sem conselho.
+    private func heartSection(_ content: CardioZoneText.Content) -> some View {
+        Section(CardioZoneText.title) {
+            if let minutes = content.zones, let line = CardioZoneText.zonesLine(minutes) {
+                VStack(alignment: .leading, spacing: 8) {
+                    CardioZoneBar(minutes: minutes)
+                    Text(line)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.vertical, 4)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(CardioZoneText.spokenZones(minutes)))
+            }
+            if let vo2MaxLine = content.vo2MaxLine {
+                Text(vo2MaxLine)
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+        }
+        .listRowBackground(Theme.surface)
+    }
+
+    /// O que a seção "Coração" mostra; `nil` fora de uma sessão de aeróbico ou sem FC e sem VO2máx.
+    private var heartContent: CardioZoneText.Content? {
+        guard isAerobicSession else {
+            return nil
+        }
+        return CardioZoneText.content(
+            heartRates: minuteHeartRates,
+            zones: cardioHeartRate.zones(),
+            vo2Max: cardioHeartRate.latestVo2Max()
+        )
+    }
+
+    /// Todo exercício com ao menos uma série é aeróbico (SPEC F5, F7).
+    private var isAerobicSession: Bool {
+        let patterns: [MovementPattern?] = orderedExercises
+            .filter { !$0.sets.isEmpty }
+            .map { $0.exercise?.movementPattern }
+        return CardioZoneText.isAerobicSession(patterns)
+    }
+
+    /// Lê a FC de cada minuto entre o começo e o fim da sessão, só numa sessão de aeróbico que terminou.
+    /// Sem leitura (sem relógio, sem permissão), a lista fica vazia e a parte das zonas não aparece.
+    private func loadMinuteHeartRates() async {
+        guard isAerobicSession, let end = session.endedAt, end > session.startedAt else {
+            return
+        }
+        let rates = await cardioHeartRate.minuteHeartRates(session.startedAt, end)
+        minuteHeartRates = rates
     }
 
     // MARK: - Dados derivados
@@ -102,6 +173,53 @@ struct SessionDetailView: View {
         case .inProgress: return "Em andamento"
         case .completed, nil: return nil
         }
+    }
+}
+
+/// Barra de tinta fina da seção "Coração" (SPEC F7; DESIGN §13 "Na 2.4"): um traço por intensidade, do leve
+/// ao forte, na largura dos minutos, em três tons de `health` (nunca vermelho). As intensidades sem minuto
+/// não aparecem. Decorativa: o VoiceOver lê a frase da seção.
+private struct CardioZoneBar: View {
+    private struct Segment: Hashable {
+        let id: Int
+        let minutes: Int
+        let opacity: Double
+    }
+
+    let minutes: CardioZoneText.ZoneMinutes
+
+    private static let gap: CGFloat = 2
+    private static let height: CGFloat = 6
+
+    var body: some View {
+        GeometryReader { proxy in
+            HStack(spacing: Self.gap) {
+                ForEach(segments, id: \.id) { segment in
+                    Capsule()
+                        .fill(Theme.health.opacity(segment.opacity))
+                        .frame(width: width(of: segment, totalWidth: proxy.size.width))
+                }
+            }
+        }
+        .frame(height: Self.height)
+        .accessibilityHidden(true)
+    }
+
+    /// Leve, moderada e forte, cada vez mais escura; só as que têm minutos.
+    private var segments: [Segment] {
+        let all = [
+            Segment(id: 0, minutes: minutes.light, opacity: 0.35),
+            Segment(id: 1, minutes: minutes.moderate, opacity: 0.65),
+            Segment(id: 2, minutes: minutes.vigorous, opacity: 1),
+        ]
+        return all.filter { $0.minutes > 0 }
+    }
+
+    private func width(of segment: Segment, totalWidth: CGFloat) -> CGFloat {
+        let total = max(1, minutes.total)
+        let gaps = Self.gap * CGFloat(max(0, segments.count - 1))
+        let available = max(0, totalWidth - gaps)
+        return available * CGFloat(segment.minutes) / CGFloat(total)
     }
 }
 

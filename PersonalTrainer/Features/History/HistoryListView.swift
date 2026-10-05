@@ -126,12 +126,23 @@ struct HistoryListView: View {
     }
 
     /// Sessões `inProgress` ficam fora: a sessão ativa pertence à Home ("Retomar", SPEC S3),
-    /// não ao histórico. Filtro em memória porque `#Predicate` sobre `statusRaw` não muda a
+    /// não ao histórico. Desde a 2.4 (SPEC RF-09, decisão 21; achado A7 da 2.2), também fica fora a sessão
+    /// encerrada (`abandoned`) sem nenhuma série, o "Sair sem registrar" de RF-44 e: ela continua no store e no
+    /// backup, só não aparece. Filtro em memória porque `#Predicate` sobre `statusRaw` não muda a
     /// query estática do `@Query` e o volume de um usuário é pequeno (ARCHITECTURE §15).
     /// A ordem de entrada (mais recente primeiro) é preservada.
     static func filterVisible(_ sessions: [WorkoutSessionModel]) -> [WorkoutSessionModel] {
         let inProgress = SessionStatus.inProgress.rawValue
-        return sessions.filter { $0.statusRaw != inProgress }
+        let abandoned = SessionStatus.abandoned.rawValue
+        return sessions.filter { session in
+            if session.statusRaw == inProgress {
+                return false
+            }
+            if session.statusRaw == abandoned {
+                return session.exercises.contains { !$0.sets.isEmpty }
+            }
+            return true
+        }
     }
 }
 

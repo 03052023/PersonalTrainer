@@ -23,9 +23,19 @@ import TrainerCore
 /// - **Sessão guiada** (RF-44 i): o passo atual e o texto do botão grande vêm de `SessionGuide`.
 /// - **Aeróbico** (§7.14 F1, F2): a intensidade pelo teste da fala e a recuperação andando.
 ///
+/// Desde a 2.4 (RF-44 j, RF-34, F6):
+/// - **Carga digitada** (achado A4 da 2.2): a carga do teclado fica também no `UserDefaults` injetado, numa
+///   chave por sessão (`chosenLoadsKey`), e volta quando a ficha é recriada (depois de "Voltar" ou de o app
+///   fechar). A chave some quando a sessão é concluída ou encerrada, e ao abrir uma sessão que já terminou.
+/// - **Cartão aberto** (achado B6 da 2.2): o exercício que acabou de ser concluído (bolinha, "Feito" ou o
+///   botão grande) continua com o cartão aberto até a pessoa marcar uma série de outro exercício
+///   (`justFinishedExerciseID`, `isExpanded`). "Recolher" continua.
+/// - **Trocar em casa** (RF-34): a folha sabe se o modo casa estava ligado (`isSubstitutingAtHome`).
+/// - **Selo dos intervalos** (F6): `badgeText(for:)` diz "Mais um bloco" no aeróbico sem nível.
+///
 /// O estado vem do próprio `WorkoutSessionModel`: `@Model` é `Observable`, então a tela se
-/// atualiza quando o coordinator grava. Só a carga digitada no teclado fica em memória
-/// (`setWorkingLoad`, P10): ela não é dado de treino até uma bolinha ser marcada.
+/// atualiza quando o coordinator grava. A carga digitada no teclado (`setWorkingLoad`, P10) não é dado de
+/// treino até uma bolinha ser marcada: fica só no aparelho, nunca no store nem no backup.
 ///
 /// Datas vêm sempre do closure `now` injetado (SPEC P11), nunca de `Date()`. O serviço de
 /// notificações só entra para pedir permissão na primeira série gravada (AGENTS §7).
@@ -78,8 +88,18 @@ final class ActiveSessionViewModel {
     /// Série aberta na folha de correção; `nil` = folha fechada.
     var editingSet: SetEdit? = nil
 
-    /// Carga digitada no teclado, por `SessionExerciseModel.uuid` (SPEC RF-04, P10). Só memória.
+    /// Carga digitada no teclado, por `SessionExerciseModel.uuid` (SPEC RF-04, P10). Desde a 2.4 (RF-44 j),
+    /// cada mudança também vai para o `UserDefaults` injetado (`persistChosenLoads`).
     private var chosenLoads: [UUID: Double] = [:]
+    /// Exercício que a última marcação concluiu (SPEC RF-44 j, 2.4): o cartão dele fica aberto, para corrigir
+    /// uma série com um toque, até a pessoa marcar uma série de outro exercício ou tocar em "Recolher".
+    private(set) var justFinishedExerciseID: UUID? = nil
+    /// Cartões de exercícios feitos abertos com um toque, para corrigir uma série.
+    private(set) var expandedDoneExerciseIDs: Set<UUID> = []
+    /// Modo casa ligado quando a folha "Trocar" abriu (SPEC RF-34, RF-42): sem opções, a folha diz
+    /// "Nenhuma opção de casa parecida com este exercício.". É a mesma chave que o planner lê para filtrar os
+    /// substitutos (`PlannerSettings.homeModeKey`).
+    private(set) var isSubstitutingAtHome: Bool = false
     /// Exercício cuja bolinha iniciou o descanso atual: base do "A seguir" do descanso.
     private(set) var restSourceExerciseID: UUID? = nil
     /// Exercícios da sessão (`SessionExerciseModel.uuid`) com a sugestão de anotar a carga à vista
@@ -92,6 +112,15 @@ final class ActiveSessionViewModel {
     /// Chave no `UserDefaults` dos exercícios do catálogo (`exerciseUUID`) que já receberam a
     /// sugestão: uma vez só na vida de cada um, respondida ou não (SPEC RF-44 c).
     static let loadHintShownKey = "session.loadHintShownExerciseIDs"
+
+    /// Começo das chaves da carga digitada por sessão (SPEC RF-44 j): `session.chosenLoads.<uuid da sessão>`,
+    /// com um dicionário `uuid do exercício da sessão → carga`.
+    static let chosenLoadsKeyPrefix = "session.chosenLoads."
+
+    /// A chave da carga digitada de uma sessão.
+    static func chosenLoadsKey(sessionID: UUID) -> String {
+        chosenLoadsKeyPrefix + sessionID.uuidString
+    }
 
     private let coordinator: any SessionCoordinating
     private let planner: any SessionPlanning
@@ -111,6 +140,10 @@ final class ActiveSessionViewModel {
     /// fechando pode não aparecer.
     @ObservationIgnored private var deferredErrorMessage: String? = nil
 
+    /// - Parameter loadHintDefaults: o `UserDefaults` do aparelho. Guarda os exercícios que já receberam a
+    ///   sugestão de anotar a carga (RF-44 c) e a carga digitada de cada sessão (RF-44 j), e dele se lê o modo
+    ///   casa da folha "Trocar" (RF-34). O app passa o `.standard`, a mesma suíte que o planner lê; os testes e
+    ///   os previews passam uma suíte isolada.
     init(
         sessionID: UUID,
         coordinator: any SessionCoordinating,
@@ -135,6 +168,11 @@ final class ActiveSessionViewModel {
             // `status` é `nil` para raw desconhecido; nesse caso não se afirma nada sobre o fim.
             if let status = session.status, status != .inProgress {
                 isFinished = true
+                // RF-44 j: a carga digitada de uma sessão que já terminou não volta mais.
+                loadHintDefaults.removeObject(forKey: Self.chosenLoadsKey(sessionID: session.uuid))
+            } else if session.status == .inProgress {
+                // RF-44 j: a ficha recriada (depois de "Voltar" ou de o app fechar) volta com a carga digitada.
+                chosenLoads = Self.storedChosenLoads(in: loadHintDefaults, for: session)
             }
         } else {
             errorMessage = "Sessão não encontrada."
@@ -349,8 +387,9 @@ final class ActiveSessionViewModel {
     }
 
     /// Teclado da carga (RF-44 b, P10): vale para as próximas bolinhas do exercício, sem gravar
-    /// nada. Aceita de 0 ("sem carga" ou sem carga extra, D3) até 1.000; fora disso, a escolha é
-    /// desfeita e a ficha volta à carga de antes.
+    /// nada no store. Aceita de 0 ("sem carga" ou sem carga extra, D3) até 1.000; fora disso, a escolha é
+    /// desfeita e a ficha volta à carga de antes. Desde a 2.4 (RF-44 j), a escolha fica no aparelho até a
+    /// sessão terminar.
     func setWorkingLoad(_ load: Double, for sessionExerciseID: UUID) {
         guard findExercise(id: sessionExerciseID) != nil else {
             return
@@ -360,6 +399,7 @@ final class ActiveSessionViewModel {
         } else {
             chosenLoads[sessionExerciseID] = nil
         }
+        persistChosenLoads()
     }
 
     // MARK: - Sugestão delicada de anotar a carga (SPEC RF-44 c, RF-46)
@@ -430,6 +470,7 @@ final class ActiveSessionViewModel {
     /// Campo de carga apagado: volta à carga de antes (última série ou prescrita).
     func clearWorkingLoad(for sessionExerciseID: UUID) {
         chosenLoads[sessionExerciseID] = nil
+        persistChosenLoads()
     }
 
     // MARK: - Marcar (SPEC RF-44 b)
@@ -452,6 +493,7 @@ final class ActiveSessionViewModel {
             return
         }
         markCount += 1
+        didMark(exercise)
         offerLoadHintIfNeeded(for: exercise, loggedLoad: loggedLoad)
         guard !pendingExercises.isEmpty else {
             return
@@ -489,6 +531,39 @@ final class ActiveSessionViewModel {
     /// pode. Sem nenhum, a opção "Marcar como feitos, como previsto" não aparece.
     var canMarkAnyPending: Bool {
         pendingExercises.contains { canMark($0) }
+    }
+
+    // MARK: - Cartão aberto (SPEC RF-44 j, 2.4)
+
+    /// O cartão de um exercício feito está aberto: o que acabou de ser concluído (até a pessoa marcar outro
+    /// exercício) ou um aberto com um toque. Pendente e pulado não dependem disto.
+    func isExpanded(_ exercise: SessionExerciseModel) -> Bool {
+        justFinishedExerciseID == exercise.uuid || expandedDoneExerciseIDs.contains(exercise.uuid)
+    }
+
+    /// Toque na linha compacta (abre) ou em "Recolher" (fecha, também o que acabou de ser concluído).
+    func toggleExpanded(sessionExerciseID: UUID) {
+        let isOpenNow = justFinishedExerciseID == sessionExerciseID || expandedDoneExerciseIDs.contains(sessionExerciseID)
+        if isOpenNow {
+            if justFinishedExerciseID == sessionExerciseID {
+                justFinishedExerciseID = nil
+            }
+            expandedDoneExerciseIDs.remove(sessionExerciseID)
+        } else {
+            expandedDoneExerciseIDs.insert(sessionExerciseID)
+        }
+    }
+
+    // MARK: - Selo (DESIGN §7; SPEC §7.14 F6)
+
+    /// O selo da nota no cartão: nos intervalos do Cardio sem nível, `increase` diz "Mais um bloco"; com um
+    /// nível registrado, "Nível maior"; nos outros exercícios, como sempre. `nil` = sem selo.
+    func badgeText(for exercise: SessionExerciseModel) -> String? {
+        exercise.note?.badgeText(
+            isCardio: isCardio(exercise),
+            hasLevel: (exercise.prescribedLoad ?? 0) > 0,
+            loadUnit: loadUnit(of: exercise)
+        )
     }
 
     // MARK: - Sessão guiada (SPEC RF-44 i)
@@ -612,6 +687,8 @@ final class ActiveSessionViewModel {
             logger.error("Falha ao buscar substitutos: \(String(describing: error), privacy: .public)")
             substituteSuggestions = []
         }
+        // RF-34 (2.4): a mesma chave que o planner leu para filtrar só as opções de casa.
+        isSubstitutingAtHome = loadHintDefaults.bool(forKey: PlannerSettings.homeModeKey)
         substitutingExerciseID = exercise.uuid
         isShowingSubstituteSheet = true
     }
@@ -651,6 +728,7 @@ final class ActiveSessionViewModel {
         }
         // A carga digitada era do exercício antigo.
         chosenLoads[exercise.uuid] = nil
+        persistChosenLoads()
         closeSubstitution()
     }
 
@@ -769,6 +847,8 @@ final class ActiveSessionViewModel {
         }
         restTimer.skip()
         isFinished = true
+        // RF-44 j: a carga digitada vale até o fim da sessão.
+        loadHintDefaults.removeObject(forKey: Self.chosenLoadsKey(sessionID: session.uuid))
     }
 
     /// "Sair sem registrar": `status = abandoned`. Séries que existirem continuam no histórico
@@ -785,6 +865,8 @@ final class ActiveSessionViewModel {
         }
         restTimer.skip()
         isFinished = true
+        // RF-44 j: a carga digitada some com a sessão encerrada.
+        loadHintDefaults.removeObject(forKey: Self.chosenLoadsKey(sessionID: session.uuid))
     }
 
     // MARK: - Resumo (SPEC RF-44 h)
@@ -843,6 +925,57 @@ final class ActiveSessionViewModel {
         exercises.first { $0.uuid == id }
     }
 
+    /// RF-44 j: marcar uma série de outro exercício recolhe o cartão que acabou de ser concluído; o exercício
+    /// que esta marcação completou passa a ser o que fica aberto.
+    private func didMark(_ exercise: SessionExerciseModel) {
+        if let justFinished = justFinishedExerciseID, justFinished != exercise.uuid {
+            justFinishedExerciseID = nil
+        }
+        if !isPending(exercise) {
+            justFinishedExerciseID = exercise.uuid
+        }
+    }
+
+    /// RF-44 j: grava a carga digitada desta sessão no `UserDefaults` injetado, como `uuid → carga`. Sem carga
+    /// digitada, ou com a sessão fechada, a chave some.
+    private func persistChosenLoads() {
+        guard let session else {
+            return
+        }
+        let key = Self.chosenLoadsKey(sessionID: session.uuid)
+        guard isOpen, !chosenLoads.isEmpty else {
+            loadHintDefaults.removeObject(forKey: key)
+            return
+        }
+        var stored: [String: Double] = [:]
+        for (exerciseID, load) in chosenLoads {
+            stored[exerciseID.uuidString] = load
+        }
+        loadHintDefaults.set(stored, forKey: key)
+    }
+
+    /// RF-44 j: a carga digitada que ficou gravada para `session`. Só volta o que ainda vale: exercícios que
+    /// estão na sessão e cargas aceitas pelo teclado (`SessionSheetText.isValidLoad`).
+    private static func storedChosenLoads(in defaults: UserDefaults, for session: WorkoutSessionModel) -> [UUID: Double] {
+        guard let stored = defaults.dictionary(forKey: chosenLoadsKey(sessionID: session.uuid)) else {
+            return [:]
+        }
+        let exerciseIDs = Set(session.exercises.map(\.uuid))
+        var loads: [UUID: Double] = [:]
+        for (key, value) in stored {
+            guard
+                let exerciseID = UUID(uuidString: key),
+                exerciseIDs.contains(exerciseID),
+                let load = value as? Double,
+                SessionSheetText.isValidLoad(load, allowsZero: true)
+            else {
+                continue
+            }
+            loads[exerciseID] = load
+        }
+        return loads
+    }
+
     /// Grava uma série como prevista (RF-04, RF-44 b) e devolve a carga gravada; `nil` se a gravação
     /// falhou (a mensagem fica em `errorMessage`). `index` = maior índice gravado + 1 (aquecimentos
     /// antigos incluídos), único mesmo depois de apagar uma série do meio (RF-19). Sem carga
@@ -893,6 +1026,7 @@ final class ActiveSessionViewModel {
             return
         }
         markCount += 1
+        didMark(exercise)
         requestNotificationAuthorizationIfNeeded()
         if offeringLoadHint {
             offerLoadHintIfNeeded(for: exercise, loggedLoad: lastLoad)

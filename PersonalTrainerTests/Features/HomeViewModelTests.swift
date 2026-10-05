@@ -530,7 +530,7 @@ final class HomeViewModelTests: XCTestCase {
         let row = plan.exercises[2] // carga em nível de máquina
 
         XCTAssertEqual(PrescriptionRow.rowText(for: squat), "3 séries de 8 · 60 kg")
-        XCTAssertEqual(PrescriptionRow.rowText(for: bench), "3 séries de 8 · escolha a carga")
+        XCTAssertEqual(PrescriptionRow.rowText(for: bench), "3 séries de 8 · sem carga")
         XCTAssertEqual(PrescriptionRow.rowText(for: row), "4 séries de 12 · nível 7")
 
         XCTAssertEqual(

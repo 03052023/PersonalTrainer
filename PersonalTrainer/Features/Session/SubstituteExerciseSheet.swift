@@ -18,6 +18,9 @@ enum SubstituteContext {
 ///
 /// Só escolhe: quem troca é quem apresenta a folha (sessão ou editor). O histórico de carga de
 /// cada exercício é separado (P3).
+///
+/// Desde a 2.4 (RF-34, achado B-5 da 2.1): em modo casa a lista só tem opções de casa, e a folha vazia diz
+/// "Nenhuma opção de casa parecida com este exercício." em vez de falar do catálogo.
 struct SubstituteExerciseSheet: View {
     private let exerciseName: String
     private let suggestions: [ExerciseDefinition]
@@ -25,17 +28,20 @@ struct SubstituteExerciseSheet: View {
     private let context: SubstituteContext
     private let onPick: (ExerciseDefinition) -> Void
     private let onCancel: () -> Void
+    private let isHomeMode: Bool
 
     /// Chave de tópico do contrato de `ReferenceCatalog`.
     private static let whyTopic = "topic.substitution"
 
+    /// - Parameter isHomeMode: a sessão está em modo casa (RF-42): muda só o texto da folha vazia.
     init(
         exerciseName: String,
         suggestions: [ExerciseDefinition],
         references: ReferenceCatalog,
         context: SubstituteContext = .session,
         onPick: @escaping (ExerciseDefinition) -> Void,
-        onCancel: @escaping () -> Void
+        onCancel: @escaping () -> Void,
+        isHomeMode: Bool = false
     ) {
         self.exerciseName = exerciseName
         self.suggestions = suggestions
@@ -43,6 +49,15 @@ struct SubstituteExerciseSheet: View {
         self.context = context
         self.onPick = onPick
         self.onCancel = onCancel
+        self.isHomeMode = isHomeMode
+    }
+
+    /// O texto da folha sem opções (SPEC RF-34): em modo casa, "Nenhuma opção de casa parecida com este
+    /// exercício."; senão, "Nenhum exercício parecido com este no catálogo.".
+    static func emptyText(isHomeMode: Bool) -> String {
+        isHomeMode
+            ? "Nenhuma opção de casa parecida com este exercício."
+            : "Nenhum exercício parecido com este no catálogo."
     }
 
     var body: some View {
@@ -50,7 +65,7 @@ struct SubstituteExerciseSheet: View {
             List {
                 Section {
                     if suggestions.isEmpty {
-                        Text("Nenhum exercício parecido com este no catálogo.")
+                        Text(Self.emptyText(isHomeMode: isHomeMode))
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(Array(suggestions.enumerated()), id: \.element.id) { pair in
@@ -222,6 +237,17 @@ private enum SubstitutePreviewData {
         references: .empty,
         onPick: { _ in },
         onCancel: {}
+    )
+}
+
+#Preview("Em casa, sem substitutos") {
+    SubstituteExerciseSheet(
+        exerciseName: "Cadeira extensora",
+        suggestions: [],
+        references: .empty,
+        onPick: { _ in },
+        onCancel: {},
+        isHomeMode: true
     )
 }
 

@@ -37,6 +37,9 @@ enum ExerciseInfoText {
     /// intervalos: "4 séries de 3 minutos, forte: só dá para dizer poucas palavras. Recuperação andando de
     /// 3 min entre as séries. Antes, aqueça 10 minutos andando devagar." O nível da máquina entra só quando
     /// existe ("No nível 7."). Nada de FC nem ritmo em números.
+    ///
+    /// Desde a 2.4 (SPEC RF-47, §7.14 F6; achado B10 da 2.3), os intervalos terminam com a progressão: "Cada
+    /// bloco sobe 1 min por sessão até 4 min. No topo, entra mais um bloco, até 5."
     private static func cardioToday(_ content: ExerciseInfoContent, intensity: CardioIntensity) -> String {
         let minutes = TodayTargetText.amount(content.targetReps, measure: .minutes)
         let base = content.sets > 1 ? "\(TodayTargetText.setsText(content.sets)) de \(minutes)" : minutes
@@ -55,6 +58,11 @@ enum ExerciseInfoText {
                 sentence += " \(CardioText.recoveryTitle) de \(TodayTargetText.rest(seconds: content.restSeconds)) entre as séries."
             }
             sentence += " \(CardioText.intervalsWarmup)"
+            sentence += " " + CardioText.intervalsProgression(
+                repMax: content.repMax,
+                hasLevel: content.hasLevel,
+                loadUnit: content.loadUnit
+            )
         }
         return sentence
     }
@@ -162,6 +170,10 @@ enum ExerciseInfoText {
             }
             if todayLoad > 0 {
                 return head + "Hoje entra + \(todayText) extra e \(subject) recomeçam em \(content.repMin)."
+            }
+            // SPEC §7.14 F6 (2.4): nos intervalos do Cardio, subir é ganhar mais um bloco (o mesmo selo da ficha).
+            if content.badgeText == PrescriptionNote.moreBlocksBadgeText {
+                return head + "Hoje entra mais um bloco e a meta volta para \(minimum)."
             }
             return head + "Hoje a meta volta para \(minimum)."
 
