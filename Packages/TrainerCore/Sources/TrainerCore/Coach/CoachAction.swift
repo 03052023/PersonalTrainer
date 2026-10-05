@@ -21,7 +21,8 @@ public enum CoachAction: String, Codable, CaseIterable, Sendable {
     case understood
     /// C3 "Lembrar amanhã": the same kind comes back the next calendar day.
     case remindTomorrow
-    /// C4 "Como renovar".
+    /// C4, removida na 2.5 (SPEC §7.18 L4): o case fica porque o raw value pode estar no log do
+    /// diálogo; nunca é emitido nem oferecido.
     case howToRenew
     /// C5 "Começar".
     case start
@@ -46,7 +47,8 @@ public enum CoachAction: String, Codable, CaseIterable, Sendable {
         case .neverAgain: return "Não sugerir mais isto"
         case .understood: return "Entendi"
         case .remindTomorrow: return "Lembrar amanhã"
-        case .howToRenew: return "Como renovar"
+        // Never shown (L4); a neutral label so no sideload text is left in the app.
+        case .howToRenew: return "Ok"
         case .start: return "Começar"
         case .seeProgress: return "Ver evolução"
         case .backupNow: return "Fazer backup"

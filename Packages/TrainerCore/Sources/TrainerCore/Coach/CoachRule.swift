@@ -1,6 +1,7 @@
 import Foundation
 
-/// The eight rules of the app's dialogue with the user (SPEC §7.11 C1–C8).
+/// The rules of the app's dialogue with the user (SPEC §7.11). Since 2.5 the active rules are
+/// C1–C3 and C5–C8; C4 was removed (SPEC §7.18 L4).
 /// Raw values are persisted in the coach log (`CoachLogEntry.rule`): never rename a case.
 public enum CoachRule: String, Codable, CaseIterable, Sendable {
     /// C1: a lighter week was scheduled (SPEC §7.5).
@@ -9,7 +10,8 @@ public enum CoachRule: String, Codable, CaseIterable, Sendable {
     case review
     /// C3: health suggestions (SPEC §7.10).
     case health
-    /// C4: the installation (provisioning profile) is about to expire.
+    /// C4, removida na 2.5 (SPEC §7.18 L4): o case fica porque o raw value pode estar no log do
+    /// diálogo; nunca é emitido nem oferecido.
     case installExpiry
     /// C5: welcome back after ≥ 6 days without a session (SPEC P9 after 21 days).
     case comeback

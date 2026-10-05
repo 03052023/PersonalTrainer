@@ -8,7 +8,7 @@ public enum OutsideActivityRole: String, Codable, Sendable, Hashable, CaseIterab
     case light
     /// Força (cross): ocupa o lugar de força do dia, com os grupos do tipo (48 h, S6).
     case strength
-    /// Aeróbico (spinning, aula de luta, futebol…): ocupa o lugar de aeróbico do dia, com a intensidade
+    /// Aeróbico (bicicleta indoor, aula de luta, futebol…): ocupa o lugar de aeróbico do dia, com a intensidade
     /// (forte nunca na véspera de pernas, A5).
     case cardio
 }

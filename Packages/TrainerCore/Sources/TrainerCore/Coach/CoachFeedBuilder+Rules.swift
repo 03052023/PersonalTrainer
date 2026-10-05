@@ -1,11 +1,10 @@
 import Foundation
 
-/// One builder per rule of SPEC §7.11. Each returns what the rule would say now, before
-/// the decision log filters answered and silenced messages (except C3, whose cadence
-/// depends on the last answer and not only on the id's period).
+/// One builder per active rule of SPEC §7.11 (C4 was removed in 2.5, SPEC §7.18 L4). Each
+/// returns what the rule would say now, before the decision log filters answered and
+/// silenced messages (except C3, whose cadence depends on the last answer and not only on
+/// the id's period).
 extension CoachFeedBuilder {
-    /// C4: warn from this many calendar days before the expiry day ("2 dias antes").
-    static let expiryWarningDays = 2
     /// C5: calendar days without a session before the welcome back ("≥ 6 dias").
     static let comebackDays = 6
     /// C5 / SPEC P9: elapsed pause after which the loads come back reduced (strictly more).
@@ -191,40 +190,6 @@ extension CoachFeedBuilder {
             )
         }
         return messages
-    }
-
-    // MARK: - C4 Installation expiry
-
-    /// C4: once per day from 2 calendar days before the expiry day. The id carries the
-    /// expiry day (a renewed installation starts over) and today (one per day).
-    static func installExpiryMessage(expiry: Date?, now: Date, calendar: Calendar) -> CoachMessage? {
-        // An app past its expiry does not open, so a message then would never be read.
-        guard let expiry, now < expiry else {
-            return nil
-        }
-        let daysLeft = HealthDays.daysBetween(now, expiry, calendar: calendar)
-        guard daysLeft <= expiryWarningDays else {
-            return nil
-        }
-        let title: String
-        switch daysLeft {
-        case ...0: title = "O app expira hoje"
-        case 1: title = "O app expira amanhã"
-        default: title = "O app expira em \(daysLeft) dias"
-        }
-        let expiryDay = CoachText.day(expiry, calendar: calendar)
-        return CoachMessage(
-            id: "expiry:\(expiryDay):\(CoachText.day(now, calendar: calendar))",
-            rule: .installExpiry,
-            itemKey: "expiry",
-            title: title,
-            reason: "A instalação atual vale até \(CoachText.dayMonthTime(expiry, calendar: calendar)); "
-                + "renove pelo Impactor no computador antes disso (reinstalar por cima mantém seus dados).",
-            referenceTopic: nil,
-            actions: [.howToRenew],
-            priority: Priority.installExpiry,
-            highlightsOnLaunch: true
-        )
     }
 
     // MARK: - C5 Comeback
