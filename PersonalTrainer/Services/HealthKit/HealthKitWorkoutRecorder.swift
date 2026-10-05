@@ -3,11 +3,15 @@ import os
 import TrainerCore
 
 /// Leva cada sessão finalizada para o app Saúde (ARCHITECTURE §8; T2.1, T2.2; SPEC RF-13, RF-14):
-/// observa `coordinator.eventsApplied` e, em `sessionFinished`, vincula o treino de força que outro
-/// app já gravou (tipicamente o app Exercício do Watch) ou grava um `HKWorkout` novo, lê o resumo de
+/// observa `coordinator.eventsApplied` e, em `sessionFinished`, vincula o treino que outro app já
+/// gravou (tipicamente o app Exercício do Watch) ou grava um `HKWorkout` novo, lê o resumo de
 /// FC do intervalo e guarda tudo na sessão com um `SessionEvent.heartRateSummary` aplicado pelo
 /// coordinator (o único caminho de escrita, ARCHITECTURE §7).
 ///
+/// - Tipo do treino (SPEC F5, `WorkoutRecordKind`): sessão em que todo exercício com série de trabalho
+///   é aeróbico vai como treino aeróbico do tipo do primeiro deles; qualquer outra, como força. O
+///   vínculo procura o mesmo tipo (força com força; aeróbico com qualquer treino aeróbico que cubra
+///   ≥ 50 % da sessão). Sessões já gravadas, antes da 2.4, não são regravadas: a trava abaixo as protege.
 /// - Invariante "um `HKWorkout` por sessão": `WorkoutSessionModel.hkWorkoutUUID` é a trava. Sessão
 ///   que já tem UUID nunca ganha um treino gravado de novo, e o evento aplicado grava o UUID do treino.
 /// - Antes de aplicar o evento, a sessão é relida: se ela foi apagada ou se outro escritor preencheu a
@@ -121,6 +125,7 @@ final class HealthKitWorkoutRecorder {
         let hkWorkoutUUID: UUID?
         let averageBPM: Double?
         let maxBPM: Double?
+        let kind: WorkoutRecordKind
 
         init?(session: WorkoutSessionModel) {
             guard let endedAt = session.endedAt, endedAt > session.startedAt else {
@@ -132,6 +137,7 @@ final class HealthKitWorkoutRecorder {
             self.hkWorkoutUUID = session.hkWorkoutUUID
             self.averageBPM = session.avgHeartRate
             self.maxBPM = session.maxHeartRate
+            self.kind = WorkoutRecordKind.kind(for: session)
         }
     }
 
@@ -150,6 +156,7 @@ final class HealthKitWorkoutRecorder {
         let startedAt = session.startedAt
         let storedAverage = session.avgHeartRate
         let storedMax = session.maxHeartRate
+        let kind = WorkoutRecordKind.kind(for: session)
         guard endedAt > startedAt else {
             logger.error("Sessão \(sessionID.uuidString, privacy: .public) termina antes de começar; nada enviado ao Saúde.")
             return
@@ -164,7 +171,7 @@ final class HealthKitWorkoutRecorder {
             canWrite = hasWriteAuthorization
         }
 
-        let lookup = await lookUpOverlappingWorkout(start: startedAt, end: endedAt)
+        let lookup = await lookUpOverlappingWorkout(kind, start: startedAt, end: endedAt)
         var workoutUUID: UUID?
         switch lookup {
         case .linked(let linkedUUID):
@@ -172,7 +179,7 @@ final class HealthKitWorkoutRecorder {
             workoutUUID = linkedUUID
         case .notFound:
             if canWrite, !lockWasTakenMeanwhile(sessionID: sessionID) {
-                workoutUUID = await saveWorkout(start: startedAt, end: endedAt, sessionID: sessionID)
+                workoutUUID = await saveWorkout(kind, start: startedAt, end: endedAt, sessionID: sessionID)
             }
         case .failed:
             // Sem saber se já existe treino de outro app, gravar arriscaria duplicar (RF-13).
@@ -209,11 +216,11 @@ final class HealthKitWorkoutRecorder {
         defer { sessionsInFlight.remove(snapshot.id) }
 
         // RF-13: o treino do relógio pode ter chegado depois do fim da sessão, quando o iPhone já
-        // tinha gravado o próprio. `findOverlappingStrengthWorkout` ignora treinos deste app, então um
+        // tinha gravado o próprio. `findOverlappingWorkout` ignora treinos deste app, então um
         // resultado diferente do vinculado quer dizer que o vinculado é o do iPhone (ou um treino de
         // outro app com sobreposição menor).
         var workoutUUID = linkedWorkout
-        let lookup = await lookUpOverlappingWorkout(start: snapshot.startedAt, end: snapshot.endedAt)
+        let lookup = await lookUpOverlappingWorkout(snapshot.kind, start: snapshot.startedAt, end: snapshot.endedAt)
         if case .linked(let foreignWorkout) = lookup, foreignWorkout != linkedWorkout {
             let removed = await removeOwnWorkout(sessionID: snapshot.id)
             if removed {
@@ -256,9 +263,9 @@ final class HealthKitWorkoutRecorder {
         }
     }
 
-    private func lookUpOverlappingWorkout(start: Date, end: Date) async -> OverlapLookup {
+    private func lookUpOverlappingWorkout(_ kind: WorkoutRecordKind, start: Date, end: Date) async -> OverlapLookup {
         do {
-            if let linkedUUID = try await healthKit.findOverlappingStrengthWorkout(start: start, end: end) {
+            if let linkedUUID = try await healthKit.findOverlappingWorkout(kind, start: start, end: end) {
                 return .linked(linkedUUID)
             }
             return .notFound
@@ -277,9 +284,9 @@ final class HealthKitWorkoutRecorder {
         return session.hkWorkoutUUID != nil
     }
 
-    private func saveWorkout(start: Date, end: Date, sessionID: UUID) async -> UUID? {
+    private func saveWorkout(_ kind: WorkoutRecordKind, start: Date, end: Date, sessionID: UUID) async -> UUID? {
         do {
-            return try await healthKit.saveStrengthWorkout(start: start, end: end, sessionUUID: sessionID)
+            return try await healthKit.saveWorkout(kind, start: start, end: end, sessionUUID: sessionID)
         } catch {
             logger.error("Falha ao gravar treino no Saúde: \(String(describing: error), privacy: .public)")
             return nil

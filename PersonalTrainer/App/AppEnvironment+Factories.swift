@@ -29,6 +29,10 @@ extension AppEnvironment {
         let modelContainer = opened.container
         let storeLoadError = opened.errorMessage
         let context = modelContainer.mainContext
+        // SPEC §7.17 X8 (2.4): as atividades fora do app num JSON próprio, sem SwiftData. A mesma
+        // instância vai ao backup (exporta, importa e devolve no retrato), ao planejador, ao diálogo e
+        // ao `ActivitiesModel` da raiz. Arquivo ausente ou ilegível vira lista vazia, com log.
+        let activities = LiveOutsideActivityStore()
 
         let backup: BackupService
         if storeLoadError == nil {
@@ -39,7 +43,8 @@ extension AppEnvironment {
                 // exercícios de casa, RF-42) é completado logo depois da importação.
                 reapplySeed: {
                     AppEnvironment.loadSeed(into: context, now: Date(), logger: AppEnvironment.makeLogger(category: "Seed"))
-                }
+                },
+                activities: activities
             )
             // Antes do seed: uma importação interrompida deixa o store vazio, e o seed instalaria o
             // catálogo padrão por cima dos dados que o retrato da importação ainda guarda.
@@ -60,11 +65,13 @@ extension AppEnvironment {
         // Lido uma vez: o planner (modo casa, duração estimada) e as telas (`\.exerciseTraits`)
         // usam o mesmo catálogo de medidas (SPEC RF-42, RF-43).
         let traits = ExerciseTraitsLibrary.load(bundle: .main)
+        // SPEC §7.17 X4 e X5: as fixas entram no encaixe da semana e os registros na recuperação (S6).
         let planner = SessionPlanner(
             modelContext: context,
             coordinator: coordinator,
             deloadDecisions: deloadDecisions,
-            traits: traits
+            traits: traits,
+            activities: activities
         )
         let programs = ProgramRepository(modelContext: context)
         let notifications = LiveNotificationScheduler()
@@ -112,7 +119,9 @@ extension AppEnvironment {
             now: { Date() },
             calendar: .current,
             defaults: .standard,
-            traits: traits
+            traits: traits,
+            // SPEC §7.17 X6: o "Feito" do C8 também grava um registro de equilíbrio ou mobilidade.
+            activities: activities
         )
 
         return AppEnvironment(
@@ -136,7 +145,8 @@ extension AppEnvironment {
             traits: traits,
             // SPEC E8: arquivo ausente, ilegível ou reprovado vira `.empty` (sem botão "Como fazer"),
             // com log; o launch nunca para por causa das guias.
-            exerciseGuides: ExerciseGuideLibrary.load(bundle: .main)
+            exerciseGuides: ExerciseGuideLibrary.load(bundle: .main),
+            activities: activities
         )
     }
 
@@ -159,13 +169,16 @@ extension AppEnvironment {
         )
         // Decisões em memória e ajustes fixos: nenhuma preview lê nem grava o que o app real guardou.
         let deloadDecisions = FakeDeloadDecisionsStore()
+        // Atividades em memória (AGENTS R9): nenhuma preview lê nem grava o arquivo do app real.
+        let activities = FakeOutsideActivityStore()
         let traits = ExerciseTraitsLibrary.load(bundle: .main)
         let planner = SessionPlanner(
             modelContext: context,
             coordinator: coordinator,
             deloadDecisions: deloadDecisions,
             settings: { PlannerSettings() },
-            traits: traits
+            traits: traits,
+            activities: activities
         )
         let programs = ProgramRepository(modelContext: context)
         let notifications = FakeNotificationScheduler()
@@ -178,7 +191,8 @@ extension AppEnvironment {
             now: { fixedNow },
             calendar: .current,
             defaults: UserDefaults(suiteName: "AppEnvironment.preview") ?? .standard,
-            traits: traits
+            traits: traits,
+            activities: activities
         )
 
         return AppEnvironment(
@@ -187,7 +201,7 @@ extension AppEnvironment {
             planner: planner,
             programs: programs,
             catalog: CatalogRepository(modelContext: context),
-            backup: BackupService(modelContext: context),
+            backup: BackupService(modelContext: context, activities: activities),
             references: ReferenceLibrary.load(bundle: .main),
             restTimer: RestTimer(notifications: notifications),
             notifications: notifications,
@@ -199,7 +213,8 @@ extension AppEnvironment {
             watchSync: NoopWatchSyncService(),
             now: { fixedNow },
             traits: traits,
-            exerciseGuides: ExerciseGuideLibrary.load(bundle: .main)
+            exerciseGuides: ExerciseGuideLibrary.load(bundle: .main),
+            activities: activities
         )
     }
 }

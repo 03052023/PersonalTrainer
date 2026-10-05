@@ -24,8 +24,6 @@ struct ActiveSessionView: View {
     @FocusState private var focusedLoadID: UUID?
     /// Exercício cuja carga está sendo trocada no teclado (toque na carga sublinhada).
     @State private var editingLoadID: UUID? = nil
-    /// Exercícios feitos abertos para corrigir uma série.
-    @State private var expandedDoneIDs: Set<UUID> = []
     @State private var infoItem: ExerciseInfoContent? = nil
     /// Ação pedida na folha de informações, feita no `onDismiss` dela: o SwiftUI não abre uma
     /// folha sobre outra que está fechando (contrato V22 §2.2).
@@ -110,7 +108,8 @@ struct ActiveSessionView: View {
                         references: references,
                         context: .session,
                         onPick: { model.substituteSelectedExercise(with: $0) },
-                        onCancel: { model.cancelSubstitution() }
+                        onCancel: { model.cancelSubstitution() },
+                        isHomeMode: model.isSubstitutingAtHome
                     )
                     .tint(Theme.accent)
                 }
@@ -238,7 +237,8 @@ struct ActiveSessionView: View {
             references: references,
             focus: $focusedLoadID,
             isEditingLoad: editingLoadID == exerciseID,
-            isExpanded: expandedDoneIDs.contains(exerciseID),
+            // RF-44 j (2.4): o exercício que acabou de ser concluído continua aberto até marcar outro.
+            isExpanded: model.isExpanded(exercise),
             onOpenInfo: {
                 endLoadEntry()
                 infoItem = model.infoContent(for: exercise)
@@ -250,11 +250,7 @@ struct ActiveSessionView: View {
                 editingLoadID = exerciseID
             },
             onToggleExpanded: {
-                if expandedDoneIDs.contains(exerciseID) {
-                    expandedDoneIDs.remove(exerciseID)
-                } else {
-                    expandedDoneIDs.insert(exerciseID)
-                }
+                model.toggleExpanded(sessionExerciseID: exerciseID)
             }
         )
     }

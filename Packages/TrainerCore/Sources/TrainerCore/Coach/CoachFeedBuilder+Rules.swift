@@ -23,22 +23,23 @@ extension CoachFeedBuilder {
 
     /// C1: announces a scheduled lighter week once per scheduling (`deload:<day of since>`).
     /// Nothing while it runs: the Home card shows it as part of the plan (DESIGN §9).
-    static func deloadMessage(state: CoachDeloadState, calendar: Calendar) -> CoachMessage? {
+    ///
+    /// Since 2.4 (TASKS B11) the reason opens with the numbers of the trigger when `detail`
+    /// explains this same trigger; without it, and for the manual request, the sentence has
+    /// no numbers, as before.
+    static func deloadMessage(
+        state: CoachDeloadState,
+        detail: DeloadTriggerDetail? = nil,
+        calendar: Calendar
+    ) -> CoachMessage? {
         guard case let .scheduled(trigger, since) = state else {
             return nil
         }
         // SPEC §7.5 content: ⌈S × 0,6⌉ sets and round↓(C × 0,85) for one pass of the rotation.
         let content = "nas próximas sessões, uma de cada dia do programa, você fará cerca de 60% das séries "
             + "com cargas 15% menores, para o corpo se recuperar."
-        let reason: String
-        switch trigger {
-        case .manyDecreases:
-            reason = "Em metade ou mais dos exercícios a carga precisou baixar; " + content
-        case .scheduled:
-            reason = "Chegou a semana leve programada no seu plano; " + content
-        case .manual:
-            reason = "Você pediu uma semana mais leve; " + content
-        }
+        let matchingDetail = (detail?.trigger == trigger) ? detail : nil
+        let reason = deloadOpening(trigger: trigger, detail: matchingDetail) + content
         return CoachMessage(
             id: "deload:\(CoachText.day(since, calendar: calendar))",
             rule: .deload,
@@ -50,6 +51,34 @@ extension CoachFeedBuilder {
             priority: Priority.deload,
             highlightsOnLaunch: true
         )
+    }
+
+    /// C1: the first half of the reason, up to the "; " before the content.
+    ///
+    /// - (a) "Em 4 de 7 exercícios a carga precisou baixar; " (the noun follows the total:
+    ///   "1 de 1 exercício");
+    /// - (b) "Já são 6 semanas desde a última semana leve; " or "… desde a primeira sessão; "
+    ///   ("Já faz 1 semana …" in the singular);
+    /// - without usable numbers, or for the manual request, the 2.3 sentence.
+    static func deloadOpening(trigger: DeloadTrigger, detail: DeloadTriggerDetail?) -> String {
+        switch trigger {
+        case .manyDecreases:
+            if let detail, detail.decreasedExercises > 0, detail.countedExercises >= detail.decreasedExercises {
+                let total = HealthText.count(detail.countedExercises, singular: "exercício", plural: "exercícios")
+                return "Em \(HealthText.integer(detail.decreasedExercises)) de \(total) a carga precisou baixar; "
+            }
+            return "Em metade ou mais dos exercícios a carga precisou baixar; "
+        case .scheduled:
+            if let detail, detail.weeksSinceAnchor >= 1 {
+                let weeks = HealthText.count(detail.weeksSinceAnchor, singular: "semana", plural: "semanas")
+                let opening = detail.weeksSinceAnchor == 1 ? "Já faz" : "Já são"
+                let anchor = detail.anchorIsLastDeload ? "desde a última semana leve" : "desde a primeira sessão"
+                return "\(opening) \(weeks) \(anchor); "
+            }
+            return "Chegou a semana leve programada no seu plano; "
+        case .manual:
+            return "Você pediu uma semana mais leve; "
+        }
     }
 
     // MARK: - C2 Periodic review

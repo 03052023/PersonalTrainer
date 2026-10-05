@@ -86,10 +86,11 @@ enum LaunchTimeline {
     private static let rmContentWindow = (t0: 0.34, t1: 0.60)
     private static let rmStatusAt = 0.30
 
-    /// A `LaunchTimeline` só recebe `hasGoal` (assinatura congelada, docs/V23-UI-CONTRACT.md §4.2):
-    /// internamente ela sempre trata esta pétala como "a do objetivo" (a que, com `hasGoal`, cora e é
-    /// adiada para sair por último). `LaunchOverlay`, que conhece o objetivo de verdade, troca os
-    /// números desta pétala com os da pétala realmente ativa antes de desenhar — ver o comentário lá.
+    /// A assinatura congelada `frame(at:reduceMotion:dark:hasGoal:)` (docs/V23-UI-CONTRACT.md §4.2) só
+    /// sabe que há um objetivo, não qual: ela chama a sobrecarga com `goalPetalIndex:` passando esta
+    /// pétala como "a do objetivo". Quem conhece o objetivo de verdade (`LaunchOverlay`) chama a
+    /// sobrecarga direto com `ProgramGoal.petalIndex` (SPEC RF-50, achado B5 da 2.3: a troca de estado
+    /// entre pétalas que existia antes errava a ordem de abrir quando o objetivo não era a Longevidade).
     /// De propósito, **não** é `LaunchFlowerGeometry.openOrder.last` (que já sai por último de qualquer
     /// jeito): precisa ser uma pétala que normalmente NÃO é a última, para o adiamento com `hasGoal`
     /// ser uma mudança de verdade (e o teste `testRF50_goalPetalFadesLast` testar algo real).
@@ -119,18 +120,33 @@ enum LaunchTimeline {
         return 1 - easeInOut.value(at: fraction(t, m, b))
     }
 
-    /// A ordem de desvanecer: igual à de abrir, exceto que, com objetivo, a pétala designada vai para
-    /// o fim (protótipo `fadeOrder`).
-    private static func fadeOrder(hasGoal: Bool) -> [Int] {
-        guard hasGoal else { return LaunchFlowerGeometry.openOrder }
+    /// A ordem de desvanecer: igual à de abrir (`ORDER` do protótipo, a mesma sempre), exceto que, com
+    /// objetivo, a pétala dele sai da posição e vai para o fim (protótipo `fadeOrder`). Um índice fora
+    /// de 0...4 não é de nenhuma pétala: vale como sem objetivo.
+    static func fadeOrder(goalPetalIndex: Int?) -> [Int] {
         var order = LaunchFlowerGeometry.openOrder
-        order.removeAll { $0 == designatedGoalPetalIndex }
-        order.append(designatedGoalPetalIndex)
+        guard let goalPetalIndex, order.contains(goalPetalIndex) else { return order }
+        order.removeAll { $0 == goalPetalIndex }
+        order.append(goalPetalIndex)
         return order
     }
 
     private static func slot(of petalIndex: Int, in order: [Int]) -> Int {
         order.firstIndex(of: petalIndex) ?? 0
+    }
+
+    /// `ProgramGoal.petalIndex` só vai de 0 a 4; qualquer outro valor vira "sem objetivo" em vez de
+    /// derrubar a abertura (AGENTS R11).
+    private static func validGoalPetalIndex(_ index: Int?) -> Int? {
+        guard let index, LaunchFlowerGeometry.openOrder.contains(index) else { return nil }
+        return index
+    }
+
+    /// O quadro no instante `t` quando só se sabe que há um objetivo, não qual. Assinatura congelada
+    /// (docs/V23-UI-CONTRACT.md §4.2): chama `frame(at:reduceMotion:dark:goalPetalIndex:)` com
+    /// `designatedGoalPetalIndex`.
+    static func frame(at t: Double, reduceMotion: Bool, dark: Bool, hasGoal: Bool) -> LaunchFrame {
+        frame(at: t, reduceMotion: reduceMotion, dark: dark, goalPetalIndex: hasGoal ? designatedGoalPetalIndex : nil)
     }
 
     /// O quadro no instante `t` (segundos desde o primeiro quadro do app; SPEC RF-50).
@@ -139,13 +155,17 @@ enum LaunchTimeline {
     ///   - reduceMotion: `@Environment(\.accessibilityReduceMotion)`; troca giro/crescimento por
     ///     esmaecimento e tira o pólen (é movimento).
     ///   - dark: `@Environment(\.colorScheme) == .dark`; desliga o véu de areia.
-    ///   - hasGoal: há um objetivo ativo (`!goals.isEmpty`); sem ele, nenhuma pétala cora.
-    static func frame(at t: Double, reduceMotion: Bool, dark: Bool, hasGoal: Bool) -> LaunchFrame {
+    ///   - goalPetalIndex: `ProgramGoal.petalIndex` do objetivo principal; `nil` sem objetivo (nenhuma
+    ///     pétala cora). Só a pétala dele muda: sai por último (e, com Reduzir Movimento, esmaece depois
+    ///     das outras). A ordem de abrir é sempre a mesma, qualquer que seja o objetivo (B5).
+    static func frame(at t: Double, reduceMotion: Bool, dark: Bool, goalPetalIndex: Int?) -> LaunchFrame {
+        let goalPetal = validGoalPetalIndex(goalPetalIndex)
         if reduceMotion {
-            return reducedMotionFrame(at: t, dark: dark, hasGoal: hasGoal)
+            return reducedMotionFrame(at: t, dark: dark, goalPetalIndex: goalPetal)
         }
+        let hasGoal = goalPetal != nil
 
-        let order = fadeOrder(hasGoal: hasGoal)
+        let order = fadeOrder(goalPetalIndex: goalPetal)
         var openProgressByPetal = [Double](repeating: 0, count: 5)
         var petals = [LaunchFrame.Petal]()
         petals.reserveCapacity(5)
@@ -197,13 +217,14 @@ enum LaunchTimeline {
     /// Com Reduzir Movimento (DESIGN §10; protótipo, seção "Com Reduzir Movimento"): nada gira, cresce
     /// ou desliza — só esmaecimentos, na mesma ordem (flor, depois azul, depois conteúdo), então nunca
     /// há flor ou azul por cima do texto. Sem pólen (é movimento).
-    private static func reducedMotionFrame(at t: Double, dark: Bool, hasGoal: Bool) -> LaunchFrame {
+    private static func reducedMotionFrame(at t: Double, dark: Bool, goalPetalIndex: Int?) -> LaunchFrame {
         let flowerFade = 1 - easeInOut.value(at: fraction(t, rmFlowerWindow.t0, rmFlowerWindow.t1))
+        let hasGoal = goalPetalIndex != nil
 
         let petals: [LaunchFrame.Petal]
         if hasGoal {
             petals = (0..<5).map { petalIndex in
-                let window = petalIndex == designatedGoalPetalIndex ? handoffActiveWindowReduceMotion : handoffOthersWindowReduceMotion
+                let window = petalIndex == goalPetalIndex ? handoffActiveWindowReduceMotion : handoffOthersWindowReduceMotion
                 let opacity = 1 - easeInOut.value(at: fraction(t, window.t0, window.t1))
                 return LaunchFrame.Petal(grow: 1, slide: 0, opacity: opacity)
             }

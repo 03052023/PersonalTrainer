@@ -76,6 +76,122 @@ struct CoachDeloadReviewTests {
         #expect(CF.feed(input, calendar: saoPaulo).map(\.id) == ["deload:2026-09-20"])
     }
 
+    // MARK: C1 with numbers (2.4, TASKS B11)
+
+    struct NumbersCase: Sendable, CustomTestStringConvertible {
+        let label: String
+        let trigger: DeloadTrigger
+        let detail: DeloadTriggerDetail?
+        let opening: String
+
+        var testDescription: String { label }
+    }
+
+    static let numbersCases: [NumbersCase] = [
+        NumbersCase(
+            label: "(a) 4 de 7",
+            trigger: .manyDecreases,
+            detail: DeloadTriggerDetail(trigger: .manyDecreases, decreasedExercises: 4, countedExercises: 7),
+            opening: "Em 4 de 7 exercícios a carga precisou baixar; "
+        ),
+        NumbersCase(
+            label: "(a) 1 de 2",
+            trigger: .manyDecreases,
+            detail: DeloadTriggerDetail(trigger: .manyDecreases, decreasedExercises: 1, countedExercises: 2),
+            opening: "Em 1 de 2 exercícios a carga precisou baixar; "
+        ),
+        NumbersCase(
+            label: "(a) singular: 1 de 1 exercício",
+            trigger: .manyDecreases,
+            detail: DeloadTriggerDetail(trigger: .manyDecreases, decreasedExercises: 1, countedExercises: 1),
+            opening: "Em 1 de 1 exercício a carga precisou baixar; "
+        ),
+        NumbersCase(
+            label: "(b) 6 semanas desde a última semana leve",
+            trigger: .scheduled,
+            detail: DeloadTriggerDetail(trigger: .scheduled, weeksSinceAnchor: 6, anchorIsLastDeload: true),
+            opening: "Já são 6 semanas desde a última semana leve; "
+        ),
+        NumbersCase(
+            label: "(b) 6 semanas desde a primeira sessão, sem semana leve antes",
+            trigger: .scheduled,
+            detail: DeloadTriggerDetail(trigger: .scheduled, weeksSinceAnchor: 6, anchorIsLastDeload: false),
+            opening: "Já são 6 semanas desde a primeira sessão; "
+        ),
+        NumbersCase(
+            label: "(b) singular: 1 semana",
+            trigger: .scheduled,
+            detail: DeloadTriggerDetail(trigger: .scheduled, weeksSinceAnchor: 1, anchorIsLastDeload: true,
+                                        weeksBetweenDeloads: 1),
+            opening: "Já faz 1 semana desde a última semana leve; "
+        ),
+        NumbersCase(
+            label: "sem detalhe, (a): o texto sem números",
+            trigger: .manyDecreases,
+            detail: nil,
+            opening: "Em metade ou mais dos exercícios a carga precisou baixar; "
+        ),
+        NumbersCase(
+            label: "sem detalhe, (b): o texto sem números",
+            trigger: .scheduled,
+            detail: nil,
+            opening: "Chegou a semana leve programada no seu plano; "
+        ),
+        NumbersCase(
+            label: "detalhe de outro gatilho é ignorado",
+            trigger: .scheduled,
+            detail: DeloadTriggerDetail(trigger: .manyDecreases, decreasedExercises: 4, countedExercises: 7),
+            opening: "Chegou a semana leve programada no seu plano; "
+        ),
+        NumbersCase(
+            label: "pedido manual: sem números, mesmo com detalhe",
+            trigger: .manual,
+            detail: DeloadTriggerDetail(trigger: .manual),
+            opening: "Você pediu uma semana mais leve; "
+        ),
+        NumbersCase(
+            label: "(a) sem reduções contadas: o texto sem números",
+            trigger: .manyDecreases,
+            detail: DeloadTriggerDetail(trigger: .manyDecreases, decreasedExercises: 0, countedExercises: 0),
+            opening: "Em metade ou mais dos exercícios a carga precisou baixar; "
+        ),
+        NumbersCase(
+            label: "(b) 0 semanas: o texto sem números",
+            trigger: .scheduled,
+            detail: DeloadTriggerDetail(trigger: .scheduled, weeksSinceAnchor: 0),
+            opening: "Chegou a semana leve programada no seu plano; "
+        ),
+    ]
+
+    @Test("C1 motivo com os números do gatilho", arguments: CoachDeloadReviewTests.numbersCases)
+    func reasonHasTheTriggerNumbers(_ testCase: NumbersCase) throws {
+        let input = CoachInput(
+            deload: .scheduled(trigger: testCase.trigger, since: CF.at(0, hour: 10)),
+            deloadDetail: testCase.detail
+        )
+
+        let message = try #require(CF.feed(input).first)
+
+        #expect(message.reason.hasPrefix(testCase.opening))
+        // The content after the opening is the 2.3 one, the same with or without numbers.
+        #expect(message.reason.hasSuffix(
+            "nas próximas sessões, uma de cada dia do programa, você fará cerca de 60% das séries "
+                + "com cargas 15% menores, para o corpo se recuperar."
+        ))
+        // The numbers change only the reason: id, title and actions stay.
+        #expect(message.id == "deload:2026-09-21")
+        #expect(message.title == "Semana mais leve programada")
+        #expect(message.actions == [.ok, .keepNormal])
+    }
+
+    @Test("C1 o detalhe não cria mensagem sem semana leve programada")
+    func detailAloneSaysNothing() {
+        let detail = DeloadTriggerDetail(trigger: .scheduled, weeksSinceAnchor: 6, anchorIsLastDeload: true)
+
+        #expect(CF.feed(CoachInput(deload: .none, deloadDetail: detail)).isEmpty)
+        #expect(CF.feed(CoachInput(deload: .running(start: CF.at(0)), deloadDetail: detail)).isEmpty)
+    }
+
     // MARK: C2
 
     @Test("C2 sem revisão, nenhuma mensagem de revisão")

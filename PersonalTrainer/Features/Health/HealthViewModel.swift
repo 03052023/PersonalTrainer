@@ -18,6 +18,10 @@ import TrainerCore
 /// - Sugestões dispensadas: "Ok, entendi" grava no `CoachLog` compartilhado (`logStore`), a mesma
 ///   fonte que o feed do diálogo da Home usa (SPEC §7.11 C3). Dispensar aqui também esconde a
 ///   sugestão no feed, e vice-versa (V21-CONTRACT B3, A4/B8) — ver `HealthSuggestionDismissal`.
+/// - Atividades fora do app (SPEC §7.17 X3, X5; 2.4): antes do cálculo, os registros que contam no
+///   aeróbico entram nos treinos (menos os que um treino do Saúde já cobre) e os de força com pernas
+///   entram nas sessões do encaixe do aeróbico (A5). `activitiesDidChange()` refaz a conta com a última
+///   leitura, sem reler o HealthKit. Nada disso pede permissão.
 @Observable
 @MainActor
 final class HealthViewModel {
@@ -84,6 +88,9 @@ final class HealthViewModel {
     /// Longevidade ou de Cardio. O padrão `{ true }` mantém o comportamento de antes desta regra
     /// para testes e previews que não passam a checagem.
     private let showsStepsCheck: @MainActor () -> Bool
+    /// As atividades fora do app (SPEC §7.17), só para ler; o padrão `{ .empty }` mantém o cálculo de
+    /// antes para testes e previews.
+    private let activityLog: @MainActor () -> OutsideActivityLog
     /// Incrementado a cada `dismiss(_:)`. `visibleSuggestions` o lê só para o Observation
     /// invalidar a view na hora: o log em si é um arquivo externo, não uma propriedade rastreada.
     private var dismissalTick = 0
@@ -108,6 +115,8 @@ final class HealthViewModel {
     ///   - logStore: log do diálogo onde "Ok, entendi" grava a dispensa (AGENTS R9: `Live`/`Fake`).
     ///     Padrão `LiveCoachLogStore()`, o mesmo arquivo que `CoachService` usa em produção; testes
     ///     e previews devem passar um `FakeCoachLogStore` isolado.
+    ///   - activityLog: as atividades fora do app (SPEC §7.17 X3, X5); o integrador passa
+    ///     `{ environment.activities.load() }`.
     init(
         reader: any HealthDataReading,
         sessionsProvider: @escaping @MainActor () -> [SessionSummary],
@@ -116,7 +125,8 @@ final class HealthViewModel {
         calendar: Calendar = .current,
         defaults: UserDefaults = .standard,
         logStore: any CoachLogStoring = LiveCoachLogStore(),
-        showsSteps: @escaping @MainActor () -> Bool = { true }
+        showsSteps: @escaping @MainActor () -> Bool = { true },
+        activityLog: @escaping @MainActor () -> OutsideActivityLog = { .empty }
     ) {
         self.reader = reader
         self.sessionsProvider = sessionsProvider
@@ -126,6 +136,7 @@ final class HealthViewModel {
         self.defaults = defaults
         self.logStore = logStore
         self.showsStepsCheck = showsSteps
+        self.activityLog = activityLog
         self.needsAuthorization = !defaults.bool(forKey: Keys.readAuthorized)
 
         let storedYear = defaults.integer(forKey: Keys.birthYear)
@@ -293,6 +304,17 @@ final class HealthViewModel {
         }
     }
 
+    /// As atividades fora do app mudaram (SPEC §7.17; o `onChange` do `ActivitiesModel`, ligado pelo
+    /// integrador): refaz o relatório com a última leitura do Saúde, sem reler o HealthKit e sem pedir
+    /// nada. Sem leitura ainda (Saúde não conectado ou nunca lido), não faz nada: as Metas da semana usam os
+    /// minutos das atividades direto (W4).
+    func activitiesDidChange() {
+        guard let lastRawInput else {
+            return
+        }
+        recalculate(from: lastRawInput, at: lastLoadedAt ?? now())
+    }
+
     /// "Ok, entendi": grava a dispensa no log do diálogo (SPEC §7.11 C3), a mesma resposta que o
     /// feed da Home grava para "Entendi" — esconde a sugestão nas duas telas por
     /// `HealthSuggestionDismissal.cooldownDays`; se a condição persistir depois disso, ela volta
@@ -316,15 +338,26 @@ final class HealthViewModel {
 
     // MARK: Cálculo
 
+    /// `rawInput` é a leitura do Saúde como veio (guardada em `lastRawInput`); as atividades fora do app
+    /// entram aqui, a cada cálculo, para `activitiesDidChange()` não somar duas vezes.
     private func recalculate(from rawInput: HealthInput, at referenceDate: Date) {
         let merged = mergedPhysiology(rawInput.physiology)
+        let entries = activityLog().entries
+        // SPEC §7.17 X3: os registros aeróbicos moderados ou fortes, como treinos sem FC, menos os que um
+        // treino do Saúde cobre em ≥ 50 % (o relógio já contou). X5/A5: a força com pernas conta como
+        // treino de inferior no encaixe do aeróbico.
+        let outsideWorkouts = OutsideActivities.aerobicSamples(
+            entries: entries,
+            excludingOverlapWith: rawInput.aerobicWorkouts
+        )
+        let outsideSessions = OutsideActivities.placementSessions(entries: entries)
         let input = HealthInput(
             physiology: merged,
-            aerobicWorkouts: rawInput.aerobicWorkouts,
+            aerobicWorkouts: rawInput.aerobicWorkouts + outsideWorkouts,
             recovery: rawInput.recovery,
             steps: rawInput.steps,
             vo2Max: rawInput.vo2Max,
-            recentSessions: rawInput.recentSessions
+            recentSessions: rawInput.recentSessions + outsideSessions
         )
         healthProvidedPhysiology = rawInput.physiology
         physiology = merged

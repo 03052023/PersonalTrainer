@@ -39,9 +39,38 @@ extension CoachService {
                 return nil
             }
             return .progress(exerciseID)
-        case .ok, .notNow, .neverAgain, .understood, .remindTomorrow, .later, .done, .skip:
-            // Só o log: ele esconde a mensagem, e no C8 "Feito" é a própria marca da semana.
+        case .done:
+            // C8: a resposta no log é a marca da semana; desde a 2.4, o bloco feito também vira um
+            // registro nas atividades fora do app (SPEC §7.17 X6).
+            if message.rule == .longevity {
+                recordLongevityActivity(for: message, now: now)
+            }
             return nil
+        case .ok, .notNow, .neverAgain, .understood, .remindTomorrow, .later, .skip:
+            // Só o log: ele esconde a mensagem.
+            return nil
+        }
+    }
+
+    /// SPEC §7.17 X6: o "Feito" do C8 grava 10 min leves de equilíbrio ou de mobilidade
+    /// (`OutsideActivities.longevityEntry`), para as Metas da semana contarem as vezes (W2.6). Uma falha
+    /// só vai para o log: a marca do C8 é a resposta no log do diálogo, que continua sendo gravada.
+    func recordLongevityActivity(for message: CoachMessage, now: Date) {
+        guard let entry = OutsideActivities.longevityEntry(key: message.itemKey, at: now) else {
+            Self.logger.error("C8 sem registro de atividade: bloco desconhecido \(message.itemKey, privacy: .public).")
+            return
+        }
+        var log = activities.load()
+        log.entries.append(entry)
+        do {
+            try activities.save(log)
+            // W2.6: daqui em diante, o "Feito" conta pelo registro, não pela marca do log.
+            if defaults.object(forKey: DefaultsKey.longevityEntriesSince) == nil {
+                defaults.set(now, forKey: DefaultsKey.longevityEntriesSince)
+            }
+        } catch {
+            let reason = String(describing: error)
+            Self.logger.error("Registro do C8 não foi gravado nas atividades: \(reason, privacy: .public)")
         }
     }
 
@@ -213,7 +242,7 @@ extension CoachService {
         (UUID(uuidString: "ADE28A46-680B-4701-A51F-992519A8AD63") ?? UUID(), "Mais tronco e braços"),
     ]
 
-    /// C2 "Experimentar um novo programa" (SPEC RF-45: objetivo = plano). Na Hipertrofia, o
+    /// C2 "Experimentar um novo plano" (SPEC RF-45: objetivo = plano). Na Hipertrofia, o
     /// próximo dos 3 formatos do seed depois do ativo (dando a volta; um ativo que não é formato
     /// vai para o primeiro, então o antigo Corpo todo vai para o Equilibrado), só entre os que
     /// existem, têm dias e continuam na Hipertrofia. Nunca um programa escondido pela RF-45 (cópia,

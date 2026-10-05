@@ -462,6 +462,209 @@ final class HealthKitWorkoutRecorderTests: XCTestCase {
         XCTAssertEqual(saved.map { $0.sessionUUID }, [firstID, secondID])
     }
 
+    // MARK: - F5: sessão só de aeróbicos vai como treino aeróbico (RF-13)
+
+    func testF5_cardioSessionRecordsAerobicKind() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (sessionID, finished) = try startAndFinishSession(fixture, exercises: [
+            ExerciseSpec(slug: "easy-run", pattern: .cardio),
+        ])
+
+        await recorder.process(finished)
+
+        let saved = await healthKit.savedWorkouts
+        XCTAssertEqual(saved.count, 1)
+        XCTAssertEqual(saved.first?.kind, WorkoutRecordKind.aerobic(.running))
+        XCTAssertEqual(saved.first?.start, startedAt)
+        XCTAssertEqual(saved.first?.end, endedAt)
+        XCTAssertEqual(saved.first?.sessionUUID, sessionID)
+        let overlapQueries = await healthKit.overlapQueries
+        XCTAssertEqual(
+            overlapQueries,
+            [FakeHealthKitService.OverlapQuery(start: startedAt, end: endedAt, kind: .aerobic(.running))],
+            "O vínculo procura o mesmo tipo"
+        )
+        let session = try XCTUnwrap(fixture.coordinator.session(withID: sessionID))
+        XCTAssertEqual(session.hkWorkoutUUID, saved.first?.returnedUUID)
+    }
+
+    func testF5_firstWorkedAerobicDecidesTheKind() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        // O circuito só tem aquecimento (não conta); o pular corda é o primeiro com série de trabalho.
+        let (_, finished) = try startAndFinishSession(fixture, exercises: [
+            ExerciseSpec(slug: "bodyweight-circuit", pattern: .cardio, workSets: 0, warmupSets: 1),
+            ExerciseSpec(slug: "jump-rope", pattern: .cardio),
+            ExerciseSpec(slug: "brisk-walk", pattern: .cardio),
+        ])
+
+        await recorder.process(finished)
+
+        let saved = await healthKit.savedWorkouts
+        XCTAssertEqual(saved.map(\.kind), [WorkoutRecordKind.jumpRope])
+    }
+
+    func testF5_customCardioExerciseRecordsOtherAerobic() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (_, finished) = try startAndFinishSession(fixture, exercises: [
+            ExerciseSpec(slug: "meu-cardio-proprio", pattern: .cardio),
+        ])
+
+        await recorder.process(finished)
+
+        let saved = await healthKit.savedWorkouts
+        XCTAssertEqual(saved.map(\.kind), [WorkoutRecordKind.aerobic(.other)])
+    }
+
+    func testF5_mixedSessionRecordsStrength() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (_, finished) = try startAndFinishSession(fixture, exercises: [
+            ExerciseSpec(slug: "squat-teste", pattern: .squat),
+            ExerciseSpec(slug: "brisk-walk", pattern: .cardio),
+        ])
+
+        await recorder.process(finished)
+
+        let saved = await healthKit.savedWorkouts
+        XCTAssertEqual(saved.map(\.kind), [WorkoutRecordKind.strength], "Mistura de força e aeróbico continua como força")
+        let overlapQueries = await healthKit.overlapQueries
+        XCTAssertEqual(overlapQueries.map(\.kind), [WorkoutRecordKind.strength])
+    }
+
+    func testF5_exerciseWithoutMovementPatternKeepsStrength() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (_, finished) = try startAndFinishSession(fixture, exercises: [
+            ExerciseSpec(slug: "sem-padrao", pattern: nil),
+        ])
+
+        await recorder.process(finished)
+
+        let saved = await healthKit.savedWorkouts
+        XCTAssertEqual(saved.map(\.kind), [WorkoutRecordKind.strength])
+    }
+
+    func testF5_exerciseMissingFromCatalogKeepsStrength() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        // Sem o exercício no catálogo não há como saber que é aeróbico: o caminho seguro é o de força.
+        let (_, finished) = try startAndFinishSession(fixture, exercises: [
+            ExerciseSpec(slug: "brisk-walk", pattern: .cardio, isInCatalog: false),
+        ])
+
+        await recorder.process(finished)
+
+        let saved = await healthKit.savedWorkouts
+        XCTAssertEqual(saved.map(\.kind), [WorkoutRecordKind.strength])
+    }
+
+    func testF5_exerciseWithoutWorkSetsDoesNotMakeTheSessionMixed() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        // A força do plano ficou sem série (pulada): só o que teve série de trabalho conta.
+        let (_, finished) = try startAndFinishSession(fixture, exercises: [
+            ExerciseSpec(slug: "squat-teste", pattern: .squat, workSets: 0),
+            ExerciseSpec(slug: "stationary-bike", pattern: .cardio),
+        ])
+
+        await recorder.process(finished)
+
+        let saved = await healthKit.savedWorkouts
+        XCTAssertEqual(saved.map(\.kind), [WorkoutRecordKind.aerobic(.cycling)])
+    }
+
+    func testF5_linksOverlappingAerobicWorkout() async throws {
+        let fixture = try makeFixture()
+        let strengthWorkout = UUID()
+        let aerobicWorkout = UUID()
+        let healthKit = FakeHealthKitService(
+            overlappingWorkoutToReturn: strengthWorkout,
+            overlappingAerobicWorkoutToReturn: aerobicWorkout
+        )
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (sessionID, finished) = try startAndFinishSession(fixture, exercises: [
+            ExerciseSpec(slug: "brisk-walk", pattern: .cardio),
+        ])
+
+        await recorder.process(finished)
+
+        let saved = await healthKit.savedWorkouts
+        XCTAssertTrue(saved.isEmpty, "Vincula o treino aeróbico do relógio em vez de criar outro")
+        let session = try XCTUnwrap(fixture.coordinator.session(withID: sessionID))
+        XCTAssertEqual(session.hkWorkoutUUID, aerobicWorkout, "Nunca o treino de força: o vínculo é pelo mesmo tipo")
+    }
+
+    func testF5_strengthSessionIgnoresAerobicWorkoutFromAnotherApp() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService(overlappingAerobicWorkoutToReturn: UUID())
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (sessionID, finished) = try startAndFinishSession(fixture)
+
+        await recorder.process(finished)
+
+        let saved = await healthKit.savedWorkouts
+        XCTAssertEqual(saved.count, 1, "A força grava o próprio treino: o aeróbico de outro app não serve")
+        let session = try XCTUnwrap(fixture.coordinator.session(withID: sessionID))
+        XCTAssertEqual(session.hkWorkoutUUID, saved.first?.returnedUUID)
+    }
+
+    func testF5_reconcileRelinksAerobicWorkoutFromTheWatchArrivingLater() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (sessionID, finished) = try startAndFinishSession(fixture, exercises: [
+            ExerciseSpec(slug: "easy-run", pattern: .cardio),
+        ])
+        await recorder.process(finished)
+        let saved = await healthKit.savedWorkouts
+        XCTAssertEqual(saved.map(\.kind), [WorkoutRecordKind.aerobic(.running)])
+
+        let watchRun = UUID()
+        await healthKit.setOverlappingAerobicWorkoutToReturn(watchRun)
+        await recorder.reconcileRecentSessions(now: endedAt.addingTimeInterval(600))
+
+        let removed = await healthKit.removedWorkoutSessions
+        XCTAssertEqual(removed, [sessionID], "O treino aeróbico do iPhone virou duplicata e é apagado")
+        let session = try XCTUnwrap(fixture.coordinator.session(withID: sessionID))
+        XCTAssertEqual(session.hkWorkoutUUID, watchRun)
+        let savedAfter = await healthKit.savedWorkouts
+        XCTAssertEqual(savedAfter.count, 1, "Nada é gravado de novo")
+    }
+
+    func testF5_oldSessionAlreadyRecordedIsNeverRewritten() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (sessionID, finished) = try startAndFinishSession(fixture, exercises: [
+            ExerciseSpec(slug: "brisk-walk", pattern: .cardio),
+        ])
+        // Sessão de antes da 2.4: já foi gravada como força e guarda o UUID do treino.
+        let oldWorkout = UUID()
+        try fixture.coordinator.apply(SessionEvent(
+            sessionID: sessionID,
+            occurredAt: endedAt,
+            source: .iphone,
+            kind: .heartRateSummary(averageBPM: 0, maxBPM: 0, hkWorkoutUUID: oldWorkout)
+        ))
+
+        await recorder.process(finished)
+
+        let saved = await healthKit.savedWorkouts
+        XCTAssertTrue(saved.isEmpty)
+        let session = try XCTUnwrap(fixture.coordinator.session(withID: sessionID))
+        XCTAssertEqual(session.hkWorkoutUUID, oldWorkout)
+    }
+
     // MARK: - Regra de sobreposição do LiveHealthKitService (RF-13)
 
     func testRF13_bestOverlap_requiresAtLeastHalfOfTheSession() {
@@ -540,6 +743,90 @@ final class HealthKitWorkoutRecorderTests: XCTestCase {
 
     private func startAndFinishSession(_ fixture: Fixture) throws -> (UUID, SessionEvent) {
         let sessionID = try startSession(fixture)
+        let finished = try finish(sessionID, fixture)
+        return (sessionID, finished)
+    }
+
+    /// Um exercício da sessão de teste: quantas séries de trabalho e de aquecimento ele teve, e se
+    /// está no catálogo (sem estar, a sessão guarda só o nome e a relação fica vazia).
+    private struct ExerciseSpec {
+        let slug: String
+        let pattern: MovementPattern?
+        var workSets = 1
+        var warmupSets = 0
+        var isInCatalog = true
+    }
+
+    /// Sessão com os exercícios de `exercises` (um plano, o catálogo e as séries registradas) já
+    /// finalizada. O slug de cada exercício precisa ser único no teste (o catálogo exige).
+    private func startAndFinishSession(
+        _ fixture: Fixture,
+        exercises specs: [ExerciseSpec]
+    ) throws -> (UUID, SessionEvent) {
+        let context = fixture.container.mainContext
+        var planned: [PlannedExercise] = []
+        for (order, spec) in specs.enumerated() {
+            let exerciseID = UUID()
+            if spec.isInCatalog {
+                context.insert(ExerciseModel(
+                    uuid: exerciseID,
+                    slug: spec.slug,
+                    name: spec.slug,
+                    primaryMusclesRaw: "core",
+                    secondaryMusclesRaw: "",
+                    equipmentRaw: Equipment.bodyweight.rawValue,
+                    loadUnitRaw: LoadUnit.kilograms.rawValue,
+                    loadIncrement: 1,
+                    isUnilateral: false,
+                    machineNotes: nil,
+                    isArchived: false,
+                    movementPatternRaw: spec.pattern?.rawValue
+                ))
+            }
+            let definition = ExerciseDefinition(
+                id: exerciseID,
+                slug: spec.slug,
+                name: spec.slug,
+                primaryMuscles: [.core],
+                equipment: .bodyweight,
+                loadUnit: .kilograms,
+                loadIncrement: 1,
+                movementPattern: spec.pattern
+            )
+            planned.append(PlannedExercise(
+                id: UUID(),
+                exercise: definition,
+                target: ExerciseTarget(exerciseID: exerciseID, order: order),
+                prescription: ExercisePrescription(exerciseID: exerciseID)
+            ))
+        }
+        try context.save()
+
+        let plan = SessionPlan(
+            programID: UUID(),
+            programName: "Programa",
+            programDayID: UUID(),
+            programDayName: "Dia A",
+            exercises: planned,
+            generatedAt: startedAt
+        )
+        let sessionID = try fixture.coordinator.startSession(plan: plan, now: startedAt, source: .iphone)
+        for (order, spec) in specs.enumerated() {
+            let warmups = [Bool](repeating: true, count: spec.warmupSets)
+            let works = [Bool](repeating: false, count: spec.workSets)
+            for (index, isWarmup) in (warmups + works).enumerated() {
+                try fixture.coordinator.logSet(
+                    sessionID: sessionID,
+                    sessionExerciseID: planned[order].id,
+                    index: index,
+                    load: 0,
+                    reps: 10,
+                    rir: nil,
+                    isWarmup: isWarmup,
+                    now: startedAt.addingTimeInterval(TimeInterval(60 * (order + 1) + index))
+                )
+            }
+        }
         let finished = try finish(sessionID, fixture)
         return (sessionID, finished)
     }

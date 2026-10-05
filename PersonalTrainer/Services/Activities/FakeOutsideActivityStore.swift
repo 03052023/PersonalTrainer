@@ -7,6 +7,8 @@ final class FakeOutsideActivityStore: OutsideActivityStoring {
     private(set) var log: OutsideActivityLog
     /// Gravações bem-sucedidas, para os testes conferirem que nada foi gravado.
     private(set) var saveCount = 0
+    /// Leituras, para os testes conferirem quem lê as atividades (o planejador, por exemplo).
+    private(set) var loadCount = 0
     /// Quando preenchido, `save(_:)` lança este erro e não grava nada.
     var saveError: (any Error)?
 
@@ -15,7 +17,8 @@ final class FakeOutsideActivityStore: OutsideActivityStoring {
     }
 
     func load() -> OutsideActivityLog {
-        log
+        loadCount += 1
+        return log
     }
 
     func save(_ log: OutsideActivityLog) throws {

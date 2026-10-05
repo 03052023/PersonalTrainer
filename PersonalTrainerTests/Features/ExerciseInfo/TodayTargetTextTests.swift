@@ -73,12 +73,30 @@ final class TodayTargetTextTests: XCTestCase {
             TodayTargetText.row(sets: 3, goal: 30, measure: .steps, load: .load("22,5 kg")),
             "3 séries de 30 passos · 22,5 kg"
         )
-        XCTAssertEqual(TodayTargetText.row(sets: 4, goal: 6, measure: .reps, load: .toChoose), "4 séries de 6 · escolha a carga")
+        XCTAssertEqual(TodayTargetText.row(sets: 4, goal: 6, measure: .reps, load: .toChoose), "4 séries de 6 · sem carga")
         XCTAssertEqual(
             TodayTargetText.row(sets: 3, goal: 5, measure: .reps, load: .extra("+ 2,5 kg extra")),
             "3 séries de 5 · + 2,5 kg extra"
         )
         XCTAssertEqual(TodayTargetText.row(sets: 1, goal: 8, measure: .reps, load: .hidden), "1 série de 8")
+    }
+
+    /// SPEC RF-46 (2.4; achado B11 da 2.3): a tela Hoje diz "sem carga", como a ficha e a folha de
+    /// informações; "escolha a carga" saiu de todas as telas.
+    func testRF46_todayRowSaysSemCarga() {
+        XCTAssertEqual(TodayTargetText.toChooseText, "sem carga")
+        XCTAssertEqual(TodayTargetText.loadLabel(.toChoose), "sem carga")
+        XCTAssertEqual(TodayTargetText.row(sets: 3, goal: 8, measure: .reps, load: .toChoose), "3 séries de 8 · sem carga")
+        XCTAssertEqual(
+            TodayTargetText.spokenRow(sets: 3, goal: 8, measure: .reps, load: .toChoose),
+            "3 séries de 8 repetições, sem carga"
+        )
+        XCTAssertEqual(
+            TodayTargetText.row(sets: 3, goal: 30, measure: .steps, load: .toChoose),
+            "3 séries de 30 passos · sem carga"
+        )
+        XCTAssertEqual(TodayTargetText.loadLabel(.toChoose), SessionSheetText.loadLabel(.toChoose), "a mesma palavra da ficha")
+        XCTAssertEqual(TodayTargetText.row(sets: 1, goal: 30, measure: .minutes, load: .toChoose), "30 min", "aeróbico sem nível não diz nada")
     }
 
     // MARK: - Letra grande da ficha
@@ -88,7 +106,7 @@ final class TodayTargetTextTests: XCTestCase {
         XCTAssertEqual(TodayTargetText.headline(goal: 5, measure: .reps, load: .hidden), "5 repetições")
         XCTAssertEqual(TodayTargetText.headline(goal: 15, measure: .seconds, load: .hidden), "15 segundos")
         XCTAssertEqual(TodayTargetText.headline(goal: 30, measure: .steps, load: .load("22,5 kg")), "30 passos · 22,5 kg")
-        XCTAssertEqual(TodayTargetText.headline(goal: 6, measure: .reps, load: .toChoose), "6 repetições · escolha a carga")
+        XCTAssertEqual(TodayTargetText.headline(goal: 6, measure: .reps, load: .toChoose), "6 repetições · sem carga")
         XCTAssertEqual(TodayTargetText.headline(goal: 1, measure: .reps, load: .hidden), "1 repetição")
     }
 
@@ -132,6 +150,24 @@ final class TodayTargetTextTests: XCTestCase {
         XCTAssertEqual(PrescriptionNote.decrease.badgeText, "Carga menor")
         XCTAssertEqual(PrescriptionNote.returning.badgeText, "Retorno")
         XCTAssertEqual(PrescriptionNote.deload.badgeText, "Semana leve")
+    }
+
+    /// SPEC §7.14 F6 e F3 (2.4): nos intervalos do Cardio sem nível, `increase` diz "Mais um bloco"; com um
+    /// nível registrado, "Nível maior"; nos outros exercícios e nas outras notas, nada muda.
+    func testF6_badgeMoreBlocks() {
+        XCTAssertEqual(PrescriptionNote.increase.badgeText(isCardio: true, hasLevel: false), "Mais um bloco")
+        XCTAssertEqual(PrescriptionNote.increase.badgeText(isCardio: true, hasLevel: true), "Nível maior")
+        XCTAssertEqual(
+            PrescriptionNote.increase.badgeText(isCardio: true, hasLevel: true, loadUnit: .kilograms),
+            "Carga maior",
+            "aeróbico com carga em kg (raro) sobe a carga"
+        )
+        XCTAssertEqual(PrescriptionNote.increase.badgeText(isCardio: false, hasLevel: false), "Carga maior", "força: como sempre")
+        XCTAssertEqual(PrescriptionNote.increase.badgeText(isCardio: false, hasLevel: true), "Carga maior")
+        XCTAssertEqual(PrescriptionNote.calibrate.badgeText(isCardio: true, hasLevel: false), "Primeira vez")
+        XCTAssertEqual(PrescriptionNote.deload.badgeText(isCardio: true, hasLevel: false), "Semana leve")
+        XCTAssertNil(PrescriptionNote.hold.badgeText(isCardio: true, hasLevel: false), "manter continua sem selo")
+        XCTAssertEqual(PrescriptionNote.increase.badgeText, "Carga maior", "o selo antigo fica como está")
     }
 
     // MARK: - Conteúdo da folha

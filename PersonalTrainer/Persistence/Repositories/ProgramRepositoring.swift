@@ -32,7 +32,7 @@ protocol ProgramRepositoring: AnyObject {
     func moveTarget(id: UUID, toIndex newIndex: Int) throws
     /// Troca o exercício de um alvo, mantendo séries/faixa/RIR/descanso (RF-34, na edição).
     func replaceExercise(targetID: UUID, with exerciseID: UUID) throws
-    /// Atualiza parâmetros do alvo. Valida: sets 1…10, 1 ≤ repMin < repMax ≤ 50, RIR 0…5,
+    /// Atualiza parâmetros do alvo. Valida: sets 1…10, 1 ≤ repMin < repMax ≤ 300 (RF-16, 2.4; o editor limita por medida), RIR 0…5,
     /// descanso 15…600 s, startingLoad ≥ 0 e múltiplo do incremento (P8) ou `nil`.
     func updateTarget(id: UUID, sets: Int, repMin: Int, repMax: Int, targetRIR: Int, restSeconds: Int, startingLoad: Double?) throws
 

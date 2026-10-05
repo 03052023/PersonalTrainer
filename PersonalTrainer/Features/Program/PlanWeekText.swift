@@ -11,11 +11,13 @@ enum PlanWeekText {
         let day: PlanWeekday
         /// "Qui".
         let dayLabel: String
-        /// "Dia A — Superior + Cardio forte", ou "descanso" num dia livre.
+        /// "Dia A — Superior + Cardio forte", "Dia B — Inferior + Pilates" (com uma atividade fixa, 2.4) ou
+        /// "descanso" num dia livre.
         let sessionsText: String
-        /// Objetivo de cada sessão do dia, na ordem do dia (a cor do ponto de tinta de cada uma).
+        /// Objetivo de cada sessão do dia, na ordem do dia (a cor do ponto de tinta de cada uma). A atividade
+        /// fixa não tem ponto.
         let goals: [ProgramGoal]
-        /// Nenhuma sessão neste dia.
+        /// Nenhuma sessão e nenhuma atividade fixa neste dia.
         let isRest: Bool
 
         var id: PlanWeekday { day }
@@ -174,17 +176,22 @@ enum PlanWeekText {
         }
     }
 
-    /// Os 7 dias, de segunda a domingo, com as sessões de cada um na ordem do dia.
+    /// Os 7 dias, de segunda a domingo, com as sessões de cada um na ordem do dia e, depois delas, as
+    /// atividades fixas do dia (SPEC §7.17 X4; DESIGN §9.3 ponto 5): "Ter · Dia B — Inferior + Pilates"; um
+    /// dia só com fixa: "Ter · Pilates". A fixa não tem cor de objetivo e o dia com ela não é de descanso.
     static func weekRows(_ schedule: WeekSchedule, goals: [UUID: ProgramGoal]) -> [WeekRow] {
         PlanWeekday.allCases.map { day in
             let slots = schedule.slots(on: day)
-            let texts = slots.map { slotText($0, goal: goals[$0.programID]) }
+            let fixed = schedule.fixed(on: day)
+            let sessionTexts: [String] = slots.map { slotText($0, goal: goals[$0.programID]) }
+            let fixedTexts: [String] = fixed.map { $0.name }
+            let texts = sessionTexts + fixedTexts
             return WeekRow(
                 day: day,
                 dayLabel: day.shortName,
                 sessionsText: texts.isEmpty ? restText : texts.joined(separator: " + "),
                 goals: slots.compactMap { goals[$0.programID] },
-                isRest: slots.isEmpty
+                isRest: texts.isEmpty
             )
         }
     }

@@ -15,7 +15,8 @@ enum TodayTargetText {
     enum LoadDisplay: Sendable, Hashable {
         /// Peso do corpo sem carga extra: nada de "0 kg" nem "—".
         case hidden
-        /// Primeira vez sem carga prescrita (SPEC P2) num exercício com carga: a pessoa escolhe.
+        /// Sem carga prescrita (SPEC P2, D3) num exercício com equipamento: "sem carga", que a pessoa
+        /// pode mudar pondo uma carga.
         case toChoose
         /// Carga normal: "62,5 kg", "4 placas", "nível 7".
         case load(String)
@@ -23,8 +24,9 @@ enum TodayTargetText {
         case extra(String)
     }
 
-    /// Texto de `LoadDisplay.toChoose`.
-    static let toChooseText = "escolha a carga"
+    /// Texto de `LoadDisplay.toChoose`. Desde a 2.4 (SPEC RF-46, achado B11 da 2.3), a tela Hoje diz
+    /// "sem carga", como a ficha da sessão e a folha de informações (antes, "escolha a carga").
+    static let toChooseText = "sem carga"
 
     /// Meta de hoje: `targetReps` quando conhecida (> 0); senão `repMin`, como nas sessões gravadas
     /// antes do campo existir (SPEC P5).
@@ -116,7 +118,7 @@ enum TodayTargetText {
     }
 
     /// Linha da tela Hoje: "3 séries de 3 · 62,5 kg", "3 séries de 5", "2 séries de 15 s",
-    /// "3 séries de 30 passos · 22,5 kg", "4 séries de 6 · escolha a carga",
+    /// "3 séries de 30 passos · 22,5 kg", "4 séries de 6 · sem carga",
     /// "3 séries de 5 · + 2,5 kg extra". Em minutos (aeróbico, SPEC §7.14 F1): "30 min" ou
     /// "4 × 3 min", nunca "1 série de 30 min"; o nível da máquina só aparece quando existe.
     static func row(sets: Int, goal: Int, measure: ExerciseMeasure, load: LoadDisplay) -> String {
@@ -131,7 +133,7 @@ enum TodayTargetText {
     }
 
     /// Letra grande da ficha: "3 repetições · 62,5 kg", "5 repetições", "15 segundos",
-    /// "30 passos · 22,5 kg", "6 repetições · escolha a carga", "5 repetições · + 2,5 kg extra".
+    /// "30 passos · 22,5 kg", "6 repetições · sem carga", "5 repetições · + 2,5 kg extra".
     /// Em minutos, "30 min" ou, com `sets` maior que 1, "4 × 3 min" (SPEC §7.14 F1).
     static func headline(goal: Int, measure: ExerciseMeasure, load: LoadDisplay, sets: Int = 1) -> String {
         if measure == .minutes {
@@ -196,7 +198,7 @@ enum TodayTargetText {
     // MARK: - Privado
 
     /// No aeróbico, o nível da máquina (ou uma carga registrada) é opcional (SPEC §7.14 F3): só aparece
-    /// quando existe. "escolha a carga" não vale para quem só caminha ou pedala.
+    /// quando existe. "sem carga" não vale para quem só caminha ou pedala.
     private static func cardioLabel(_ display: LoadDisplay) -> String? {
         switch display {
         case .hidden, .toChoose:

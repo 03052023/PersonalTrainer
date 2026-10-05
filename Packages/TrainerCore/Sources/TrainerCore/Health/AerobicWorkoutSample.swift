@@ -11,9 +11,8 @@ public struct AerobicWorkoutSample: Codable, Sendable, Hashable, Identifiable {
     /// FC média de cada minuto do treino, em bpm, na ordem do tempo. Vazio se o treino não tem FC.
     /// Pode ter menos entradas que a duração (minutos sem leitura usam `activity.defaultIntensity`).
     public let minuteHeartRates: [Double]
-    /// Intensidade dita pela pessoa num registro fora do app (SPEC §7.17 X3), usada nos minutos sem FC no
-    /// lugar de `activity.defaultIntensity`. `nil` nos treinos do app Saúde. Andaime da 2.4
-    /// (docs/V24-CONTRACT.md §3.1): a tarefa `activities-core` a usa em `AerobicWeek`.
+    /// Intensidade dita pela pessoa num registro fora do app (SPEC §7.17 X3), usada por `AerobicWeek` nos
+    /// minutos sem FC no lugar de `activity.defaultIntensity`. `nil` nos treinos do app Saúde.
     public let declaredIntensity: AerobicIntensity?
 
     public init(

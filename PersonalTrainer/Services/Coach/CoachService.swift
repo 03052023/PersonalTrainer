@@ -36,6 +36,10 @@ final class CoachService {
         /// String (`UUID`) do programa sobre o qual a última revisão rodou; só o `CoachService`
         /// usa, para tirar do feed as sugestões de um programa que deixou de ser o ativo.
         static let lastReviewProgramID = "coachLastReviewProgramID"
+        /// Date: o primeiro "Feito" do C8 que gravou um registro nas atividades fora do app (2.4). Só as
+        /// marcas do log de antes dele valem 1 nas Metas (SPEC §7.16 W2.6); as de depois já existem como
+        /// registro, e apagar o registro desfaz a vez.
+        static let longevityEntriesSince = "coachLongevityEntriesSince"
     }
 
     /// Identificador do lembrete de expiração (um só: reagendar substitui).
@@ -93,6 +97,9 @@ final class CoachService {
     /// Medida de cada exercício pelo `slug` (SPEC RF-43): o C6 só fala de exercícios medidos em
     /// repetições. `.empty` mede tudo em repetições.
     let traits: ExerciseTraitsCatalog
+    /// As atividades fora do app (SPEC §7.17 X6): o "Feito" do C8 grava ali um registro de equilíbrio ou
+    /// de mobilidade, para as Metas contarem as vezes.
+    let activities: any OutsideActivityStoring
 
     // MARK: - Estado interno (usado pelas extensões)
 
@@ -117,6 +124,8 @@ final class CoachService {
         category: "CoachService"
     )
 
+    /// - Parameter activities: o app passa o `LiveOutsideActivityStore` do resto do app; o padrão em
+    ///   memória serve aos testes e previews.
     init(
         planner: any SessionPlanning,
         programs: any ProgramRepositoring,
@@ -126,7 +135,8 @@ final class CoachService {
         now: @escaping () -> Date,
         calendar: Calendar,
         defaults: UserDefaults,
-        traits: ExerciseTraitsCatalog = .empty
+        traits: ExerciseTraitsCatalog = .empty,
+        activities: any OutsideActivityStoring = FakeOutsideActivityStore()
     ) {
         self.planner = planner
         self.programs = programs
@@ -136,6 +146,7 @@ final class CoachService {
         self.calendar = calendar
         self.defaults = defaults
         self.traits = traits
+        self.activities = activities
         // O perfil só muda numa reinstalação, que reinicia o processo: basta ler uma vez.
         self.provisioningExpiry = expiry.expirationDate()
         self.isExpiryReminderEnabled = defaults.bool(forKey: DefaultsKey.expiryReminderEnabled)
@@ -205,7 +216,8 @@ final class CoachService {
     ///
     /// - `apply` (C2): muda o programa conforme a sugestão (a confirmação é da view);
     /// - `keepNormal` (C1): `SessionPlanning.dismissDeload`;
-    /// - `done` (C8): a própria resposta no log é a marca da semana;
+    /// - `done` (C8): a própria resposta no log é a marca da semana; desde a 2.4, também grava um
+    ///   registro de 10 min nas atividades fora do app (SPEC §7.17 X6);
     /// - `backupNow`, `howToRenew`, `start`, `seeProgress`: navegação pelos fechamentos.
     func handle(_ action: CoachAction, on message: CoachMessage) {
         let now = self.now()

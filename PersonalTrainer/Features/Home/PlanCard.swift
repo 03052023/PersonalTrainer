@@ -204,18 +204,21 @@ struct PlanCard: View {
     /// Explicação curta da faixa "Em casa" (DESIGN §6: frase curta, o porquê e a autonomia).
     static let homeModeSummary = "Exercícios com o peso do corpo ou objetos de casa. O plano continua o mesmo."
 
+    // Funções puras, `nonisolated`: a `TodayPlansText` (fora do `MainActor`) e o Início usam o mesmo detalhe
+    // do cartão (RF-49, B8), sem o aviso de isolamento do Swift 6.
+
     /// "1 exercício", "5 exercícios".
-    static func exerciseCountText(_ count: Int) -> String {
+    nonisolated static func exerciseCountText(_ count: Int) -> String {
         count == 1 ? "1 exercício" : "\(count) exercícios"
     }
 
     /// "≈ 45 min" (DESIGN §9.2, B7); `nil` sem estimativa (dia sem exercícios).
-    static func durationText(minutes: Int) -> String? {
+    nonisolated static func durationText(minutes: Int) -> String? {
         minutes > 0 ? "≈ \(minutes) min" : nil
     }
 
     /// "5 exercícios · ≈ 55 min", sem o nome do programa (SPEC RF-45: o objetivo já é o plano).
-    static func detailText(for plan: SessionPlan) -> String {
+    nonisolated static func detailText(for plan: SessionPlan) -> String {
         var parts = [exerciseCountText(plan.exercises.count)]
         if let duration = durationText(minutes: plan.estimatedMinutes) {
             parts.append(duration)
@@ -224,7 +227,7 @@ struct PlanCard: View {
     }
 
     /// Leitura do VoiceOver: "5 exercícios, cerca de 55 minutos".
-    static func detailAccessibilityText(for plan: SessionPlan) -> String {
+    nonisolated static func detailAccessibilityText(for plan: SessionPlan) -> String {
         var parts = [exerciseCountText(plan.exercises.count)]
         if plan.estimatedMinutes == 1 {
             parts.append("cerca de 1 minuto")

@@ -70,7 +70,7 @@ struct WeeklyGoalRow: View {
             references: references
         )
         WeeklyGoalRow(
-            goal: WeeklyGoal(kind: .balance, done: 0, target: 1, referenceTopic: "goal.longevity"),
+            goal: WeeklyGoal(kind: .balance, done: 1, target: 2, referenceTopic: "goal.longevity"),
             references: references
         )
     }

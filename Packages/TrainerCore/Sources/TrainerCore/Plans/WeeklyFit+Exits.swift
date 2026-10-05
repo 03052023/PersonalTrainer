@@ -53,10 +53,12 @@ extension WeeklyFit {
         return pairs
     }
 
-    /// O que as saídas precisam saber dos planos e das preferências de partida.
+    /// O que as saídas precisam saber dos planos, das fixas e das preferências de partida.
     struct ExitContext: Sendable {
         let plans: [PlanDemand]
         let preferences: WeekPreferences
+        /// As atividades fixas fora do app (SPEC §7.17 X4): as saídas são calculadas com elas.
+        let fixed: [FixedActivityDemand]
         /// Os dias que a pessoa ainda não marcou, de segunda a domingo.
         let missingDays: [PlanWeekday]
         /// O plano de aeróbico (todos os dias de aeróbico) com pelo menos 2 sessões por semana, e quantas.
@@ -67,6 +69,7 @@ extension WeeklyFit {
         init(search: WeeklyFitSearch) {
             plans = search.plans
             preferences = search.preferences
+            fixed = search.fixed
             missingDays = PlanWeekday.allCases.filter { !search.preferences.availableDays.contains($0) }
             var cardio: (programID: UUID, perWeek: Int)?
             for (plan, count) in zip(search.plans, search.perWeek) where plan.isCardio && count >= 2 {
@@ -74,15 +77,7 @@ extension WeeklyFit {
                 break
             }
             cardioPlan = cardio
-            var mixes = false
-            for (index, plan) in search.plans.enumerated() where plan.sessions.contains(where: { $0.kind == .cardio }) {
-                for (otherIndex, other) in search.plans.enumerated() where otherIndex != index {
-                    if other.sessions.contains(where: { $0.kind == .strength }) {
-                        mixes = true
-                    }
-                }
-            }
-            mixesCardioAndStrength = mixes
+            mixesCardioAndStrength = search.mixesCardioAndStrength
         }
 
         /// A saída faz sentido e ainda não está nas preferências.
@@ -147,7 +142,8 @@ extension WeeklyFit {
         /// A saída com as preferências e a melhor semana que resultam dela.
         func alternative(_ changes: [FitChange]) -> FitAlternative {
             let changed = changes.reduce(preferences) { current, change in change.applied(to: current) }
-            let schedule = WeeklyFitSearch(plans: plans, preferences: changed).bestSchedule() ?? WeekSchedule.empty
+            let schedule = WeeklyFitSearch(plans: plans, preferences: changed, fixed: fixed).bestSchedule()
+                ?? WeekSchedule.empty
             return FitAlternative(changes: changes, preferences: changed, schedule: schedule)
         }
 
@@ -166,7 +162,7 @@ extension WeeklyFit {
         }
 
         func fits(_ candidate: WeekPreferences) -> Bool {
-            WeeklyFitSearch(plans: plans, preferences: candidate).exists(rules: .all)
+            WeeklyFitSearch(plans: plans, preferences: candidate, fixed: fixed).exists(rules: .all)
         }
 
         /// Saída 1: o menor conjunto de dias que falta e faz caber com `base`, na ordem de M5.

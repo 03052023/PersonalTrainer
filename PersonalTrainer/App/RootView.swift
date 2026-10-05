@@ -146,6 +146,9 @@ private struct RootTabs: View {
     @State private var homeModel: HomeViewModel
     @State private var healthModel: HealthViewModel
     @State private var settingsModel: SettingsViewModel
+    /// SPEC §7.17, RF-53 (2.4): as atividades fora do app, um modelo só para o Início (Metas da
+    /// semana), a tela Hoje ("Também hoje") e a aba Plano ("Atividades fixas").
+    @State private var activitiesModel: ActivitiesModel
     @State private var presentedSession: PresentedSession? = nil
     @State private var coachDestination: CoachDestination? = nil
     /// SPEC RF-49: o app abre no Início.
@@ -193,12 +196,17 @@ private struct RootTabs: View {
             logStore: environment.coach.logStore,
             showsSteps: { [environment] in
                 WeeklyGoals.showsSteps(activeGoals: (try? environment.planner.activeProgramGoals()) ?? [])
+            },
+            // SPEC §7.17 X3 e X5: os registros aeróbicos entram nos minutos e os de inferior no
+            // encaixe do aeróbico (A5), sem reler o HealthKit nem pedir nada.
+            activityLog: { [environment] in
+                environment.activities.load()
             }
         )
         self._healthModel = State(initialValue: health)
         // SPEC RF-49/RF-52: o Início e as Metas da semana. O relatório do Saúde é o mesmo do cartão
-        // da tela Hoje; `loadIfStale` só lê o que já foi autorizado (nunca pede, AGENTS §7). O
-        // equilíbrio e a mobilidade "feitos nesta semana" vêm do log do diálogo (C8).
+        // da tela Hoje; `loadIfStale` só lê o que já foi autorizado (nunca pede, AGENTS §7). Do log do
+        // diálogo (C8), só os "Feito" de antes da 2.4 valem 1 (W2.6); os de depois contam pelo registro.
         let coachService = environment.coach
         let landing = LandingViewModel(
             planner: environment.planner,
@@ -211,10 +219,31 @@ private struct RootTabs: View {
                 await health.loadIfStale()
             },
             longevityDone: { [coachService, environment] in
-                coachService.longevityMarks(in: coachService.logStore.load(), now: environment.now())
+                coachService.legacyLongevityMarks(in: coachService.logStore.load(), now: environment.now())
+            },
+            // SPEC §7.16 W2.3, W2.6 e §7.17 X3, X6: o aeróbico das atividades sem o Saúde e as vezes
+            // de equilíbrio e mobilidade registradas.
+            activityLog: { [environment] in
+                environment.activities.load()
             }
         )
         self._landingModel = State(initialValue: landing)
+        // SPEC RF-53: depois de cada gravação das atividades, o relatório de saúde é refeito com a
+        // última leitura (sem reler o HealthKit), e o Início e a tela Hoje releem, nesta ordem, para
+        // as Metas lerem o relatório já recalculado. O diálogo também relê: equilíbrio ou mobilidade
+        // registrados tiram o lembrete do C8 da semana (X6).
+        let activities = ActivitiesModel(
+            store: environment.activities,
+            now: environment.now,
+            calendar: .autoupdatingCurrent,
+            onChange: { [health, landing, home, coachService] in
+                health.activitiesDidChange()
+                landing.refresh()
+                home.refresh()
+                RootTabs.refresh(coach: coachService, health: health, allowsHighlight: false)
+            }
+        )
+        self._activitiesModel = State(initialValue: activities)
         // Depois de importar um backup, pedir uma semana leve ou mudar o modo casa, o plano mudou:
         // o Início e a Home releem. O diálogo relê ao voltar para "Hoje", longe dos alertas do
         // Ajustes; depois de uma importação ele também esquece a revisão guardada em memória (A5).
@@ -226,7 +255,11 @@ private struct RootTabs: View {
             onImported: { [coachService] in
                 coachService.resetAfterImport()
             },
-            onDataChanged: { [home, landing] in
+            onDataChanged: { [home, landing, activities, health] in
+                // SPEC §7.17 X8: a importação também troca as atividades; o relatório de saúde é
+                // refeito com elas antes de o Início reler.
+                activities.refresh()
+                health.activitiesDidChange()
                 home.refresh()
                 landing.refresh()
             }
@@ -254,11 +287,16 @@ private struct RootTabs: View {
         .onChange(of: selectedTab) { _, newTab in
             switch newTab {
             case .landing:
+                // O "Feito" do C8 (diálogo) também grava uma atividade (X6): o modelo relê.
+                activitiesModel.refresh()
                 landingModel.refresh()
             case .today:
+                activitiesModel.refresh()
                 homeModel.refresh()
                 refreshCoach()
-            case .history, .plan, .settings:
+            case .plan:
+                activitiesModel.refresh()
+            case .history, .settings:
                 break
             }
         }
@@ -337,7 +375,9 @@ private struct RootTabs: View {
                     coach.handle(action, on: message)
                     homeModel.didHandleCoachAction(action)
                     // O destaque costuma aparecer sobre o Início (é a aba da abertura): uma
-                    // resposta que muda o plano (semana leve, troca de programa) aparece nele.
+                    // resposta que muda o plano (semana leve, troca de programa) aparece nele. O
+                    // "Feito" do C8 grava uma atividade (X6): o modelo delas relê antes.
+                    activitiesModel.refresh()
                     landingModel.refresh()
                 },
                 applyDetail: coach.applySummary(for: message)
@@ -397,7 +437,9 @@ private struct RootTabs: View {
                 return
             }
             // SPEC RF-49: o Início relê ao voltar ao primeiro plano (a data, a saudação e a
-            // semana podem ter mudado com o app em segundo plano).
+            // semana podem ter mudado com o app em segundo plano). As atividades também (RF-53):
+            // o dia de hoje e a semana delas saem do relógio.
+            activitiesModel.refresh()
             landingModel.refresh()
             let now = environment.now()
             // RF-13/RF-14 (CA2-1, CA2-2): o gravador revisita as sessões recentes: o treino do app
@@ -434,7 +476,8 @@ private struct RootTabs: View {
                 },
                 onOpenSession: { sessionID in
                     openSession(sessionID)
-                }
+                },
+                activities: activitiesModel
             )
             .tabItem {
                 Label("Início", systemImage: "house")
@@ -454,7 +497,8 @@ private struct RootTabs: View {
                 },
                 onChangeGoal: {
                     openGoalSheet()
-                }
+                },
+                activities: activitiesModel
             )
             .tabItem {
                 Label("Hoje", systemImage: "sun.max")
@@ -480,7 +524,8 @@ private struct RootTabs: View {
                 references: environment.references,
                 now: environment.now,
                 planner: environment.planner,
-                coordinator: environment.coordinator
+                coordinator: environment.coordinator,
+                activities: activitiesModel
             )
             .tabItem {
                 Label("Plano", systemImage: "list.bullet.rectangle")
@@ -500,6 +545,9 @@ private struct RootTabs: View {
             }
             .tag(RootTab.settings)
         }
+        // SPEC §7.14 F7 (2.4): a seção "Coração" do detalhe de uma sessão de aeróbico no Histórico.
+        // Só leitura, com as permissões que o app já tem; nada é pedido aqui (AGENTS §7).
+        .environment(\.cardioHeartRate, cardioHeartRateLookup)
         // B10: o mesmo `fileExporter` serve ao botão "Exportar backup" do Ajustes e ao "Fazer
         // backup" do diálogo (C7). Rótulo `onCompletion:` explícito, como no Ajustes. O
         // `fileImporter` continua dentro da aba, em outro nível da hierarquia.
@@ -522,6 +570,35 @@ private struct RootTabs: View {
         } message: { alert in
             Text(alert.message)
         }
+    }
+
+    /// SPEC §7.14 F7: a FC por minuto vem do HealthKit (sem dado ou sem Saúde, lista vazia, e a
+    /// seção não aparece); as zonas e o VO2máx vêm do mesmo relatório do painel de saúde (A1, A3),
+    /// com a fisiologia e a FC de repouso de 7 dias da última leitura. Fechos sobre tipos `Sendable`
+    /// (o serviço do HealthKit e as classes isoladas no `MainActor`).
+    private var cardioHeartRateLookup: CardioHeartRateLookup {
+        let healthKit = environment.healthKit
+        let health = healthModel
+        let appEnvironment = environment
+        return CardioHeartRateLookup(
+            minuteHeartRates: { start, end in
+                (try? await healthKit.heartRateMinutes(start: start, end: end)) ?? []
+            },
+            zones: {
+                guard let physiology = health.physiology else {
+                    return nil
+                }
+                return HeartRateZones.make(
+                    physiology: physiology,
+                    restingHeartRate: health.report?.recovery.restingHR7,
+                    now: appEnvironment.now(),
+                    calendar: health.calendar
+                )
+            },
+            latestVo2Max: {
+                health.report?.vo2Max
+            }
+        )
     }
 
     /// Item da folha do destaque: nada enquanto outra apresentação está na tela (onboarding,

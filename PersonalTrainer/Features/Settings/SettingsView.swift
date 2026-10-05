@@ -116,7 +116,7 @@ struct SettingsView: View {
                     model.cancelImport()
                 }
             } message: {
-                Text("Isso substitui todas as sessões atuais, os programas, o catálogo e os ajustes pelo conteúdo de \(model.pendingImportFileName). A semana leve pedida e a última revisão também recomeçam. Não dá para desfazer.")
+                Text("Isso substitui todas as sessões atuais, os programas, o catálogo, as atividades fora do app e os ajustes pelo conteúdo de \(model.pendingImportFileName). A semana leve pedida e a última revisão também recomeçam. Não dá para desfazer.")
             }
         }
         .fileImporter(

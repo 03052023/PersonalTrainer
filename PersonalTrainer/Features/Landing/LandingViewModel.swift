@@ -12,6 +12,11 @@ import TrainerCore
 /// a data do sistema (AGENTS R3). O relatório de Saúde chega pronto por `healthReport` — este
 /// ViewModel nunca pede autorização (AGENTS §7); `loadHealth` só é chamado por `openWeeklyGoals()`,
 /// quando a pessoa abre as Metas, e só lê o que já foi autorizado (SPEC §7.16 W4).
+///
+/// Desde a 2.4 (docs/V24-CONTRACT.md §4.5): o cartão "Hoje" fala como a tela Hoje (`TodayPlansText`, B8);
+/// com uma atividade fixa de hoje ainda sem "Feito", a linha "Também hoje: Pilates às 19h" (SPEC RF-49,
+/// §7.17 X2); e as Metas leem as atividades fora do app de `activityLog` (só leitura): os minutos de
+/// aeróbico sem o app Saúde (W2.3, W4, X3) e as vezes de equilíbrio e mobilidade (W2.6, X6).
 @Observable
 @MainActor
 final class LandingViewModel {
@@ -58,6 +63,12 @@ final class LandingViewModel {
     private(set) var muscleFrequency = WeeklyFrequencyReport(weekStart: .distantPast, weekEnd: .distantPast, entries: [])
     /// "28 set. – 4 out.": o intervalo da semana, embaixo do título das Metas (DESIGN §9.2).
     private(set) var weekRangeText = ""
+    /// "Também hoje: Pilates às 19h" (SPEC RF-49, §7.17 X2): as fixas de hoje ainda sem "Feito"; `nil` sem
+    /// nenhuma.
+    private(set) var alsoTodayText: String?
+    /// Sem o app Saúde, o aeróbico das Metas vem só das atividades registradas (SPEC §7.16 W4, §7.17 X3):
+    /// a tela mostra "Aeróbico só das atividades registradas no app.".
+    private(set) var aerobicFromActivitiesOnly = false
 
     // MARK: Dependências
 
@@ -68,6 +79,9 @@ final class LandingViewModel {
     private let healthReport: @MainActor () -> HealthReport?
     private let loadHealth: @MainActor () async -> Void
     private let longevityDone: @MainActor () -> Set<String>
+    /// As atividades fora do app (SPEC §7.17), só para ler: o integrador passa
+    /// `{ environment.activities.load() }`.
+    private let activityLog: @MainActor () -> OutsideActivityLog
 
     private static let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "PersonalTrainer",
@@ -81,7 +95,8 @@ final class LandingViewModel {
         calendar: Calendar = .autoupdatingCurrent,
         healthReport: @escaping @MainActor () -> HealthReport? = { nil },
         loadHealth: @escaping @MainActor () async -> Void = {},
-        longevityDone: @escaping @MainActor () -> Set<String> = { [] }
+        longevityDone: @escaping @MainActor () -> Set<String> = { [] },
+        activityLog: @escaping @MainActor () -> OutsideActivityLog = { .empty }
     ) {
         self.planner = planner
         self.coordinator = coordinator
@@ -90,6 +105,7 @@ final class LandingViewModel {
         self.healthReport = healthReport
         self.loadHealth = loadHealth
         self.longevityDone = longevityDone
+        self.activityLog = activityLog
     }
 
     // MARK: Ações
@@ -151,6 +167,10 @@ final class LandingViewModel {
         }
         todayWeekdayIndex = PlanWeekday.of(referenceDate, calendar: calendar).rawValue
 
+        // SPEC RF-49, §7.17 X2: as fixas de hoje que ainda não têm o "Feito" do dia.
+        let activities = activityLog()
+        alsoTodayText = Self.alsoTodayText(log: activities, now: referenceDate, calendar: calendar)
+
         // Sem a leitura, a semana de segunda a domingo dá o intervalo do título; sem grupos, a meta de
         // músculos some (W2.2) e o resto das Metas segue.
         let week = WeeklyFrequency.weekInterval(containing: referenceDate, weekStartsOnMonday: true, calendar: calendar)
@@ -169,12 +189,22 @@ final class LandingViewModel {
         let plans: [PlanWeekProgress] = read("o progresso dos planos", fallback: []) {
             try planner.planWeekProgress(now: referenceDate)
         }
+        // SPEC §7.17 X3, W2.3, W4: com o app Saúde, os registros já estão no relatório (o `HealthViewModel`
+        // os soma); sem ele, os minutos deles entram direto nas Metas. X6, W2.6: as vezes de equilíbrio e de
+        // mobilidade registradas na semana.
+        let health = healthReport()
+        let outsideAerobicMinutes = health == nil
+            ? OutsideActivities.aerobicMinutes(entries: activities.entries, week: week)
+            : 0
+        aerobicFromActivitiesOnly = health == nil && outsideAerobicMinutes > 0
         weeklyGoals = WeeklyGoals.goals(WeeklyGoalsInput(
             plans: plans,
             activeGoals: goals,
             frequency: frequency,
-            health: healthReport(),
-            longevityDone: longevityDone()
+            health: health,
+            longevityDone: longevityDone(),
+            outsideAerobicMinutes: outsideAerobicMinutes,
+            longevityCounts: OutsideActivities.longevityCounts(entries: activities.entries, week: week)
         ))
     }
 
@@ -224,21 +254,32 @@ final class LandingViewModel {
         guard let first = pending.first else {
             return .allDone
         }
+        // B8 da 2.3 (SPEC RF-49): os mesmos textos da tela Hoje. Uma sessão: o nome do dia e o detalhe do
+        // cartão da tela Hoje, iguais com um plano ou dois ("Dia A — Superior", "5 exercícios · ≈ 55 min";
+        // numa sessão só de aeróbico, "30 min"). Duas: a linha de cima da tela Hoje, sem o "Hoje:" que o
+        // cartão já diz ("Superior + Cardio moderado 30 min").
         if pending.count == 1 {
             return .todaySessions(
                 label: first.plan.programDayName,
-                subtitle: LandingText.exerciseCountSubtitle(
-                    exerciseCount: first.plan.exercises.count,
-                    estimatedMinutes: first.plan.estimatedMinutes
-                )
+                subtitle: TodayPlansText.detailText(for: first.plan)
             )
         }
-        let label = pending.map(\.plan.programDayName).joined(separator: " + ")
+        let label = pending.map { TodayPlansText.sessionLabel($0.plan) }.joined(separator: " + ")
         let totalMinutes = pending.reduce(0) { $0 + $1.plan.estimatedMinutes }
         return .todaySessions(
             label: label,
             subtitle: LandingText.multipleSessionsSubtitle(count: pending.count, estimatedMinutes: totalMinutes)
         )
+    }
+
+    /// "Também hoje: Pilates às 19h" (SPEC RF-49, §7.17 X2): as fixas do dia da semana de `now`, pela hora,
+    /// que ainda não têm o "Feito" de hoje. `nil` sem nenhuma.
+    static func alsoTodayText(log: OutsideActivityLog, now: Date, calendar: Calendar) -> String? {
+        let weekday = PlanWeekday.of(now, calendar: calendar)
+        let pending = OutsideActivities.fixed(log.fixed, on: weekday).filter { fixed in
+            !OutsideActivities.isLogged(fixed, on: now, entries: log.entries, calendar: calendar)
+        }
+        return ActivityText.alsoTodayLine(pending)
     }
 
     /// Marcas por dia da semana corrente (segunda a domingo) e a frase de fato (RF-49): conta

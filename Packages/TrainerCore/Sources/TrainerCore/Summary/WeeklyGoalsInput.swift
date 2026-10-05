@@ -13,7 +13,8 @@ public struct WeeklyGoalsInput: Sendable, Hashable {
     public let frequency: WeeklyFrequencyReport
     /// `nil` sem o app Saúde conectado (W4): aeróbico, passos e sono viram "sem dados".
     public let health: HealthReport?
-    /// Chaves do C8 já marcadas "Feito" nesta semana (`CoachInput.balanceKey`/`mobilityKey`, W2.6).
+    /// Chaves do C8 já marcadas "Feito" nesta semana (`CoachInput.balanceKey`/`mobilityKey`, W2.6). Desde a
+    /// 2.4 o "Feito" também grava um registro (X6); a marca sozinha vale 1 (um "Feito" de antes da 2.4).
     public let longevityDone: Set<String>
     /// Metas de aeróbico, passos e sono (SPEC §7.9); mesmo tipo do painel de Saúde.
     public let targets: HealthTargets

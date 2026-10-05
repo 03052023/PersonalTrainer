@@ -14,7 +14,8 @@ import os
 ///    vazio;
 /// 4. grava o retrato em `pendingRestoreURL` (escrita atômica) antes de apagar qualquer coisa;
 /// 5. apaga todos os modelos e salva; depois insere o conteúdo e salva; confere as contagens;
-/// 6. só então apaga o arquivo do retrato.
+/// 6. substitui as atividades fora do app (SPEC §7.17 X8, desde a 2.4);
+/// 7. só então apaga o arquivo do retrato.
 ///
 /// Por que dois `save()` e não um: `ExerciseModel.uuid/slug` e `SetLogModel.uuid` são `.unique`,
 /// e o SwiftData transforma o insert de um valor já presente em upsert silencioso (ARCHITECTURE
@@ -30,6 +31,13 @@ import os
 /// Escreve direto no `ModelContext`, e não por `SessionCoordinating.apply`: a importação é uma
 /// restauração do store, não um evento de sessão (não há observadores a notificar, e o
 /// HealthKit não deve regravar treinos antigos).
+///
+/// Atividades fora do app (SPEC §7.17 X8, desde a 2.4): ficam num JSON fora do SwiftData
+/// (`OutsideActivityStoring`) e viajam no campo opcional `BackupDocument.outsideActivities`. A
+/// exportação e o retrato as levam; a importação, depois de conferir as contagens, substitui a lista
+/// do aparelho pela do arquivo (vazia num backup antigo, sem o campo). Uma falha ao gravá-la vai para
+/// o log e não desfaz a importação, que já terminou. Sem o store (`activities` `nil`), nada disso
+/// acontece, como antes da 2.4.
 @MainActor
 final class BackupService: BackupServicing {
     private let modelContext: ModelContext
@@ -37,6 +45,7 @@ final class BackupService: BackupServicing {
     private let timeZone: TimeZone
     private let pendingRestoreURL: URL?
     private let reapplySeed: (@MainActor () -> Void)?
+    private let activities: (any OutsideActivityStoring)?
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "PersonalTrainer",
         category: "BackupService"
@@ -52,18 +61,23 @@ final class BackupService: BackupServicing {
     ///     backup de uma versão anterior grava o `schemaSeedVersion` dela, e os exercícios que o seed
     ///     atual acrescentou (os de casa do seed 3, SPEC RF-42) só voltariam no próximo launch. Com o
     ///     seed já na versão atual, não faz nada. `nil` (previews, testes) não reaplica.
+    ///   - activities: as atividades fora do app (SPEC §7.17 X8). O app passa o mesmo
+    ///     `LiveOutsideActivityStore` do resto do app. `nil` (previews, testes antigos) deixa as
+    ///     atividades fora do backup e da importação.
     init(
         modelContext: ModelContext,
         appVersion: String? = nil,
         timeZone: TimeZone = .current,
         pendingRestoreURL: URL? = nil,
-        reapplySeed: (@MainActor () -> Void)? = nil
+        reapplySeed: (@MainActor () -> Void)? = nil,
+        activities: (any OutsideActivityStoring)? = nil
     ) {
         self.modelContext = modelContext
         self.appVersion = appVersion ?? Self.bundleAppVersion(.main)
         self.timeZone = timeZone
         self.pendingRestoreURL = pendingRestoreURL
         self.reapplySeed = reapplySeed
+        self.activities = activities
     }
 
     /// `Application Support/PersonalTrainer/pre-import-backup.json`, ao lado do store. `nil` se a
@@ -140,6 +154,10 @@ final class BackupService: BackupServicing {
             throw error
         }
 
+        // SPEC §7.17 X8: a importação substitui tudo, inclusive as atividades; um backup antigo, sem o
+        // campo, deixa a lista vazia. Antes de apagar o retrato: se o processo morrer aqui, o store já
+        // está cheio e a recuperação do launch não mexe em nada.
+        replaceActivities(with: document.outsideActivities ?? OutsideActivityLog.empty, reason: "importação")
         discardPendingRestore()
         logger.info("Backup importado: \(document.exercises.count) exercícios, \(document.programs.count) programas, \(document.sessions.count) sessões, \(document.setCount) séries.")
         // Depois de conferir as contagens: o que o seed acrescenta não é do backup. Uma falha do
@@ -166,7 +184,8 @@ final class BackupService: BackupServicing {
     // MARK: - Exportação
 
     /// Ordem determinística (mesmo store → mesmo JSON): relações to-many do SwiftData não têm
-    /// ordem, então tudo é ordenado por um campo do domínio com desempate por `uuid`.
+    /// ordem, então tudo é ordenado por um campo do domínio com desempate por `uuid`. As atividades
+    /// fora do app (X8) vão como estão gravadas: o arquivo delas já tem uma ordem só.
     func makeDocument(exportedAt: Date) throws -> BackupDocument {
         let exercises = try modelContext.fetch(FetchDescriptor<ExerciseModel>())
             .sorted { lhs, rhs in
@@ -197,7 +216,8 @@ final class BackupService: BackupServicing {
             exercises: exercises,
             programs: programs,
             sessions: sessions,
-            settings: settings
+            settings: settings,
+            outsideActivities: activities?.load()
         )
     }
 
@@ -559,6 +579,10 @@ final class BackupService: BackupServicing {
 
     /// Volta ao retrato tirado antes da importação. Apaga primeiro porque a falha pode ter
     /// acontecido depois do `save()` da fase 2 (contagem divergente). `true` se restaurou.
+    ///
+    /// As atividades do retrato (X8) voltam também. A importação só as troca depois de conferir as
+    /// contagens, então aqui elas ainda são as de antes; regravá-las garante que o aparelho fica
+    /// inteiro no estado anterior, qualquer que seja o ponto da falha.
     @discardableResult
     private func restore(_ previous: BackupDocument) -> Bool {
         do {
@@ -567,11 +591,29 @@ final class BackupService: BackupServicing {
             try insert(previous)
             try modelContext.save()
             logger.info("Store restaurado ao estado anterior à importação.")
-            return true
         } catch {
             modelContext.rollback()
             logger.fault("Falha ao restaurar o store após importação: \(String(describing: error), privacy: .public)")
             return false
+        }
+        if let saved = previous.outsideActivities {
+            replaceActivities(with: saved, reason: "restauração")
+        }
+        return true
+    }
+
+    /// Grava `log` no lugar das atividades do aparelho (X8). Sem o store, nada a fazer. Uma falha só vai
+    /// para o log: o banco já está como deveria, e as atividades nunca impedem uma importação nem uma
+    /// restauração (o app segue sem elas, como com um arquivo ilegível).
+    private func replaceActivities(with log: OutsideActivityLog, reason: String) {
+        guard let activities else {
+            return
+        }
+        do {
+            try activities.save(log)
+            logger.info("Atividades fora do app gravadas (\(reason, privacy: .public)): \(log.entries.count) registros, \(log.fixed.count) fixas.")
+        } catch {
+            logger.error("Atividades fora do app não gravadas (\(reason, privacy: .public)): \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -599,6 +641,11 @@ final class BackupService: BackupServicing {
             try insert(document)
             try modelContext.save()
             try verifyCounts(matching: document)
+            // X8: as atividades do retrato também voltam. Um retrato sem o campo (de antes da 2.4, ou
+            // tirado sem o store) não mexe nelas.
+            if let saved = document.outsideActivities {
+                replaceActivities(with: saved, reason: "recuperação")
+            }
             discardPendingRestore()
             logger.notice("Importação interrompida desfeita: store restaurado ao estado anterior a ela.")
             return true

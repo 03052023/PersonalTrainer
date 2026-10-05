@@ -8,6 +8,10 @@ import Foundation
 ///   semana, a partir da fase (`sessions[0]`, M3).
 /// - A fase avança `perWeek` sessões por semana. As regras valem em cada semana da órbita (até as fases se
 ///   repetirem) e na passagem do domingo para a segunda seguinte.
+/// - As atividades fixas fora do app (SPEC §7.17 X4) ficam presas ao dia delas em todas as semanas da
+///   órbita; nenhuma escolha as move. A de força ocupa o lugar de força do dia, a de aeróbico o de aeróbico,
+///   e a leve não ocupa lugar (só tira o descanso completo). As regras valem entre uma fixa e uma sessão de
+///   plano; duas fixas entre si nunca invalidam a semana (é escolha da pessoa).
 /// - As escolhas são percorridas em ordem lexicográfica (o principal por fora, o segundo por dentro), e só
 ///   uma semana estritamente melhor pelos critérios de M4 substitui a guardada.
 struct WeeklyFitSearch: Sendable {
@@ -21,11 +25,16 @@ struct WeeklyFitSearch: Sendable {
         static let structureOnly = Rules(muscleRecovery: false, cardioBeforeLegs: false)
     }
 
-    /// Uma sessão de um plano num dia de uma semana da órbita.
+    /// Uma sessão num dia de uma semana da órbita: de um plano ou de uma atividade fixa (X4).
     struct Placement: Sendable {
-        /// Índice do plano em `plans`.
-        let plan: Int
+        /// Índice do plano em `plans`; `nil` numa atividade fixa fora do app.
+        let plan: Int?
         let session: PlanSessionDemand
+
+        /// Atividade fixa fora do app (X4): presa ao dia, igual em toda escolha.
+        var isFixed: Bool {
+            plan == nil
+        }
     }
 
     /// Critérios de escolha de M4, na ordem: menos dias com duas sessões, menos pares de dias seguidos com
@@ -54,13 +63,23 @@ struct WeeklyFitSearch: Sendable {
     /// Os planos na ordem de M1 (`ActivePlanOrder`): o principal primeiro.
     let plans: [PlanDemand]
     let preferences: WeekPreferences
+    /// As atividades fixas fora do app (X4), por dia da semana e, no mesmo dia, na ordem recebida (a de
+    /// `OutsideActivities.fixedDemands`).
+    let fixed: [FixedActivityDemand]
     /// Sessões por semana de cada plano, na ordem de `plans`: a de `preferences.sessionsPerWeek` ou a da
     /// demanda, limitada a 1…dias (0 num plano sem dias).
     let perWeek: [Int]
     /// Semanas até as fases de todos os planos se repetirem (1 quando cada plano faz todos os dias).
     let orbitLength: Int
+    /// As fixas que ocupam lugar (força e aeróbico), por dia (segunda = 0), iguais em toda semana da órbita.
+    let fixedPlacements: [[Placement]]
+    /// Os dias com alguma fixa, inclusive a leve: não são de descanso completo (X4).
+    let fixedDays: Set<PlanWeekday>
+    /// Um plano tem aeróbico e outro tem força: só assim um dia tem lugar para duas sessões de plano, porque
+    /// duas forças (ou dois aeróbicos) nunca dividem o dia (M5; achado B9 da 2.3).
+    let mixesCardioAndStrength: Bool
 
-    init(plans: [PlanDemand], preferences: WeekPreferences) {
+    init(plans: [PlanDemand], preferences: WeekPreferences, fixed: [FixedActivityDemand] = []) {
         let ordered = WeeklyFitSearch.ordered(plans)
         let counts = ordered.map { WeeklyFitSearch.sessionsPerWeek(of: $0, preferences: preferences) }
         var length = 1
@@ -68,10 +87,21 @@ struct WeeklyFitSearch: Sendable {
             let cycle = plan.sessions.count / WeeklyFitSearch.greatestCommonDivisor(plan.sessions.count, count)
             length = length / WeeklyFitSearch.greatestCommonDivisor(length, cycle) * cycle
         }
+        let orderedFixed = WeeklyFitSearch.orderedFixed(fixed)
+        var byDay = Array(repeating: [Placement](), count: PlanWeekday.allCases.count)
+        for activity in orderedFixed {
+            if let session = WeeklyFitSearch.session(for: activity) {
+                byDay[activity.weekday.rawValue].append(Placement(plan: nil, session: session))
+            }
+        }
         self.plans = ordered
         self.preferences = preferences
+        self.fixed = orderedFixed
         self.perWeek = counts
         self.orbitLength = max(1, length)
+        self.fixedPlacements = byDay
+        self.fixedDays = Set(orderedFixed.map { $0.weekday })
+        self.mixesCardioAndStrength = WeeklyFitSearch.mixes(cardioAndStrengthIn: ordered)
     }
 
     // MARK: - Busca
@@ -141,7 +171,8 @@ struct WeeklyFitSearch: Sendable {
 
     // MARK: - Regras de M4
 
-    /// As sessões de cada dia (segunda = 0) na semana `number` da órbita.
+    /// As sessões de cada dia (segunda = 0) na semana `number` da órbita: as dos planos e depois as fixas
+    /// que ocupam lugar (X4), que são as mesmas em toda semana.
     func week(_ choice: [[PlanWeekday]], number: Int) -> [[Placement]] {
         var days = Array(repeating: [Placement](), count: PlanWeekday.allCases.count)
         for (planIndex, plan) in plans.enumerated() {
@@ -154,6 +185,9 @@ struct WeeklyFitSearch: Sendable {
                 let session = plan.sessions[(offset + position) % count]
                 days[weekday.rawValue].append(Placement(plan: planIndex, session: session))
             }
+        }
+        for day in days.indices {
+            days[day] += fixedPlacements[day]
         }
         return days
     }
@@ -182,33 +216,54 @@ struct WeeklyFitSearch: Sendable {
         return true
     }
 
-    /// Estrutura do dia (M4): no máximo uma força e um aeróbico. Duas sessões só com "Aceito 2 sessões no
-    /// mesmo dia" ou, com "Cardio leve depois da força", um aeróbico leve ou moderado com uma força que não
-    /// é de pernas.
+    /// Estrutura do dia (M4, X4):
+    /// - no máximo uma força e um aeróbico de plano;
+    /// - uma fixa de força ocupa o lugar de força (nenhuma força de plano no dia), e uma fixa de aeróbico o
+    ///   de aeróbico;
+    /// - força e aeróbico no mesmo dia, com ao menos um de plano, só com "Aceito 2 sessões no mesmo dia" ou,
+    ///   com "Cardio leve depois da força", um aeróbico leve ou moderado com uma força que não é de pernas;
+    /// - só fixas no dia: escolha da pessoa, sempre vale.
     func isStructureValid(_ placements: [Placement]) -> Bool {
-        let strengths = placements.filter { $0.session.kind == .strength }
-        let cardios = placements.filter { $0.session.kind == .cardio }
-        guard strengths.count <= 1, cardios.count <= 1 else {
+        let planStrengths = placements.filter { !$0.isFixed && $0.session.kind == .strength }
+        let planCardios = placements.filter { !$0.isFixed && $0.session.kind == .cardio }
+        guard planStrengths.count <= 1, planCardios.count <= 1 else {
             return false
         }
-        guard placements.count == 2, !preferences.allowsTwoSessionsPerDay else {
+        let fixedStrengths = placements.filter { $0.isFixed && $0.session.kind == .strength }
+        let fixedCardios = placements.filter { $0.isFixed && $0.session.kind == .cardio }
+        if !fixedStrengths.isEmpty && !planStrengths.isEmpty {
+            return false
+        }
+        if !fixedCardios.isEmpty && !planCardios.isEmpty {
+            return false
+        }
+        let strengths = planStrengths + fixedStrengths
+        let cardios = planCardios + fixedCardios
+        let hasPlanSession = !planStrengths.isEmpty || !planCardios.isEmpty
+        guard !strengths.isEmpty, !cardios.isEmpty, hasPlanSession else {
             return true
         }
-        guard
-            preferences.allowsLightCardioAfterStrength,
-            let strength = strengths.first,
-            let cardio = cardios.first
-        else {
+        if preferences.allowsTwoSessionsPerDay {
+            return true
+        }
+        guard preferences.allowsLightCardioAfterStrength else {
             return false
         }
-        let intensity = cardio.session.cardioIntensity ?? .moderate
-        return intensity != .vigorous && !strength.session.isLowerBody
+        let strongest = cardios
+            .map { $0.session.cardioIntensity ?? .moderate }
+            .max { $0.rank < $1.rank } ?? .moderate
+        let hasLegs = strengths.contains { $0.session.isLowerBody }
+        return strongest != .vigorous && !hasLegs
     }
 
-    /// 48 h (S6): duas forças com algum grupo primário em comum em dias seguidos.
+    /// 48 h (S6): duas forças com algum grupo primário em comum em dias seguidos. Duas fixas entre si não
+    /// contam (X4).
     static func sharesMuscles(_ today: [Placement], _ tomorrow: [Placement]) -> Bool {
         for first in today where first.session.kind == .strength {
             for second in tomorrow where second.session.kind == .strength {
+                if first.isFixed && second.isFixed {
+                    continue
+                }
                 if !first.session.primaryMuscles.isDisjoint(with: second.session.primaryMuscles) {
                     return true
                 }
@@ -217,20 +272,95 @@ struct WeeklyFitSearch: Sendable {
         return false
     }
 
-    /// Véspera de pernas (A5): um aeróbico forte num dia e uma força de pernas no dia seguinte.
+    /// Véspera de pernas (A5): um aeróbico forte num dia e uma força de pernas no dia seguinte. Duas fixas
+    /// entre si não contam (X4).
     static func isVigorousBeforeLegs(_ today: [Placement], _ tomorrow: [Placement]) -> Bool {
-        let hasVigorous = today.contains { $0.session.kind == .cardio && $0.session.cardioIntensity == .vigorous }
-        guard hasVigorous else {
-            return false
+        for cardio in today where cardio.session.kind == .cardio && cardio.session.cardioIntensity == .vigorous {
+            for strength in tomorrow where strength.session.kind == .strength && strength.session.isLowerBody {
+                if cardio.isFixed && strength.isFixed {
+                    continue
+                }
+                return true
+            }
         }
-        return tomorrow.contains { $0.session.kind == .strength && $0.session.isLowerBody }
+        return false
+    }
+
+    // MARK: - Lugares (M5)
+
+    /// M5 `notEnoughDays`: quantas sessões de plano a estrutura do dia comporta nos dias disponíveis.
+    /// - Um dia tem lugar de força de plano se a estrutura aceita uma força ao lado das fixas dele (X4), e
+    ///   o mesmo para o aeróbico; sem fixas, todo dia tem os dois.
+    /// - Com 2 por dia (só quando um plano tem aeróbico e outro tem força, B9), cada tipo conta à parte, até
+    ///   as sessões que os planos pedem dele na semana.
+    /// - Sem isso, um dia leva uma sessão de plano: o máximo é o menor corte entre o que se pede e os dias
+    ///   que aceitam cada tipo.
+    /// Sem fixas e sem 2 por dia, dá os dias disponíveis sempre que faltam lugares, como antes; o número
+    /// nunca passa das sessões pedidas, e a frase do motivo nunca diz que cabem mais do que se pede.
+    func availablePlaces() -> Int {
+        var strengthNeeded = 0
+        var cardioNeeded = 0
+        for (index, plan) in plans.enumerated() where !plan.sessions.isEmpty && index < perWeek.count {
+            // A primeira semana da órbita (a fase, M3): um plano pode ter dias dos dois tipos.
+            for position in 0..<perWeek[index] {
+                switch plan.sessions[position % plan.sessions.count].kind {
+                case .strength:
+                    strengthNeeded += 1
+                case .cardio:
+                    cardioNeeded += 1
+                }
+            }
+        }
+        var strengthDays = 0
+        var cardioDays = 0
+        var eitherDays = 0
+        for day in preferences.availableDays {
+            let fixedHere = fixedPlacements[day.rawValue]
+            let takesStrength = isStructureValid(fixedHere + [WeeklyFitSearch.easiestPlanSession(.strength)])
+            let takesCardio = isStructureValid(fixedHere + [WeeklyFitSearch.easiestPlanSession(.cardio)])
+            if takesStrength {
+                strengthDays += 1
+            }
+            if takesCardio {
+                cardioDays += 1
+            }
+            if takesStrength || takesCardio {
+                eitherDays += 1
+            }
+        }
+        if preferences.allowsTwoSessionsPerDay && mixesCardioAndStrength {
+            return min(strengthNeeded, strengthDays) + min(cardioNeeded, cardioDays)
+        }
+        return min(
+            strengthNeeded + cardioNeeded,
+            strengthDays + cardioNeeded,
+            strengthNeeded + cardioDays,
+            eitherDays
+        )
+    }
+
+    /// A sessão de plano mais fácil de pôr ao lado de uma fixa: força sem grupos e sem pernas, ou aeróbico
+    /// leve. Assim o lugar só some quando nenhuma sessão daquele tipo caberia no dia.
+    static func easiestPlanSession(_ kind: PlanSessionKind) -> Placement {
+        let id = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+        switch kind {
+        case .strength:
+            return Placement(plan: 0, session: PlanSessionDemand(programDayID: id, dayName: "", kind: .strength))
+        case .cardio:
+            return Placement(
+                plan: 0,
+                session: PlanSessionDemand(programDayID: id, dayName: "", kind: .cardio, cardioIntensity: .light)
+            )
+        }
     }
 
     // MARK: - Escolha e semana
 
+    /// Os critérios de M4. As fixas contam como as outras sessões: são iguais em toda escolha, então só
+    /// empurram as sessões de plano para longe delas. A fixa leve não ocupa lugar e não conta.
     func score(of choice: [[PlanWeekday]]) -> Score {
         let weeks = (0..<orbitLength).map { week(choice, number: $0) }
-        let doubleDays = weeks.first?.filter { $0.count == 2 }.count ?? 0
+        let doubleDays = weeks.first?.filter { $0.count >= 2 }.count ?? 0
         var strengthPairs = 0
         var cardioPairs = 0
         for (index, days) in weeks.enumerated() {
@@ -254,7 +384,9 @@ struct WeeklyFitSearch: Sendable {
         placements.contains { $0.session.kind == kind }
     }
 
-    /// A primeira semana da escolha, com o dia previsto em cada lugar e os avisos de M4.
+    /// A primeira semana da escolha, com o dia previsto em cada lugar de plano, as fixas e os avisos de M4:
+    /// "sem descanso completo" quando os 7 dias têm sessão ou fixa (também a leve); "força antes do cardio"
+    /// em cada dia com força e aeróbico em que ao menos um é de plano.
     func schedule(for choice: [[PlanWeekday]]) -> WeekSchedule {
         let days = week(choice, number: 0)
         var slots: [PlannedSlot] = []
@@ -264,18 +396,22 @@ struct WeeklyFitSearch: Sendable {
             guard let weekday = PlanWeekday(rawValue: dayIndex) else {
                 continue
             }
-            let hasStrength = WeeklyFitSearch.has(.strength, placements)
-            if hasStrength && WeeklyFitSearch.has(.cardio, placements) {
+            let hasPlanSession = placements.contains { !$0.isFixed }
+            if hasPlanSession && WeeklyFitSearch.has(.strength, placements) && WeeklyFitSearch.has(.cardio, placements) {
                 sharedDays.append(weekday)
             }
+            let hasPlanStrength = placements.contains { !$0.isFixed && $0.session.kind == .strength }
             for placement in placements {
+                guard let planIndex = placement.plan else {
+                    continue
+                }
                 let session = placement.session
-                let indexInWeek = choice[placement.plan].firstIndex(of: weekday) ?? 0
-                // A5: no dia com as duas, a força vem antes.
-                let orderInDay = session.kind == .cardio && hasStrength ? 1 : 0
+                let indexInWeek = choice[planIndex].firstIndex(of: weekday) ?? 0
+                // A5: no dia com as duas de plano, a força vem antes.
+                let orderInDay = session.kind == .cardio && hasPlanStrength ? 1 : 0
                 slots.append(PlannedSlot(
                     weekday: weekday,
-                    programID: plans[placement.plan].programID,
+                    programID: plans[planIndex].programID,
                     indexInWeek: indexInWeek,
                     kind: session.kind,
                     orderInDay: orderInDay,
@@ -285,12 +421,12 @@ struct WeeklyFitSearch: Sendable {
                 ))
             }
         }
-        let usedDays = Set(choice.flatMap { $0 })
+        let usedDays = Set(choice.flatMap { $0 }).union(fixedDays)
         if usedDays.count == PlanWeekday.allCases.count {
             notes.append(.noFullRestDay)
         }
         notes += sharedDays.map { FitNote.strengthBeforeCardio($0) }
-        return WeekSchedule(slots: slots, notes: notes)
+        return WeekSchedule(slots: slots, notes: notes, fixed: fixed)
     }
 
     // MARK: - Apoio
@@ -308,6 +444,58 @@ struct WeeklyFitSearch: Sendable {
             }
             return lhs.programID.uuidString < rhs.programID.uuidString
         }
+    }
+
+    /// As fixas por dia da semana; no mesmo dia, a ordem recebida (a de `OutsideActivities.fixedDemands`,
+    /// que já vem pela hora).
+    static func orderedFixed(_ fixed: [FixedActivityDemand]) -> [FixedActivityDemand] {
+        fixed.enumerated()
+            .sorted { lhs, rhs in
+                if lhs.element.weekday != rhs.element.weekday {
+                    return lhs.element.weekday < rhs.element.weekday
+                }
+                return lhs.offset < rhs.offset
+            }
+            .map { $0.element }
+    }
+
+    /// A fixa como sessão do encaixe (X4): a de força com os grupos dela (e dia de pernas quando algum é de
+    /// pernas), a de aeróbico com a intensidade dela (moderada quando falta). A leve não ocupa lugar.
+    static func session(for activity: FixedActivityDemand) -> PlanSessionDemand? {
+        switch activity.role {
+        case .light:
+            return nil
+        case .strength:
+            let isLowerBody = activity.isLowerBody || !activity.primaryMuscles.isDisjoint(with: PlanDemand.lowerBodyGroups)
+            return PlanSessionDemand(
+                programDayID: activity.id,
+                dayName: activity.name,
+                kind: .strength,
+                primaryMuscles: activity.primaryMuscles,
+                isLowerBody: isLowerBody,
+                estimatedMinutes: max(0, activity.minutes)
+            )
+        case .cardio:
+            return PlanSessionDemand(
+                programDayID: activity.id,
+                dayName: activity.name,
+                kind: .cardio,
+                cardioIntensity: activity.cardioIntensity ?? .moderate,
+                estimatedMinutes: max(0, activity.minutes)
+            )
+        }
+    }
+
+    /// Algum plano tem um dia de aeróbico e outro plano tem um dia de força (M5).
+    static func mixes(cardioAndStrengthIn plans: [PlanDemand]) -> Bool {
+        for (index, plan) in plans.enumerated() where plan.sessions.contains(where: { $0.kind == .cardio }) {
+            for (otherIndex, other) in plans.enumerated() where otherIndex != index {
+                if other.sessions.contains(where: { $0.kind == .strength }) {
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     /// M3: a de "Menos sessões" ou a da demanda, limitada a 1…dias; 0 num plano sem dias.

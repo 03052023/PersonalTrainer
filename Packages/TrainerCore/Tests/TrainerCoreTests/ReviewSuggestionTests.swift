@@ -263,7 +263,7 @@ struct ReviewSuggestionTests {
         #expect(RF.suggestions(report, .switchProgram).allSatisfy { $0.strength == .optional })
     }
 
-    @Test("C2/R5 texto da troca fala em \"este plano\" e traz as semanas (R8, 2.3)")
+    @Test("C2/R5 texto da troca fala em \"este plano\" e traz as semanas; o título diz \"plano\" (R8, 2.4)")
     func switchProgramText() throws {
         let bench = RF.exercise(1, [.chest])
 
@@ -280,7 +280,7 @@ struct ReviewSuggestionTests {
         #expect(suggestion.rule == "R5")
         #expect(suggestion.targetIDs.isEmpty)
         #expect(suggestion.referenceTopic == "topic.substitution")
-        #expect(suggestion.title == "Experimentar um novo programa")
+        #expect(suggestion.title == "Experimentar um novo plano")
         #expect(
             suggestion.reason
                 == "Você treina com este plano há 8 semanas; depois de 8 semanas, mudar de plano "
@@ -389,6 +389,96 @@ struct ReviewSuggestionTests {
 
         #expect(report.adherence == 0.5)
         #expect(RF.kinds(report) == [.reduceDays])
+    }
+
+    // MARK: - R8 (2.4): segundos e passos
+
+    @Test("R8 segundos e passos fora de R1 e de R5: não estagnam nem pedem faixa, troca ou semana leve")
+    func secondsAndStepsAreOutsideR1() {
+        let plank = RF.exercise(1, [.core], name: "Prancha", equipment: .bodyweight)
+        let carry = RF.exercise(2, [.back], name: "Caminhada do fazendeiro", equipment: .dumbbell)
+        let bench = RF.exercise(3, [.chest])
+        let flat = [Double](repeating: 100, count: 7)
+        let rising: [Double] = [100, 102.5, 105, 107.5]
+
+        let measured = RF.review(
+            RF.input(exercises: [
+                RF.slot(plank, target: 1, history: RF.history(e1rms: flat, exercise: 1), measure: .seconds),
+                RF.slot(carry, target: 2, history: RF.history(e1rms: flat, exercise: 2), measure: .steps),
+                RF.slot(bench, target: 3, history: RF.history(e1rms: rising, exercise: 3)),
+            ])
+        )
+        // The same histories read as repetitions do stagnate: the measure is what changes.
+        let asReps = RF.review(
+            RF.input(exercises: [
+                RF.slot(plank, target: 1, history: RF.history(e1rms: flat, exercise: 1)),
+                RF.slot(carry, target: 2, history: RF.history(e1rms: flat, exercise: 2)),
+                RF.slot(bench, target: 3, history: RF.history(e1rms: rising, exercise: 3)),
+            ])
+        )
+
+        #expect(measured.stagnantExerciseIDs.isEmpty)
+        #expect(RF.suggestions(measured, .deload).isEmpty)
+        #expect(RF.suggestions(measured, .changeRepRange).isEmpty)
+        #expect(RF.suggestions(measured, .swapExercise).isEmpty)
+        #expect(Set(asReps.stagnantExerciseIDs) == [RF.id(101), RF.id(102)])
+        #expect(!RF.suggestions(asReps, .swapExercise).isEmpty)
+    }
+
+    @Test("R8 a estagnação ampla (R5) não conta segundos e passos na base")
+    func stagnationWideIgnoresSecondsAndSteps() throws {
+        let plank = RF.exercise(1, [.core], equipment: .bodyweight)
+        let bench = RF.exercise(2, [.chest])
+        let row = RF.exercise(3, [.back])
+
+        let report = RF.review(
+            RF.input(exercises: [
+                RF.slot(plank, target: 1, history: RF.history(e1rms: [100, 102.5, 105, 107.5], exercise: 1), measure: .seconds),
+                RF.slot(bench, target: 2, history: RF.history(e1rms: [100, 100, 100, 100], exercise: 2)),
+                RF.slot(row, target: 3, history: RF.history(e1rms: [100, 102.5, 105, 107.5], exercise: 3)),
+            ])
+        )
+
+        // With the plank in the base it would be 1 of 3 (33 %), below the R5 line.
+        #expect(report.stagnantExerciseIDs == [RF.id(102)])
+        let deload = try #require(RF.suggestions(report, .deload).first)
+        #expect(deload.reason.hasPrefix("1 de 2 exercícios (50%) não melhoram há pelo menos 3 sessões."))
+    }
+
+    @Test("R8 segundos e passos continuam em R3: as séries contam no grupo")
+    func secondsAndStepsStillCountInR3() {
+        let plank = RF.exercise(1, [.core], equipment: .bodyweight)
+        let carry = RF.exercise(2, [.back], equipment: .dumbbell)
+
+        let report = RF.review(
+            RF.input(exercises: [
+                RF.slot(plank, target: 1, history: RF.weeklyHistory([2, 2, 2, 2], exercise: 1), measure: .seconds),
+                RF.slot(carry, target: 2, history: RF.weeklyHistory([3, 3, 3, 3], exercise: 2), measure: .steps),
+            ])
+        )
+
+        #expect(report.weeklySetsByMuscle[.core] == 2)
+        #expect(report.weeklySetsByMuscle[.back] == 3)
+    }
+
+    @Test("R8 segundos continuam em R2: as notas de repetir a meta contam no cansaço")
+    func secondsStillCountInR2() throws {
+        let plank = RF.exercise(1, [.core], equipment: .bodyweight)
+        let bench = RF.exercise(2, [.chest])
+
+        let report = RF.review(
+            RF.input(
+                exercises: [
+                    RF.slot(plank, target: 1, history: RF.weeklyHistory([1, 1, 1, 1], exercise: 1), measure: .seconds),
+                    RF.slot(bench, target: 2, history: RF.weeklyHistory([12, 12, 12, 12], exercise: 2)),
+                ],
+                prescriptions: [RF.prescription(.retry, exercise: 1), RF.prescription(.hold, exercise: 2)]
+            )
+        )
+
+        #expect(report.fatigueHigh)
+        let deload = try #require(RF.suggestions(report, .deload).first)
+        #expect(deload.rule == "R2")
     }
 
     // MARK: - R6

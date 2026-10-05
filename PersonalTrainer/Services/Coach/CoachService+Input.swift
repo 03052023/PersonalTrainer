@@ -18,6 +18,7 @@ extension CoachService {
         rememberTargets(from: reviewInput)
         let exercises = exerciseCatalog(from: reviewInput)
         let deload = deloadState(sessions: sessions, now: now)
+        let deloadDetail = deloadTriggerDetail(for: deload, now: now)
         let review = relevantReview(
             currentReview(log: &log, input: reviewInput, firstSessionAt: trainedStarts.min(), now: now),
             activeProgramID: reviewInput?.programID
@@ -25,7 +26,9 @@ extension CoachService {
         let records = personalRecords(sessions: sessions, reviewInput: reviewInput)
         let nextDay = nextDayName(lastSessionStart: lastSessionStart, principalID: principal?.id, now: now)
         let completedCount = sessions.filter { $0.status == .completed }.count
-        let longevityDone = longevityMarks(in: log, now: now)
+        // SPEC C8, §7.17 X6: o bloco já registrado nesta semana em "Fora do app" também está feito, e o
+        // lembrete some (sem isso, um "Feito" a mais gravaria a mesma vez duas vezes).
+        let longevityDone = longevityMarks(in: log, now: now).union(registeredLongevity(now: now))
 
         return CoachInput(
             deload: deload,
@@ -40,7 +43,8 @@ extension CoachService {
             lastBackupAt: lastBackupAt,
             completedSessionCount: completedCount,
             goal: reminderGoal(),
-            longevityDoneThisWeek: longevityDone
+            longevityDoneThisWeek: longevityDone,
+            deloadDetail: deloadDetail
         )
     }
 
@@ -165,6 +169,23 @@ extension CoachService {
         }
         markPendingDeload(since: now, trigger: trigger)
         return now
+    }
+
+    /// Os números do C1 (SPEC §7.11 C1, achado B11 da 2.1): só com a semana leve programada, que é
+    /// quando o planejador pode tê-los (`SessionPlanning.deloadTriggerDetail` devolve `nil` fora de
+    /// `.pending`). Assim o diálogo não recalcula o programa à toa em cada atualização. Numa falha de
+    /// leitura, `nil` com log: o C1 fica com o texto sem números.
+    func deloadTriggerDetail(for state: CoachDeloadState, now: Date) -> DeloadTriggerDetail? {
+        guard case .scheduled = state else {
+            return nil
+        }
+        do {
+            return try planner.deloadTriggerDetail(now: now)
+        } catch {
+            let reason = String(describing: error)
+            Self.logger.error("Números da semana leve indisponíveis: \(reason, privacy: .public)")
+            return nil
+        }
     }
 
     var storedPendingSince: Date? {
@@ -354,9 +375,32 @@ extension CoachService {
 
     /// Blocos marcados como "Feito" nesta semana ISO (o mesmo período do id da mensagem C8).
     func longevityMarks(in log: CoachLog, now: Date) -> Set<String> {
+        longevityMarks(in: log, now: now, markedBefore: nil)
+    }
+
+    /// SPEC §7.16 W2.6: as marcas que valem 1 nas Metas, só as de antes do primeiro "Feito" que gravou um
+    /// registro (2.4). Desde ele, cada "Feito" existe como registro nas atividades, e apagar o registro
+    /// desfaz a vez.
+    func legacyLongevityMarks(in log: CoachLog, now: Date) -> Set<String> {
+        let since = defaults.object(forKey: DefaultsKey.longevityEntriesSince) as? Date
+        return longevityMarks(in: log, now: now, markedBefore: since)
+    }
+
+    /// SPEC §7.17 X6: os blocos com algum registro de equilíbrio ou de mobilidade na semana de `now`, de
+    /// segunda a domingo (o mesmo período da semana ISO do C8).
+    func registeredLongevity(now: Date) -> Set<String> {
+        let week = WeeklyFrequency.weekInterval(containing: now, weekStartsOnMonday: true, calendar: calendar)
+        let counts = OutsideActivities.longevityCounts(entries: activities.load().entries, week: week)
+        return Set(counts.filter { $0.value > 0 }.map(\.key))
+    }
+
+    private func longevityMarks(in log: CoachLog, now: Date, markedBefore limit: Date?) -> Set<String> {
         let week = Self.isoWeekLabel(for: now, calendar: calendar)
         var done = Set<String>()
         for entry in log.entries where entry.rule == .longevity && entry.action == .done {
+            if let limit, entry.date >= limit {
+                continue
+            }
             if Self.isoWeekLabel(for: entry.date, calendar: calendar) == week {
                 done.insert(entry.itemKey)
             }

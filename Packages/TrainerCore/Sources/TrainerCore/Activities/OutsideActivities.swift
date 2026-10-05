@@ -95,9 +95,10 @@ public enum OutsideActivities: Sendable {
         entry.kind.countsAsAerobic && entry.intensity != .light && entry.minutes > 0
     }
 
-    /// Os registros que contam no aeróbico, como treinos sem FC com a intensidade declarada, para somar aos
-    /// treinos do app Saúde no relatório de saúde (A1). Fica de fora o registro que um treino de
-    /// `healthWorkouts` cobre em pelo menos `minimumOverlapFraction` da duração.
+    /// Os registros que contam no aeróbico, como treinos sem leitura do relógio com a intensidade declarada,
+    /// para somar aos treinos do app Saúde no relatório de saúde (A1). Fica de fora o registro que um treino
+    /// de `healthWorkouts` cobre em pelo menos `minimumOverlapFraction` da duração (o relógio já contou).
+    /// A duração conta até o teto de X1 (`minutesRange`), como em `aerobicMinutes(entries:week:)`.
     public static func aerobicSamples(
         entries: [OutsideActivityEntry],
         excludingOverlapWith healthWorkouts: [AerobicWorkoutSample]
@@ -105,13 +106,12 @@ public enum OutsideActivities: Sendable {
         entries
             .filter { Self.countsTowardAerobic($0) && !Self.isCovered($0, by: healthWorkouts) }
             .sorted(by: Self.precedes)
-            .map { entry in
+            .map { (entry: OutsideActivityEntry) -> AerobicWorkoutSample in
                 AerobicWorkoutSample(
                     id: entry.id,
                     activity: entry.kind.aerobicActivity,
                     start: entry.start,
-                    end: entry.end,
-                    minuteHeartRates: [],
+                    end: Self.countedEnd(of: entry),
                     declaredIntensity: entry.intensity == .vigorous ? .vigorous : .moderate
                 )
             }
@@ -123,7 +123,7 @@ public enum OutsideActivities: Sendable {
         Self.entries(entries, in: week)
             .filter { Self.countsTowardAerobic($0) }
             .reduce(0) { (total: Int, entry: OutsideActivityEntry) -> Int in
-                let minutes = min(max(entry.minutes, 0), minutesRange.upperBound)
+                let minutes = Self.countedMinutes(of: entry)
                 return total + (entry.intensity == .vigorous ? 2 * minutes : minutes)
             }
     }
@@ -257,14 +257,27 @@ public enum OutsideActivities: Sendable {
         return lhs.id.uuidString < rhs.id.uuidString
     }
 
-    /// Um treino de `workouts` cobre ao menos `minimumOverlapFraction` da duração do registro.
+    /// A duração que conta (X1): de 0 ao teto de `minutesRange`. Um registro fora da faixa só chega por um
+    /// arquivo antigo ou editado à mão; ele não pode inflar a semana.
+    static func countedMinutes(of entry: OutsideActivityEntry) -> Int {
+        min(max(entry.minutes, 0), minutesRange.upperBound)
+    }
+
+    /// Início + a duração que conta.
+    static func countedEnd(of entry: OutsideActivityEntry) -> Date {
+        entry.start.addingTimeInterval(TimeInterval(Self.countedMinutes(of: entry)) * 60)
+    }
+
+    /// Um treino de `workouts` cobre ao menos `minimumOverlapFraction` da duração do registro (X3, o mesmo
+    /// critério do RF-13). Cada treino é olhado sozinho: dois treinos curtos não somam.
     static func isCovered(_ entry: OutsideActivityEntry, by workouts: [AerobicWorkoutSample]) -> Bool {
-        let duration = entry.end.timeIntervalSince(entry.start)
+        let end = Self.countedEnd(of: entry)
+        let duration = end.timeIntervalSince(entry.start)
         guard duration > 0 else {
             return false
         }
-        return workouts.contains { workout in
-            let overlap = min(entry.end, workout.end).timeIntervalSince(max(entry.start, workout.start))
+        return workouts.contains { (workout: AerobicWorkoutSample) -> Bool in
+            let overlap = min(end, workout.end).timeIntervalSince(max(entry.start, workout.start))
             return overlap >= duration * minimumOverlapFraction
         }
     }

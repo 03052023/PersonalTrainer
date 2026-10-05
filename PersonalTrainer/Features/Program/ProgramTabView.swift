@@ -13,6 +13,10 @@ import TrainerCore
 ///   sessão e "descanso" nos livres), "Seus dias" (os dias e as duas chaves, com a conferência antes de
 ///   gravar, M9) e, em cada plano, "Tirar este plano" com confirmação (M8).
 ///
+/// Atividades fora do app (2.4, SPEC RF-53, §7.17 X2, X4; DESIGN §9.3): com o `ActivitiesModel`, a seção
+/// "Atividades fixas" entra depois dos planos e antes de "Ajustar exercícios", e, com dois planos, cada
+/// fixa aparece no dia dela em "Sua semana", depois das sessões.
+///
 /// Nada aqui lê o `AppEnvironment` do ambiente nem escreve no `ModelContext` (AGENTS R4): os serviços
 /// chegam por `init`. `now` é o único relógio real da aba (SPEC P11); os parâmetros novos têm padrão
 /// para o integrador poder chamar `ProgramTabView(programs:catalog:references:now:)`.
@@ -32,6 +36,8 @@ struct ProgramTabView: View {
     private let references: ReferenceCatalog
     private let planner: (any SessionPlanning)?
     private let now: () -> Date
+    /// `nil`: sem a seção "Atividades fixas" (previews e testes sem atividades).
+    private let activities: ActivitiesModel?
 
     /// DESIGN §9.1: a flor do topo tem cerca de 56 pt.
     private static let flowerSize: CGFloat = 56
@@ -44,13 +50,15 @@ struct ProgramTabView: View {
         references: ReferenceCatalog,
         now: @escaping () -> Date = { Date() },
         planner: (any SessionPlanning)? = nil,
-        coordinator: (any SessionCoordinating)? = nil
+        coordinator: (any SessionCoordinating)? = nil,
+        activities: ActivitiesModel? = nil
     ) {
         self.programs = programs
         self.catalog = catalog
         self.references = references
         self.planner = planner
         self.now = now
+        self.activities = activities
         self._model = State(initialValue: PlanTabModel(
             programs: programs,
             catalog: catalog,
@@ -65,6 +73,7 @@ struct ProgramTabView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     content
+                    fixedActivities
                     links
                 }
                 .padding(16)
@@ -73,6 +82,10 @@ struct ProgramTabView: View {
             .navigationTitle("Plano")
             // Também dispara ao voltar de "Ajustar exercícios": a semana mostra o que foi gravado.
             .onAppear {
+                model.refresh()
+            }
+            // Acrescentar, editar ou apagar uma fixa muda "Sua semana" (X4): o encaixe relê as fixas gravadas.
+            .onChange(of: activities?.log.fixed) { _, _ in
                 model.refresh()
             }
             .sheet(isPresented: $isShowingGoalSheet, onDismiss: {
@@ -169,6 +182,16 @@ struct ProgramTabView: View {
                 text: "Cada objetivo tem o seu plano, com os dias e os exercícios de cada sessão.",
                 showsChooseButton: true
             )
+        }
+    }
+
+    /// "Atividades fixas" (2.4, DESIGN §9.3 ponto 3): depois dos planos e antes de "Ajustar exercícios".
+    /// Também sem objetivo: a fixa pode nascer nas Metas ("Toda semana") e aparece na tela Hoje, então
+    /// precisa de um lugar para ser editada ou apagada.
+    @ViewBuilder
+    private var fixedActivities: some View {
+        if let activities, model.hasLoaded {
+            FixedActivitiesSection(model: activities)
         }
     }
 

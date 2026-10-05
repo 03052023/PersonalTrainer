@@ -187,6 +187,43 @@ func referenceCatalogFileCoversCombinationTopics() throws {
     }
 }
 
+@Test("topic.activities e a referência nova existem")
+func referenceCatalogFileCoversOutsideActivities() throws {
+    let catalog = try loadReferenceCatalogFile()
+
+    // Ainsworth 2011, conferido no Crossref (api.crossref.org/works/10.1249/MSS.0b013e31821ece12) em
+    // 2026-10-05: autores, ano, revista e título batem.
+    let compendium = try #require(catalog.references.first { $0.id == "ainsworth-2011-compendium" })
+    #expect(compendium.year == 2011)
+    #expect(compendium.doi == "10.1249/MSS.0b013e31821ece12")
+    #expect(compendium.level == .consensus)
+    #expect(compendium.source == "Medicine & Science in Sports & Exercise")
+    #expect(compendium.title.hasPrefix("2011 Compendium of Physical Activities"))
+    #expect(compendium.authors.hasPrefix("Ainsworth BE"))
+
+    let topic: [String] = ["bull-2020-who", "ainsworth-2011-compendium", "schumann-2022-concurrent"]
+    #expect(catalog.topics["topic.activities"] == topic)
+    let text = catalog.explanations["topic.activities"] ?? ""
+    for fragment in ["OMS", "150 minutos", "pilates", "cross", "recuperação", "carga"] {
+        #expect(text.contains(fragment), "\(fragment)")
+    }
+
+    // A 2.4 também explica os blocos e a semana leve do Cardio, e as vezes de equilíbrio e mobilidade.
+    let cardio = catalog.explanations["topic.cardio"] ?? ""
+    #expect(cardio.contains("mais um bloco, até 5"))
+    #expect(cardio.contains("semana leve"))
+    let longevity = catalog.explanations["goal.longevity"] ?? ""
+    #expect(longevity.contains("vezes registradas"))
+    #expect(longevity.contains("contra 2"))
+
+    // Itens 15 e 16 do dono: nenhum texto de efeito.
+    let checkedTexts: [String] = [text, cardio, longevity, compendium.summary]
+    for checked in checkedTexts {
+        #expect(!checked.contains("!"))
+        #expect(!checked.lowercased().contains("parabéns"))
+    }
+}
+
 @Test("RF-45 itens 10 e 12 do dono: o Por quê? explica Hipertrofia × Força e Força × Combate")
 func referenceCatalogFileExplainsGoalDifferences() throws {
     let catalog = try loadReferenceCatalogFile()
@@ -490,6 +527,8 @@ private enum ReferenceFixture {
         "topic.cardio",
         // 2.3, onda de telas (SPEC §7.15 M7): combinar planos, cargas leves e pesadas e a semana dos dois planos.
         "topic.combination", "topic.load", "topic.weekFit",
+        // 2.4 (SPEC §7.17): as atividades fora do app.
+        "topic.activities",
     ]
 
     static func reference(

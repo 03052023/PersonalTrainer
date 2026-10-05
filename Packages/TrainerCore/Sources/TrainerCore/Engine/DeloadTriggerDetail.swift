@@ -10,7 +10,9 @@ public struct DeloadTriggerDetail: Sendable, Hashable {
     public let decreasedExercises: Int
     /// (a): exercises counted for (a) (every prescription but `calibrate`).
     public let countedExercises: Int
-    /// (b): whole weeks since the anchor (the last lighter week, a dismissal or the first session).
+    /// (b): whole weeks (7 × 24 h) since the instant the C1 text names: the start of the last lighter
+    /// week or, when there was never one, the first session. A "Seguir normal" postpones (b) but is not
+    /// that instant, so after one this can be larger than N (the sentence stays true).
     public let weeksSinceAnchor: Int
     /// (b): `false` when the anchor is the first session (there was never a lighter week).
     public let anchorIsLastDeload: Bool

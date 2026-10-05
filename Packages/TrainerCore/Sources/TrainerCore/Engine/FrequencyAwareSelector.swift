@@ -5,13 +5,18 @@ import Foundation
 /// - S5: every candidate day scores the number of its primary muscle groups still
 ///   below their weekly target (SPEC §7.4) in the week that contains `now`.
 /// - S6: days with a primary group trained as primary less than `recoveryHours` ago
-///   are excluded; if that excludes every day, S6 is ignored.
+///   are excluded; if that excludes every day, S6 is ignored. Since 2.4 the
+///   activities logged outside the app (`recoveryLoads`, SPEC §7.17 X5) also exclude
+///   days, each for its own window (see `nextDay`).
 /// - S7: the highest score wins; ties follow the rotation order (SPEC S2), i.e. the
 ///   circular day order starting at the day `RotationSelector` would pick.
 ///
 /// `ProgramDayTemplate` only knows exercise ids, so the caller supplies each day's
 /// primary groups (`dayMuscles`, built from the catalogue). A day missing from that
 /// map has no groups: it scores 0 and is never excluded by S6.
+///
+/// The outside activities never reach S5: the weekly count is made only of the sets
+/// done in the app (SPEC X5, §7.4).
 ///
 /// Like every selector, it ignores `inProgress` sessions (SPEC S3 belongs to the
 /// planner), trusts no input order and never reads the clock (SPEC P11, AGENTS R3).
@@ -30,8 +35,7 @@ public struct FrequencyAwareSelector: WorkoutSelector {
     /// Primary muscle groups of each program day, keyed by `ProgramDayTemplate.id`.
     public let dayMuscles: [UUID: Set<MuscleGroup>]
     /// Groups worked outside the app that are still resting (SPEC §7.17 X5): they join S6 for their own
-    /// window. 2.4 scaffold (docs/V24-CONTRACT.md §3.1): stored but not read yet; the `engine` task adds
-    /// them to S6.
+    /// window (`RecoveryLoad.hours`), never S5. Built by `OutsideActivities.recoveryLoads(entries:)`.
     public let recoveryLoads: [RecoveryLoad]
 
     public init(
@@ -62,11 +66,25 @@ public struct FrequencyAwareSelector: WorkoutSelector {
             return nil
         }
 
-        // SPEC S6: drop days whose groups are still recovering; if nothing is left,
-        // S6 is ignored and every day competes.
-        let recovering = musclesTrainedWithinRecoveryWindow(recentSessions, now: now)
-        let rested = candidates.filter { muscles(of: $0).isDisjoint(with: recovering) }
-        let eligible = rested.isEmpty ? candidates : rested
+        // SPEC S6: drop days whose groups are still recovering, from the sessions done in
+        // the app and, since 2.4, from the activities logged outside it (SPEC §7.17 X5).
+        // If that leaves no day, the outside activities step back first and the app's own
+        // sessions keep S6 as before 2.4: a cross works all 10 groups (table X1), so on its
+        // own it would exclude every day and switch S6 off, letting yesterday's legs back
+        // in. If the sessions alone already exclude every day, S6 is ignored and every day
+        // competes (SPEC S6).
+        let fromSessions = musclesTrainedWithinRecoveryWindow(recentSessions, now: now)
+        let fromBoth = fromSessions.union(musclesRestingAfterOutsideActivities(now: now))
+        let restedFromBoth = candidates.filter { muscles(of: $0).isDisjoint(with: fromBoth) }
+        let restedFromSessions = candidates.filter { muscles(of: $0).isDisjoint(with: fromSessions) }
+        let eligible: [ProgramDayTemplate]
+        if !restedFromBoth.isEmpty {
+            eligible = restedFromBoth
+        } else if !restedFromSessions.isEmpty {
+            eligible = restedFromSessions
+        } else {
+            eligible = candidates
+        }
 
         // SPEC S5 + S7: highest score wins. `eligible` keeps the rotation order and
         // only a strictly higher score replaces the current best, so a tie goes to the
@@ -147,7 +165,9 @@ private extension FrequencyAwareSelector {
     /// SPEC S6 does not say which instant "trained at" means. `startedAt` is used, the
     /// same instant that places a session in a week (§7.4) and orders the history (P3,
     /// S2). A session dated after `now` (clock skew) counts as just trained, which
-    /// errs on the side of rest. A non-positive or NaN `recoveryHours` disables S6.
+    /// errs on the side of rest. A non-positive or NaN `recoveryHours` turns off the
+    /// part of S6 that comes from these sessions; the outside activities carry their
+    /// own window (`musclesRestingAfterOutsideActivities`).
     func musclesTrainedWithinRecoveryWindow(_ sessions: [SessionSummary], now: Date) -> Set<MuscleGroup> {
         guard recoveryHours > 0 else {
             return []
@@ -168,5 +188,22 @@ private extension FrequencyAwareSelector {
             }
         }
         return recovering
+    }
+
+    /// SPEC S6 with §7.17 X5: groups of the outside activities still inside their own
+    /// window, counted from the start of each activity.
+    ///
+    /// "Há < 48 h" as for the sessions: exactly `hours` after the start is already
+    /// rested. A load dated after `now` counts as just done, like a session. A load whose
+    /// `hours` is not positive (or NaN) is ignored. Light activities never become loads
+    /// (`OutsideActivities.recoveryLoads`), so nothing here knows about them.
+    func musclesRestingAfterOutsideActivities(now: Date) -> Set<MuscleGroup> {
+        var resting = Set<MuscleGroup>()
+        for load in recoveryLoads where load.hours > 0 {
+            if now.timeIntervalSince(load.start) < load.hours * 3_600 {
+                resting.formUnion(load.muscles)
+            }
+        }
+        return resting
     }
 }

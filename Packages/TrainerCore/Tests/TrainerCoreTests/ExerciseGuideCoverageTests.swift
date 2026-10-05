@@ -18,6 +18,8 @@ private enum GuideCoverageSupport {
     /// Exercícios distintos dos programas do seed 4: 51 de força, tronco e pescoço, mais os 3 aeróbicos do Cardio. A
     /// `knee-push-up` saiu dos programas com os complementos do Cardio (a guia dela continua no bundle).
     static let programSlugCount: Int = 54
+    /// Exercícios do catálogo do seed (`exercises.v2.json`), todos com guia desde a 2.4 (lotes 0 a 7).
+    static let catalogSlugCount: Int = 133
 
     static func seedBundle() throws -> SeedBundle {
         try SeedBundle.decode(
@@ -63,10 +65,8 @@ func guideCoverageOfSeedPrograms() throws {
     )
 }
 
-@Test(
-    "CA8-8 todo aeróbico do catálogo tem guia no bundle",
-    .disabled("faltam os 7 aeróbicos fora dos programas: lote 4 de docs/design/exercise-guides/batches.json")
-)
+// Ligado na 2.4 (T10.10): o lote 4 trouxe os 7 aeróbicos fora dos programas.
+@Test("CA8-8 todo aeróbico do catálogo tem guia no bundle")
 func guideCoverageOfCatalogCardio() throws {
     let bundle = try GuideCoverageSupport.seedBundle()
     let guides = try GuideTestSupport.bundleCatalog()
@@ -76,4 +76,21 @@ func guideCoverageOfCatalogCardio() throws {
     #expect(cardio.count == 10, "a 2.3 tem 10 aeróbicos no catálogo: \(cardio.count)")
     let missing = cardio.filter { !covered.contains($0) }.sorted()
     #expect(missing.isEmpty, "sem guia: \(missing)")
+}
+
+// CA6-2 do catálogo (2.4, CA10-12): com os lotes 4 a 7, cada um dos 133 exercícios do catálogo do seed tem guia, e o
+// bundle não tem guia de slug fora do catálogo.
+@Test("CA6-2 todo exercício do catálogo do seed tem guia")
+func guideCoverageOfWholeCatalog() throws {
+    let bundle = try GuideCoverageSupport.seedBundle()
+    let guides = try GuideTestSupport.bundleCatalog()
+    let covered = Set(guides.guides.map(\.slug))
+    let catalogSlugs = Set(bundle.catalog.exercises.map(\.slug))
+
+    #expect(catalogSlugs.count == GuideCoverageSupport.catalogSlugCount, "o catálogo do seed tem \(catalogSlugs.count) exercícios")
+    #expect(guides.guides.count == GuideCoverageSupport.catalogSlugCount, "o bundle tem \(guides.guides.count) guias")
+    let missing = catalogSlugs.subtracting(covered).sorted()
+    #expect(missing.isEmpty, "sem guia: \(missing)")
+    let extra = covered.subtracting(catalogSlugs).sorted()
+    #expect(extra.isEmpty, "guia de slug fora do catálogo: \(extra)")
 }

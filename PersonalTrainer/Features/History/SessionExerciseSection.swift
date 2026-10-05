@@ -66,8 +66,10 @@ struct SessionExerciseSection: View {
                 Text(prescriptionText)
                     .font(.subheadline)
                     .accessibilityLabel(prescriptionSpokenText)
-                // Selo leigo (RF-41, decisão 18): some sozinho em `hold` ("Manter" não tem selo).
-                if let note = sessionExercise.note, let badge = note.badgeText {
+                // Selo leigo (RF-41, decisão 18): some sozinho em `hold` ("Manter" não tem selo). Nos
+                // intervalos do Cardio, `increase` diz "Mais um bloco" (SPEC F6, 2.4).
+                if let note = sessionExercise.note,
+                   let badge = note.badgeText(isCardio: isCardio, hasLevel: hasLevel, loadUnit: loadUnit) {
                     HStack(spacing: 8) {
                         Text(badge)
                             .font(.caption)
@@ -129,7 +131,7 @@ struct SessionExerciseSection: View {
     /// Meta de hoje em palavras, via `TodayTargetText.row` (a mesma função da Home, da ficha da
     /// sessão e da folha de informações; `docs/V22-CONTRACT.md` §2.3): "3 séries de 10 · 60 kg",
     /// "3 séries de 5" (peso do corpo sem carga, SPEC RF-46), "2 séries de 15 s". Carga `nil`
-    /// (calibração, SPEC P2) mostra "escolha a carga". Nada de RIR (SPEC RF-41).
+    /// (calibração, SPEC P2) mostra "sem carga" (desde a 2.4, RF-46). Nada de RIR (SPEC RF-41).
     static func prescriptionRowText(
         sets: Int,
         targetReps: Int,
@@ -178,5 +180,15 @@ struct SessionExerciseSection: View {
     /// como exercício com carga (não peso do corpo), a mesma convenção de `loadUnit`.
     private var equipment: Equipment? {
         sessionExercise.exercise?.equipment
+    }
+
+    /// Aeróbico (SPEC §7.14 F1), para o selo dos intervalos (F6).
+    private var isCardio: Bool {
+        sessionExercise.exercise?.movementPattern == .cardio
+    }
+
+    /// Nível (ou carga) prescrito maior que 0: no aeróbico, vale F3 ("Nível maior"), não F6.
+    private var hasLevel: Bool {
+        (sessionExercise.prescribedLoad ?? 0) > 0
     }
 }

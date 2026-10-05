@@ -595,6 +595,129 @@ final class HealthViewModelTests: XCTestCase {
         XCTAssertFalse(model.visibleSuggestions.contains { $0.kind == .lowSteps })
     }
 
+    // MARK: - Atividades fora do app (SPEC §7.17 X3, X5; 2.4)
+
+    /// Um registro moderado de caminhada (30 min, ontem) soma 30 min ao aeróbico do relatório. O resultado é
+    /// o mesmo com ou sem a intensidade declarada do núcleo: a caminhada já é moderada por padrão (A1).
+    func testX3_healthMergesActivities() async throws {
+        let (defaults, suite) = try makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: "healthReadAuthorized")
+        let walk = OutsideActivityEntry(
+            kind: .walkRun,
+            start: now.addingTimeInterval(-86_400),
+            minutes: 30,
+            intensity: .moderate
+        )
+        let cross = OutsideActivityEntry(
+            kind: .cross,
+            start: now.addingTimeInterval(-2 * 86_400),
+            minutes: 60,
+            intensity: .vigorous
+        )
+        let log = OutsideActivityLog(entries: [walk, cross])
+        let reader = emptyRecoveryReader()
+        let model = makeModel(reader: reader, defaults: defaults, activityLog: log)
+
+        await model.load()
+
+        let report = try XCTUnwrap(model.report)
+        XCTAssertEqual(report.aerobic.moderateEquivalentMinutes, 30, "a caminhada conta; o cross não conta no aeróbico")
+        let raw = try await reader.healthInput(now: now, calendar: calendar, recentSessions: [])
+        let expected = HealthCalculator.report(
+            input: HealthInput(
+                physiology: raw.physiology,
+                aerobicWorkouts: raw.aerobicWorkouts
+                    + OutsideActivities.aerobicSamples(entries: log.entries, excludingOverlapWith: raw.aerobicWorkouts),
+                recovery: raw.recovery,
+                steps: raw.steps,
+                vo2Max: raw.vo2Max,
+                recentSessions: raw.recentSessions + OutsideActivities.placementSessions(entries: log.entries)
+            ),
+            targets: HealthTargets(),
+            now: now,
+            calendar: calendar
+        )
+        XCTAssertEqual(report, expected, "X3 e X5: os registros entram antes do HealthCalculator")
+    }
+
+    /// Teste cruzado da integração (2.4, docs/V24-CONTRACT.md §5): com o `AerobicWeek` da `activities-core`, a
+    /// intensidade declarada no registro vale nos minutos sem FC (SPEC §7.17 X3, §7.10 A1). Um spinning forte de
+    /// 45 min conta 45 vigorosos (90 moderados-equivalentes); o tipo bicicleta sozinho daria moderado. Um
+    /// spinning moderado de 30 min conta 30.
+    func testX3_healthCountsDeclaredVigorous() async throws {
+        let (defaults, suite) = try makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: "healthReadAuthorized")
+        let hardSpin = OutsideActivityEntry(
+            kind: .spinning,
+            start: now.addingTimeInterval(-3 * 3_600),
+            minutes: 45,
+            intensity: .vigorous
+        )
+        let easySpin = OutsideActivityEntry(
+            kind: .spinning,
+            start: now.addingTimeInterval(-26 * 3_600),
+            minutes: 30,
+            intensity: .moderate
+        )
+        let model = makeModel(
+            reader: emptyRecoveryReader(),
+            defaults: defaults,
+            activityLog: OutsideActivityLog(entries: [hardSpin, easySpin])
+        )
+
+        await model.load()
+
+        let aerobic = try XCTUnwrap(model.report?.aerobic)
+        XCTAssertEqual(aerobic.vigorousMinutes, 45, "X3: a intensidade declarada vale sem FC")
+        XCTAssertEqual(aerobic.moderateMinutes, 30)
+        XCTAssertEqual(aerobic.moderateEquivalentMinutes, 120, "forte conta 2")
+    }
+
+    /// `activitiesDidChange()` refaz a conta com a última leitura, sem reler o Saúde; antes de ler, não faz
+    /// nada.
+    func testX3_activitiesDidChangeRecalculatesWithoutRereading() async throws {
+        let (defaults, suite) = try makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: "healthReadAuthorized")
+        let activityLog = HealthTestBox(OutsideActivityLog.empty)
+        let fixedNow = now
+        let reader = emptyRecoveryReader()
+        let model = HealthViewModel(
+            reader: reader,
+            sessionsProvider: { [] },
+            now: { fixedNow },
+            calendar: calendar,
+            defaults: defaults,
+            logStore: FakeCoachLogStore(),
+            activityLog: { activityLog.value }
+        )
+
+        model.activitiesDidChange()
+        XCTAssertNil(model.report, "sem leitura do Saúde, nada a recalcular")
+
+        await model.load()
+        XCTAssertEqual(model.report?.aerobic.moderateEquivalentMinutes, 0)
+
+        let walk = OutsideActivityEntry(kind: .walkRun, start: now.addingTimeInterval(-3_600), minutes: 40, intensity: .moderate)
+        activityLog.value = OutsideActivityLog(entries: [walk])
+        model.activitiesDidChange()
+
+        XCTAssertEqual(model.report?.aerobic.moderateEquivalentMinutes, 40)
+        let reads = await reader.readCalls
+        XCTAssertEqual(reads.count, 1, "o HealthKit não é relido")
+
+        // Um treino do Saúde que cobre o registro: o relógio já contou (X3, ≥ 50 %).
+        let watchWalk = AerobicWorkoutSample(
+            activity: .walking,
+            start: now.addingTimeInterval(-3_600),
+            end: now.addingTimeInterval(-3_600 + 40 * 60)
+        )
+        let covered = OutsideActivities.aerobicSamples(entries: [walk], excludingOverlapWith: [watchWalk])
+        XCTAssertTrue(covered.isEmpty)
+    }
+
     // MARK: - Formatação pt-BR do card
 
     func testFormat_cardLines_inBrazilianPortuguese() {
@@ -633,7 +756,8 @@ final class HealthViewModelTests: XCTestCase {
         targets: HealthTargets = HealthTargets(),
         now overrideNow: Date? = nil,
         logStore: any CoachLogStoring = FakeCoachLogStore(),
-        showsSteps: Bool = true
+        showsSteps: Bool = true,
+        activityLog: OutsideActivityLog = .empty
     ) -> HealthViewModel {
         let fixedNow = overrideNow ?? now
         return HealthViewModel(
@@ -644,7 +768,8 @@ final class HealthViewModelTests: XCTestCase {
             calendar: calendar,
             defaults: defaults,
             logStore: logStore,
-            showsSteps: { showsSteps }
+            showsSteps: { showsSteps },
+            activityLog: { activityLog }
         )
     }
 
@@ -676,6 +801,17 @@ final class HealthViewModelTests: XCTestCase {
 }
 
 // MARK: - Doubles
+
+/// Valor que o teste muda depois de montar o modelo: um `var` capturado por um fecho `@MainActor` (que é
+/// `@Sendable`) e mudado depois gera aviso no Swift 6; a caixa isolada no `MainActor` é `Sendable`.
+@MainActor
+private final class HealthTestBox<Value> {
+    var value: Value
+
+    init(_ value: Value) {
+        self.value = value
+    }
+}
 
 private enum HealthTestError: Error {
     case boom

@@ -28,7 +28,7 @@ enum WeeklyGoalsText {
     }
 
     /// "3 de 4 sessões", "6 de 10 grupos 2 vezes", "95 de 150 min", "média de 6.200 por dia",
-    /// "média de 7 h 20 min", "Feito nesta semana" / "Ainda não marcado nesta semana", ou
+    /// "média de 7 h 20 min", "1 de 2 vezes" (equilíbrio e mobilidade desde a 2.4, W2.6), ou
     /// "sem dados" quando `!goal.hasData` (W4).
     static func valueText(_ goal: WeeklyGoal) -> String {
         guard goal.hasData, let done = goal.done else {
@@ -49,7 +49,9 @@ enum WeeklyGoalsText {
         case .sleep:
             return "média de \(hoursAndMinutes(done))"
         case .balance, .mobility:
-            return done >= 1 ? "Feito nesta semana" : "Ainda não marcado nesta semana"
+            // SPEC W2.6, X6 (2.4): as vezes registradas na semana contra a meta ("1 de 2 vezes").
+            let noun = wholeNumber(goal.target) == 1 ? "vez" : "vezes"
+            return "\(wholeNumber(done)) de \(wholeNumber(goal.target)) \(noun)"
         }
     }
 
@@ -85,13 +87,13 @@ enum WeeklyGoalsText {
             return text
         }
         switch goal.kind {
-        case .planSessions, .muscles, .aerobic:
+        case .planSessions, .muscles, .aerobic, .balance, .mobility:
             text += " nesta semana"
-        case .steps, .sleep, .balance, .mobility:
-            // Passos e sono já dizem "média"; equilíbrio e mobilidade já dizem "nesta semana".
+        case .steps, .sleep:
+            // Passos e sono já dizem "média".
             break
         }
-        if goal.isMet && goal.kind != .balance && goal.kind != .mobility {
+        if goal.isMet {
             text += ", meta cumprida"
         }
         return text

@@ -14,6 +14,10 @@ import TrainerCore
 /// Exercício medido em segundos ou passos (SPEC RF-43, lido de `\.exerciseTraits`): o 1RM
 /// estimado (Epley) não faz sentido, então o gráfico mostra só a carga máxima, e a melhor série
 /// sai com a unidade ("20 kg × 40 passos").
+///
+/// Desde a 2.4 (SPEC RF-46; achado A5 da 2.2): quando nenhuma série do exercício teve carga (> 0), o
+/// gráfico mostra a melhor marca de cada sessão na medida dele (repetições, segundos, passos ou minutos),
+/// sem "0 kg", sem 1RM estimado e sem a explicação de Epley (`usesLoad`).
 @MainActor
 struct ExerciseProgressView: View {
     /// Uma sessão no gráfico: só séries de trabalho (SPEC P1) com pelo menos 1 repetição.
@@ -49,6 +53,7 @@ struct ExerciseProgressView: View {
 
     var body: some View {
         let points = Self.points(from: sessionExercises, measure: measure)
+        let hasLoad = Self.usesLoad(points)
         Group {
             if points.isEmpty {
                 ContentUnavailableView(
@@ -61,15 +66,21 @@ struct ExerciseProgressView: View {
                     // Papel (DESIGN §14): as linhas em `surface`, como nas outras listas da direção.
                     Group {
                         Section {
-                            chart(points)
-                                .frame(height: 220)
-                                .padding(.vertical, 8)
+                            if hasLoad {
+                                chart(points)
+                                    .frame(height: 220)
+                                    .padding(.vertical, 8)
+                            } else {
+                                amountChart(points)
+                                    .frame(height: 220)
+                                    .padding(.vertical, 8)
+                            }
                         } footer: {
-                            Text(chartFooter)
+                            Text(hasLoad ? chartFooter : Self.amountFooter(measure: measure))
                         }
                         Section("Sessões") {
                             ForEach(Array(points.reversed())) { point in
-                                sessionRow(point)
+                                sessionRow(point, hasLoad: hasLoad)
                             }
                         }
                     }
@@ -112,6 +123,33 @@ struct ExerciseProgressView: View {
         .chartYAxisLabel(LocalizedStringKey(unitLabel))
     }
 
+    /// Sem carga em nenhuma série (SPEC RF-46, 2.4): a melhor marca de cada sessão na medida do exercício,
+    /// numa linha só. Nada de "0 kg" nem de 1RM.
+    private func amountChart(_ points: [ProgressPoint]) -> some View {
+        Chart {
+            ForEach(points) { point in
+                LineMark(
+                    x: .value("Data", point.date),
+                    y: .value("Marca", point.bestSetReps)
+                )
+                .foregroundStyle(by: .value("Série", "Melhor série"))
+                .symbol(by: .value("Série", "Melhor série"))
+            }
+        }
+        .chartYScale(domain: .automatic(includesZero: false))
+        .chartYAxisLabel(LocalizedStringKey(MeasureText.pluralNoun(measure)))
+    }
+
+    /// Algum ponto teve carga (> 0). Sem nenhum, a evolução mostra a medida (SPEC RF-46, 2.4).
+    static func usesLoad(_ points: [ProgressPoint]) -> Bool {
+        points.contains { $0.maxLoad > 0 }
+    }
+
+    /// Legenda do gráfico sem carga: "Melhor série de cada sessão, em repetições. Aquecimentos não entram."
+    static func amountFooter(measure: ExerciseMeasure) -> String {
+        "Melhor série de cada sessão, em \(MeasureText.pluralNoun(measure)). Aquecimentos não entram."
+    }
+
     /// O 1RM estimado (Epley) só faz sentido para carga em kg com repetições; placas e nível de
     /// máquina não são proporcionais ao peso, e segundos ou passos não são repetições (SPEC
     /// RF-43), então nesses casos o gráfico mostra só a carga máxima.
@@ -128,7 +166,7 @@ struct ExerciseProgressView: View {
 
     // MARK: - Lista
 
-    private func sessionRow(_ point: ProgressPoint) -> some View {
+    private func sessionRow(_ point: ProgressPoint, hasLoad: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
                 Text(DateFormatting.shortDate(point.date))
@@ -139,22 +177,28 @@ struct ExerciseProgressView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
-            Text(detailText(point))
+            Text(Self.detailLine(point, loadUnit: loadUnit, measure: measure, hasLoad: hasLoad))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
         .accessibilityElement(children: .combine)
     }
 
-    private func detailText(_ point: ProgressPoint) -> String {
-        Self.detailLine(point, loadUnit: loadUnit, measure: measure)
-    }
-
     /// "Melhor série 60 kg × 10 · 1RM est. 80 kg · 3 séries" (kg e repetições),
     /// "Melhor série 20 kg × 40 passos · 3 séries" (segundos ou passos, SPEC RF-43) ou
-    /// "Carga máx. nível 7 · 3 séries" (placas/nível com repetições).
-    static func detailLine(_ point: ProgressPoint, loadUnit: LoadUnit, measure: ExerciseMeasure) -> String {
+    /// "Carga máx. nível 7 · 3 séries" (placas/nível com repetições). Sem carga em nenhuma sessão
+    /// (`hasLoad` falso; SPEC RF-46, 2.4): "Melhor série 12 repetições · 3 séries", "Melhor série 45 segundos ·
+    /// 2 séries", sem "0 kg" nem 1RM.
+    static func detailLine(
+        _ point: ProgressPoint,
+        loadUnit: LoadUnit,
+        measure: ExerciseMeasure,
+        hasLoad: Bool = true
+    ) -> String {
         let setsText = point.workingSetCount == 1 ? "1 série" : "\(point.workingSetCount) séries"
+        guard hasLoad else {
+            return "Melhor série \(TodayTargetText.amount(point.bestSetReps, measure: measure)) · \(setsText)"
+        }
         if estimatesOneRepMax(loadUnit: loadUnit, measure: measure) {
             let bestSet = "\(loadText(point.bestSetLoad, unit: loadUnit)) × \(point.bestSetReps)"
             let oneRepMax = loadText(roundedToTenth(point.estimatedOneRepMax), unit: loadUnit)
@@ -271,8 +315,9 @@ struct ExerciseProgressView: View {
         }
     }
 
-    /// Ordem crescente de "qualidade" da série: 1RM estimado, depois carga. Fora das repetições
-    /// (SPEC RF-43): carga, depois o número (segundos ou passos).
+    /// Ordem crescente de "qualidade" da série: 1RM estimado, depois carga e, por fim, repetições (só
+    /// desempata sem carga, quando o 1RM estimado é 0 em todas: vale a série com mais repetições; SPEC
+    /// RF-46, 2.4). Fora das repetições (SPEC RF-43): carga, depois o número (segundos ou passos).
     private static func ranksBelow(_ lhs: SetLogModel, _ rhs: SetLogModel, measure: ExerciseMeasure) -> Bool {
         if measure != .reps {
             if lhs.load != rhs.load {
@@ -285,6 +330,9 @@ struct ExerciseProgressView: View {
         if lhsEstimate != rhsEstimate {
             return lhsEstimate < rhsEstimate
         }
-        return lhs.load < rhs.load
+        if lhs.load != rhs.load {
+            return lhs.load < rhs.load
+        }
+        return lhs.reps < rhs.reps
     }
 }

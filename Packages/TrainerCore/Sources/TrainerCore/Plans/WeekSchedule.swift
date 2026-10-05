@@ -27,7 +27,7 @@ public struct WeekSchedule: Sendable, Hashable {
         slots.filter { $0.weekday == weekday }
     }
 
-    /// Os dias sem nenhuma sessão.
+    /// Os dias sem nenhuma sessão de plano (as atividades fixas ficam em `fixed`).
     public var restDays: [PlanWeekday] {
         PlanWeekday.allCases.filter { day in !slots.contains { $0.weekday == day } }
     }

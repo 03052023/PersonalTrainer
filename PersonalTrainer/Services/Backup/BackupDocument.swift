@@ -2,7 +2,7 @@ import Foundation
 import TrainerCore
 
 /// Conteúdo do arquivo de backup (T2.4, SPEC RF-18/RNF-04, ARCHITECTURE §12): TODO o store do
-/// iPhone num JSON legível e determinístico.
+/// iPhone num JSON legível e determinístico e, desde a 2.4, as atividades fora do app (X8).
 ///
 /// Reusa os DTOs de domínio (`ExerciseDefinition`, `ProgramTemplate`) e acrescenta só o que eles
 /// não carregam (`isArchived`, `createdAt`); sessões e séries têm registros próprios porque são
@@ -24,6 +24,10 @@ struct BackupDocument: Codable, Sendable, Hashable {
     var sessions: [SessionRecord]
     /// `nil` só se o store ainda não tinha a linha de configuração (antes do primeiro seed).
     var settings: SettingsRecord?
+    /// As atividades fora do app (SPEC §7.17 X8, desde a 2.4), que ficam num JSON fora do SwiftData.
+    /// Opcional, sem mudar o `schemaVersion`: um backup antigo não tem o campo e importa com a lista
+    /// vazia. `nil` também quando quem exportou não tinha o store das atividades (testes, previews).
+    var outsideActivities: OutsideActivityLog?
 
     init(
         schemaVersion: Int = BackupDocument.currentSchemaVersion,
@@ -32,7 +36,8 @@ struct BackupDocument: Codable, Sendable, Hashable {
         exercises: [ExerciseRecord],
         programs: [ProgramRecord],
         sessions: [SessionRecord],
-        settings: SettingsRecord?
+        settings: SettingsRecord?,
+        outsideActivities: OutsideActivityLog? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.exportedAt = exportedAt
@@ -41,6 +46,7 @@ struct BackupDocument: Codable, Sendable, Hashable {
         self.programs = programs
         self.sessions = sessions
         self.settings = settings
+        self.outsideActivities = outsideActivities
     }
 
     // MARK: - Registros

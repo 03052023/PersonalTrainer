@@ -37,7 +37,7 @@ public enum CoachFeedBuilder: Sendable {
         if let message = installExpiryMessage(expiry: input.provisioningExpiry, now: now, calendar: calendar) {
             candidates.append(message)
         }
-        if let message = deloadMessage(state: input.deload, calendar: calendar) {
+        if let message = deloadMessage(state: input.deload, detail: input.deloadDetail, calendar: calendar) {
             candidates.append(message)
         }
         if let message = comebackMessage(

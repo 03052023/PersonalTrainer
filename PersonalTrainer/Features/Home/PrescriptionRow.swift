@@ -57,7 +57,9 @@ struct PrescriptionRow: View {
 
             Spacer(minLength: 8)
 
-            if let badgeText = exercise.prescription.note.badgeText {
+            // SPEC §7.14 F6, RF-47 (2.4): nos intervalos do Cardio sem nível, `increase` diz "Mais um bloco",
+            // o mesmo selo da ficha, das informações e do Histórico.
+            if let badgeText = Self.badgeText(for: exercise) {
                 NoteBadgeButton(
                     text: badgeText,
                     topic: ReferenceCatalog.topic(for: exercise.prescription.note),
@@ -95,6 +97,16 @@ struct PrescriptionRow: View {
             goal: goal(for: exercise),
             measure: measure,
             load: loadDisplay(for: exercise)
+        )
+    }
+
+    /// O selo da nota, com o aeróbico (SPEC F3 e F6): "Mais um bloco" sem nível, "Nível maior" com nível.
+    /// `nil` = sem selo.
+    static func badgeText(for exercise: PlannedExercise) -> String? {
+        exercise.prescription.note.badgeText(
+            isCardio: exercise.exercise.movementPattern == .cardio,
+            hasLevel: (exercise.prescription.load ?? 0) > 0,
+            loadUnit: exercise.exercise.loadUnit
         )
     }
 

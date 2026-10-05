@@ -82,6 +82,9 @@ public enum DeloadPolicy: Sendable {
     ///   A load of 0 ("no external load", SPEC P8 D3) stays 0 on any equipment.
     /// - targetRIR = 4, targetReps = repMin, note `deload`.
     /// - exercise, rep range and rest are copied unchanged.
+    /// - aerobic (SPEC §7.5 and §7.14 F5, 2.4): one continuous set does ⌈0.6 × repMin⌉
+    ///   minutes (at least 1); intervals keep ⌈0.6 × B⌉ blocks (the sets rule above, with
+    ///   B = the normal prescription's sets, F6), each at the minimum of the range.
     ///
     /// SPEC §7.5 writes the load as a fraction of the reference load L; the normal
     /// prescription's load is used instead because L is not part of a prescription.
@@ -92,8 +95,8 @@ public enum DeloadPolicy: Sendable {
     ///   - normal: the prescription `DoubleProgressionRule` gives for today.
     ///   - loadIncrement: the exercise's `loadIncrement` (SPEC P8).
     ///   - isBodyweight: `equipment == .bodyweight`, where the P8 minimum is 0.
-    ///   - isCardio: the exercise is aerobic (pattern `cardio`, SPEC §7.14). 2.4 scaffold
-    ///     (docs/V24-CONTRACT.md §3.1): not read yet; the `engine` task shortens the minutes (SPEC §7.5, F5).
+    ///   - isCardio: the exercise is aerobic (pattern `cardio`, SPEC §7.14). With `false`
+    ///     (the default) nothing changes from 2.3.
     public static func deloadPrescription(
         from normal: ExercisePrescription,
         loadIncrement: Double,
@@ -106,7 +109,7 @@ public enum DeloadPolicy: Sendable {
             sets: deloadSets(normal.sets),
             repMin: normal.repMin,
             repMax: normal.repMax,
-            targetReps: normal.repMin,
+            targetReps: deloadTargetReps(normal, isCardio: isCardio),
             targetRIR: deloadTargetRIR,
             restSeconds: normal.restSeconds,
             note: .deload
@@ -190,15 +193,30 @@ private extension DeloadPolicy {
     }
 
     /// SPEC §7.5: ⌈S × 0.6⌉ with a floor of one set.
+    static func deloadSets(_ sets: Int) -> Int {
+        sixTenthsRoundedUp(sets)
+    }
+
+    /// SPEC §7.5 and §7.14 F5: `repMin`, except one continuous aerobic set, which does
+    /// ⌈0.6 × repMin⌉ minutes (at least 1). Intervals (more than one set) keep every block
+    /// at the minimum of the range; only their number drops (`deloadSets`).
+    static func deloadTargetReps(_ normal: ExercisePrescription, isCardio: Bool) -> Int {
+        guard isCardio, normal.sets <= 1 else {
+            return normal.repMin
+        }
+        return sixTenthsRoundedUp(normal.repMin)
+    }
+
+    /// ⌈0.6 × value⌉ with a floor of 1 (a non-positive value also gives 1).
     ///
     /// Computed in integers so no floating-point noise can push an exact product
-    /// (0.6 × 5 = 3) over the ceiling: S = 10q + r → ⌈6S/10⌉ = 6q + ⌈6r/10⌉, which
-    /// cannot overflow for any `Int` S.
-    static func deloadSets(_ sets: Int) -> Int {
-        guard sets > 0 else {
+    /// (0.6 × 5 = 3) over the ceiling: v = 10q + r → ⌈6v/10⌉ = 6q + ⌈6r/10⌉, which
+    /// cannot overflow for any `Int` v.
+    static func sixTenthsRoundedUp(_ value: Int) -> Int {
+        guard value > 0 else {
             return 1
         }
-        let (quotient, remainder) = sets.quotientAndRemainder(dividingBy: 10)
+        let (quotient, remainder) = value.quotientAndRemainder(dividingBy: 10)
         let result = 6 * quotient + (6 * remainder + 9) / 10
         return max(1, result)
     }

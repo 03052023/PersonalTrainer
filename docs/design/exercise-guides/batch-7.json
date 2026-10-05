@@ -1,0 +1,608 @@
+{
+  "version": 1,
+  "rig": "mannequin-v2",
+  "units": "stature",
+  "guides": [
+    {
+      "slug": "bodyweight-lunge",
+      "view": "side",
+      "anchor": { "joint": "toeFar", "at": [-0.2, 0.013] },
+      "timing": { "toEnd": 2.2, "toStart": 2, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [],
+      "props": [],
+      "frames": [
+        { "label": "Início", "caption": "Em pé, mãos na cintura", "pose": { "trunk": 90, "neck": 90, "thigh": -90, "shin": -90, "foot": -12, "upperArm": -120, "forearm": -45, "thighFar": -90, "shinFar": -90, "footFar": -12 } },
+        { "label": "Meio", "caption": "Passo à frente", "pose": { "trunk": 86, "neck": 90, "thigh": -29.15, "shin": -79.21, "foot": -12, "upperArm": -124, "forearm": -49, "thighFar": -89.73, "shinFar": -172.11, "footFar": -60 } },
+        { "label": "Fim", "caption": "Joelho de trás perto do chão", "pose": { "trunk": 84, "neck": 88, "thigh": -8.57, "shin": -96.36, "foot": -12, "upperArm": -126, "forearm": -51, "thighFar": -84.35, "shinFar": 165.56, "footFar": -95 } }
+      ],
+      "cue": { "track": "hip", "offset": [0.0, 0.1], "span": [0.05, 0.95] },
+      "a11y": "Pessoa em pé, com as mãos na cintura, dá um passo largo à frente, desce dobrando os dois joelhos até o de trás quase tocar o chão e volta empurrando com o pé da frente.",
+      "steps": [
+        "Fique em pé com as mãos na cintura e dê um passo largo à frente.",
+        "Desça dobrando os dois joelhos até o de trás quase tocar o chão, com o tronco reto.",
+        "Empurre o chão com o pé da frente para voltar à posição inicial e troque de perna."
+      ],
+      "mistakes": [
+        "Passo curto demais: dê um passo largo, para o joelho da frente ficar sobre o pé.",
+        "Deixar o joelho da frente cair para dentro: aponte-o para a ponta do pé."
+      ]
+    },
+    {
+      "slug": "bodyweight-reverse-lunge",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 2.2, "toStart": 2, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [],
+      "props": [],
+      "frames": [
+        { "label": "Início", "caption": "Em pé, mãos na cintura", "pose": { "trunk": 90, "neck": 90, "thigh": -90, "shin": -90, "foot": -12, "upperArm": -120, "forearm": -45, "thighFar": -90, "shinFar": -90, "footFar": -12 } },
+        { "label": "Meio", "caption": "Perna de trás no ar", "pose": { "trunk": 87, "neck": 90, "thigh": -68, "shin": -94, "foot": -12, "upperArm": -123, "forearm": -48, "thighFar": -114, "shinFar": -162, "footFar": -48 } },
+        { "label": "Fim", "caption": "Joelho de trás perto do chão", "pose": { "trunk": 84, "neck": 88, "thigh": -8.57, "shin": -96.36, "foot": -12, "upperArm": -126, "forearm": -51, "thighFar": -89.11, "shinFar": 165.28, "footFar": -95 } }
+      ],
+      "cue": { "track": "ankleFar", "offset": [0.0, 0.08], "span": [0.05, 0.95] },
+      "a11y": "Pessoa em pé, com as mãos na cintura, leva uma perna para trás num passo largo, desce dobrando os dois joelhos até o de trás quase tocar o chão e volta trazendo o pé de trás.",
+      "steps": [
+        "Fique em pé com as mãos na cintura e dê um passo largo para trás, apoiando a ponta do pé.",
+        "Desça dobrando os dois joelhos até o de trás quase tocar o chão, com o peso no pé da frente.",
+        "Empurre o chão com o pé da frente e volte a ficar em pé; alterne as pernas."
+      ],
+      "mistakes": [
+        "Jogar o peso na perna de trás: mantenha a maior parte do peso no pé da frente.",
+        "Inclinar o tronco para a frente: desça com o peito aberto e o olhar à frente."
+      ]
+    },
+    {
+      "slug": "bodyweight-squat",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 1.6, "toStart": 1.2, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [],
+      "props": [],
+      "frames": [
+        { "label": "Início", "caption": "Em pé, braços à frente", "pose": { "trunk": 88, "neck": 90, "thigh": -90, "shin": -88, "foot": -12, "upperArm": -4, "forearm": -4 } },
+        { "label": "Fim", "caption": "Coxas paralelas ao chão", "pose": { "trunk": 55, "neck": 70, "thigh": -9, "shin": -112, "foot": -12, "upperArm": -4, "forearm": -4 } }
+      ],
+      "cue": { "track": "hip", "offset": [-0.08, 0.0], "span": [0.0, 0.97] },
+      "moving": ["trunk", "head", "thigh", "shin"],
+      "a11y": "Pessoa em pé, com os braços estendidos à frente, leva o quadril para trás e dobra os joelhos até as coxas ficarem paralelas ao chão e volta a ficar em pé.",
+      "steps": [
+        "Fique em pé com os pés na largura dos ombros e os braços estendidos à frente.",
+        "Leve o quadril para trás e dobre os joelhos até as coxas ficarem paralelas ao chão.",
+        "Suba empurrando o chão com o pé inteiro até ficar em pé de novo."
+      ],
+      "mistakes": [
+        "Tirar os calcanhares do chão: desça só até onde o pé inteiro continua apoiado.",
+        "Deixar os joelhos irem para dentro: aponte-os para as pontas dos pés."
+      ]
+    },
+    {
+      "slug": "cable-glute-kickback",
+      "view": "side",
+      "anchor": { "joint": "ankleFar", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.5, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "tower", "x": 0.42, "width": 0.13, "height": 1.05 },
+        { "kind": "pulley", "id": "pulley", "at": [0.44, 0.07] }
+      ],
+      "props": [
+        { "id": "cable", "kind": "cable", "from": "pulley", "to": "ankle" }
+      ],
+      "arms": { "reach": "grip", "elbow": -90 },
+      "frames": [
+        { "label": "Início", "caption": "Pé fora do chão", "grip": [0.405, 0.79], "pose": { "trunk": 74, "neck": 80, "thigh": -86, "shin": -124, "foot": -20, "thighFar": -90, "shinFar": -90, "footFar": -12 } },
+        { "label": "Fim", "caption": "Perna estendida para trás", "grip": [0.405, 0.79], "pose": { "trunk": 74, "neck": 80, "thigh": -124, "shin": -129, "foot": -52, "thighFar": -90, "shinFar": -90, "footFar": -12 } }
+      ],
+      "cue": { "track": "ankle", "side": "left", "gap": 0.07, "span": [0.05, 0.95] },
+      "a11y": "Pessoa em pé, de frente para a polia baixa, com o cabo preso no tornozelo e as mãos na máquina, leva essa perna para trás, quase estendida, e volta devagar.",
+      "steps": [
+        "Prenda a tornozeleira no cabo da polia baixa e fique de frente para a máquina, segurando nela.",
+        "Com o tronco um pouco inclinado, leve a perna presa para trás, quase estendida, apertando o glúteo.",
+        "Volte devagar até o pé ficar perto do outro; faça as repetições e troque de perna."
+      ],
+      "mistakes": [
+        "Arquear a lombar para subir mais a perna: pare quando o quadril não deixar ir além.",
+        "Girar o quadril para o lado: mantenha os dois lados do quadril virados para a máquina."
+      ]
+    },
+    {
+      "slug": "chair-bulgarian-split-squat",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 1.6, "toStart": 1.4, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "post", "from": [-0.71, 0.0], "to": [-0.71, 0.56] },
+        { "kind": "post", "from": [-0.48, 0.0], "to": [-0.48, 0.24] },
+        { "kind": "block", "x": -0.73, "y": 0.225, "width": 0.27, "height": 0.035 }
+      ],
+      "props": [],
+      "frames": [
+        { "label": "Início", "caption": "Em pé, pé de trás na cadeira", "pose": { "trunk": 85, "neck": 88, "thigh": -64.5, "shin": -77.2, "foot": -12, "upperArm": -125, "forearm": -50, "thighFar": -95.65, "shinFar": 170.76, "footFar": -170 } },
+        { "label": "Meio", "caption": "Descendo, tronco firme", "pose": { "trunk": 81.5, "neck": 84.5, "thigh": -35.7, "shin": -93.5, "foot": -12, "upperArm": -128.5, "forearm": -53.5, "thighFar": -97.41, "shinFar": 150.32, "footFar": -165 } },
+        { "label": "Fim", "caption": "Joelho de trás perto do chão", "pose": { "trunk": 78, "neck": 81, "thigh": -6.9, "shin": -109.8, "foot": -12, "upperArm": -132, "forearm": -57, "thighFar": -128.26, "shinFar": 119.87, "footFar": -158 } }
+      ],
+      "cue": { "track": "hip", "offset": [-0.1, 0.08], "span": [0.05, 0.95] },
+      "a11y": "Pessoa com o peito de um pé apoiado no assento de uma cadeira atrás dela e as mãos na cintura desce dobrando os dois joelhos até o de trás quase tocar o chão e sobe empurrando com o pé da frente.",
+      "steps": [
+        "Encoste a cadeira na parede, apoie o peito do pé de trás no assento e dê um passo largo à frente.",
+        "Com as mãos na cintura, desça dobrando os dois joelhos até o de trás quase tocar o chão.",
+        "Suba empurrando o chão com o pé da frente; faça as repetições e troque de perna."
+      ],
+      "mistakes": [
+        "Cadeira que escorrega: encoste-a na parede e use uma firme, sem rodinhas.",
+        "Deixar o joelho da frente cair para dentro: aponte-o para a ponta do pé."
+      ]
+    },
+    {
+      "slug": "dumbbell-lunge",
+      "view": "side",
+      "anchor": { "joint": "toeFar", "at": [-0.2, 0.013] },
+      "timing": { "toEnd": 2.2, "toStart": 2, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [],
+      "props": [
+        { "id": "dumbbell", "kind": "dumbbell", "attach": "hand" }
+      ],
+      "frames": [
+        { "label": "Início", "caption": "Em pé, halteres ao lado", "pose": { "trunk": 90, "neck": 90, "thigh": -90, "shin": -90, "foot": -12, "upperArm": -90, "forearm": -90, "thighFar": -90, "shinFar": -90, "footFar": -12 } },
+        { "label": "Meio", "caption": "Passo à frente", "pose": { "trunk": 86, "neck": 90, "thigh": -29.15, "shin": -79.21, "foot": -12, "upperArm": -90, "forearm": -90, "thighFar": -89.73, "shinFar": -172.11, "footFar": -60 } },
+        { "label": "Fim", "caption": "Joelho de trás perto do chão", "pose": { "trunk": 84, "neck": 88, "thigh": -8.57, "shin": -96.36, "foot": -12, "upperArm": -90, "forearm": -90, "thighFar": -84.35, "shinFar": 165.56, "footFar": -95 } }
+      ],
+      "cue": { "track": "hip", "offset": [0.0, 0.1], "span": [0.05, 0.95] },
+      "a11y": "Pessoa em pé, com um halter em cada mão, dá um passo largo à frente, desce até o joelho de trás quase tocar o chão e volta empurrando com o pé da frente.",
+      "steps": [
+        "Fique em pé com um halter em cada mão e os braços estendidos ao lado do corpo.",
+        "Dê um passo largo à frente e desça dobrando os dois joelhos até o de trás quase tocar o chão.",
+        "Empurre o chão com o pé da frente para voltar e troque de perna."
+      ],
+      "mistakes": [
+        "Inclinar o tronco à frente: mantenha o peito aberto e os ombros baixos.",
+        "Bater o joelho de trás no chão: desça devagar e pare antes de encostar."
+      ]
+    },
+    {
+      "slug": "dumbbell-reverse-lunge",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 2.2, "toStart": 2, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [],
+      "props": [
+        { "id": "dumbbell", "kind": "dumbbell", "attach": "hand" }
+      ],
+      "frames": [
+        { "label": "Início", "caption": "Em pé, halteres ao lado", "pose": { "trunk": 90, "neck": 90, "thigh": -90, "shin": -90, "foot": -12, "upperArm": -90, "forearm": -90, "thighFar": -90, "shinFar": -90, "footFar": -12 } },
+        { "label": "Meio", "caption": "Perna de trás no ar", "pose": { "trunk": 87, "neck": 90, "thigh": -68, "shin": -94, "foot": -12, "upperArm": -90, "forearm": -90, "thighFar": -114, "shinFar": -162, "footFar": -48 } },
+        { "label": "Fim", "caption": "Joelho de trás perto do chão", "pose": { "trunk": 84, "neck": 88, "thigh": -8.57, "shin": -96.36, "foot": -12, "upperArm": -90, "forearm": -90, "thighFar": -89.11, "shinFar": 165.28, "footFar": -95 } }
+      ],
+      "cue": { "track": "ankleFar", "offset": [0.0, 0.08], "span": [0.05, 0.95] },
+      "a11y": "Pessoa em pé, com um halter em cada mão, leva uma perna para trás num passo largo, desce até o joelho de trás quase tocar o chão e volta a ficar em pé empurrando com o pé da frente.",
+      "steps": [
+        "Fique em pé com um halter em cada mão e dê um passo largo para trás, apoiando a ponta do pé.",
+        "Desça dobrando os dois joelhos até o de trás quase tocar o chão, com o tronco reto.",
+        "Empurre o chão com o pé da frente e traga o pé de trás de volta; alterne as pernas."
+      ],
+      "mistakes": [
+        "Passo para trás curto demais: afaste o pé até o joelho da frente ficar sobre o tornozelo.",
+        "Deixar os halteres balançarem: segure firme, com os braços parados ao lado do corpo."
+      ]
+    },
+    {
+      "slug": "glute-bridge",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.3, 0.039] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.6, "easing": "easeInOut" },
+      "scene": [],
+      "props": [],
+      "frames": [
+        { "label": "Início", "caption": "Deitado, joelhos dobrados", "pose": { "trunk": 180, "neck": 178, "thigh": 50, "shin": -61, "foot": -12, "upperArm": -8, "forearm": -2 } },
+        { "label": "Fim", "caption": "Quadril no alto", "pose": { "trunk": -155.4, "neck": 178, "thigh": 20, "shin": -70, "foot": -12, "upperArm": -8, "forearm": -2 } }
+      ],
+      "cue": { "track": "hip", "offset": [0.0, 0.1], "span": [0.05, 0.95] },
+      "moving": ["trunk", "thigh"],
+      "a11y": "Pessoa deitada de costas, com os joelhos dobrados e os pés no chão, sobe o quadril até alinhar ombros, quadril e joelhos e desce devagar.",
+      "steps": [
+        "Deite de costas com os joelhos dobrados, os pés apoiados no chão e os braços ao lado do corpo.",
+        "Empurre o chão com os calcanhares e suba o quadril até ombros, quadril e joelhos ficarem alinhados.",
+        "Aperte os glúteos um instante no alto e desça o quadril devagar até o chão."
+      ],
+      "mistakes": [
+        "Arquear a lombar no alto: pare quando o corpo ficar reto, do ombro ao joelho.",
+        "Abrir os joelhos para os lados: mantenha-os na largura do quadril."
+      ]
+    },
+    {
+      "slug": "hack-squat",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.26, 0.1] },
+      "timing": { "toEnd": 1.6, "toStart": 1.4, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "post", "tone": "soft", "from": [0.016, 0.132], "to": [-0.431, 0.771] },
+        { "kind": "post", "tone": "soft", "from": [0.315, 0.0], "to": [0.315, 0.049] },
+        { "kind": "footPlate", "at": [0.315, 0.049], "length": 0.26, "angle": 15 }
+      ],
+      "props": [
+        { "id": "backPad", "kind": "plate", "attach": "back", "offset": [-0.085, -0.13], "length": 0.44, "angle": 125 },
+        { "id": "shoulderPad", "kind": "roller", "attach": "back", "offset": [0.0, 0.045], "radius": 0.035 }
+      ],
+      "frames": [
+        { "label": "Início", "caption": "Pernas quase estendidas", "pose": { "trunk": 125, "neck": 113, "thigh": -47, "shin": -51, "foot": 15, "upperArm": -62, "forearm": -40 } },
+        { "label": "Fim", "caption": "Joelhos dobrados", "pose": { "trunk": 125, "neck": 113, "thigh": 5, "shin": -95.9, "foot": 15, "upperArm": -62, "forearm": -40 } }
+      ],
+      "cue": { "track": "hip", "side": "right", "gap": 0.12, "span": [0.05, 0.95] },
+      "a11y": "Pessoa na máquina hack, com as costas no encosto inclinado e os ombros sob os apoios, desce dobrando os joelhos até as coxas ficarem perto de paralelas à plataforma e empurra de volta.",
+      "steps": [
+        "Apoie as costas no encosto e os ombros sob os apoios, com os pés na plataforma na largura dos ombros.",
+        "Solte as travas e desça dobrando os joelhos até as coxas ficarem perto de paralelas à plataforma.",
+        "Empurre com o pé inteiro até quase estender as pernas, sem travar os joelhos."
+      ],
+      "mistakes": [
+        "Tirar os calcanhares da plataforma: empurre com o pé inteiro apoiado.",
+        "Desgrudar a lombar do encosto embaixo: desça só até onde as costas continuam apoiadas."
+      ]
+    },
+    {
+      "slug": "leg-press-calf-raise",
+      "view": "side",
+      "anchor": { "joint": "hip", "at": [0.0, 0.26] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.5, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "post", "tone": "soft", "from": [0.12, 0.42], "to": [0.76, 0.96] },
+        { "kind": "post", "tone": "soft", "from": [0.7, 0.0], "to": [0.7, 0.91] },
+        { "kind": "post", "tone": "soft", "from": [-0.2, 0.0], "to": [-0.2, 0.22] },
+        { "kind": "pad", "at": [-0.15, 0.27], "length": 0.5, "angle": 140, "thick": 0.05 }
+      ],
+      "props": [
+        { "id": "platform", "kind": "plate", "attach": "toe", "offset": [-0.014, 0.083], "length": 0.24, "angle": 132 }
+      ],
+      "frames": [
+        { "label": "Início", "caption": "Calcanhares para baixo", "pose": { "trunk": 140, "neck": 130, "thigh": 44, "shin": 40, "foot": 146, "upperArm": -60, "forearm": -40 } },
+        { "label": "Fim", "caption": "Pontas dos pés esticadas", "pose": { "trunk": 140, "neck": 130, "thigh": 44, "shin": 40, "foot": 92, "upperArm": -60, "forearm": -40 } }
+      ],
+      "cue": { "track": "platform", "offset": [0.1, -0.1], "span": [0.05, 0.95] },
+      "moving": ["foot"],
+      "a11y": "Pessoa sentada no leg press, com as pernas estendidas e só a parte da frente dos pés na plataforma, empurra a plataforma com a ponta dos pés e volta devagar.",
+      "steps": [
+        "Sente no leg press e apoie só a parte da frente dos pés na beira de baixo da plataforma.",
+        "Com as pernas quase estendidas, empurre a plataforma com a ponta dos pés o máximo que conseguir.",
+        "Volte devagar, deixando os calcanhares passarem um pouco da beira da plataforma."
+      ],
+      "mistakes": [
+        "Dobrar os joelhos para empurrar: mantenha as pernas quase estendidas e mova só os tornozelos.",
+        "Deixar os pés escorregarem: apoie bem a parte da frente dos pés e vá devagar."
+      ]
+    },
+    {
+      "slug": "machine-hip-thrust",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.3, 0.039] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.6, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "bench", "x": -0.62, "top": 0.238, "length": 0.43 },
+        { "kind": "post", "tone": "soft", "from": [0.444, 0.0], "to": [0.444, 0.207] },
+        { "kind": "wheel", "id": "pivot", "at": [0.444, 0.207], "radius": 0.02 }
+      ],
+      "props": [
+        { "id": "hipPad", "kind": "roller", "attach": "hip", "offset": [0.0, 0.075], "radius": 0.04 },
+        { "id": "lever", "kind": "band", "from": "pivot", "to": "hipPad" }
+      ],
+      "arms": { "reach": "hipPad", "elbow": -90 },
+      "frames": [
+        { "label": "Início", "caption": "Quadril embaixo", "pose": { "trunk": 144.6, "neck": 109.6, "thigh": 26, "shin": -76, "foot": -12 } },
+        { "label": "Fim", "caption": "Tronco e coxas alinhados", "pose": { "trunk": 180, "neck": 145, "thigh": -5, "shin": -90, "foot": -12 } }
+      ],
+      "cue": { "track": "hipPad", "offset": [0.0, 0.1], "span": [0.05, 0.95] },
+      "moving": ["trunk", "head", "thigh"],
+      "a11y": "Pessoa com a parte de cima das costas no encosto da máquina e a almofada sobre o quadril sobe o quadril até alinhar tronco e coxas e desce com controle.",
+      "steps": [
+        "Apoie a parte de cima das costas no encosto e ajuste a almofada sobre o quadril.",
+        "Com os pés firmes no chão, suba o quadril até o tronco e as coxas ficarem alinhados.",
+        "Aperte os glúteos um instante no alto e desça com controle."
+      ],
+      "mistakes": [
+        "Arquear a lombar no alto: pare quando o tronco ficar reto e olhe para os joelhos.",
+        "Pés longe do corpo: aproxime-os até os joelhos ficarem em ângulo reto no alto."
+      ]
+    },
+    {
+      "slug": "nordic-hamstring-curl",
+      "view": "side",
+      "anchor": { "joint": "knee", "at": [0.0, 0.062] },
+      "timing": { "toEnd": 3, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "pad", "tone": "soft", "at": [-0.13, 0.012], "length": 0.62, "angle": 0, "thick": 0.024 },
+        { "kind": "post", "from": [-0.335, 0.0], "to": [-0.245, 0.129] },
+        { "kind": "pad", "layer": "front", "at": [-0.245, 0.129], "length": 0.07, "angle": 0, "thick": 0.045 }
+      ],
+      "props": [],
+      "frames": [
+        { "label": "Início", "caption": "Ajoelhado, tronco reto", "pose": { "trunk": 90, "neck": 90, "thigh": -90, "shin": 176, "foot": -160, "upperArm": -100, "forearm": 10 } },
+        { "label": "Fim", "caption": "Corpo inclinado à frente", "pose": { "trunk": 35, "neck": 40, "thigh": -145, "shin": 176, "foot": -160, "upperArm": -62, "forearm": -42 } }
+      ],
+      "cue": { "track": "head", "side": "right", "gap": 0.09, "span": [0.05, 0.95] },
+      "moving": ["trunk", "head", "thigh"],
+      "a11y": "Pessoa ajoelhada, com os tornozelos presos, inclina o corpo reto para a frente bem devagar, dos joelhos à cabeça, apara a descida com as mãos e volta à posição ajoelhada.",
+      "steps": [
+        "Ajoelhe sobre algo macio e prenda os tornozelos sob um apoio firme, ou peça para alguém segurá-los.",
+        "Com o corpo reto dos joelhos à cabeça, incline-se para a frente o mais devagar que conseguir.",
+        "Apoie as mãos no chão quando não der mais para segurar e empurre de leve para voltar."
+      ],
+      "mistakes": [
+        "Dobrar o quadril na descida: mantenha o corpo reto, como uma tábua, dos joelhos à cabeça.",
+        "Cair de uma vez: desça só até onde controla e use as mãos para amortecer."
+      ]
+    },
+    {
+      "slug": "single-leg-dumbbell-calf-raise",
+      "view": "side",
+      "anchor": { "joint": "toe", "at": [0.12, 0.103] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.5, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "block", "x": 0.07, "y": 0.0, "width": 0.2, "height": 0.09 },
+        { "kind": "block", "tone": "soft", "x": 0.36, "y": 0.0, "width": 0.05, "height": 1.1 }
+      ],
+      "props": [
+        { "id": "dumbbell", "kind": "dumbbell", "attach": "hand" }
+      ],
+      "frames": [
+        { "label": "Início", "caption": "Calcanhar para baixo", "pose": { "trunk": 90, "neck": 90, "thigh": -90, "shin": -90, "foot": 10, "upperArm": -90, "forearm": -90, "thighFar": -96, "shinFar": -150, "footFar": -100, "upperArmFar": -11.19, "forearmFar": 26.96 } },
+        { "label": "Fim", "caption": "Na ponta do pé", "pose": { "trunk": 90, "neck": 90, "thigh": -90, "shin": -90, "foot": -30, "upperArm": -90, "forearm": -90, "thighFar": -96, "shinFar": -150, "footFar": -100, "upperArmFar": -31.82, "forearmFar": 19.63 } }
+      ],
+      "cue": { "track": "heel", "offset": [-0.06, 0.0], "span": [0.05, 0.95] },
+      "moving": ["foot"],
+      "a11y": "Pessoa com um halter numa mão e a outra mão na parede, apoiada na ponta de um pé na beira de um degrau, desce o calcanhar e sobe na ponta do pé.",
+      "steps": [
+        "Segure um halter na mão do lado da perna que trabalha e apoie a outra mão na parede.",
+        "Com a ponta do pé na beira do degrau e a outra perna dobrada, suba o mais alto que conseguir.",
+        "Desça devagar até o calcanhar passar da beira; faça as repetições e troque de lado."
+      ],
+      "mistakes": [
+        "Inclinar o corpo para o lado do halter: fique reto, com os ombros na mesma altura.",
+        "Descer rápido demais: controle a descida e pare um instante embaixo."
+      ]
+    },
+    {
+      "slug": "single-leg-extension",
+      "view": "side",
+      "anchor": { "joint": "hip", "at": [0.0, 0.5] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "seat", "x": -0.2, "top": 0.45, "length": 0.36 },
+        { "kind": "pad", "at": [-0.095, 0.636], "length": 0.34, "angle": 100 }
+      ],
+      "props": [
+        { "id": "roller", "kind": "roller", "attach": "shin", "along": 0.85, "side": 0.05 }
+      ],
+      "frames": [
+        { "label": "Início", "caption": "Joelho dobrado", "pose": { "trunk": 100, "neck": 95, "thigh": 0, "shin": -85, "foot": -5, "upperArm": -95, "forearm": -30, "thighFar": 0, "shinFar": -92, "footFar": -10 } },
+        { "label": "Fim", "caption": "Uma perna estendida", "pose": { "trunk": 100, "neck": 95, "thigh": 0, "shin": -5, "foot": 75, "upperArm": -95, "forearm": -30, "thighFar": 0, "shinFar": -92, "footFar": -10 } }
+      ],
+      "cue": { "track": "roller", "side": "right", "gap": 0.07, "span": [0.05, 0.95] },
+      "a11y": "Pessoa sentada na cadeira extensora, com o rolo na frente de uma canela, estende esse joelho até a perna ficar reta e desce devagar, com a outra perna parada.",
+      "steps": [
+        "Sente com as costas no encosto, os joelhos na beira do banco e o rolo na frente de uma canela.",
+        "Estenda o joelho até a perna ficar reta, segurando nos pegadores do banco.",
+        "Desça devagar; faça as repetições e troque de perna."
+      ],
+      "mistakes": [
+        "Chutar o rolo para cima: suba com controle e pare um instante no alto.",
+        "Ajudar com a outra perna: deixe-a parada, fora do rolo."
+      ]
+    },
+    {
+      "slug": "single-leg-glute-bridge",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.3, 0.039] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.6, "easing": "easeInOut" },
+      "scene": [],
+      "props": [],
+      "frames": [
+        { "label": "Início", "caption": "Uma perna estendida no ar", "pose": { "trunk": 180, "neck": 178, "thigh": 50, "shin": -61, "foot": -12, "upperArm": -8, "forearm": -2, "thighFar": 50, "shinFar": 48, "footFar": 128 } },
+        { "label": "Fim", "caption": "Quadril no alto", "pose": { "trunk": -155.4, "neck": 178, "thigh": 20, "shin": -70, "foot": -12, "upperArm": -8, "forearm": -2, "thighFar": 20, "shinFar": 18, "footFar": 98 } }
+      ],
+      "cue": { "track": "hip", "offset": [0.0, 0.1], "span": [0.05, 0.95] },
+      "moving": ["trunk", "thigh"],
+      "a11y": "Pessoa deitada de costas, com um pé no chão e a outra perna estendida no ar, sobe o quadril empurrando com o pé apoiado e desce devagar.",
+      "steps": [
+        "Deite de costas com um joelho dobrado e o pé no chão; estenda a outra perna no ar.",
+        "Empurre o chão com o calcanhar e suba o quadril até alinhar ombro, quadril e joelho.",
+        "Desça devagar; faça as repetições e troque de perna."
+      ],
+      "mistakes": [
+        "Deixar o quadril cair para um lado: mantenha os dois lados na mesma altura.",
+        "Empurrar com a perna do ar: deixe-a parada e suba só com a perna apoiada."
+      ]
+    },
+    {
+      "slug": "single-leg-romanian-deadlift",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 1.8, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [],
+      "props": [],
+      "frames": [
+        { "label": "Início", "caption": "Em pé numa perna", "pose": { "trunk": 90, "neck": 90, "thigh": -88, "shin": -92, "foot": -12, "upperArm": -86, "forearm": -84, "thighFar": -100, "shinFar": -150, "footFar": -60 } },
+        { "label": "Fim", "caption": "Tronco e perna em linha", "pose": { "trunk": 10, "neck": 22, "thigh": -78, "shin": -96, "foot": -12, "upperArm": -92, "forearm": -92, "thighFar": -172, "shinFar": -172, "footFar": -82 } }
+      ],
+      "cue": { "track": "head", "side": "right", "gap": 0.1, "span": [0.05, 0.95] },
+      "moving": ["trunk", "head", "thighFar", "shinFar"],
+      "a11y": "Pessoa em pé sobre uma perna inclina o tronco à frente com as costas retas enquanto a outra perna sobe estendida para trás, até tronco e perna ficarem quase na horizontal, e volta.",
+      "steps": [
+        "Fique em pé sobre uma perna, com o joelho levemente dobrado e os braços soltos à frente das coxas.",
+        "Incline o tronco à frente e leve a outra perna para trás, na linha do tronco, com as costas retas.",
+        "Desça até sentir a parte de trás da coxa esticar e volte devagar; troque de perna."
+      ],
+      "mistakes": [
+        "Girar o quadril para o lado: mantenha os dois lados do quadril virados para o chão.",
+        "Arredondar as costas: desça só até onde as costas continuam retas."
+      ]
+    },
+    {
+      "slug": "single-leg-step-calf-raise",
+      "view": "side",
+      "anchor": { "joint": "toe", "at": [0.12, 0.103] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.5, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "block", "x": 0.07, "y": 0.0, "width": 0.2, "height": 0.09 },
+        { "kind": "block", "tone": "soft", "x": 0.36, "y": 0.0, "width": 0.05, "height": 1.1 }
+      ],
+      "props": [],
+      "arms": { "reach": "grip", "elbow": -90 },
+      "frames": [
+        { "label": "Início", "caption": "Calcanhar para baixo", "grip": [0.348, 0.93], "pose": { "trunk": 90, "neck": 90, "thigh": -90, "shin": -90, "foot": 10, "thighFar": -96, "shinFar": -150, "footFar": -100 } },
+        { "label": "Fim", "caption": "Na ponta do pé", "grip": [0.348, 0.93], "pose": { "trunk": 90, "neck": 90, "thigh": -90, "shin": -90, "foot": -30, "thighFar": -96, "shinFar": -150, "footFar": -100 } }
+      ],
+      "cue": { "track": "heel", "offset": [-0.06, 0.0], "span": [0.05, 0.95] },
+      "moving": ["foot"],
+      "a11y": "Pessoa com a ponta de um pé na beira de um degrau, a outra perna dobrada para trás e as mãos na parede, desce o calcanhar e sobe na ponta do pé.",
+      "steps": [
+        "Apoie a ponta de um pé na beira do degrau, dobre a outra perna para trás e ponha as mãos na parede.",
+        "Suba na ponta do pé o mais alto que conseguir e segure um instante.",
+        "Desça devagar até o calcanhar passar da beira; faça as repetições e troque de pé."
+      ],
+      "mistakes": [
+        "Empurrar a parede com as mãos: use as mãos só para o equilíbrio.",
+        "Subir só até a metade: vá até a ponta do pé em todas as repetições."
+      ]
+    },
+    {
+      "slug": "sissy-squat",
+      "view": "side",
+      "anchor": { "joint": "toe", "at": [0.1, 0.013] },
+      "timing": { "toEnd": 1.8, "toStart": 1.4, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "post", "tone": "soft", "from": [0.3, 0.0], "to": [0.3, 1.1] }
+      ],
+      "props": [],
+      "arms": { "reach": "grip", "elbow": -90 },
+      "frames": [
+        { "label": "Início", "caption": "Na ponta dos pés", "grip": [0.288, 0.84], "pose": { "trunk": 90, "neck": 90, "thigh": -90, "shin": -90, "foot": -38 } },
+        { "label": "Fim", "caption": "Joelhos à frente", "grip": [0.288, 0.7], "pose": { "trunk": 122, "neck": 108, "thigh": -56, "shin": -150, "foot": -56 } }
+      ],
+      "cue": { "track": "knee", "side": "right", "gap": 0.07, "span": [0.05, 0.95] },
+      "moving": ["trunk", "head", "thigh", "shin"],
+      "a11y": "Pessoa na ponta dos pés, segurando um apoio, leva os joelhos para a frente e para baixo e inclina o tronco para trás, com o corpo reto dos joelhos à cabeça, e volta a ficar em pé.",
+      "steps": [
+        "Segure um apoio firme, como o batente de uma porta, e suba na ponta dos pés.",
+        "Leve os joelhos para a frente e para baixo e incline o tronco para trás, sem dobrar o quadril.",
+        "Desça só até onde controla e volte a ficar em pé, empurrando com a frente das coxas."
+      ],
+      "mistakes": [
+        "Sentar para trás dobrando o quadril: mantenha uma linha reta dos joelhos aos ombros.",
+        "Descer além do que controla: comece com pouca amplitude e aumente aos poucos."
+      ]
+    },
+    {
+      "slug": "smith-machine-squat",
+      "view": "side",
+      "anchor": { "joint": "ankle", "at": [0.0, 0.039] },
+      "timing": { "toEnd": 1.6, "toStart": 1.2, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "post", "tone": "soft", "from": [-0.145, 0.0], "to": [-0.145, 1.18] },
+        { "kind": "rail", "x1": -0.305, "x2": 0.015 }
+      ],
+      "props": [
+        { "id": "barbell", "kind": "barbell", "attach": "back", "offset": [-0.085, 0.0] }
+      ],
+      "arms": { "reach": "barbell", "depth": 0.65, "elbow": -150 },
+      "frames": [
+        { "label": "Início", "caption": "Em pé, barra nas costas", "pose": { "trunk": 92, "neck": 90, "thigh": -83.2, "shin": -85.2, "foot": -12 } },
+        { "label": "Fim", "caption": "Coxas paralelas ao chão", "pose": { "trunk": 66, "neck": 76, "thigh": -6, "shin": -104, "foot": -12 } }
+      ],
+      "cue": { "track": "barbell", "offset": [-0.1, 0.0], "span": [0.05, 0.95] },
+      "a11y": "Pessoa na máquina smith, com a barra presa nos trilhos apoiada nas costas e os pés um pouco à frente, desce até as coxas ficarem paralelas ao chão e volta a ficar em pé.",
+      "steps": [
+        "Apoie a barra no alto das costas, com os pés um pouco à frente da linha da barra, na largura dos ombros.",
+        "Gire a barra para soltá-la dos ganchos e desça até as coxas ficarem paralelas ao chão.",
+        "Suba empurrando o chão com o pé inteiro e, no fim da série, gire a barra de volta nos ganchos."
+      ],
+      "mistakes": [
+        "Pés embaixo da barra: afaste-os um pouco à frente para descer com o tronco firme.",
+        "Sair sem travar a barra: gire-a até prender nos ganchos antes de soltar as mãos."
+      ]
+    },
+    {
+      "slug": "standing-leg-curl",
+      "view": "side",
+      "anchor": { "joint": "ankleFar", "at": [0.0, 0.099] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "tower", "x": 0.27, "width": 0.13, "height": 1 },
+        { "kind": "block", "x": -0.12, "y": 0.0, "width": 0.39, "height": 0.06 },
+        { "kind": "post", "from": [0.27, 0.395], "to": [0.073, 0.395] },
+        { "kind": "pad", "at": [0.053, 0.395], "length": 0.12, "angle": 90, "thick": 0.045 },
+        { "kind": "post", "from": [0.27, 0.84], "to": [0.22, 0.84] }
+      ],
+      "props": [
+        { "id": "roller", "kind": "roller", "attach": "shin", "along": 0.85, "side": -0.05 }
+      ],
+      "arms": { "reach": "grip", "elbow": -90 },
+      "frames": [
+        { "label": "Início", "caption": "Perna estendida", "grip": [0.225, 0.84], "pose": { "trunk": 80, "neck": 84, "thigh": -92, "shin": -92, "foot": -12, "thighFar": -90, "shinFar": -90, "footFar": -12 } },
+        { "label": "Fim", "caption": "Joelho dobrado", "grip": [0.225, 0.84], "pose": { "trunk": 80, "neck": 84, "thigh": -92, "shin": 158, "foot": -82, "thighFar": -90, "shinFar": -90, "footFar": -12 } }
+      ],
+      "cue": { "track": "roller", "side": "right", "gap": 0.075, "span": [0.05, 0.95] },
+      "a11y": "Pessoa em pé na máquina, com a coxa encostada no apoio e o rolo atrás do tornozelo, dobra o joelho trazendo o calcanhar em direção ao glúteo e volta devagar.",
+      "steps": [
+        "Fique em pé na máquina com a coxa encostada no apoio, o rolo atrás do tornozelo e as mãos nos pegadores.",
+        "Dobre o joelho e traga o calcanhar em direção ao glúteo, com a coxa parada.",
+        "Volte devagar até estender a perna; faça as repetições e troque de lado."
+      ],
+      "mistakes": [
+        "Levar a coxa para trás junto: deixe-a encostada no apoio e mova só do joelho para baixo.",
+        "Soltar o peso na volta: estenda a perna devagar, controlando até o fim."
+      ]
+    },
+    {
+      "slug": "step-calf-raise",
+      "view": "side",
+      "anchor": { "joint": "toe", "at": [0.12, 0.103] },
+      "timing": { "toEnd": 1.2, "toStart": 1.6, "hold": 0.5, "easing": "easeInOut" },
+      "scene": [
+        { "kind": "block", "x": 0.07, "y": 0.0, "width": 0.2, "height": 0.09 },
+        { "kind": "block", "tone": "soft", "x": 0.36, "y": 0.0, "width": 0.05, "height": 1.1 }
+      ],
+      "props": [],
+      "arms": { "reach": "grip", "elbow": -90 },
+      "frames": [
+        { "label": "Início", "caption": "Calcanhares para baixo", "grip": [0.348, 0.93], "pose": { "trunk": 90, "neck": 90, "thigh": -90, "shin": -90, "foot": 10 } },
+        { "label": "Fim", "caption": "Na ponta dos pés", "grip": [0.348, 0.93], "pose": { "trunk": 90, "neck": 90, "thigh": -90, "shin": -90, "foot": -30 } }
+      ],
+      "cue": { "track": "heel", "offset": [-0.06, 0.0], "span": [0.05, 0.95] },
+      "moving": ["shin", "foot"],
+      "a11y": "Pessoa em pé com a ponta dos pés na beira de um degrau e as mãos na parede desce os calcanhares abaixo do degrau e sobe na ponta dos pés.",
+      "steps": [
+        "Fique com a ponta dos pés na beira de um degrau e apoie as mãos na parede para se equilibrar.",
+        "Suba na ponta dos pés o mais alto que conseguir e segure um instante.",
+        "Desça devagar até os calcanhares passarem um pouco abaixo do degrau."
+      ],
+      "mistakes": [
+        "Quicar embaixo: desça devagar e pare um instante antes de subir.",
+        "Dobrar os joelhos para subir: deixe as pernas quase estendidas."
+      ]
+    },
+    {
+      "slug": "towel-leg-curl",
+      "view": "side",
+      "anchor": { "joint": "shoulder", "at": [-0.42, 0.062] },
+      "timing": { "toEnd": 1.6, "toStart": 1.6, "hold": 0.4, "easing": "easeInOut" },
+      "scene": [],
+      "props": [
+        { "id": "towel", "kind": "plate", "attach": "heel", "offset": [0.025, -0.034], "length": 0.13, "angle": 0 }
+      ],
+      "frames": [
+        { "label": "Início", "caption": "Pernas estendidas", "pose": { "trunk": -172, "neck": 178, "thigh": -1.65, "shin": -1.65, "foot": 80, "upperArm": -6, "forearm": -2 } },
+        { "label": "Meio", "caption": "Joelhos dobrando", "pose": { "trunk": -160, "neck": 178, "thigh": 20.88, "shin": -39.12, "foot": 54, "upperArm": -6, "forearm": -2 } },
+        { "label": "Fim", "caption": "Calcanhares perto do quadril", "pose": { "trunk": -150, "neck": 178, "thigh": 27.48, "shin": -68.52, "foot": 34, "upperArm": -6, "forearm": -2 } }
+      ],
+      "cue": { "track": "towel", "offset": [0.0, -0.05], "span": [0.05, 0.95] },
+      "a11y": "Pessoa deitada de costas, com o quadril elevado e os calcanhares sobre uma toalha, puxa os calcanhares em direção ao quadril dobrando os joelhos e volta estendendo as pernas.",
+      "steps": [
+        "Deite de costas num piso liso, com os calcanhares sobre uma toalha e os braços ao lado do corpo.",
+        "Suba o quadril e puxe os calcanhares em direção a ele, deslizando a toalha e dobrando os joelhos.",
+        "Deslize os pés de volta até estender as pernas, sem deixar o quadril encostar no chão."
+      ],
+      "mistakes": [
+        "Deixar o quadril cair: mantenha-o no alto do começo ao fim da série.",
+        "Toalha que não desliza: use um piso liso, como cerâmica ou madeira."
+      ]
+    }
+  ]
+}

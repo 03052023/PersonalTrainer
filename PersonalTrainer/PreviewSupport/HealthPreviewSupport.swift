@@ -59,6 +59,16 @@ import TrainerCore
     }
 }
 
+#Preview("Saúde — card com atividades fora do app") {
+    NavigationStack {
+        ScrollView {
+            HealthCardView(model: HealthPreviewFixture.withActivitiesModel(), references: HealthPreviewFixture.references)
+                .padding(16)
+        }
+        .navigationTitle("Treino")
+    }
+}
+
 #Preview("Saúde — detalhe") {
     NavigationStack {
         HealthDetailView(model: HealthPreviewFixture.connectedModel(), references: HealthPreviewFixture.references)
@@ -193,13 +203,31 @@ private enum HealthPreviewFixture {
         return makeModel(reader: FakeHealthDataReader(input: empty), suite: "HealthPreview.empty", authorized: true)
     }
 
+    /// Conectado, com um spinning forte de 45 min registrado fora do app ontem (SPEC §7.17 X3): os minutos
+    /// dele entram no aeróbico do cartão.
+    static func withActivitiesModel() -> HealthViewModel {
+        let spinning = OutsideActivityEntry(
+            kind: .spinning,
+            start: referenceDate.addingTimeInterval(-86_400),
+            minutes: 45,
+            intensity: .vigorous
+        )
+        return makeModel(
+            reader: FakeHealthDataReader(),
+            suite: "HealthPreview.activities",
+            authorized: true,
+            activityLog: OutsideActivityLog(entries: [spinning])
+        )
+    }
+
     /// O relógio vira uma constante local antes de entrar no fechamento `now`, que não é isolado
     /// ao MainActor (ao contrário das propriedades estáticas deste enum).
     private static func makeModel(
         reader: any HealthDataReading,
         suite: String,
         authorized: Bool,
-        showsSteps: Bool = true
+        showsSteps: Bool = true,
+        activityLog: OutsideActivityLog = .empty
     ) -> HealthViewModel {
         let fixedNow = referenceDate
         return HealthViewModel(
@@ -210,7 +238,8 @@ private enum HealthPreviewFixture {
             defaults: defaults(suite: suite, authorized: authorized),
             // AGENTS R9: log do diálogo em memória, próprio deste preview, nunca o arquivo real.
             logStore: FakeCoachLogStore(),
-            showsSteps: { showsSteps }
+            showsSteps: { showsSteps },
+            activityLog: { activityLog }
         )
     }
 

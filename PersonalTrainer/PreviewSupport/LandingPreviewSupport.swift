@@ -50,6 +50,14 @@ import TrainerCore
     )
 }
 
+#Preview("Início — também hoje (atividade fixa)") {
+    LandingPreviewFixture.makeLanding(
+        planner: LandingPreviewFixture.planner(pendingCount: 1),
+        coordinator: LandingPreviewCoordinator(),
+        activityLog: LandingPreviewFixture.sampleActivityLog
+    )
+}
+
 #Preview("Metas da semana") {
     NavigationStack {
         WeeklyGoalsView(
@@ -58,6 +66,20 @@ import TrainerCore
                 coordinator: LandingPreviewCoordinator()
             ),
             references: LandingPreviewFixture.references
+        )
+    }
+}
+
+#Preview("Metas da semana — fora do app") {
+    NavigationStack {
+        WeeklyGoalsView(
+            model: LandingPreviewFixture.makeModel(
+                planner: LandingPreviewFixture.planner(pendingCount: 1, activeGoals: [.longevity]),
+                coordinator: LandingPreviewCoordinator(),
+                activityLog: LandingPreviewFixture.sampleActivityLog
+            ),
+            references: LandingPreviewFixture.references,
+            activities: LandingPreviewFixture.makeActivities(log: LandingPreviewFixture.sampleActivityLog)
         )
     }
 }
@@ -78,18 +100,66 @@ private enum LandingPreviewFixture {
 
     static let references = ReferenceLibrary.load(bundle: .main)
 
-    static func makeLanding(planner: any SessionPlanning, coordinator: any SessionCoordinating) -> LandingView {
+    static func makeLanding(
+        planner: any SessionPlanning,
+        coordinator: any SessionCoordinating,
+        activityLog: OutsideActivityLog = .empty
+    ) -> LandingView {
         LandingView(
-            model: makeModel(planner: planner, coordinator: coordinator),
+            model: makeModel(planner: planner, coordinator: coordinator, activityLog: activityLog),
             references: references,
             onOpenToday: {},
-            onOpenSession: { _ in }
+            onOpenSession: { _ in },
+            activities: makeActivities(log: activityLog)
         )
     }
 
-    static func makeModel(planner: any SessionPlanning, coordinator: any SessionCoordinating) -> LandingViewModel {
-        LandingViewModel(planner: planner, coordinator: coordinator, now: { referenceDate }, calendar: calendar)
+    static func makeModel(
+        planner: any SessionPlanning,
+        coordinator: any SessionCoordinating,
+        activityLog: OutsideActivityLog = .empty
+    ) -> LandingViewModel {
+        LandingViewModel(
+            planner: planner,
+            coordinator: coordinator,
+            now: { referenceDate },
+            calendar: calendar,
+            activityLog: { activityLog }
+        )
     }
+
+    /// AGENTS R9: as atividades do preview ficam em memória (`FakeOutsideActivityStore`).
+    static func makeActivities(log: OutsideActivityLog) -> ActivitiesModel {
+        let fixedNow = referenceDate
+        let model = ActivitiesModel(store: FakeOutsideActivityStore(log: log), now: { fixedNow }, calendar: calendar)
+        model.refresh()
+        return model
+    }
+
+    /// Pilates fixo na quarta às 19h (hoje, sem "Feito"), um registro de caminhada moderada e um de
+    /// equilíbrio nesta semana.
+    static let sampleActivityLog: OutsideActivityLog = {
+        let pilates = FixedOutsideActivity(
+            kind: .pilates,
+            weekday: .wednesday,
+            startMinuteOfDay: 19 * 60,
+            minutes: 50,
+            intensity: .light
+        )
+        let walk = OutsideActivityEntry(
+            kind: .walkRun,
+            start: LandingPreviewFixture.referenceDate.addingTimeInterval(-86_400),
+            minutes: 40,
+            intensity: .moderate
+        )
+        let balance = OutsideActivityEntry(
+            kind: .balance,
+            start: LandingPreviewFixture.referenceDate.addingTimeInterval(-2 * 86_400),
+            minutes: 10,
+            intensity: .light
+        )
+        return OutsideActivityLog(entries: [balance, walk], fixed: [pilates])
+    }()
 
     /// Um planejador com `pendingCount` sessões pendentes hoje (0, 1 ou 2), o bastante para ver
     /// todos os estados do caminho (RF-49 ponto 2). Com `isDoneToday`, a sessão de hoje já foi feita.

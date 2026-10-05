@@ -58,7 +58,7 @@ final class CardioTextTests: XCTestCase {
 
         // As medidas de força não mudam.
         XCTAssertEqual(TodayTargetText.row(sets: 3, goal: 10, measure: .reps, load: .load("60 kg")), "3 séries de 10 · 60 kg")
-        XCTAssertEqual(TodayTargetText.row(sets: 4, goal: 6, measure: .reps, load: .toChoose), "4 séries de 6 · escolha a carga")
+        XCTAssertEqual(TodayTargetText.row(sets: 4, goal: 6, measure: .reps, load: .toChoose), "4 séries de 6 · sem carga")
     }
 
     /// SPEC P12 e §7.6: nenhum texto do cardio fala de frequência cardíaca, zonas ou ritmo em números.
