@@ -833,6 +833,56 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertEqual(startRequests, 1)
     }
 
+    /// SPEC §7.15 M2: com dois planos, o C5 olha o principal, com as sessões dos dias dele. O cardio de
+    /// ontem não apaga 8 dias sem a força, e o próximo dia é o do principal. Com um plano só, todas contam.
+    func testM2_comebackUsesPrincipal() throws {
+        let fixture = try makeFixture()
+        defer { fixture.cleanUp() }
+        let cardio = program(name: "Cardio", goal: .endurance, isActive: true)
+        let balanced = program(name: "Hipertrofia — Equilibrado", goal: .hypertrophy, isActive: true)
+        fixture.programs.programs = [cardio, balanced]
+        let cardioDayID = try XCTUnwrap(cardio.days.first).id
+        let balancedDayID = try XCTUnwrap(balanced.days.first).id
+        fixture.planner.sessionsToReturn = [
+            SessionSummary(
+                programDayID: balancedDayID,
+                startedAt: date(2026, 9, 16),
+                endedAt: date(2026, 9, 16, hour: 13),
+                status: .completed,
+                workingSetCount: 12
+            ),
+            SessionSummary(
+                programDayID: cardioDayID,
+                startedAt: date(2026, 9, 23),
+                endedAt: date(2026, 9, 23, hour: 13),
+                status: .completed,
+                workingSetCount: 1
+            ),
+        ]
+        fixture.planner.planToReturn = SessionPlan(
+            programID: balanced.id,
+            programName: balanced.name,
+            programDayID: UUID(),
+            programDayName: "Dia B — Inferior",
+            exercises: [],
+            generatedAt: now
+        )
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+
+        let message = try XCTUnwrap(fixture.service.messages.first { $0.rule == .comeback })
+        XCTAssertTrue(message.reason.contains("Dia B — Inferior"), message.reason)
+        XCTAssertTrue(message.reason.contains("8 dias"), message.reason)
+
+        fixture.programs.programs = [cardio]
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+
+        XCTAssertFalse(
+            fixture.service.messages.contains { $0.rule == .comeback },
+            "Com um plano só, a sessão de ontem é a última"
+        )
+    }
+
     // MARK: - C6 Melhor marca
 
     func testRefresh_newBestMark_ofTheLastSession_andSeeProgress() throws {

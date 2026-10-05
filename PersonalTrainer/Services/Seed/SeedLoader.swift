@@ -31,8 +31,9 @@ enum SeedLoaderError: Error, Equatable {
 ///   2.3), os aeróbicos (RF-48); nenhum dos dois muda os campos de um exercício do seed anterior.
 /// - Programas: insere cada programa do seed cujo `uuid` ainda não existe no store; nunca
 ///   altera nem apaga programas existentes. Se o store já tem um programa ativo, os inseridos
-///   entram inativos (SPEC S1: um único programa ativo). Primeiro launch: o programa marcado
-///   `isActive` no seed fica ativo e os demais inativos.
+///   entram inativos (SPEC S1; desde a 2.3, um segundo plano ativo só por escolha da pessoa,
+///   §7.15 M8). Primeiro launch: o programa marcado `isActive` no seed fica ativo e os demais
+///   inativos.
 /// - `UserSettingsModel`: criado na primeira execução com os padrões de ARCHITECTURE §5;
 ///   `schemaSeedVersion` recebe `currentSeedVersion` ao final, no mesmo `save()`.
 /// - Tudo ou nada: ler e validar vem antes de qualquer escrita, e uma falha durante a escrita
@@ -224,7 +225,8 @@ enum SeedLoader {
                 exercises: exercisesBySeedID,
                 createdAt: now
             )
-            // SPEC S1: um único programa ativo. O que o usuário já treina continua ativo.
+            // SPEC S1 e §7.15 M8: o seed nunca ativa um segundo plano. O que o usuário já treina
+            // continua ativo.
             if hasActiveProgram {
                 program.isActive = false
             } else if program.isActive {
