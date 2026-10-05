@@ -665,6 +665,93 @@ final class HealthKitWorkoutRecorderTests: XCTestCase {
         XCTAssertEqual(session.hkWorkoutUUID, oldWorkout)
     }
 
+    // MARK: - L3 (c): como terminou a ida ao Saúde (SPEC §7.18)
+
+    func testL3_outcomeSavedAfterRecording() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (sessionID, finished) = try startAndFinishSession(fixture)
+
+        await recorder.process(finished)
+
+        XCTAssertEqual(recorder.healthOutcome(for: sessionID), .saved)
+        let saved = await healthKit.savedWorkouts
+        XCTAssertEqual(saved.count, 1)
+    }
+
+    func testL3_outcomeSavedWhenLinkingAnotherAppsWorkout() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService(overlappingWorkoutToReturn: UUID())
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (sessionID, finished) = try startAndFinishSession(fixture)
+
+        await recorder.process(finished)
+
+        XCTAssertEqual(recorder.healthOutcome(for: sessionID), .saved, "Vincular o treino do relógio também é sucesso")
+    }
+
+    func testL3_outcomeFailedWhenSaveFails() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        await healthKit.setShouldFailSave(true)
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (sessionID, finished) = try startAndFinishSession(fixture)
+
+        await recorder.process(finished)
+
+        XCTAssertEqual(recorder.healthOutcome(for: sessionID), .failed)
+        let session = try XCTUnwrap(fixture.coordinator.session(withID: sessionID))
+        XCTAssertEqual(session.status, .completed, "A falha só informa: a sessão continua concluída")
+    }
+
+    func testL3_outcomeFailedWhenOverlapQueryFails() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        await healthKit.setShouldFailOverlapQuery(true)
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (sessionID, finished) = try startAndFinishSession(fixture)
+
+        await recorder.process(finished)
+
+        XCTAssertEqual(recorder.healthOutcome(for: sessionID), .failed)
+    }
+
+    func testL3_outcomeNotAttemptedWithoutHealth() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService(isAvailable: false)
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (sessionID, finished) = try startAndFinishSession(fixture)
+
+        XCTAssertEqual(recorder.healthOutcome(for: sessionID), .notAttempted, "Sem o app Saúde não há o que esperar")
+        await recorder.process(finished)
+
+        XCTAssertEqual(recorder.healthOutcome(for: sessionID), .notAttempted)
+    }
+
+    func testL3_outcomeNotAttemptedWithoutWritePermission() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService(shouldFailAuthorization: true)
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (sessionID, finished) = try startAndFinishSession(fixture)
+
+        await recorder.process(finished)
+
+        XCTAssertEqual(recorder.healthOutcome(for: sessionID), .notAttempted, "Sem permissão de gravar não é erro")
+    }
+
+    func testL3_outcomePendingBeforeEvent() async throws {
+        let fixture = try makeFixture()
+        let healthKit = FakeHealthKitService()
+        let recorder = HealthKitWorkoutRecorder(healthKit: healthKit, coordinator: fixture.coordinator)
+        let (sessionID, finished) = try startAndFinishSession(fixture)
+
+        XCTAssertEqual(recorder.healthOutcome(for: sessionID), .pending, "O sessionFinished ainda não chegou")
+        await recorder.process(finished)
+
+        XCTAssertEqual(recorder.healthOutcome(for: sessionID), .saved)
+    }
+
     // MARK: - Regra de sobreposição do LiveHealthKitService (RF-13)
 
     func testRF13_bestOverlap_requiresAtLeastHalfOfTheSession() {
