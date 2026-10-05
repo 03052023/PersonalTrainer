@@ -4,7 +4,7 @@ Versão 1.5 · 2026-10-05 (2.4: atividades fora do app, §9.3, e os ajustes do �
 
 ## 0. O nome
 
-**Magister** é latim para "mestre, quem ensina e guia" (a raiz de "magistério" e de *master*). É o papel de um personal trainer sem o vocabulário de academia: alguém que conhece o caminho, explica o porquê e acompanha a pessoa. Uma palavra só, curta, séria e amigável, que funciona em pt-BR, espanhol, italiano e inglês. Na tela aparece só "Magister". Se um dia for publicado, o título na loja pode ser "Magister: Personal Trainer". Colisões conhecidas ficam fora do fitness: um app escolar holandês e um app espanhol de concursos.
+**Magister** é latim para "mestre, quem ensina e guia" (a raiz de "magistério" e de *master*). É o papel de um personal trainer sem o vocabulário de academia: alguém que conhece o caminho, explica o porquê e acompanha a pessoa. Uma palavra só, curta, séria e amigável, que funciona em pt-BR, espanhol, italiano e inglês. Na tela aparece só "Magister". Na App Store, o nome é "Magister: Treino com Ciência" (decisão do dono, 2026-10-05; SPEC decisão 22). Para o app, nunca "personal", "treinador" nem "coach" (SPEC L8). Colisões conhecidas ficam fora do fitness: um app escolar holandês e um app espanhol de concursos.
 
 ## 1. Princípios
 
