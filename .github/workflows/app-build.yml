@@ -3,11 +3,30 @@
 # Antes de executar, confirmar o orçamento de US$ 0 do GitHub Actions (WINDOWS_SETUP.md).
 # Também roda em push para branches `ci/**`: o código do app é escrito sem compilador (AGENTS R11), e o agente
 # precisa do veredito do Xcode sem depender de um clique. Os erros saem como anotações (legíveis sem login).
+#
+# Política de custo (T11.1). Com o repositório privado, o minuto de macOS custa US$ 0,062 e o plano Free
+# cobre só ~200 min de macOS por mês; antes desta política o App build gastava ~2.350 min/mês (79 runs em
+# 11,7 dias, ~12 min cada, dos quais ~3,5 min eram o build Release de dispositivo que gera o IPA).
+#   1. Push para `ci/**` que muda só documentação (`**/*.md`, `docs/**`, `ideia.txt`) não dispara o workflow.
+#      Push sem nenhum arquivo mudado (commit vazio) também não: o GitHub não roda workflow com filtro de
+#      caminho quando o diff está vazio.
+#   2. Todo run compila e roda os testes no simulador (e a checagem estrutural do Watch). O IPA ("Build
+#      unsigned device IPA" + "Keep package for local re-signing") só sai quando o run é manual
+#      (workflow_dispatch), ou o branch termina em `-final` (ex.: `ci/v9-final`), ou a mensagem do commit da
+#      ponta do push contém `[ipa]` (o commit precisa mudar algum arquivo fora da documentação; ver item 1).
+#   3. Resultados de teste ficam 1 dia (só servem para diagnosticar o run); o IPA fica 3 dias.
+#   4. Push novo no mesmo branch cancela o run anterior (concurrency abaixo).
 name: App build (manual)
 on:
   workflow_dispatch:
   push:
     branches: ['ci/**']
+    # Política de custo, item 1. Com `branches` e `paths-ignore` juntos, o run só acontece quando os dois
+    # filtros aceitam o push (docs do GitHub, "on.push.<branches|paths>").
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'ideia.txt'
 permissions:
   contents: read
 concurrency:
@@ -26,10 +45,20 @@ jobs:
     env:
       # Fixa o Xcode mesmo quando a imagem trocar o default (actions/runner-images macos-26-Readme).
       DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      # Política de custo, item 2 (vira o texto 'true' ou 'false'). `head_commit` só existe em push; em
+      # workflow_dispatch ele é nulo e contains() dá false, mas o primeiro termo já cobre esse evento.
+      PACKAGE_IPA: ${{ github.event_name == 'workflow_dispatch' || endsWith(github.ref_name, '-final') || contains(github.event.head_commit.message, '[ipa]') }}
     steps:
       - uses: actions/checkout@v5
       - name: Check TrainerCore boundaries
         run: bash Scripts/check-boundaries.sh
+      - name: Report IPA policy
+        # Anotação pública: quem lê o run sem login sabe por que não há artefato de IPA.
+        run: |
+          echo "PACKAGE_IPA=$PACKAGE_IPA (evento $GITHUB_EVENT_NAME, branch $GITHUB_REF_NAME)"
+          if [ "$PACKAGE_IPA" != "true" ]; then
+            echo "::notice title=IPA não empacotado::Só testes neste run. O IPA sai em workflow_dispatch, em branch terminado em -final ou com [ipa] na mensagem do commit da ponta."
+          fi
       - name: Install XcodeGen
         env:
           HOMEBREW_NO_AUTO_UPDATE: "1"
@@ -118,8 +147,11 @@ jobs:
             build/app/TestResults.xcresult
             build/app/xcodebuild-test.log
           if-no-files-found: ignore
-          retention-days: 3
+          # Política de custo, item 3: só diagnostica este run; o próximo push gera outro.
+          retention-days: 1
       - name: Build unsigned device IPA
+        # Política de custo, item 2. Um `if:` sem função de status mantém o success() implícito.
+        if: ${{ env.PACKAGE_IPA == 'true' }}
         run: bash Scripts/build-app.sh 2>&1 | tee build/app/build-app.log
       - name: Report failures as annotations
         # O log completo do job exige login; anotações da check-run são públicas. Mesmo formato do Core tests.
@@ -139,6 +171,7 @@ jobs:
             msg=$(sed -e 's/%/%25/g' -e 's/\r//g' "$chunk" | awk 'BEGIN{ORS="%0A"} {print}')
             echo "::error title=app build (parte $n)::$msg"; done
       - name: Keep package for local re-signing
+        if: ${{ env.PACKAGE_IPA == 'true' }}
         uses: actions/upload-artifact@v6
         with:
           name: PersonalTrainer-for-resigning
