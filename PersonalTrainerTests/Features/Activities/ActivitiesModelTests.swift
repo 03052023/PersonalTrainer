@@ -144,6 +144,32 @@ final class ActivitiesModelTests: XCTestCase {
         XCTAssertEqual(model.todayItems.map(\.isDone), [true])
     }
 
+    /// O "Feito" vale para o dia que a tela mostra: com a tela aberta na virada da meia-noite (sem `refresh()`),
+    /// o pilates de segunda fica na segunda, nunca como um pilates de terça.
+    func testX2_markDoneUsesTheDayShown() throws {
+        let pilates = FixedOutsideActivity(kind: .pilates, weekday: .monday, startMinuteOfDay: 19 * 60, minutes: 50, intensity: .light)
+        let store = FakeOutsideActivityStore(log: OutsideActivityLog(fixed: [pilates]))
+        let clock = ActivitiesTestClock(mondayStart.addingTimeInterval(23 * 3_600 + 50 * 60))
+        let model = ActivitiesModel(store: store, now: { clock.now }, calendar: calendar)
+        model.refresh()
+        XCTAssertEqual(model.todayItems.map(\.activity.id), [pilates.id])
+
+        clock.now = mondayStart.addingTimeInterval(86_400 + 10 * 60)
+        XCTAssertTrue(model.markDone(fixedID: pilates.id))
+
+        let entry = try XCTUnwrap(store.log.entries.first)
+        XCTAssertEqual(entry.start, mondayStart.addingTimeInterval(19 * 3_600), "segunda, na hora da fixa")
+        XCTAssertEqual(entry.fixedActivityID, pilates.id)
+        XCTAssertTrue(model.todayItems.isEmpty, "depois de gravar, a tela passa para terça, sem fixa")
+
+        // Na terça, a fixa de segunda não é de hoje: nada é gravado.
+        let saves = store.saveCount
+        XCTAssertTrue(model.markDone(fixedID: pilates.id))
+        XCTAssertEqual(store.saveCount, saves)
+        XCTAssertEqual(store.log.entries.count, 1)
+        XCTAssertNil(model.errorMessage)
+    }
+
     func testX2_everyWeekCreatesFixedAndTodayEntry() throws {
         let (model, store) = makeModel()
         var draft = OutsideActivityDraft.suggested(kind: .pilates, now: monday, calendar: calendar)
@@ -258,7 +284,7 @@ final class ActivitiesModelTests: XCTestCase {
         editor.draft.intensity = .moderate
         let chosen = editor.draft
 
-        XCTAssertFalse(editor.save())
+        XCTAssertFalse(editor.submit())
 
         XCTAssertEqual(editor.draft, chosen, "o que a pessoa escolheu continua na folha")
         XCTAssertEqual(editor.errorMessage, "Não foi possível guardar a atividade. Tente de novo.")
@@ -267,7 +293,7 @@ final class ActivitiesModelTests: XCTestCase {
         XCTAssertEqual(changes, 0)
 
         store.saveError = nil
-        XCTAssertTrue(editor.save(), "tentar de novo grava o mesmo rascunho")
+        XCTAssertTrue(editor.submit(), "tentar de novo grava o mesmo rascunho")
         XCTAssertNil(editor.errorMessage)
         XCTAssertEqual(store.log.entries.map(\.kind), [.spinning])
         XCTAssertEqual(store.log.entries.map(\.minutes), [40])
@@ -360,7 +386,7 @@ final class ActivitiesModelTests: XCTestCase {
         editor.keepStartInThePast()
 
         XCTAssertLessThanOrEqual(editor.draft.start, monday)
-        XCTAssertTrue(editor.save(), "sem Toda semana, o registro fica no passado e grava")
+        XCTAssertTrue(editor.submit(), "sem Toda semana, o registro fica no passado e grava")
     }
 
     // MARK: - Suporte
@@ -380,4 +406,13 @@ final class ActivitiesModelTests: XCTestCase {
 
 private enum ActivitiesTestError: Error {
     case diskFull
+}
+
+/// Relógio ajustável pelo teste (só no MainActor, como o modelo que o lê).
+private final class ActivitiesTestClock {
+    var now: Date
+
+    init(_ now: Date) {
+        self.now = now
+    }
 }

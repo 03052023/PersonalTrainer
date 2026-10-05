@@ -201,9 +201,13 @@ final class ActivitiesModel {
 
     /// "Feito" numa fixa: grava o registro do dia com os dados dela, na hora dela. Uma vez por dia: o segundo
     /// toque não grava nada.
+    ///
+    /// O dia é o que a tela mostra (`referenceDate`, o de `todayItems`), não o relógio de agora: com a tela
+    /// aberta na virada da meia-noite, o "Feito" do pilates de segunda fica na segunda, e não vira um pilates
+    /// de terça. Uma fixa que já não é desse dia (editada noutra tela) não grava nada; a lista só relê.
     @discardableResult
     func markDone(fixedID: UUID) -> Bool {
-        let today = now()
+        let day = referenceDate
         let calendar = self.calendar
         let stored = store.load()
         guard let fixed = stored.fixed.first(where: { $0.id == fixedID }) else {
@@ -211,13 +215,14 @@ final class ActivitiesModel {
             errorMessage = ActivityText.missingFixed
             return false
         }
-        guard !OutsideActivities.isLogged(fixed, on: today, entries: stored.entries, calendar: calendar) else {
+        guard fixed.weekday == PlanWeekday.of(day, calendar: calendar),
+              !OutsideActivities.isLogged(fixed, on: day, entries: stored.entries, calendar: calendar) else {
             refresh()
             errorMessage = nil
             return true
         }
         return commit { next in
-            next.entries.append(OutsideActivities.entry(loggingFixed: fixed, on: today, calendar: calendar))
+            next.entries.append(OutsideActivities.entry(loggingFixed: fixed, on: day, calendar: calendar))
             return nil
         }
     }

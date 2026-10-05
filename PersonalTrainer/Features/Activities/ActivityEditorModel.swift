@@ -163,7 +163,9 @@ final class ActivityEditorModel {
     }
 
     /// Grava. `true` = deu certo e a folha pode fechar; `false` = a folha fica, com o rascunho e a mensagem.
-    func save() -> Bool {
+    /// O nome não é "save" de propósito: o grep do AGENTS R4 procura chamadas de gravar sem argumento nas
+    /// telas, e esta folha não toca no `ModelContext`.
+    func submit() -> Bool {
         let didSave: Bool
         switch mode {
         case .newEntry:

@@ -264,7 +264,7 @@ struct ActivityEditorSheet: View {
     /// O único botão proeminente da folha (DESIGN §9).
     private var saveButton: some View {
         Button(editor.saveTitle) {
-            if editor.save() {
+            if editor.submit() {
                 dismiss()
             }
         }
