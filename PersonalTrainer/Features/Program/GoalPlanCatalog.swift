@@ -13,6 +13,10 @@ import TrainerCore
 /// formato extra: o antigo Corpo todo com o título "Corpo todo", e os outros (cópia, o antigo
 /// Empurrar/Inferior/Puxar) com o próprio nome. Sem nenhum formato, vale o primeiro programa de
 /// Hipertrofia como formato único. Os demais programas ficam no banco e no backup, só fora da tela.
+///
+/// Vários planos (SPEC §7.15 M1, versão 2.3): até dois programas ativos, de objetivos diferentes, na
+/// ordem de `ActivePlanOrder` (o principal primeiro). Cada objetivo olha o ativo dele; com um plano só,
+/// tudo fica como antes.
 struct GoalPlanCatalog: Sendable, Hashable {
     /// Um formato da Hipertrofia (RF-35): um programa com um título leigo.
     struct Format: Sendable, Hashable, Identifiable {
@@ -35,7 +39,7 @@ struct GoalPlanCatalog: Sendable, Hashable {
         let defaultProgramID: UUID?
         /// Só na Hipertrofia; vazio nos outros objetivos.
         let formats: [Format]
-        /// O programa ativo é deste objetivo ("· atual").
+        /// Um programa ativo é deste objetivo ("· atual"). Com dois planos, vale para os dois.
         let isCurrent: Bool
         /// "3 dias", "3 ou 4 dias" ou "Sem plano pronto".
         let dayCountText: String
@@ -73,10 +77,10 @@ struct GoalPlanCatalog: Sendable, Hashable {
     /// O antigo Empurrar/Inferior/Puxar: escondido, a não ser que esteja ativo.
     static let legacyPushLegsPullID = UUID(uuidString: "26262EE7-89B0-4048-93F9-1720FD9CBE40") ?? UUID()
     static let strengthID = UUID(uuidString: "32FA941A-31C4-4D4F-86F5-F3EA366BBB49") ?? UUID()
-    /// O plano do Fôlego (SPEC RF-48, 2.3): cardio simples em minutos.
+    /// O plano do Cardio (SPEC RF-48, 2.3): cardio simples em minutos.
     static let enduranceCardioID = UUID(uuidString: "09AB286E-D2B2-49C6-8C9F-400D118D8D03") ?? UUID()
     /// O antigo "Resistência muscular", que saiu do seed na 2.3. Instalações antigas o mantêm no
-    /// banco; ele só vale como plano do Fôlego enquanto estiver ativo (RF-45: "o ativo primeiro").
+    /// banco; ele só vale como plano do Cardio enquanto estiver ativo (RF-45: "o ativo primeiro").
     static let legacyEnduranceID = UUID(uuidString: "CBE66162-1F29-41BE-9FF6-7A9E34C179BA") ?? UUID()
     static let longevityID = UUID(uuidString: "2F776C4F-4E46-47AB-9150-7DC04C4A980B") ?? UUID()
     static let combatID = UUID(uuidString: "C1EB32E3-D082-411E-9DB8-5D2AEFFE5B21") ?? UUID()
@@ -106,7 +110,7 @@ struct GoalPlanCatalog: Sendable, Hashable {
     }
 
     /// Os 5 objetivos na ordem das pétalas (DESIGN §4): Longevidade, Hipertrofia, Força,
-    /// Combate, Fôlego.
+    /// Combate, Cardio.
     static var orderedGoals: [ProgramGoal] {
         ProgramGoal.allCases.sorted { $0.petalIndex < $1.petalIndex }
     }
@@ -115,22 +119,42 @@ struct GoalPlanCatalog: Sendable, Hashable {
 
     /// Uma linha por objetivo, na ordem das pétalas.
     let entries: [Entry]
-    /// O programa ativo, se houver (o primeiro com `isActive`).
-    let activeProgram: ProgramTemplate?
+    /// Os programas ativos na ordem de `ActivePlanOrder` (SPEC §7.15 M1): o principal primeiro.
+    /// Um só programa por objetivo efetivo: se o banco trouxer dois do mesmo, fica o primeiro.
+    let activePrograms: [ProgramTemplate]
     private let programsByID: [UUID: ProgramTemplate]
 
     init(programs: [ProgramTemplate]) {
-        let active = programs.first(where: \.isActive)
-        self.activeProgram = active
+        let actives = Self.activePlans(in: programs)
+        self.activePrograms = actives
         self.programsByID = Dictionary(programs.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         self.entries = Self.orderedGoals.map { goal in
-            Self.makeEntry(for: goal, programs: programs, active: active)
+            Self.makeEntry(
+                for: goal,
+                programs: programs,
+                active: actives.first { $0.effectiveGoal == goal }
+            )
         }
     }
 
-    /// Objetivo do programa ativo.
+    /// O plano principal (SPEC §7.15 M1), se houver.
+    var activeProgram: ProgramTemplate? {
+        activePrograms.first
+    }
+
+    /// Objetivo do plano principal.
     var activeGoal: ProgramGoal? {
         activeProgram?.effectiveGoal
+    }
+
+    /// Objetivos dos planos ativos, o principal primeiro (a flor pinta uma pétala por objetivo).
+    var activeGoals: [ProgramGoal] {
+        activePrograms.map(\.effectiveGoal)
+    }
+
+    /// O plano ativo de um objetivo, se houver.
+    func activePlan(for goal: ProgramGoal) -> ProgramTemplate? {
+        activePrograms.first { $0.effectiveGoal == goal }
     }
 
     func entry(for goal: ProgramGoal) -> Entry? {
@@ -142,27 +166,47 @@ struct GoalPlanCatalog: Sendable, Hashable {
         return programsByID[id]
     }
 
-    /// Formato do programa ativo, quando a Hipertrofia tem mais de um (o título aparece na aba
+    /// Formato do plano principal, quando a Hipertrofia tem mais de um (o título aparece na aba
     /// Plano e no botão da folha).
     var activeFormat: Format? {
+        guard let active = activeProgram else {
+            return nil
+        }
+        return formatOfActive(active)
+    }
+
+    /// Formato de um plano ativo, quando o objetivo dele tem mais de um formato.
+    func formatOfActive(_ program: ProgramTemplate) -> Format? {
         guard
-            let active = activeProgram,
-            let goalEntry = self.entry(for: active.effectiveGoal),
+            let goalEntry = self.entry(for: program.effectiveGoal),
             goalEntry.formats.count > 1
         else {
             return nil
         }
-        return goalEntry.format(id: active.id)
+        return goalEntry.format(id: program.id)
     }
 
     // MARK: - Montagem
 
+    /// Os ativos na ordem de M1, sem repetir objetivo efetivo (M1: objetivos diferentes).
+    private static func activePlans(in programs: [ProgramTemplate]) -> [ProgramTemplate] {
+        var seenGoals: Set<ProgramGoal> = []
+        var result: [ProgramTemplate] = []
+        for program in ActivePlanOrder.sorted(programs.filter(\.isActive)) {
+            guard !seenGoals.contains(program.effectiveGoal) else { continue }
+            seenGoals.insert(program.effectiveGoal)
+            result.append(program)
+        }
+        return result
+    }
+
+    /// `active` é o plano ativo deste objetivo, se houver.
     private static func makeEntry(
         for goal: ProgramGoal,
         programs: [ProgramTemplate],
         active: ProgramTemplate?
     ) -> Entry {
-        let isCurrent = active?.effectiveGoal == goal
+        let isCurrent = active != nil
         if goal == .hypertrophy {
             let formats = makeHypertrophyFormats(programs: programs, active: active)
             let defaultID: UUID?

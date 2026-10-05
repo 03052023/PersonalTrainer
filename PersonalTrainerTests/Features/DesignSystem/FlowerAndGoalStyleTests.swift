@@ -20,11 +20,20 @@ final class FlowerAndGoalStyleTests: XCTestCase {
         XCTAssertEqual(ProgramGoal.endurance.subtitle, "Coração forte e mais condicionamento")
     }
 
-    func testRF48_folegoNameSymbolAndPetal() {
+    /// Owner notes item 1: o nome é "Cardio" (sai o provisório "Fôlego"); o raw value não muda.
+    func testRF48_cardioNameSymbolAndPetal() {
         XCTAssertEqual(ProgramGoal.endurance.displayName, "Cardio")
         XCTAssertEqual(ProgramGoal.endurance.rawValue, "endurance")
         XCTAssertEqual(ProgramGoal.endurance.symbolName, "wind")
         XCTAssertEqual(ProgramGoal.endurance.petalIndex, 4)
+    }
+
+    /// SPEC §7.15 M1, DESIGN §9.7: dois objetivos ativos num nome só, o principal primeiro.
+    func testM1_joinedGoalNames() {
+        XCTAssertEqual([ProgramGoal.hypertrophy, .endurance].joinedDisplayName, "Hipertrofia + Cardio")
+        XCTAssertEqual([ProgramGoal.hypertrophy, .endurance].spokenDisplayName, "Hipertrofia e Cardio")
+        XCTAssertEqual([ProgramGoal.strength].joinedDisplayName, "Força")
+        XCTAssertEqual([ProgramGoal]().joinedDisplayName, "")
     }
 
     // MARK: - S10: geometria Brisa

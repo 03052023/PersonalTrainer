@@ -51,16 +51,21 @@ enum GoalPlanTestPrograms {
 
     /// Os 9 programas do seed 4 (2.3); `activeID` fica ativo (o Equilibrado, por padrão).
     static func seed(activeID: UUID? = GoalPlanCatalog.hypertrophyBalancedID) -> [ProgramTemplate] {
+        seed(activeIDs: activeID.map { Set([$0]) } ?? Set<UUID>())
+    }
+
+    /// Os 9 programas do seed 4 com vários ativos (SPEC §7.15 M1).
+    static func seed(activeIDs: Set<UUID>) -> [ProgramTemplate] {
         [
-            program(id: GoalPlanCatalog.hypertrophyBalancedID, name: "Hipertrofia — Equilibrado", goal: .hypertrophy, dayCount: 4, isActive: activeID == GoalPlanCatalog.hypertrophyBalancedID),
-            program(id: GoalPlanCatalog.hypertrophyFullBodyID, name: "Hipertrofia — Completo", goal: .hypertrophy, dayCount: 3, isActive: activeID == GoalPlanCatalog.hypertrophyFullBodyID),
-            program(id: GoalPlanCatalog.legacyPushLegsPullID, name: "Hipertrofia — Empurrar/Inferior/Puxar", goal: .hypertrophy, dayCount: 3, isActive: activeID == GoalPlanCatalog.legacyPushLegsPullID),
-            program(id: GoalPlanCatalog.hypertrophyLowerFocusID, name: "Hipertrofia — Foco inferior", goal: .hypertrophy, dayCount: 4, isActive: activeID == GoalPlanCatalog.hypertrophyLowerFocusID),
-            program(id: GoalPlanCatalog.hypertrophyUpperFocusID, name: "Hipertrofia — Foco superior", goal: .hypertrophy, dayCount: 4, isActive: activeID == GoalPlanCatalog.hypertrophyUpperFocusID),
-            program(id: GoalPlanCatalog.strengthID, name: "Força", goal: .strength, isActive: activeID == GoalPlanCatalog.strengthID),
-            program(id: GoalPlanCatalog.enduranceCardioID, name: "Fôlego", goal: .endurance, isActive: activeID == GoalPlanCatalog.enduranceCardioID),
-            program(id: GoalPlanCatalog.longevityID, name: "Longevidade", goal: .longevity, isActive: activeID == GoalPlanCatalog.longevityID),
-            program(id: GoalPlanCatalog.combatID, name: "Combate", goal: .combat, isActive: activeID == GoalPlanCatalog.combatID, firstDayExercises: [benchID, archivedID, rowID]),
+            program(id: GoalPlanCatalog.hypertrophyBalancedID, name: "Hipertrofia — Equilibrado", goal: .hypertrophy, dayCount: 4, isActive: activeIDs.contains(GoalPlanCatalog.hypertrophyBalancedID)),
+            program(id: GoalPlanCatalog.hypertrophyFullBodyID, name: "Hipertrofia — Completo", goal: .hypertrophy, dayCount: 3, isActive: activeIDs.contains(GoalPlanCatalog.hypertrophyFullBodyID)),
+            program(id: GoalPlanCatalog.legacyPushLegsPullID, name: "Hipertrofia — Empurrar/Inferior/Puxar", goal: .hypertrophy, dayCount: 3, isActive: activeIDs.contains(GoalPlanCatalog.legacyPushLegsPullID)),
+            program(id: GoalPlanCatalog.hypertrophyLowerFocusID, name: "Hipertrofia — Foco inferior", goal: .hypertrophy, dayCount: 4, isActive: activeIDs.contains(GoalPlanCatalog.hypertrophyLowerFocusID)),
+            program(id: GoalPlanCatalog.hypertrophyUpperFocusID, name: "Hipertrofia — Foco superior", goal: .hypertrophy, dayCount: 4, isActive: activeIDs.contains(GoalPlanCatalog.hypertrophyUpperFocusID)),
+            program(id: GoalPlanCatalog.strengthID, name: "Força", goal: .strength, isActive: activeIDs.contains(GoalPlanCatalog.strengthID)),
+            program(id: GoalPlanCatalog.enduranceCardioID, name: "Cardio", goal: .endurance, isActive: activeIDs.contains(GoalPlanCatalog.enduranceCardioID)),
+            program(id: GoalPlanCatalog.longevityID, name: "Longevidade", goal: .longevity, isActive: activeIDs.contains(GoalPlanCatalog.longevityID)),
+            program(id: GoalPlanCatalog.combatID, name: "Combate", goal: .combat, isActive: activeIDs.contains(GoalPlanCatalog.combatID), firstDayExercises: [benchID, archivedID, rowID]),
         ]
     }
 }
@@ -72,16 +77,29 @@ enum GoalPlanTestCall: Equatable {
     case rename(UUID, String)
     case duplicate(UUID)
     case delete(UUID)
+    /// SPEC §7.15 M1, M8.
+    case addActivePlan(UUID)
+    case removeActivePlan(UUID)
     case otherWrite
 }
 
-/// `ProgramRepositoring` em memória: ativar troca o único ativo; as outras escritas só registram.
+/// `ProgramRepositoring` em memória: ativar troca o único ativo; acrescentar e tirar seguem M1 (até
+/// dois, de objetivos diferentes, nunca o último); as outras escritas só registram.
 @MainActor
 final class GoalPlanTestRepository: ProgramRepositoring {
     private(set) var programs: [ProgramTemplate]
     private(set) var calls: [GoalPlanTestCall] = []
     var readError: (any Error)?
     var writeError: (any Error)?
+    /// Falha só no `addActivePlan` (a troca de formato com dois planos tenta devolver o antigo).
+    var addError: (any Error)?
+    /// Quantas vezes o `addActivePlan` ainda falha com `addError` (depois volta a funcionar).
+    var addFailures = Int.max
+
+    /// Ids dos programas ativos agora.
+    var activeIDs: Set<UUID> {
+        Set(programs.filter(\.isActive).map(\.id))
+    }
 
     init(programs: [ProgramTemplate]) {
         self.programs = programs
@@ -157,6 +175,54 @@ final class GoalPlanTestRepository: ProgramRepositoring {
     func updateTarget(id: UUID, sets: Int, repMin: Int, repMax: Int, targetRIR: Int, restSeconds: Int, startingLoad: Double?) throws {
         calls.append(.otherWrite)
     }
+
+    func addActivePlan(programID: UUID) throws {
+        calls.append(.addActivePlan(programID))
+        if let writeError { throw writeError }
+        if let addError, addFailures > 0 {
+            addFailures -= 1
+            throw addError
+        }
+        guard let program = programs.first(where: { $0.id == programID }) else {
+            throw ProgramRepositoryError.programNotFound(programID)
+        }
+        guard !program.isActive else { return }
+        let actives = programs.filter(\.isActive)
+        guard
+            actives.count < ActivePlanOrder.maxActivePlans,
+            !actives.contains(where: { $0.effectiveGoal == program.effectiveGoal })
+        else {
+            throw ProgramRepositoryError.invalidParameters("M1")
+        }
+        setActive(programID, true)
+    }
+
+    func removeActivePlan(programID: UUID) throws {
+        calls.append(.removeActivePlan(programID))
+        if let writeError { throw writeError }
+        guard let program = programs.first(where: { $0.id == programID }) else {
+            throw ProgramRepositoryError.programNotFound(programID)
+        }
+        guard program.isActive else { return }
+        guard programs.filter(\.isActive).count > 1 else {
+            throw ProgramRepositoryError.invalidParameters("M8: nunca o último")
+        }
+        setActive(programID, false)
+    }
+
+    private func setActive(_ programID: UUID, _ isActive: Bool) {
+        programs = programs.map { program in
+            guard program.id == programID else { return program }
+            return ProgramTemplate(
+                id: program.id,
+                name: program.name,
+                days: program.days,
+                isActive: isActive,
+                goal: program.goal,
+                summary: program.summary
+            )
+        }
+    }
 }
 
 /// Catálogo só de leitura; `readError` simula falha.
@@ -189,12 +255,30 @@ final class GoalPlanTestCatalog: CatalogRepositoring {
     func setArchived(id: UUID, _ archived: Bool) throws {}
 }
 
-/// `SessionPlanning` mínimo: `nextPlan` devolve `planToReturn` (ou lança `error`).
+/// `SessionPlanning` mínimo: `nextPlan` devolve `planToReturn` (ou lança `error`). Para os vários
+/// planos (SPEC §7.15), responde a semana, os dias da pessoa e o encaixe com valores prontos e registra
+/// o que foi gravado. As assinaturas são exatamente as do protocolo (senão valeria o padrão em silêncio).
 @MainActor
 final class GoalPlanTestPlanner: SessionPlanning {
     var planToReturn: SessionPlan?
     var error: (any Error)?
     private(set) var requestedDates: [Date] = []
+
+    /// `weekPreferences()`; `saveWeekPreferences` também grava aqui.
+    var preferences = WeekPreferences.default
+    var saveError: (any Error)?
+    private(set) var savedPreferences: [WeekPreferences] = []
+    /// `fitCheck` devolve isto (ou lança `fitError`).
+    var fitResult = FitResult.unchecked
+    var fitError: (any Error)?
+    private(set) var fitCheckedIDs: [[UUID]] = []
+    private(set) var fitCheckedPreferences: [WeekPreferences] = []
+    private(set) var fitCheckedDates: [Date] = []
+    /// `weekSchedule(now:)`.
+    var scheduleToReturn: WeekSchedule?
+    private(set) var weekScheduleCalls: [Date] = []
+    /// `nextPlan(forProgramID:now:)`.
+    var nextPlansByProgramID: [UUID: SessionPlan] = [:]
 
     init(planToReturn: SessionPlan? = nil) {
         self.planToReturn = planToReturn
@@ -212,6 +296,34 @@ final class GoalPlanTestPlanner: SessionPlanning {
 
     func startSession(from plan: SessionPlan, now: Date) throws -> UUID {
         UUID()
+    }
+
+    func nextPlan(forProgramID programID: UUID, now: Date) throws -> SessionPlan? {
+        if let error { throw error }
+        return nextPlansByProgramID[programID]
+    }
+
+    func weekSchedule(now: Date) throws -> WeekSchedule? {
+        weekScheduleCalls.append(now)
+        return scheduleToReturn
+    }
+
+    func weekPreferences() -> WeekPreferences {
+        preferences
+    }
+
+    func saveWeekPreferences(_ preferences: WeekPreferences) throws {
+        if let saveError { throw saveError }
+        savedPreferences.append(preferences)
+        self.preferences = preferences
+    }
+
+    func fitCheck(programIDs: [UUID], preferences: WeekPreferences, now: Date) throws -> FitResult {
+        fitCheckedIDs.append(programIDs)
+        fitCheckedPreferences.append(preferences)
+        fitCheckedDates.append(now)
+        if let fitError { throw fitError }
+        return fitResult
     }
 }
 
