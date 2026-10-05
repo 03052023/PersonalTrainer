@@ -6,7 +6,9 @@ import Foundation
 ///   calendário recebido (mesma semana de §7.4); o treino inteiro conta no dia do seu início.
 /// - Cada minuto com FC é classificado por `HeartRateZones`; leve não conta.
 /// - Minutos sem FC (treino sem amostras, leitura inválida ou FC mais curta que o treino) e treinos
-///   sem zonas (sem idade e sem FCmáx informada) usam `AerobicActivity.defaultIntensity`.
+///   sem zonas (sem idade e sem FCmáx informada) usam a intensidade que a pessoa disse num registro de
+///   atividade fora do app (`declaredIntensity`, SPEC §7.17 X3) ou, sem ela, `AerobicActivity.defaultIntensity`.
+///   Leve não conta, venha de onde vier.
 /// - Moderados-equivalentes = moderado + 2 × vigoroso (OMS 2020; Bull et al. 2020).
 enum AerobicWeek {
     /// Teto de minutos contados por treino (uma semana). Só protege contra dado corrompido (fim muito
@@ -69,7 +71,8 @@ enum AerobicWeek {
         var result = Minutes()
         guard total > 0 else { return result }
 
-        let fallback = workout.activity.defaultIntensity
+        // SPEC §7.17 X3: num registro fora do app vale o que a pessoa disse; senão, o tipo do treino (A1).
+        let fallback = workout.declaredIntensity ?? workout.activity.defaultIntensity
         var classified = 0
         for heartRate in workout.minuteHeartRates.prefix(total) {
             add(zones?.intensity(forHeartRate: heartRate) ?? fallback, to: &result)
@@ -101,6 +104,9 @@ enum AerobicWeek {
             if lhs.start != rhs.start { return lhs.start < rhs.start }
             if lhs.end != rhs.end { return lhs.end > rhs.end }
             if lhs.activity != rhs.activity { return lhs.activity.rawValue < rhs.activity.rawValue }
+            if lhs.declaredIntensity != rhs.declaredIntensity {
+                return (lhs.declaredIntensity?.rawValue ?? "") < (rhs.declaredIntensity?.rawValue ?? "")
+            }
             if lhs.minuteHeartRates.count != rhs.minuteHeartRates.count {
                 return lhs.minuteHeartRates.count > rhs.minuteHeartRates.count
             }

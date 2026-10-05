@@ -436,10 +436,10 @@ let fitProblemCases: [FitProblemCase] = [
         problems: [.notEnoughDays(needed: 7, available: 6)]
     ),
     FitProblemCase(
-        label: "faltam lugares: duas forças num dia só contam os 2 lugares do dia",
+        label: "faltam lugares: duas forças nunca dividem o dia, então contam 1 lugar por dia mesmo com 2 por dia aceito (B9)",
         plans: [FitFixture.chestA, FitFixture.legs],
         preferences: WeekPreferences(availableDays: [.monday], allowsTwoSessionsPerDay: true),
-        problems: [.notEnoughDays(needed: 2, available: 2)]
+        problems: [.notEnoughDays(needed: 2, available: 1)]
     ),
     FitProblemCase(
         label: "caberia sem os 48 h",
@@ -577,6 +577,315 @@ func weeklyFitPairsWhenNoSingleExitFits() {
     ])
     for alternative in result.alternatives {
         #expect(WeeklyFit.fit(plans, preferences: alternative.preferences).schedule == alternative.schedule)
+    }
+}
+
+@Test("M5 dois planos de força contam 1 por dia")
+func weeklyFitTwoStrengthPlansCountOnePlacePerDay() {
+    // B9 da 2.3: com dois planos de força, o "2 por dia" não abre lugar, porque duas forças nunca dividem o dia.
+    let twoStrength = WeeklyFit.fit(
+        [FitFixture.twoDayHypertrophy, FitFixture.twoDayStrength],
+        preferences: WeekPreferences(availableDays: [.monday, .tuesday, .wednesday], allowsTwoSessionsPerDay: true)
+    )
+    #expect(twoStrength.problems == [.notEnoughDays(needed: 4, available: 3)])
+
+    let oneDay = WeeklyFit.fit(
+        [FitFixture.chestA, FitFixture.legs],
+        preferences: WeekPreferences(availableDays: [.monday], allowsTwoSessionsPerDay: true)
+    )
+    #expect(oneDay.problems == [.notEnoughDays(needed: 2, available: 1)])
+
+    // Força + aeróbico: o 2 por dia dobra os lugares.
+    let mixed = WeeklyFit.fit(
+        [FitFixture.balanced, FitFixture.cardioPlan],
+        preferences: WeekPreferences(availableDays: [.monday, .tuesday, .wednesday], allowsTwoSessionsPerDay: true)
+    )
+    #expect(mixed.problems == [.notEnoughDays(needed: 7, available: 6)])
+
+    // Sem o 2 por dia, 1 lugar por dia, como antes.
+    let mixedOnePerDay = WeeklyFit.fit(
+        [FitFixture.balanced, FitFixture.cardioPlan],
+        preferences: WeekPreferences(availableDays: [.monday, .tuesday, .wednesday])
+    )
+    #expect(mixedOnePerDay.problems == [.notEnoughDays(needed: 7, available: 3)])
+}
+
+// MARK: - X4 atividades fixas fora do app
+
+/// Fixas de teste, montadas como o app monta (`OutsideActivities.fixedDemands`).
+enum FixedFitFixture {
+    static func demand(
+        _ suffix: String,
+        _ kind: OutsideActivityKind,
+        _ weekday: PlanWeekday,
+        _ intensity: CardioIntensity? = nil,
+        minute: Int = 19 * 60
+    ) -> FixedActivityDemand {
+        let activity = FixedOutsideActivity(
+            id: UUID(uuidString: "F1000000-0000-0000-0000-\(suffix)")!,
+            kind: kind,
+            weekday: weekday,
+            startMinuteOfDay: minute,
+            minutes: kind.defaultMinutes,
+            intensity: intensity ?? kind.defaultIntensity
+        )
+        return OutsideActivities.fixedDemands([activity])[0]
+    }
+
+    static let crossMonday = demand("000000000001", .cross, .monday)
+    static let crossTuesday = demand("000000000002", .cross, .tuesday)
+    static let crossThursday = demand("000000000003", .cross, .thursday)
+    static let crossSunday = demand("000000000004", .cross, .sunday)
+    static let spinningMonday = demand("000000000011", .spinning, .monday)
+    static let spinningTuesday = demand("000000000012", .spinning, .tuesday)
+    static let spinningWednesday = demand("000000000013", .spinning, .wednesday)
+    static let spinningSunday = demand("000000000014", .spinning, .sunday)
+    static let fightTuesday = demand("000000000021", .fightClass, .tuesday)
+    static let pilatesTuesday = demand("000000000031", .pilates, .tuesday)
+    static let pilatesSunday = demand("000000000032", .pilates, .sunday)
+    static let yogaSunday = demand("000000000033", .yoga, .sunday, minute: 8 * 60)
+}
+
+/// Um caso de X4: os planos, as preferências, as fixas e a semana esperada (ou os motivos, quando não cabe).
+struct FixedFitCase: Sendable, CustomTestStringConvertible {
+    let label: String
+    let plans: [PlanDemand]
+    let preferences: WeekPreferences
+    let fixed: [FixedActivityDemand]
+    let rows: [FitSlotRow]
+    let notes: [FitNote]
+    /// Vazio quando cabe.
+    let problems: [FitProblem]
+
+    var testDescription: String {
+        label
+    }
+}
+
+let fixedFitCases: [FixedFitCase] = [
+    FixedFitCase(
+        label: "cross fixo na terça: a força de plano com grupo em comum não fica na segunda, na terça nem na quarta",
+        plans: [FitFixture.upperOnly],
+        preferences: WeekPreferences(availableDays: [.monday, .tuesday, .wednesday, .thursday]),
+        fixed: [FixedFitFixture.crossTuesday],
+        rows: [FitSlotRow(.thursday, "Superior", 0, .strength, 0, "A")],
+        notes: [],
+        problems: []
+    ),
+    FixedFitCase(
+        label: "spinning forte fixo na segunda impede pernas na terça",
+        plans: [FitFixture.legs],
+        preferences: WeekPreferences(availableDays: [.tuesday, .wednesday]),
+        fixed: [FixedFitFixture.spinningMonday],
+        rows: [FitSlotRow(.wednesday, "Pernas", 0, .strength, 0, "A")],
+        notes: [],
+        problems: []
+    ),
+    FixedFitCase(
+        label: "só a terça livre: o spinning forte da segunda deixa as pernas sem lugar pela véspera",
+        plans: [FitFixture.legs],
+        preferences: WeekPreferences(availableDays: [.tuesday]),
+        fixed: [FixedFitFixture.spinningMonday],
+        rows: [],
+        notes: [],
+        problems: [.cardioBeforeLegs]
+    ),
+    FixedFitCase(
+        label: "a véspera vale do domingo para a segunda",
+        plans: [FitFixture.legs],
+        preferences: WeekPreferences(availableDays: [.monday]),
+        fixed: [FixedFitFixture.spinningSunday],
+        rows: [],
+        notes: [],
+        problems: [.cardioBeforeLegs]
+    ),
+    FixedFitCase(
+        label: "pilates fixo não impede nada, mas tira o descanso completo",
+        plans: [FitFixture.balanced, FitFixture.cardioPlan],
+        preferences: WeekPreferences(allowsTwoSessionsPerDay: true),
+        fixed: [FixedFitFixture.pilatesTuesday, FixedFitFixture.pilatesSunday],
+        rows: balancedWithCardioWeek,
+        notes: [.noFullRestDay, .strengthBeforeCardio(.monday)],
+        problems: []
+    ),
+    FixedFitCase(
+        label: "duas fixas que se chocam não invalidam a semana",
+        plans: [FitFixture.easyCardio],
+        preferences: WeekPreferences(availableDays: FitFixture.everyDay),
+        fixed: [
+            FixedFitFixture.crossMonday, FixedFitFixture.crossTuesday,
+            FixedFitFixture.spinningWednesday, FixedFitFixture.crossThursday,
+        ],
+        rows: [FitSlotRow(.friday, "Leve", 0, .cardio, 0, "A", .light)],
+        notes: [],
+        problems: []
+    ),
+    FixedFitCase(
+        label: "força de plano com aula de luta fixa no mesmo dia: sem as chaves, não cabe",
+        plans: [FitFixture.upperOnly],
+        preferences: WeekPreferences(availableDays: [.tuesday]),
+        fixed: [FixedFitFixture.fightTuesday],
+        rows: [],
+        notes: [],
+        problems: [.notEnoughDays(needed: 1, available: 1)]
+    ),
+    FixedFitCase(
+        label: "força de plano com aula de luta fixa: com Cardio leve depois da força, cabe",
+        plans: [FitFixture.upperOnly],
+        preferences: WeekPreferences(availableDays: [.tuesday], allowsLightCardioAfterStrength: true),
+        fixed: [FixedFitFixture.fightTuesday],
+        rows: [FitSlotRow(.tuesday, "Superior", 0, .strength, 0, "A")],
+        notes: [.strengthBeforeCardio(.tuesday)],
+        problems: []
+    ),
+    FixedFitCase(
+        label: "força de plano com aula de luta fixa: com 2 por dia, cabe",
+        plans: [FitFixture.upperOnly],
+        preferences: WeekPreferences(availableDays: [.tuesday], allowsTwoSessionsPerDay: true),
+        fixed: [FixedFitFixture.fightTuesday],
+        rows: [FitSlotRow(.tuesday, "Superior", 0, .strength, 0, "A")],
+        notes: [.strengthBeforeCardio(.tuesday)],
+        problems: []
+    ),
+    FixedFitCase(
+        label: "Cardio leve depois da força não vale com spinning forte fixo no dia",
+        plans: [FitFixture.upperOnly],
+        preferences: WeekPreferences(availableDays: [.tuesday], allowsLightCardioAfterStrength: true),
+        fixed: [FixedFitFixture.spinningTuesday],
+        rows: [],
+        notes: [],
+        problems: [.notEnoughDays(needed: 1, available: 1)]
+    ),
+    FixedFitCase(
+        label: "aeróbico de plano com cross fixo no mesmo dia: o cross é de pernas, então Cardio leve depois da força não basta",
+        plans: [FitFixture.easyCardio],
+        preferences: WeekPreferences(availableDays: [.tuesday], allowsLightCardioAfterStrength: true),
+        fixed: [FixedFitFixture.crossTuesday],
+        rows: [],
+        notes: [],
+        problems: [.notEnoughDays(needed: 1, available: 1)]
+    ),
+    FixedFitCase(
+        label: "aeróbico de plano com cross fixo no mesmo dia: com 2 por dia, cabe",
+        plans: [FitFixture.easyCardio],
+        preferences: WeekPreferences(availableDays: [.tuesday], allowsTwoSessionsPerDay: true),
+        fixed: [FixedFitFixture.crossTuesday],
+        rows: [FitSlotRow(.tuesday, "Leve", 0, .cardio, 0, "A", .light)],
+        notes: [.strengthBeforeCardio(.tuesday)],
+        problems: []
+    ),
+]
+
+@Test("X4 o encaixe com atividades fixas em tabela", arguments: fixedFitCases)
+func weeklyFitWithFixedActivities(_ testCase: FixedFitCase) {
+    let result = WeeklyFit.fit(testCase.plans, preferences: testCase.preferences, fixed: testCase.fixed)
+
+    #expect(result.fits == testCase.problems.isEmpty)
+    #expect(fitRows(result.schedule, testCase.plans) == testCase.rows)
+    #expect((result.schedule?.notes ?? []) == testCase.notes)
+    #expect(result.problems == testCase.problems)
+    if let schedule = result.schedule {
+        #expect(schedule.fixed == testCase.fixed)
+        #expect(schedule.slots.allSatisfy { slot in testCase.plans.contains { $0.programID == slot.programID } })
+    }
+    // Toda saída oferecida cabe com as mesmas fixas, com a semana que ela mostra.
+    for alternative in result.alternatives {
+        let check = WeeklyFit.fit(testCase.plans, preferences: alternative.preferences, fixed: testCase.fixed)
+        #expect(check.fits)
+        #expect(check.schedule == alternative.schedule)
+    }
+}
+
+@Test("X4 sem fixas, as mesmas semanas de antes")
+func weeklyFitWithoutFixedIsUnchanged() {
+    let crossFree = WeeklyFit.fit(
+        [FitFixture.upperOnly],
+        preferences: WeekPreferences(availableDays: [.monday, .tuesday, .wednesday, .thursday])
+    )
+    #expect(fitRows(crossFree.schedule, [FitFixture.upperOnly]) == [FitSlotRow(.monday, "Superior", 0, .strength, 0, "A")])
+    #expect(crossFree.schedule?.fixed.isEmpty == true)
+
+    let plans = [FitFixture.balanced, FitFixture.cardioPlan]
+    let preferences = WeekPreferences(allowsTwoSessionsPerDay: true)
+    #expect(WeeklyFit.fit(plans, preferences: preferences, fixed: []) == WeeklyFit.fit(plans, preferences: preferences))
+}
+
+@Test("X4 WeekSchedule.fixed traz as fixas na ordem de fixedDemands, e os lugares continuam só de planos")
+func weeklyFitScheduleCarriesTheFixed() throws {
+    let plans = [FitFixture.balanced, FitFixture.cardioPlan]
+    let pilates = FixedOutsideActivity(
+        id: UUID(uuidString: "F2000000-0000-0000-0000-000000000001")!,
+        kind: .pilates, weekday: .tuesday, startMinuteOfDay: 19 * 60, minutes: 50, intensity: .light
+    )
+    let yoga = FixedOutsideActivity(
+        id: UUID(uuidString: "F2000000-0000-0000-0000-000000000002")!,
+        kind: .yoga, weekday: .sunday, startMinuteOfDay: 8 * 60, minutes: 50, intensity: .light
+    )
+    let demands = OutsideActivities.fixedDemands([yoga, pilates])
+    #expect(demands.map(\.id) == [pilates.id, yoga.id])
+
+    let result = WeeklyFit.fit(plans, preferences: WeekPreferences(allowsTwoSessionsPerDay: true), fixed: demands)
+    let schedule = try #require(result.schedule)
+
+    #expect(schedule.fixed == demands)
+    #expect(schedule.fixed(on: .tuesday).map(\.name) == ["Pilates"])
+    #expect(schedule.fixed(on: .sunday).map(\.name) == ["Ioga ou alongamento"])
+    #expect(schedule.fixed(on: .monday).isEmpty)
+    #expect(schedule.slots.count == 7)
+    #expect(fitRows(schedule, plans) == balancedWithCardioWeek)
+    #expect(schedule.restDays == [.sunday], "os dias de descanso contam só as sessões de plano")
+    #expect(schedule.notes == [.noFullRestDay, .strengthBeforeCardio(.monday)])
+}
+
+@Test("X4 determinismo: a mesma entrada com fixas dá a mesma semana, em qualquer ordem dos planos e das fixas")
+func weeklyFitWithFixedIsDeterministic() {
+    let fixed = [FixedFitFixture.pilatesTuesday, FixedFitFixture.spinningWednesday, FixedFitFixture.yogaSunday]
+    let shuffled = [FixedFitFixture.yogaSunday, FixedFitFixture.pilatesTuesday, FixedFitFixture.spinningWednesday]
+    let preferences = WeekPreferences(allowsTwoSessionsPerDay: true)
+
+    let first = WeeklyFit.fit([FitFixture.balanced, FitFixture.cardioPlan], preferences: preferences, fixed: fixed)
+    let again = WeeklyFit.fit([FitFixture.balanced, FitFixture.cardioPlan], preferences: preferences, fixed: fixed)
+    let reversed = WeeklyFit.fit([FitFixture.cardioPlan, FitFixture.balanced], preferences: preferences, fixed: shuffled)
+
+    #expect(first.fits)
+    #expect(first == again)
+    #expect(first == reversed)
+    #expect(first.schedule?.fixed == fixed, "por dia da semana")
+
+    let notFitting = WeeklyFit.fit([FitFixture.cardioPlan, FitFixture.balanced], preferences: WeekPreferences(), fixed: shuffled)
+    #expect(notFitting == WeeklyFit.fit([FitFixture.balanced, FitFixture.cardioPlan], preferences: WeekPreferences(), fixed: fixed))
+}
+
+@Test("X4 as saídas de M5 são calculadas com as fixas")
+func weeklyFitExitsWithFixedActivities() throws {
+    let plans = [FitFixture.balanced, FitFixture.cardioPlan]
+    let fixed = [FixedFitFixture.crossSunday]
+
+    let result = WeeklyFit.fit(plans, preferences: WeekPreferences(), fixed: fixed)
+
+    // Sem o cross, as quatro saídas valem (`weeklyFitAlternativesInOrder`). Com ele no domingo, treinar
+    // também no domingo não resolve, e a força fica longe do sábado e da segunda (48 h).
+    #expect(WeeklyFit.fit(plans, preferences: WeekPreferences()).alternatives.count == 4)
+    #expect(result.problems == [.notEnoughDays(needed: 7, available: 6)])
+    #expect(result.alternatives.map(\.changes) == [
+        [.allowTwoSessionsPerDay],
+        [.fewerSessions(programID: FitFixture.cardioID, perWeek: 1)],
+    ])
+    try #require(result.alternatives.count == 2)
+    let twoPerDay = result.alternatives[0]
+    #expect(fitRows(twoPerDay.schedule, plans) == [
+        FitSlotRow(.monday, "Cardio", 0, .cardio, 0, "A", .moderate),
+        FitSlotRow(.tuesday, "Equilibrado", 0, .strength, 0, "A"),
+        FitSlotRow(.wednesday, "Equilibrado", 1, .strength, 0, "B"),
+        FitSlotRow(.wednesday, "Cardio", 1, .cardio, 1, "B", .vigorous),
+        FitSlotRow(.thursday, "Equilibrado", 2, .strength, 0, "C"),
+        FitSlotRow(.friday, "Equilibrado", 3, .strength, 0, "D"),
+        FitSlotRow(.saturday, "Cardio", 2, .cardio, 0, "C", .light),
+    ])
+    #expect(twoPerDay.schedule.notes == [.noFullRestDay, .strengthBeforeCardio(.wednesday)])
+    for alternative in result.alternatives {
+        #expect(alternative.schedule.fixed == fixed)
+        #expect(WeeklyFit.fit(plans, preferences: alternative.preferences, fixed: fixed).schedule == alternative.schedule)
     }
 }
 

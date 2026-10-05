@@ -131,6 +131,59 @@ func workoutWithoutHeartRateUsesActivity(activity: AerobicActivity, moderate: In
     #expect(summary.vigorousMinutes == vigorous)
 }
 
+/// Um registro fora do app (SPEC §7.17 X3): o tipo no Saúde, a intensidade dita e os minutos esperados.
+struct DeclaredIntensityCase: Sendable, CustomTestStringConvertible {
+    let activity: AerobicActivity
+    let declared: AerobicIntensity?
+    let moderate: Int
+    let vigorous: Int
+
+    var testDescription: String {
+        "\(activity.rawValue) \(declared?.rawValue ?? "sem intensidade dita")"
+    }
+}
+
+let declaredIntensityCases: [DeclaredIntensityCase] = [
+    DeclaredIntensityCase(activity: .cycling, declared: .vigorous, moderate: 0, vigorous: 30),
+    DeclaredIntensityCase(activity: .running, declared: .moderate, moderate: 30, vigorous: 0),
+    DeclaredIntensityCase(activity: .walking, declared: .light, moderate: 0, vigorous: 0),
+    DeclaredIntensityCase(activity: .other, declared: .vigorous, moderate: 0, vigorous: 30),
+    DeclaredIntensityCase(activity: .cycling, declared: nil, moderate: 30, vigorous: 0),
+    DeclaredIntensityCase(activity: .running, declared: nil, moderate: 0, vigorous: 30),
+]
+
+@Test("X3 intensidade declarada no AerobicWeek", arguments: declaredIntensityCases)
+func declaredIntensityReplacesTheActivityDefault(_ testCase: DeclaredIntensityCase) {
+    let sample = AerobicWorkoutSample(
+        activity: testCase.activity,
+        start: at(2024, 1, 2, 18),
+        end: at(2024, 1, 2, 18, 30),
+        declaredIntensity: testCase.declared
+    )
+    // Com zonas (40 anos) e sem idade: sem FC no registro, vale o que a pessoa disse nos dois casos.
+    for physiology in [fortyYearsOld, UserPhysiology()] {
+        let summary = aerobic([sample], physiology: physiology)
+        #expect(summary.moderateMinutes == testCase.moderate)
+        #expect(summary.vigorousMinutes == testCase.vigorous)
+        #expect(summary.moderateEquivalentMinutes == testCase.moderate + 2 * testCase.vigorous)
+    }
+}
+
+@Test("X3 a intensidade dita não muda os minutos com FC do relógio")
+func declaredIntensityOnlyFillsMinutesWithoutHeartRate() {
+    // 10 minutos com FC a 70 % (moderado) e 20 sem leitura: os 20 seguem a intensidade dita.
+    let sample = AerobicWorkoutSample(
+        activity: .walking,
+        start: at(2024, 1, 2, 18),
+        end: at(2024, 1, 2, 18, 30),
+        minuteHeartRates: Array(repeating: 126, count: 10),
+        declaredIntensity: .vigorous
+    )
+    let summary = aerobic([sample])
+    #expect(summary.moderateMinutes == 10)
+    #expect(summary.vigorousMinutes == 20)
+}
+
 @Test("A1 sem idade e sem FCmáx informada, FC alta não vira vigoroso: vale o tipo do treino")
 func noZonesUsesDefaultIntensity() {
     let walk = workout(.walking, start: at(2024, 1, 2, 8), minutes: 30, heartRates: Array(repeating: 170, count: 30))

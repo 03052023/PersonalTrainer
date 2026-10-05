@@ -6,8 +6,9 @@ import Foundation
 /// `WeeklyGoalsInput`.
 public enum WeeklyGoals: Sendable {
     /// As metas, na ordem de W2. Sessões (uma por plano ativo, o principal primeiro), músculos,
-    /// aeróbico, passos (W7: só com Longevidade ou Cardio ativos), sono e, só com a Longevidade ativa
-    /// (principal ou não), equilíbrio e mobilidade.
+    /// aeróbico (com as atividades fora do app, SPEC §7.17 X3), passos (W7: só com Longevidade ou Cardio
+    /// ativos), sono e, só com a Longevidade ativa (principal ou não), equilíbrio e mobilidade (X6). As
+    /// atividades fora do app não entram nos músculos (X5).
     public static func goals(_ input: WeeklyGoalsInput) -> [WeeklyGoal] {
         var result: [WeeklyGoal] = []
         result.append(contentsOf: planSessionGoals(input))
@@ -76,10 +77,21 @@ public enum WeeklyGoals: Sendable {
 
     /// `AerobicWeekSummary` não distingue "nenhum treino registrado" de "sem dado": a única forma de
     /// saber que o Saúde não tem informação é `input.health` inteiro ser `nil` (W4).
+    ///
+    /// Com o app Saúde, o relatório já traz as atividades fora do app (X3). Sem ele, valem os minutos das
+    /// atividades registradas, quando há algum (W2.3); sem os dois, "sem dados" (W4).
     private static func aerobicGoal(_ input: WeeklyGoalsInput) -> WeeklyGoal {
-        WeeklyGoal(
+        let done: Double?
+        if let health = input.health {
+            done = Double(health.aerobic.moderateEquivalentMinutes)
+        } else if input.outsideAerobicMinutes > 0 {
+            done = Double(input.outsideAerobicMinutes)
+        } else {
+            done = nil
+        }
+        return WeeklyGoal(
             kind: .aerobic,
-            done: input.health.map { Double($0.aerobic.moderateEquivalentMinutes) },
+            done: done,
             target: Double(input.targets.weeklyModerateEquivalentMinutes),
             referenceTopic: "topic.aerobic"
         )
@@ -109,20 +121,24 @@ public enum WeeklyGoals: Sendable {
 
     // MARK: - W2.6 Equilíbrio e mobilidade (só com a Longevidade ativa)
 
+    /// Cada um conta as vezes registradas na semana (X6: os registros de equilíbrio ou de mobilidade,
+    /// inclusive o "Feito" do C8) contra 2 (`OutsideActivities.longevityWeeklyTarget`). Um "Feito" do C8
+    /// dado antes da 2.4, sem registro, vale 1.
     private static func longevityGoals(_ input: WeeklyGoalsInput) -> [WeeklyGoal] {
         [
-            WeeklyGoal(
-                kind: .balance,
-                done: input.longevityDone.contains(CoachInput.balanceKey) ? 1 : 0,
-                target: 1,
-                referenceTopic: ProgramGoal.longevity.referenceTopic
-            ),
-            WeeklyGoal(
-                kind: .mobility,
-                done: input.longevityDone.contains(CoachInput.mobilityKey) ? 1 : 0,
-                target: 1,
-                referenceTopic: ProgramGoal.longevity.referenceTopic
-            ),
+            longevityGoal(.balance, key: CoachInput.balanceKey, input: input),
+            longevityGoal(.mobility, key: CoachInput.mobilityKey, input: input),
         ]
+    }
+
+    private static func longevityGoal(_ kind: WeeklyGoalKind, key: String, input: WeeklyGoalsInput) -> WeeklyGoal {
+        let logged = max(input.longevityCounts[key] ?? 0, 0)
+        let marked = input.longevityDone.contains(key) ? 1 : 0
+        return WeeklyGoal(
+            kind: kind,
+            done: Double(max(logged, marked)),
+            target: Double(OutsideActivities.longevityWeeklyTarget),
+            referenceTopic: ProgramGoal.longevity.referenceTopic
+        )
     }
 }

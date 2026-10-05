@@ -14,8 +14,10 @@ public enum WeeklyGoalKind: String, Sendable, Hashable, CaseIterable {
     case steps
     /// Média de horas de sono (W2.5).
     case sleep
-    /// Bloco de equilíbrio marcado "Feito" nesta semana (W2.6); só com a Longevidade ativa.
+    /// Vezes de equilíbrio registradas nesta semana, contra 2 (W2.6, SPEC §7.17 X6); só com a Longevidade
+    /// ativa.
     case balance
-    /// Bloco de mobilidade marcado "Feito" nesta semana (W2.6); só com a Longevidade ativa.
+    /// Vezes de mobilidade registradas nesta semana, contra 2 (W2.6, SPEC §7.17 X6); só com a Longevidade
+    /// ativa.
     case mobility
 }
