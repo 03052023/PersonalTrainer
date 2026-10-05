@@ -681,7 +681,7 @@ final class HealthViewModelTests: XCTestCase {
         let (defaults, suite) = try makeDefaults()
         defer { defaults.removePersistentDomain(forName: suite) }
         defaults.set(true, forKey: "healthReadAuthorized")
-        var activityLog = OutsideActivityLog.empty
+        let activityLog = HealthTestBox(OutsideActivityLog.empty)
         let fixedNow = now
         let reader = emptyRecoveryReader()
         let model = HealthViewModel(
@@ -691,7 +691,7 @@ final class HealthViewModelTests: XCTestCase {
             calendar: calendar,
             defaults: defaults,
             logStore: FakeCoachLogStore(),
-            activityLog: { activityLog }
+            activityLog: { activityLog.value }
         )
 
         model.activitiesDidChange()
@@ -701,7 +701,7 @@ final class HealthViewModelTests: XCTestCase {
         XCTAssertEqual(model.report?.aerobic.moderateEquivalentMinutes, 0)
 
         let walk = OutsideActivityEntry(kind: .walkRun, start: now.addingTimeInterval(-3_600), minutes: 40, intensity: .moderate)
-        activityLog = OutsideActivityLog(entries: [walk])
+        activityLog.value = OutsideActivityLog(entries: [walk])
         model.activitiesDidChange()
 
         XCTAssertEqual(model.report?.aerobic.moderateEquivalentMinutes, 40)
@@ -801,6 +801,17 @@ final class HealthViewModelTests: XCTestCase {
 }
 
 // MARK: - Doubles
+
+/// Valor que o teste muda depois de montar o modelo: um `var` capturado por um fecho `@MainActor` (que é
+/// `@Sendable`) e mudado depois gera aviso no Swift 6; a caixa isolada no `MainActor` é `Sendable`.
+@MainActor
+private final class HealthTestBox<Value> {
+    var value: Value
+
+    init(_ value: Value) {
+        self.value = value
+    }
+}
 
 private enum HealthTestError: Error {
     case boom

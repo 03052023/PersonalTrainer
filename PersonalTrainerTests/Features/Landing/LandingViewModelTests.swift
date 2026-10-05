@@ -284,7 +284,7 @@ final class LandingViewModelTests: XCTestCase {
         let pilates = FixedOutsideActivity(kind: .pilates, weekday: .monday, startMinuteOfDay: 19 * 60, minutes: 50, intensity: .light)
         let football = FixedOutsideActivity(kind: .teamSport, weekday: .monday, startMinuteOfDay: 21 * 60, minutes: 60, intensity: .vigorous)
         let tuesdayDance = FixedOutsideActivity(kind: .dance, weekday: .tuesday, startMinuteOfDay: 20 * 60, minutes: 60, intensity: .moderate)
-        var log = OutsideActivityLog(fixed: [football, tuesdayDance, pilates])
+        let log = LandingTestBox(OutsideActivityLog(fixed: [football, tuesdayDance, pilates]))
         let planner = LandingTestPlanner()
         planner.activeGoals = [.hypertrophy]
         let model = LandingViewModel(
@@ -292,7 +292,7 @@ final class LandingViewModelTests: XCTestCase {
             coordinator: LandingTestCoordinator(),
             now: { self.monday },
             calendar: calendar,
-            activityLog: { log }
+            activityLog: { log.value }
         )
 
         model.refresh()
@@ -303,11 +303,11 @@ final class LandingViewModelTests: XCTestCase {
         )
 
         // Com o "Feito" de hoje, a fixa sai da linha.
-        log.entries = [OutsideActivities.entry(loggingFixed: pilates, on: monday, calendar: calendar)]
+        log.value.entries = [OutsideActivities.entry(loggingFixed: pilates, on: monday, calendar: calendar)]
         model.refresh()
         XCTAssertEqual(model.alsoTodayText, "Também hoje: Futebol ou esporte com bola às 21h")
 
-        log.entries.append(OutsideActivities.entry(loggingFixed: football, on: monday, calendar: calendar))
+        log.value.entries.append(OutsideActivities.entry(loggingFixed: football, on: monday, calendar: calendar))
         model.refresh()
         XCTAssertNil(model.alsoTodayText, "tudo feito: a linha some")
 
@@ -324,25 +324,25 @@ final class LandingViewModelTests: XCTestCase {
         let lightYoga = OutsideActivityEntry(kind: .yoga, start: monday.addingTimeInterval(-7_200), minutes: 50, intensity: .light)
         let planner = LandingTestPlanner()
         planner.activeGoals = [.hypertrophy]
-        var report: HealthReport?
-        var log = OutsideActivityLog(entries: [lightYoga])
+        let report = LandingTestBox<HealthReport?>(nil)
+        let log = LandingTestBox(OutsideActivityLog(entries: [lightYoga]))
         let model = LandingViewModel(
             planner: planner,
             coordinator: LandingTestCoordinator(),
             now: { self.monday },
             calendar: calendar,
-            healthReport: { report },
-            activityLog: { log }
+            healthReport: { report.value },
+            activityLog: { log.value }
         )
 
         model.refresh()
         XCTAssertFalse(model.aerobicFromActivitiesOnly, "ioga não conta no aeróbico (X3)")
 
-        log.entries.append(walk)
+        log.value.entries.append(walk)
         model.refresh()
         XCTAssertTrue(model.aerobicFromActivitiesOnly, "sem o app Saúde, os minutos vêm só dos registros")
 
-        report = HealthCalculator.report(input: HealthInput(), targets: HealthTargets(), now: monday, calendar: calendar)
+        report.value = HealthCalculator.report(input: HealthInput(), targets: HealthTargets(), now: monday, calendar: calendar)
         model.refresh()
         XCTAssertFalse(model.aerobicFromActivitiesOnly, "com o app Saúde, os registros já estão no relatório")
     }
@@ -400,15 +400,15 @@ final class LandingViewModelTests: XCTestCase {
     func testW26_coachDoneCountsInGoals() throws {
         let planner = LandingTestPlanner()
         planner.activeGoals = [.longevity]
-        var log = OutsideActivityLog.empty
-        var oldMarks: Set<String> = []
+        let log = LandingTestBox(OutsideActivityLog.empty)
+        let oldMarks = LandingTestBox<Set<String>>([])
         let model = LandingViewModel(
             planner: planner,
             coordinator: LandingTestCoordinator(),
             now: { self.monday },
             calendar: calendar,
-            longevityDone: { oldMarks },
-            activityLog: { log }
+            longevityDone: { oldMarks.value },
+            activityLog: { log.value }
         )
 
         model.refresh()
@@ -416,18 +416,18 @@ final class LandingViewModelTests: XCTestCase {
         XCTAssertEqual(try longevityText(.mobility, in: model), "0 de 2 vezes")
 
         let coachDone = try XCTUnwrap(OutsideActivities.longevityEntry(key: CoachInput.balanceKey, at: monday.addingTimeInterval(-600)))
-        log.entries.append(coachDone)
+        log.value.entries.append(coachDone)
         model.refresh()
         XCTAssertEqual(try longevityText(.balance, in: model), "1 de 2 vezes", "X6: o Feito do C8 conta 1")
 
         // O mesmo "Feito" marcado também no log do diálogo não conta em dobro.
-        oldMarks = [CoachInput.balanceKey, CoachInput.mobilityKey]
+        oldMarks.value = [CoachInput.balanceKey, CoachInput.mobilityKey]
         model.refresh()
         XCTAssertEqual(try longevityText(.balance, in: model), "1 de 2 vezes")
         XCTAssertEqual(try longevityText(.mobility, in: model), "1 de 2 vezes", "W2.6: Feito antigo vale 1")
 
-        log.entries.append(OutsideActivityEntry(kind: .mobility, start: monday.addingTimeInterval(-7_200), minutes: 10, intensity: .light))
-        log.entries.append(OutsideActivityEntry(kind: .mobility, start: monday.addingTimeInterval(-9_000), minutes: 10, intensity: .light))
+        log.value.entries.append(OutsideActivityEntry(kind: .mobility, start: monday.addingTimeInterval(-7_200), minutes: 10, intensity: .light))
+        log.value.entries.append(OutsideActivityEntry(kind: .mobility, start: monday.addingTimeInterval(-9_000), minutes: 10, intensity: .light))
         model.refresh()
         XCTAssertEqual(try longevityText(.mobility, in: model), "2 de 2 vezes")
     }
@@ -618,6 +618,17 @@ final class LandingViewModelTests: XCTestCase {
 }
 
 // MARK: - Doubles
+
+/// Valor que o teste muda depois de montar o modelo. Os fechos `@MainActor` são `@Sendable` no Swift 6, e um
+/// `var` capturado e mudado depois gera aviso; a caixa isolada no `MainActor` é `Sendable`.
+@MainActor
+private final class LandingTestBox<Value> {
+    var value: Value
+
+    init(_ value: Value) {
+        self.value = value
+    }
+}
 
 private enum LandingTestError: Error {
     case unreadable
