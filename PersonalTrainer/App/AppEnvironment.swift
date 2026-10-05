@@ -52,6 +52,11 @@ final class AppEnvironment {
     /// ambiente (E8: arquivo ausente ou reprovado vira `.empty`, sem botão). Vão para o ambiente do
     /// SwiftUI (`\.exerciseGuides`) na raiz, como o `traits`.
     let exerciseGuides: ExerciseGuideCatalog
+    /// Atividades fora do app (SPEC §7.17, RF-53; 2.4): `LiveOutsideActivityStore` no app, em
+    /// `Application Support/PersonalTrainer/outside-activities.json`; `FakeOutsideActivityStore` nos
+    /// previews. A mesma instância vai ao planejador (S6 e encaixe), ao diálogo (C8), ao backup e ao
+    /// `ActivitiesModel` da raiz (AGENTS R4: atividades só pelo `OutsideActivityStoring`).
+    let activities: any OutsideActivityStoring
 
     init(
         modelContainer: ModelContainer,
@@ -72,7 +77,8 @@ final class AppEnvironment {
         now: @escaping () -> Date = { Date() },
         storeLoadError: String? = nil,
         traits: ExerciseTraitsCatalog = .empty,
-        exerciseGuides: ExerciseGuideCatalog = .empty
+        exerciseGuides: ExerciseGuideCatalog = .empty,
+        activities: any OutsideActivityStoring = FakeOutsideActivityStore()
     ) {
         self.modelContainer = modelContainer
         self.coordinator = coordinator
@@ -93,5 +99,6 @@ final class AppEnvironment {
         self.storeLoadError = storeLoadError
         self.traits = traits
         self.exerciseGuides = exerciseGuides
+        self.activities = activities
     }
 }

@@ -27,7 +27,7 @@ final class PrescriptionRowMeasureTests: XCTestCase {
     }
 
     /// SPEC RF-41 (decisão 18): a leitura por voz não fala RIR nem faixa; primeira vez sem carga
-    /// (P2) diz "escolha a carga", nunca "carga a definir" nem um número de repetições em reserva.
+    /// (P2) diz "sem carga" (RF-46, 2.4), nunca "carga a definir" nem um número de repetições em reserva.
     func testRF01_row_spokenRowText_noRIRNoRange() {
         let squat = makePlanned(equipment: .barbell, repMin: 8, repMax: 12, targetReps: 8, load: 60)
         let calibration = makePlanned(equipment: .barbell, repMin: 8, repMax: 12, targetReps: 8, load: nil)

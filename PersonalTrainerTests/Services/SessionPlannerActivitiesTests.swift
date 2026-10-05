@@ -204,6 +204,187 @@ final class SessionPlannerActivitiesTests: XCTestCase {
         XCTAssertNil(try manual.planner.deloadTriggerDetail(now: now))
     }
 
+    // MARK: - Testes cruzados da integração (2.4, docs/V24-CONTRACT.md §5): o motor e o encaixe de verdade
+
+    /// SPEC S2 (achado A3 da 2.3): depois de "Tirar este plano", o plano que fica segue a própria rotação. A
+    /// sessão do Cardio de ontem é de outro programa e não o faz recomeçar no Dia A.
+    func testS2_removingSecondPlanKeepsRotation() throws {
+        let fixture = try makeFixture()
+        let strength = try insertTwoDayStrengthProgram(into: fixture.context)
+        let cardio = try insertCardioProgram(into: fixture.context)
+        insertSession(
+            day: strength.legDay, exercise: strength.squat, setCount: 3, load: 60, reps: 10,
+            repMin: 8, repMax: 12, startedAt: now.addingTimeInterval(-3 * 86_400), into: fixture.context
+        )
+        insertSession(
+            day: cardio.dayA, exercise: cardio.walk, setCount: 1, load: 0, reps: 35,
+            repMin: 30, repMax: 45, startedAt: now.addingTimeInterval(-86_400), into: fixture.context
+        )
+        // "Tirar este plano": o Cardio deixa de estar ativo.
+        cardio.program.isActive = false
+        try fixture.context.save()
+
+        let next = try XCTUnwrap(try fixture.planner.nextPlan(now: now))
+
+        XCTAssertEqual(next.programID, strength.program.uuid)
+        XCTAssertEqual(next.programDayID, strength.upperDay.uuid, "S2: vale a última sessão do próprio plano (Dia A), não a do Cardio")
+    }
+
+    /// SPEC S6 com §7.17 X5, no planejador de verdade: um cross há 30 h trabalha todos os grupos (X1), então o
+    /// dia com grupo em comum fica fora e vale o dia sem grupo principal. Passadas as 48 h, volta a rotação.
+    func testX5_crossYesterdayAvoidsSharedDay() throws {
+        let fixture = try makeFixture(settings: PlannerSettings(frequencySelector: .on))
+        let program = try insertLegsAndMobilityProgram(into: fixture.context)
+        XCTAssertEqual(try fixture.planner.nextPlan(now: now)?.programDayID, program.legDay.uuid, "sem atividades, o Dia A")
+
+        let crossYesterday = OutsideActivityEntry(kind: .cross, start: now.addingTimeInterval(-30 * 3_600), minutes: 60, intensity: .vigorous)
+        try fixture.activities.save(OutsideActivityLog(entries: [crossYesterday]))
+        XCTAssertEqual(try fixture.planner.nextPlan(now: now)?.programDayID, program.mobilityDay.uuid, "X5: o cross pede 48 h")
+
+        let crossBefore = OutsideActivityEntry(kind: .cross, start: now.addingTimeInterval(-49 * 3_600), minutes: 60, intensity: .vigorous)
+        try fixture.activities.save(OutsideActivityLog(entries: [crossBefore]))
+        XCTAssertEqual(try fixture.planner.nextPlan(now: now)?.programDayID, program.legDay.uuid, "depois de 48 h, descansado")
+
+        let lightCross = OutsideActivityEntry(kind: .cross, start: now.addingTimeInterval(-10 * 3_600), minutes: 60, intensity: .light)
+        try fixture.activities.save(OutsideActivityLog(entries: [lightCross]))
+        XCTAssertEqual(try fixture.planner.nextPlan(now: now)?.programDayID, program.legDay.uuid, "X5: leve nunca é carga")
+    }
+
+    /// SPEC S6 com §7.17 X5 e A5: um spinning forte há 20 h deixa as pernas descansando por 24 h; o dia de pernas
+    /// espera e vale o de cima. Há 25 h, ou moderado, não muda nada.
+    func testX5_vigorousSpinningYesterdayAvoidsLegDay() throws {
+        let fixture = try makeFixture(settings: PlannerSettings(frequencySelector: .on))
+        let program = try insertTwoDayStrengthProgram(into: fixture.context)
+        XCTAssertEqual(try fixture.planner.nextPlan(now: now)?.programDayID, program.legDay.uuid)
+
+        let hard = OutsideActivityEntry(kind: .spinning, start: now.addingTimeInterval(-20 * 3_600), minutes: 45, intensity: .vigorous)
+        try fixture.activities.save(OutsideActivityLog(entries: [hard]))
+        XCTAssertEqual(try fixture.planner.nextPlan(now: now)?.programDayID, program.upperDay.uuid, "aeróbico forte: pernas por 24 h")
+
+        let older = OutsideActivityEntry(kind: .spinning, start: now.addingTimeInterval(-25 * 3_600), minutes: 45, intensity: .vigorous)
+        try fixture.activities.save(OutsideActivityLog(entries: [older]))
+        XCTAssertEqual(try fixture.planner.nextPlan(now: now)?.programDayID, program.legDay.uuid)
+
+        let moderate = OutsideActivityEntry(kind: .spinning, start: now.addingTimeInterval(-20 * 3_600), minutes: 45, intensity: .moderate)
+        try fixture.activities.save(OutsideActivityLog(entries: [moderate]))
+        XCTAssertEqual(try fixture.planner.nextPlan(now: now)?.programDayID, program.legDay.uuid, "moderado não pede descanso")
+    }
+
+    /// SPEC §7.17 X4 com o `WeeklyFit` de verdade: um cross fixo na terça ocupa o lugar de força e, pelas 48 h,
+    /// tira a força de plano de segunda, terça e quarta. A aba Plano mostra o cross no dia dele ("Sua semana").
+    func testX4_fitCheckIncludesFixedActivities() throws {
+        let cross = FixedOutsideActivity(kind: .cross, weekday: .tuesday, startMinuteOfDay: 19 * 60, minutes: 60, intensity: .vigorous)
+        let fixture = try makeFixture(activities: FakeOutsideActivityStore(log: OutsideActivityLog(fixed: [cross])))
+        let strength = try insertTwoDayStrengthProgram(into: fixture.context)
+        let cardio = try insertCardioProgram(into: fixture.context)
+        let programIDs = [strength.program.uuid, cardio.program.uuid]
+
+        let result = try fixture.planner.fitCheck(programIDs: programIDs, preferences: WeekPreferences(), now: now)
+
+        let schedule = try XCTUnwrap(result.schedule, "os dois planos cabem com o cross fixo: \(result.problems)")
+        XCTAssertEqual(schedule.fixed.map(\.id), [cross.id])
+        XCTAssertEqual(schedule.fixed(on: .tuesday).map(\.name), ["Cross ou funcional"])
+        XCTAssertTrue(schedule.slots(on: .tuesday).isEmpty, "a fixa de força ocupa a terça")
+        let strengthSlots = schedule.slots.filter { $0.kind == .strength }
+        XCTAssertEqual(strengthSlots.count, 2)
+        XCTAssertTrue(
+            Set(strengthSlots.map(\.weekday)).isDisjoint(with: [.monday, .tuesday, .wednesday]),
+            "48 h entre o cross e a força de plano: \(strengthSlots.map(\.weekday))"
+        )
+
+        // A semana da aba Plano é a mesma busca, e "Sua semana" mostra o cross depois das sessões do dia.
+        let week = try XCTUnwrap(try fixture.planner.weekSchedule(now: now))
+        XCTAssertEqual(week.fixed.map(\.id), [cross.id])
+        XCTAssertTrue(week.slots(on: .tuesday).isEmpty)
+        let rows = PlanWeekText.weekRows(week, goals: [strength.program.uuid: .hypertrophy, cardio.program.uuid: .endurance])
+        let tuesday = try XCTUnwrap(rows.first { $0.day == .tuesday })
+        XCTAssertEqual(tuesday.text, "Ter · Cross ou funcional")
+        XCTAssertFalse(tuesday.isRest)
+    }
+
+    /// SPEC §7.14 F6 com o motor de verdade: 4 blocos no topo (4 min) dão 5 blocos no mínimo da faixa, e o
+    /// retrato da sessão grava os blocos da prescrição (não os do programa).
+    func testF6_plannedSetsFollowBlocks() throws {
+        let fixture = try makeFixture()
+        let context = fixture.context
+        // Um plano só com os intervalos 4 × 3–4 min (o Dia B do Cardio do seed), sem carga.
+        let intervals = insertExercise(slug: "run-intervals", name: "Intervalos de corrida", primary: [.quads, .glutes], pattern: .cardio, equipment: .bodyweight, into: context)
+        let program = insertProgram(name: "Cardio", goal: .endurance, into: context)
+        let day = insertDay("Dia B — Intervalos 4 × 4", order: 0, program: program, into: context)
+        insertTarget(order: 0, exercise: intervals, sets: 4, repMin: 3, repMax: 4, startingLoad: nil, day: day, into: context)
+        try context.save()
+        insertSession(
+            day: day, exercise: intervals, setCount: 4, load: 0, reps: 4,
+            repMin: 3, repMax: 4, startedAt: now.addingTimeInterval(-2 * 86_400), into: context
+        )
+        try context.save()
+
+        let plan = try XCTUnwrap(try fixture.planner.nextPlan(now: now))
+        let planned = try XCTUnwrap(plan.exercises.first)
+
+        XCTAssertEqual(planned.target.sets, 4, "o programa não muda")
+        XCTAssertEqual(planned.prescription.sets, 5, "F6: no topo, mais um bloco")
+        XCTAssertEqual(planned.prescription.targetReps, 3, "F6: os minutos voltam ao mínimo")
+        XCTAssertEqual(planned.prescription.note, .increase)
+        XCTAssertEqual(PrescriptionNote.increase.badgeText(isCardio: true, hasLevel: false), "Mais um bloco")
+
+        let sessionID = try fixture.planner.startSession(from: plan, now: now)
+        let session = try XCTUnwrap(fixture.coordinator.session(withID: sessionID))
+        XCTAssertEqual(session.exercises.map(\.prescribedSets), [5], "o retrato grava prescription.sets")
+    }
+
+    /// SPEC §7.5 com F5, no planejador de verdade: na semana leve, um aeróbico de 1 série faz ⌈0,6 × 30⌉ = 18 min;
+    /// a força segue com as séries e a carga da semana leve.
+    func testF5_deloadShortensCardioMinutes() throws {
+        let fixture = try makeFixture()
+        let program = try insertMixedProgram(into: fixture.context)
+        try fixture.planner.requestDeload(now: now)
+
+        let light = try XCTUnwrap(try fixture.planner.nextPlan(now: now))
+
+        XCTAssertTrue(light.isDeload)
+        let walk = try XCTUnwrap(light.exercises.first { $0.exercise.id == program.walk.uuid })
+        XCTAssertEqual(walk.prescription.sets, 1)
+        XCTAssertEqual(walk.prescription.targetReps, 18, "F5: a semana leve encurta os minutos")
+        let bench = try XCTUnwrap(light.exercises.first { $0.exercise.id == program.bench.uuid })
+        XCTAssertEqual(bench.prescription.targetReps, bench.prescription.repMin, "a força fica no mínimo da faixa")
+    }
+
+    /// SPEC §7.11 C1 com números (achado B11 da 2.1), com o planejador e o diálogo de verdade: a semana leve
+    /// programada (§7.5 b, N = 1) traz no motivo o tempo desde a primeira sessão.
+    func testC1_reasonHasNumbers() throws {
+        let fixture = try makeFixture(settings: PlannerSettings(deloadWeeks: 1))
+        let program = try insertStrengthProgram(into: fixture.context)
+        insertCompletedSession(day: program.day, exercise: program.bench, startedAt: now.addingTimeInterval(-8 * 86_400), into: fixture.context)
+        try fixture.context.save()
+        XCTAssertEqual(try fixture.planner.deloadStatus(now: now), .pending(trigger: .scheduled))
+        let detail = try XCTUnwrap(try fixture.planner.deloadTriggerDetail(now: now), "o motor dá os números do gatilho")
+        XCTAssertEqual(detail.trigger, .scheduled)
+        XCTAssertFalse(detail.anchorIsLastDeload)
+
+        let suite = "SessionPlannerActivitiesTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let fixedNow = now
+        let coach = CoachService(
+            planner: fixture.planner,
+            programs: ProgramRepository(modelContext: fixture.context),
+            log: FakeCoachLogStore(),
+            expiry: .unavailable,
+            notifications: FakeNotificationScheduler(),
+            now: { fixedNow },
+            calendar: calendar,
+            defaults: defaults,
+            activities: fixture.activities
+        )
+
+        coach.refresh(healthSuggestions: [], recovery: .unknown)
+
+        let message = try XCTUnwrap(coach.messages.first { $0.rule == .deload })
+        XCTAssertTrue(message.reason.hasPrefix("Já "), message.reason)
+        XCTAssertTrue(message.reason.contains("desde a primeira sessão; "), message.reason)
+    }
+
     // MARK: - Fixture
 
     private struct Fixture {
@@ -263,6 +444,10 @@ final class SessionPlannerActivitiesTests: XCTestCase {
     /// Cardio de dois dias: caminhada 1 × 30–45 min e intervalos 4 × 3–4 min.
     private struct CardioProgram {
         let program: ProgramModel
+        let dayA: ProgramDayModel
+        let dayB: ProgramDayModel
+        let walk: ExerciseModel
+        let intervals: ExerciseModel
     }
 
     private func insertCardioProgram(into context: ModelContext) throws -> CardioProgram {
@@ -274,7 +459,49 @@ final class SessionPlannerActivitiesTests: XCTestCase {
         let dayB = insertDay("Dia B", order: 1, program: program, into: context)
         insertTarget(order: 0, exercise: intervals, sets: 4, repMin: 3, repMax: 4, startingLoad: nil, day: dayB, into: context)
         try context.save()
-        return CardioProgram(program: program)
+        return CardioProgram(program: program, dayA: dayA, dayB: dayB, walk: walk, intervals: intervals)
+    }
+
+    /// Hipertrofia de dois dias: Dia A de pernas (agachamento: quadríceps e glúteos) e Dia B de cima (supino:
+    /// peito), cargas iniciais 60 e 40.
+    private struct TwoDayStrengthProgram {
+        let program: ProgramModel
+        let legDay: ProgramDayModel
+        let upperDay: ProgramDayModel
+        let squat: ExerciseModel
+        let bench: ExerciseModel
+    }
+
+    private func insertTwoDayStrengthProgram(into context: ModelContext) throws -> TwoDayStrengthProgram {
+        let squat = insertExercise(slug: "agachamento", name: "Agachamento", primary: [.quads, .glutes], pattern: .squat, equipment: .barbell, into: context)
+        let bench = insertExercise(slug: "supino", name: "Supino", primary: [.chest], pattern: .horizontalPush, equipment: .barbell, into: context)
+        let program = insertProgram(name: "Hipertrofia", goal: .hypertrophy, into: context)
+        let legDay = insertDay("Dia A — Inferior", order: 0, program: program, into: context)
+        insertTarget(order: 0, exercise: squat, sets: 3, repMin: 8, repMax: 12, startingLoad: 60, day: legDay, into: context)
+        let upperDay = insertDay("Dia B — Superior", order: 1, program: program, into: context)
+        insertTarget(order: 0, exercise: bench, sets: 3, repMin: 8, repMax: 12, startingLoad: 40, day: upperDay, into: context)
+        try context.save()
+        return TwoDayStrengthProgram(program: program, legDay: legDay, upperDay: upperDay, squat: squat, bench: bench)
+    }
+
+    /// Longevidade de dois dias: Dia A de pernas (agachamento) e Dia B de mobilidade, com um exercício sem grupo
+    /// principal (o único dia que um cross, que trabalha todos os grupos, não toca).
+    private struct LegsAndMobilityProgram {
+        let program: ProgramModel
+        let legDay: ProgramDayModel
+        let mobilityDay: ProgramDayModel
+    }
+
+    private func insertLegsAndMobilityProgram(into context: ModelContext) throws -> LegsAndMobilityProgram {
+        let squat = insertExercise(slug: "agachamento", name: "Agachamento", primary: [.quads, .glutes], pattern: .squat, equipment: .barbell, into: context)
+        let drill = insertExercise(slug: "mobilidade", name: "Mobilidade de quadril", primary: [], pattern: .coreStability, equipment: .bodyweight, into: context)
+        let program = insertProgram(name: "Longevidade", goal: .longevity, into: context)
+        let legDay = insertDay("Dia A — Pernas", order: 0, program: program, into: context)
+        insertTarget(order: 0, exercise: squat, sets: 3, repMin: 8, repMax: 12, startingLoad: 60, day: legDay, into: context)
+        let mobilityDay = insertDay("Dia B — Mobilidade", order: 1, program: program, into: context)
+        insertTarget(order: 0, exercise: drill, sets: 2, repMin: 30, repMax: 60, startingLoad: nil, day: mobilityDay, into: context)
+        try context.save()
+        return LegsAndMobilityProgram(program: program, legDay: legDay, mobilityDay: mobilityDay)
     }
 
     /// Um dia com força e aeróbico: supino (carga inicial 40) e caminhada 1 × 30–45 min.
@@ -367,6 +594,69 @@ final class SessionPlannerActivitiesTests: XCTestCase {
         context.insert(model)
         model.exercise = exercise
         day.exercises.append(model)
+    }
+
+    /// Sessão concluída de um exercício, com `setCount` séries de trabalho de `reps` a `load`, ligada ao catálogo.
+    private func insertSession(
+        day: ProgramDayModel,
+        exercise: ExerciseModel,
+        setCount: Int,
+        load: Double,
+        reps: Int,
+        repMin: Int,
+        repMax: Int,
+        startedAt: Date,
+        into context: ModelContext
+    ) {
+        let session = WorkoutSessionModel(
+            uuid: UUID(),
+            programDayUUID: day.uuid,
+            programDayName: day.name,
+            statusRaw: SessionStatus.completed.rawValue,
+            startedAt: startedAt,
+            endedAt: startedAt.addingTimeInterval(3_600),
+            notes: "",
+            hkWorkoutUUID: nil,
+            avgHeartRate: nil,
+            maxHeartRate: nil,
+            isDeload: false,
+            sourceRaw: DeviceSource.iphone.rawValue
+        )
+        context.insert(session)
+        let entry = SessionExerciseModel(
+            uuid: UUID(),
+            order: 0,
+            exerciseUUID: exercise.uuid,
+            exerciseName: exercise.name,
+            prescribedLoad: load > 0 ? load : nil,
+            prescribedSets: setCount,
+            prescribedRepMin: repMin,
+            prescribedRepMax: repMax,
+            prescribedRIR: 2,
+            restSeconds: 90,
+            noteRaw: PrescriptionNote.hold.rawValue,
+            wasSkipped: false,
+            substitutedFromUUID: nil
+        )
+        context.insert(entry)
+        entry.exercise = exercise
+        session.exercises.append(entry)
+        for index in 0..<setCount {
+            let completedAt = startedAt.addingTimeInterval(Double(index + 1) * 300)
+            let set = SetLogModel(
+                uuid: UUID(),
+                index: index,
+                load: load,
+                reps: reps,
+                rir: 2,
+                isWarmup: false,
+                completedAt: completedAt,
+                sourceRaw: DeviceSource.iphone.rawValue,
+                updatedAt: completedAt
+            )
+            context.insert(set)
+            entry.sets.append(set)
+        }
     }
 
     /// Sessão concluída com 3 × 10 a 40 kg, ligada ao catálogo.

@@ -347,6 +347,96 @@ final class LandingViewModelTests: XCTestCase {
         XCTAssertFalse(model.aerobicFromActivitiesOnly, "com o app Saúde, os registros já estão no relatório")
     }
 
+    // MARK: - Testes cruzados da integração (2.4, docs/V24-CONTRACT.md §5): o `WeeklyGoals` de verdade
+
+    /// SPEC §7.16 W2.3, §7.17 X3: sem o app Saúde, uma caminhada moderada de 30 min registrada fora do app dá
+    /// "30 de 150 min" nas Metas (o núcleo da `activities-core` lê `outsideAerobicMinutes`).
+    func testW23_goalsUseActivitiesWithoutHealth() throws {
+        let walk = OutsideActivityEntry(kind: .walkRun, start: monday.addingTimeInterval(-3_600), minutes: 30, intensity: .moderate)
+        let planner = LandingTestPlanner()
+        planner.activeGoals = [.hypertrophy]
+        let model = LandingViewModel(
+            planner: planner,
+            coordinator: LandingTestCoordinator(),
+            now: { self.monday },
+            calendar: calendar,
+            healthReport: { nil },
+            activityLog: { OutsideActivityLog(entries: [walk]) }
+        )
+
+        model.refresh()
+
+        let aerobic = try XCTUnwrap(model.weeklyGoals.first { $0.kind == .aerobic })
+        XCTAssertEqual(aerobic.done, 30)
+        XCTAssertEqual(aerobic.target, 150)
+        XCTAssertEqual(WeeklyGoalsText.valueText(aerobic), "30 de 150 min")
+        XCTAssertTrue(model.aerobicFromActivitiesOnly)
+    }
+
+    /// SPEC §7.16 W4: sem o app Saúde e sem atividades que contam, o aeróbico fica "sem dados".
+    func testW4_goalsWithoutHealthOrActivitiesHaveNoData() throws {
+        let yoga = OutsideActivityEntry(kind: .yoga, start: monday.addingTimeInterval(-3_600), minutes: 50, intensity: .light)
+        let planner = LandingTestPlanner()
+        planner.activeGoals = [.hypertrophy]
+        let model = LandingViewModel(
+            planner: planner,
+            coordinator: LandingTestCoordinator(),
+            now: { self.monday },
+            calendar: calendar,
+            healthReport: { nil },
+            activityLog: { OutsideActivityLog(entries: [yoga]) }
+        )
+
+        model.refresh()
+
+        let aerobic = try XCTUnwrap(model.weeklyGoals.first { $0.kind == .aerobic })
+        XCTAssertNil(aerobic.done)
+        XCTAssertEqual(WeeklyGoalsText.valueText(aerobic), "sem dados")
+    }
+
+    /// SPEC §7.16 W2.6, §7.17 X6, de ponta a ponta: com a Longevidade ativa, equilíbrio e mobilidade contam as
+    /// vezes registradas contra 2. O registro que o "Feito" do C8 grava (`OutsideActivities.longevityEntry`, o
+    /// mesmo do `CoachService`) conta 1, e um "Feito" antigo, só no log do diálogo, também vale 1.
+    func testW26_coachDoneCountsInGoals() throws {
+        let planner = LandingTestPlanner()
+        planner.activeGoals = [.longevity]
+        var log = OutsideActivityLog.empty
+        var oldMarks: Set<String> = []
+        let model = LandingViewModel(
+            planner: planner,
+            coordinator: LandingTestCoordinator(),
+            now: { self.monday },
+            calendar: calendar,
+            longevityDone: { oldMarks },
+            activityLog: { log }
+        )
+
+        model.refresh()
+        XCTAssertEqual(try longevityText(.balance, in: model), "0 de 2 vezes")
+        XCTAssertEqual(try longevityText(.mobility, in: model), "0 de 2 vezes")
+
+        let coachDone = try XCTUnwrap(OutsideActivities.longevityEntry(key: CoachInput.balanceKey, at: monday.addingTimeInterval(-600)))
+        log.entries.append(coachDone)
+        model.refresh()
+        XCTAssertEqual(try longevityText(.balance, in: model), "1 de 2 vezes", "X6: o Feito do C8 conta 1")
+
+        // O mesmo "Feito" marcado também no log do diálogo não conta em dobro.
+        oldMarks = [CoachInput.balanceKey, CoachInput.mobilityKey]
+        model.refresh()
+        XCTAssertEqual(try longevityText(.balance, in: model), "1 de 2 vezes")
+        XCTAssertEqual(try longevityText(.mobility, in: model), "1 de 2 vezes", "W2.6: Feito antigo vale 1")
+
+        log.entries.append(OutsideActivityEntry(kind: .mobility, start: monday.addingTimeInterval(-7_200), minutes: 10, intensity: .light))
+        log.entries.append(OutsideActivityEntry(kind: .mobility, start: monday.addingTimeInterval(-9_000), minutes: 10, intensity: .light))
+        model.refresh()
+        XCTAssertEqual(try longevityText(.mobility, in: model), "2 de 2 vezes")
+    }
+
+    private func longevityText(_ kind: WeeklyGoalKind, in model: LandingViewModel) throws -> String {
+        let goal = try XCTUnwrap(model.weeklyGoals.first { $0.kind == kind }, "sem a meta \(kind.rawValue)")
+        return WeeklyGoalsText.valueText(goal)
+    }
+
     // MARK: - RF-52: Metas da semana nunca pedem autorização
 
     func testRF52_goalsScreenReadsHealthWithoutAsking() async {

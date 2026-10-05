@@ -526,7 +526,7 @@ final class HomeViewModelTests: XCTestCase {
     func testRF01_row_goalInWords_perLoadKind() {
         let plan = makePlan()
         let squat = plan.exercises[0] // carga em kg, nota .calibrate
-        let bench = plan.exercises[1] // carga nil (P2): "escolha a carga"
+        let bench = plan.exercises[1] // carga nil (P2): "sem carga" (RF-46, 2.4)
         let row = plan.exercises[2] // carga em nível de máquina
 
         XCTAssertEqual(PrescriptionRow.rowText(for: squat), "3 séries de 8 · 60 kg")

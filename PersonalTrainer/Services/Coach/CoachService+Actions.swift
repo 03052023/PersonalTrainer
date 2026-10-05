@@ -238,7 +238,7 @@ extension CoachService {
         (UUID(uuidString: "ADE28A46-680B-4701-A51F-992519A8AD63") ?? UUID(), "Mais tronco e braços"),
     ]
 
-    /// C2 "Experimentar um novo programa" (SPEC RF-45: objetivo = plano). Na Hipertrofia, o
+    /// C2 "Experimentar um novo plano" (SPEC RF-45: objetivo = plano). Na Hipertrofia, o
     /// próximo dos 3 formatos do seed depois do ativo (dando a volta; um ativo que não é formato
     /// vai para o primeiro, então o antigo Corpo todo vai para o Equilibrado), só entre os que
     /// existem, têm dias e continuam na Hipertrofia. Nunca um programa escondido pela RF-45 (cópia,

@@ -641,6 +641,40 @@ final class HealthViewModelTests: XCTestCase {
         XCTAssertEqual(report, expected, "X3 e X5: os registros entram antes do HealthCalculator")
     }
 
+    /// Teste cruzado da integração (2.4, docs/V24-CONTRACT.md §5): com o `AerobicWeek` da `activities-core`, a
+    /// intensidade declarada no registro vale nos minutos sem FC (SPEC §7.17 X3, §7.10 A1). Um spinning forte de
+    /// 45 min conta 45 vigorosos (90 moderados-equivalentes); o tipo bicicleta sozinho daria moderado. Um
+    /// spinning moderado de 30 min conta 30.
+    func testX3_healthCountsDeclaredVigorous() async throws {
+        let (defaults, suite) = try makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(true, forKey: "healthReadAuthorized")
+        let hardSpin = OutsideActivityEntry(
+            kind: .spinning,
+            start: now.addingTimeInterval(-3 * 3_600),
+            minutes: 45,
+            intensity: .vigorous
+        )
+        let easySpin = OutsideActivityEntry(
+            kind: .spinning,
+            start: now.addingTimeInterval(-26 * 3_600),
+            minutes: 30,
+            intensity: .moderate
+        )
+        let model = makeModel(
+            reader: emptyRecoveryReader(),
+            defaults: defaults,
+            activityLog: OutsideActivityLog(entries: [hardSpin, easySpin])
+        )
+
+        await model.load()
+
+        let aerobic = try XCTUnwrap(model.report?.aerobic)
+        XCTAssertEqual(aerobic.vigorousMinutes, 45, "X3: a intensidade declarada vale sem FC")
+        XCTAssertEqual(aerobic.moderateMinutes, 30)
+        XCTAssertEqual(aerobic.moderateEquivalentMinutes, 120, "forte conta 2")
+    }
+
     /// `activitiesDidChange()` refaz a conta com a última leitura, sem reler o Saúde; antes de ler, não faz
     /// nada.
     func testX3_activitiesDidChangeRecalculatesWithoutRereading() async throws {
