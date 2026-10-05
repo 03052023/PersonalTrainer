@@ -8,6 +8,11 @@ import TrainerCore
 ///
 /// `targetRIR` existe só para frases concretas de primeira vez ("uma carga que daria para levantar
 /// umas 9 vezes"); a folha nunca mostra RIR nem "pare N antes do limite" (SPEC RF-41, decisão 18).
+///
+/// Desde a 2.3 (docs/V23-UI-CONTRACT.md §4.4), o conteúdo também leva o `slug`, a marca de exercício
+/// personalizado, os grupos primários e o padrão de movimento: com eles a folha acha a guia do
+/// "Como fazer" (SPEC E1, RF-40) e reconhece o aeróbico (SPEC §7.14). Os dois `init` de uso
+/// preenchem tudo; no `init` completo esses campos têm padrão, para os testes e previews antigos.
 struct ExerciseInfoContent: Sendable, Hashable, Identifiable {
     /// Linha que abriu a folha: `PlannedExercise.id` ou `SessionExerciseModel.uuid`. Serve de
     /// identidade para `.sheet(item:)`.
@@ -31,6 +36,15 @@ struct ExerciseInfoContent: Sendable, Hashable, Identifiable {
     let restSeconds: Int
     let note: PrescriptionNote
     let lastSession: ExerciseLastSession?
+    /// Slug do catálogo do exercício realizado (na sessão, o substituto quando houve troca; SPEC E1).
+    /// `nil` quando o exercício sumiu do catálogo.
+    let slug: String?
+    /// Exercício criado pela pessoa: nunca tem guia (SPEC RF-40, E1).
+    let isCustom: Bool
+    /// Grupos primários do catálogo, para o "Trabalha: …" da guia (SPEC E2).
+    let primaryMuscles: [MuscleGroup]
+    /// Padrão de movimento; `.cardio` = aeróbico (SPEC §7.14 F1).
+    let movementPattern: MovementPattern?
 
     init(
         id: UUID,
@@ -48,7 +62,11 @@ struct ExerciseInfoContent: Sendable, Hashable, Identifiable {
         load: Double?,
         restSeconds: Int,
         note: PrescriptionNote,
-        lastSession: ExerciseLastSession?
+        lastSession: ExerciseLastSession?,
+        slug: String? = nil,
+        isCustom: Bool = false,
+        primaryMuscles: [MuscleGroup] = [],
+        movementPattern: MovementPattern? = nil
     ) {
         self.id = id
         self.exerciseID = exerciseID
@@ -66,6 +84,10 @@ struct ExerciseInfoContent: Sendable, Hashable, Identifiable {
         self.restSeconds = restSeconds
         self.note = note
         self.lastSession = lastSession
+        self.slug = slug
+        self.isCustom = isCustom
+        self.primaryMuscles = primaryMuscles
+        self.movementPattern = movementPattern
     }
 
     /// Tela Hoje: a partir do plano, antes de a sessão existir.
@@ -87,7 +109,11 @@ struct ExerciseInfoContent: Sendable, Hashable, Identifiable {
             load: prescription.load,
             restSeconds: prescription.restSeconds,
             note: prescription.note,
-            lastSession: lastSession
+            lastSession: lastSession,
+            slug: planned.exercise.slug,
+            isCustom: planned.exercise.isCustom,
+            primaryMuscles: planned.exercise.primaryMuscles,
+            movementPattern: planned.exercise.movementPattern
         )
     }
 
@@ -114,12 +140,30 @@ struct ExerciseInfoContent: Sendable, Hashable, Identifiable {
             load: sessionExercise.prescribedLoad,
             restSeconds: sessionExercise.restSeconds,
             note: sessionExercise.note ?? .hold,
-            lastSession: lastSession
+            lastSession: lastSession,
+            slug: catalogExercise?.slug,
+            isCustom: catalogExercise?.isCustom ?? false,
+            primaryMuscles: catalogExercise?.primaryMuscles ?? [],
+            movementPattern: catalogExercise?.movementPattern
         )
     }
 
-    /// Como a carga de hoje aparece (SPEC RF-46).
+    /// Como a carga de hoje aparece (SPEC RF-46). Desde a 2.3 (D3), 0 num exercício com equipamento é
+    /// "sem carga externa": aparece como sem carga (`toChoose`), nunca "0 kg".
     var loadDisplay: TodayTargetText.LoadDisplay {
-        TodayTargetText.loadDisplay(load: load, unit: loadUnit, equipment: equipment)
+        if equipment != .bodyweight, let load, load <= 0 {
+            return .toChoose
+        }
+        return TodayTargetText.loadDisplay(load: load, unit: loadUnit, equipment: equipment)
+    }
+
+    /// Aeróbico (SPEC §7.14 F1): o padrão `cardio` do catálogo.
+    var isCardio: Bool {
+        movementPattern == .cardio
+    }
+
+    /// Intensidade pelo teste da fala (SPEC F2, `CardioIntensity.classify`); `nil` fora do aeróbico.
+    var cardioIntensity: CardioIntensity? {
+        CardioText.intensity(pattern: movementPattern, slug: slug, sets: sets, repMax: repMax)
     }
 }

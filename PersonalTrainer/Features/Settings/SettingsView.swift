@@ -79,12 +79,19 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                deloadSection
-                backupSection
-                healthSection
-                remindersSection
-                moreOptionsSection
+                // Papel (DESIGN §14): as linhas em `surface`, como nas outras listas da direção.
+                Group {
+                    deloadSection
+                    backupSection
+                    healthSection
+                    remindersSection
+                    moreOptionsSection
+                }
+                .listRowBackground(Theme.surface)
             }
+            // Papel (DESIGN §14): o fundo do formulário dá lugar ao papel.
+            .scrollContentBackground(.hidden)
+            .paperBackground()
             .navigationTitle("Ajustes")
             // Rótulo `onCompletion:` explícito: o iOS 17 acrescentou sobrecargas com
             // `onCancellation:` e o fechamento final poderia ficar ambíguo.

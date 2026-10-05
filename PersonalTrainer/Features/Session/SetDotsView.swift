@@ -5,8 +5,8 @@ import TrainerCore
 /// com o número feito em `onAccent`; vazia = contorno. Desenho de 32 pt, alvo de toque de 44 pt.
 ///
 /// Tocar numa vazia marca a próxima série como prevista (`onMark`); tocar numa cheia abre "Corrigir
-/// série" (`onEdit`). Enquanto falta a carga da primeira vez (RF-44 c), as vazias ficam cinza e
-/// desabilitadas (`canMark == false`). View pura: quem grava é o ViewModel (AGENTS R4).
+/// série" (`onEdit`). Com a sessão encerrada ou o exercício pulado, as vazias ficam cinza e
+/// desabilitadas (`canMark == false`); desde a 2.3, a carga nunca bloqueia (RF-44 c). View pura: quem grava é o ViewModel (AGENTS R4).
 struct SetDotsView: View {
     /// Uma bolinha: `setID` e `reps` preenchidos quando a série foi feita.
     struct Dot: Identifiable, Hashable {

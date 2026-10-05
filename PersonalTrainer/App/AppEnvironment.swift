@@ -48,6 +48,10 @@ final class AppEnvironment {
     /// Medida e marca "de casa" por `slug`, do catálogo do bundle (SPEC RF-42, RF-43). Também vai
     /// para o ambiente do SwiftUI (`\.exerciseTraits`) na raiz.
     let traits: ExerciseTraitsCatalog
+    /// As guias do "Como fazer" (SPEC RF-40, §7.12), lidas e validadas do bundle uma vez por
+    /// ambiente (E8: arquivo ausente ou reprovado vira `.empty`, sem botão). Vão para o ambiente do
+    /// SwiftUI (`\.exerciseGuides`) na raiz, como o `traits`.
+    let exerciseGuides: ExerciseGuideCatalog
 
     init(
         modelContainer: ModelContainer,
@@ -67,7 +71,8 @@ final class AppEnvironment {
         watchSync: any WatchSyncServicing,
         now: @escaping () -> Date = { Date() },
         storeLoadError: String? = nil,
-        traits: ExerciseTraitsCatalog = .empty
+        traits: ExerciseTraitsCatalog = .empty,
+        exerciseGuides: ExerciseGuideCatalog = .empty
     ) {
         self.modelContainer = modelContainer
         self.coordinator = coordinator
@@ -87,5 +92,6 @@ final class AppEnvironment {
         self.now = now
         self.storeLoadError = storeLoadError
         self.traits = traits
+        self.exerciseGuides = exerciseGuides
     }
 }

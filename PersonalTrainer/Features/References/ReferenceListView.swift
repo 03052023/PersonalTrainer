@@ -13,29 +13,36 @@ struct ReferenceListView: View {
 
     var body: some View {
         List {
-            Section {
-                Text("Toda regra, meta e sugestão do app cita as fontes abaixo. Diretrizes, consensos e meta-análises vêm primeiro; estudos isolados só entram quando não há síntese e aparecem como evidência limitada.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-            if catalog.references.isEmpty {
+            // Papel (DESIGN §14): as linhas em `surface`, como nas outras listas da direção.
+            Group {
                 Section {
-                    Text("O catálogo de referências não pôde ser carregado.")
+                    Text("Toda regra, meta e sugestão do app cita as fontes abaixo. Diretrizes, consensos e meta-análises vêm primeiro; estudos isolados só entram quando não há síntese e aparecem como evidência limitada.")
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
-            } else {
-                ForEach(levels, id: \.self) { level in
-                    let levelReferences = references(at: level)
+                if catalog.references.isEmpty {
                     Section {
-                        ForEach(levelReferences) { reference in
-                            WhySheet.ReferenceRow(reference: reference)
+                        Text("O catálogo de referências não pôde ser carregado.")
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    ForEach(levels, id: \.self) { level in
+                        let levelReferences = references(at: level)
+                        Section {
+                            ForEach(levelReferences) { reference in
+                                WhySheet.ReferenceRow(reference: reference)
+                            }
+                        } header: {
+                            Text(verbatim: "\(level.displayName) (\(levelReferences.count))")
                         }
-                    } header: {
-                        Text(verbatim: "\(level.displayName) (\(levelReferences.count))")
                     }
                 }
             }
+            .listRowBackground(Theme.surface)
         }
+        // Papel (DESIGN §14): o fundo da lista dá lugar ao papel.
+        .scrollContentBackground(.hidden)
+        .paperBackground()
         .navigationTitle("Referências")
     }
 

@@ -58,21 +58,28 @@ struct ExerciseProgressView: View {
                 )
             } else {
                 List {
-                    Section {
-                        chart(points)
-                            .frame(height: 220)
-                            .padding(.vertical, 8)
-                    } footer: {
-                        Text(chartFooter)
-                    }
-                    Section("Sessões") {
-                        ForEach(Array(points.reversed())) { point in
-                            sessionRow(point)
+                    // Papel (DESIGN §14): as linhas em `surface`, como nas outras listas da direção.
+                    Group {
+                        Section {
+                            chart(points)
+                                .frame(height: 220)
+                                .padding(.vertical, 8)
+                        } footer: {
+                            Text(chartFooter)
+                        }
+                        Section("Sessões") {
+                            ForEach(Array(points.reversed())) { point in
+                                sessionRow(point)
+                            }
                         }
                     }
+                    .listRowBackground(Theme.surface)
                 }
+                .scrollContentBackground(.hidden)
             }
         }
+        // Papel (DESIGN §14): o fundo da lista (e do estado vazio) dá lugar ao papel.
+        .paperBackground()
         .navigationTitle(exerciseName)
         .navigationBarTitleDisplayMode(.inline)
     }

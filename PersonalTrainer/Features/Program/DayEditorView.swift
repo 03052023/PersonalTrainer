@@ -67,6 +67,8 @@ struct DayEditorView: View {
                 )
             }
         }
+        // Papel (DESIGN §14): por baixo da lista (com o fundo dela escondido) e do estado vazio.
+        .paperBackground()
         .sheet(item: $pickerRequest, onDismiss: { applyPendingChange() }) { request in
             switch request.kind {
             case .add:
@@ -127,39 +129,44 @@ struct DayEditorView: View {
         let targets = model.targets(inDay: dayID)
         let canAdd = model.canAddExercise(toDay: dayID)
         return List {
-            Section {
-                ForEach(targets, id: \.id) { target in
-                    row(for: target)
+            // Papel (DESIGN §14): as linhas em `surface`, como nas outras listas da direção.
+            Group {
+                Section {
+                    ForEach(targets, id: \.id) { target in
+                        row(for: target)
+                    }
+                    .onMove { source, destination in
+                        model.moveTargets(fromOffsets: source, toOffset: destination, inDay: dayID)
+                    }
+                    .onDelete { offsets in
+                        model.removeTargets(atOffsets: offsets, inDay: dayID)
+                    }
+                } header: {
+                    Text("Exercícios")
+                } footer: {
+                    Text("\(targets.count) de \(ProgramLimits.maxExercisesPerDay) exercícios. Cada dia tem entre \(ProgramLimits.minExercisesPerDay) e \(ProgramLimits.maxExercisesPerDay).")
                 }
-                .onMove { source, destination in
-                    model.moveTargets(fromOffsets: source, toOffset: destination, inDay: dayID)
-                }
-                .onDelete { offsets in
-                    model.removeTargets(atOffsets: offsets, inDay: dayID)
-                }
-            } header: {
-                Text("Exercícios")
-            } footer: {
-                Text("\(targets.count) de \(ProgramLimits.maxExercisesPerDay) exercícios. Cada dia tem entre \(ProgramLimits.minExercisesPerDay) e \(ProgramLimits.maxExercisesPerDay).")
-            }
 
-            Section {
-                Button {
-                    pickerRequest = PickerRequest(
-                        kind: .add,
-                        title: "Adicionar exercício",
-                        highlighted: []
-                    )
-                } label: {
-                    Label("Adicionar exercício", systemImage: "plus.circle.fill")
-                }
-                .disabled(!canAdd)
-            } footer: {
-                if !canAdd {
-                    Text("Limite de \(ProgramLimits.maxExercisesPerDay) exercícios por dia atingido.")
+                Section {
+                    Button {
+                        pickerRequest = PickerRequest(
+                            kind: .add,
+                            title: "Adicionar exercício",
+                            highlighted: []
+                        )
+                    } label: {
+                        Label("Adicionar exercício", systemImage: "plus.circle.fill")
+                    }
+                    .disabled(!canAdd)
+                } footer: {
+                    if !canAdd {
+                        Text("Limite de \(ProgramLimits.maxExercisesPerDay) exercícios por dia atingido.")
+                    }
                 }
             }
+            .listRowBackground(Theme.surface)
         }
+        .scrollContentBackground(.hidden)
         .navigationTitle(day.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

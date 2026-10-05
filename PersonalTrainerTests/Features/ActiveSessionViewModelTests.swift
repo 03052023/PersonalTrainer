@@ -260,6 +260,23 @@ final class ActiveSessionViewModelTests: XCTestCase {
         XCTAssertFalse(fixture.timer.isRunning, "\"Feito\" não inicia descanso")
     }
 
+    func testRF44i_lastSetOfTheSession_startsNoRest() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.markExerciseDone(sessionExerciseID: fixture.bench.uuid)
+        model.markSet(sessionExerciseID: fixture.legPress.uuid)
+        model.markSet(sessionExerciseID: fixture.legPress.uuid)
+        XCTAssertTrue(fixture.timer.isRunning, "ainda falta uma série")
+        fixture.timer.skip()
+
+        model.markSet(sessionExerciseID: fixture.legPress.uuid)
+
+        XCTAssertEqual(model.workingSetCount(of: fixture.legPress), 3)
+        XCTAssertTrue(model.pendingExercises.isEmpty)
+        XCTAssertFalse(fixture.timer.isRunning, "nada mais a esperar: o botão já é \"Concluir a sessão\"")
+        XCTAssertEqual(model.guideStep.action, .finish)
+    }
+
     func testRF44_dot_zeroRest_doesNotStartTimer() throws {
         let fixture = try makeFixture()
         fixture.legPress.restSeconds = 0
@@ -357,40 +374,39 @@ final class ActiveSessionViewModelTests: XCTestCase {
 
     // MARK: - "Marcar como feitos, como previsto" (RF-44 e)
 
-    func testRF44_markRemaining_skipsSkippedAndUnloaded() throws {
+    /// SPEC RF-44 c e e (2.3, D3): "Marcar como feitos" marca também os que estão sem carga, com 0.
+    func testRF44c_markRemainingIncludesExercisesWithoutLoad() throws {
         let fixture = try makeFixture()
         let row = addExercise(fixture, order: 2, name: "Remada baixa", equipment: .cable, prescribedLoad: 50, sets: 2)
         try fixture.coordinator.context.save()
-        let model = makeViewModel(fixture)
+        let defaults = makeDefaults()
+        let model = makeViewModel(fixture, defaults: defaults)
         model.skip(sessionExerciseID: row.uuid)
         model.markSet(sessionExerciseID: fixture.legPress.uuid)
 
-        model.markRemainingAsPrescribed()
+        XCTAssertTrue(model.canMarkAnyPending)
+        XCTAssertTrue(model.markRemainingAsPrescribed())
 
         XCTAssertEqual(model.workingSetCount(of: fixture.legPress), 3, "com carga: marcado até o prescrito")
-        XCTAssertTrue(fixture.bench.sets.isEmpty, "primeira vez sem carga fica de fora")
+        XCTAssertEqual(fixture.bench.sets.map(\.load), [0, 0], "sem carga: marcado com 0 (sem carga externa)")
+        XCTAssertEqual(fixture.bench.sets.map(\.reps), [8, 8], "com a meta de hoje")
         XCTAssertTrue(row.sets.isEmpty, "pulado fica de fora")
-        XCTAssertEqual(model.pendingExercises.map(\.uuid), [fixture.bench.uuid])
+        XCTAssertTrue(model.pendingExercises.isEmpty)
         XCTAssertFalse(model.isFinished, "marcar não conclui sozinho")
+        XCTAssertFalse(model.showsLoadHint(fixture.bench), "a sessão vai terminar: sem sugestão de carga")
+        XCTAssertNil(defaults.stringArray(forKey: ActiveSessionViewModel.loadHintShownKey), "nem gasta a vez da sugestão")
     }
 
-    func testRF44_markRemaining_someMarkable_namesTheOnesLeftOut() throws {
+    func testRF44_markRemaining_nothingPending_isNotOffered() throws {
         let fixture = try makeFixture()
         let model = makeViewModel(fixture)
+        XCTAssertTrue(model.canMarkAnyPending, "o supino sem carga também pode ser marcado")
 
-        XCTAssertTrue(model.canMarkAnyPending, "o leg press tem carga")
-        XCTAssertEqual(model.pendingNamesNeedingLoad, ["Supino reto"], "primeira vez sem carga fica de fora")
-    }
-
-    func testRF44_markRemaining_nothingMarkable_isNotOffered() throws {
-        let fixture = try makeFixture()
-        let model = makeViewModel(fixture)
         model.markExerciseDone(sessionExerciseID: fixture.legPress.uuid)
+        model.markExerciseDone(sessionExerciseID: fixture.bench.uuid)
 
-        XCTAssertFalse(model.canMarkAnyPending, "só sobrou a primeira vez sem carga: a opção não aparece")
-        XCTAssertEqual(model.pendingNamesNeedingLoad, ["Supino reto"])
+        XCTAssertFalse(model.canMarkAnyPending, "nada pendente: a opção não aparece")
         XCTAssertTrue(model.markRemainingAsPrescribed(), "nada a marcar não é falha")
-        XCTAssertTrue(fixture.bench.sets.isEmpty)
         XCTAssertFalse(model.isFinished)
     }
 
@@ -405,39 +421,55 @@ final class ActiveSessionViewModelTests: XCTestCase {
         XCTAssertEqual(fixture.session.status, .inProgress)
     }
 
-    // MARK: - Primeira vez com carga (RF-44 c) e peso do corpo (RF-46)
+    // MARK: - Carga opcional (RF-44 c, D3) e peso do corpo (RF-46)
 
-    func testRF44_firstTime_requiresLoadAboveZero() throws {
+    /// SPEC RF-44 c e RF-46 (2.3, D3): marcar nunca pede carga; sem carga escolhida nem prescrita, a
+    /// série grava 0, e a ficha mostra "sem carga", que se toca para pôr uma.
+    func testRF44c_markWithoutLoadLogsZero() throws {
         let fixture = try makeFixture()
         let model = makeViewModel(fixture)
 
-        XCTAssertTrue(model.isFirstTimeWithLoad(fixture.bench))
-        XCTAssertTrue(model.needsLoadChoice(fixture.bench))
-        XCTAssertFalse(model.canMark(fixture.bench))
+        XCTAssertTrue(model.canMark(fixture.bench), "sem carga dá para marcar")
+        XCTAssertEqual(model.loadDisplay(for: fixture.bench), .toChoose)
+        XCTAssertEqual(model.loadLabel(for: fixture.bench), "sem carga")
+        XCTAssertTrue(model.isLoadPlaceholder(for: fixture.bench))
+        XCTAssertEqual(model.targetText(for: fixture.bench), "8 repetições · sem carga")
+
         model.markSet(sessionExerciseID: fixture.bench.uuid)
-        model.markExerciseDone(sessionExerciseID: fixture.bench.uuid)
-        XCTAssertTrue(fixture.coordinator.appliedEvents.isEmpty, "sem carga, nada é gravado")
 
-        model.setWorkingLoad(0, for: fixture.bench.uuid)
-        XCTAssertFalse(model.canMark(fixture.bench), "0 não é carga")
-        model.setWorkingLoad(-5, for: fixture.bench.uuid)
-        XCTAssertFalse(model.canMark(fixture.bench))
-        model.setWorkingLoad(1_001, for: fixture.bench.uuid)
-        XCTAssertFalse(model.canMark(fixture.bench), "acima de 1.000 é erro de digitação")
-        XCTAssertNil(model.chosenLoad(for: fixture.bench.uuid))
+        let first = try XCTUnwrap(fixture.bench.sets.first)
+        XCTAssertEqual(first.load, 0, "0 = sem carga externa")
+        XCTAssertEqual(first.reps, 8, "meta de hoje (repMin na primeira vez)")
+        XCTAssertEqual(model.loadDisplay(for: fixture.bench), .toChoose, "0 aparece como \"sem carga\", nunca \"0 kg\"")
+        XCTAssertEqual(model.loadLabel(for: fixture.bench), "sem carga")
 
+        // A pessoa põe uma carga: vale para as próximas séries (P10).
         model.setWorkingLoad(40, for: fixture.bench.uuid)
-        XCTAssertTrue(model.canMark(fixture.bench))
         XCTAssertEqual(model.loadDisplay(for: fixture.bench), .load("40 kg"))
         model.markSet(sessionExerciseID: fixture.bench.uuid)
-        model.markExerciseDone(sessionExerciseID: fixture.bench.uuid)
+        XCTAssertEqual(fixture.bench.sets.sorted { $0.index < $1.index }.map(\.load), [0, 40])
 
-        XCTAssertEqual(fixture.bench.sets.map(\.load), [40, 40])
-        XCTAssertEqual(fixture.bench.sets.map(\.reps), [8, 8], "meta de hoje (repMin na primeira vez)")
-        XCTAssertFalse(model.isFirstTimeWithLoad(fixture.bench), "com série gravada, não é mais primeira vez")
+        // E pode voltar a 0; valores fora da faixa desfazem a escolha.
+        model.setWorkingLoad(0, for: fixture.bench.uuid)
+        XCTAssertEqual(model.chosenLoad(for: fixture.bench.uuid), 0)
+        model.setWorkingLoad(-5, for: fixture.bench.uuid)
+        XCTAssertNil(model.chosenLoad(for: fixture.bench.uuid))
+        model.setWorkingLoad(1_001, for: fixture.bench.uuid)
+        XCTAssertNil(model.chosenLoad(for: fixture.bench.uuid), "acima de 1.000 é erro de digitação")
     }
 
-    func testRF44_firstTime_afterFirstSet_keepsLoggedLoadWithoutChoice() throws {
+    func testRF44c_feitoWithoutLoadLogsAllMissingSetsWithZero() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+
+        model.markExerciseDone(sessionExerciseID: fixture.bench.uuid)
+
+        XCTAssertEqual(fixture.bench.sets.map(\.load), [0, 0])
+        XCTAssertTrue(model.isDone(fixture.bench))
+        XCTAssertNil(model.errorMessage)
+    }
+
+    func testRF44_afterFirstSet_keepsLoggedLoad() throws {
         let fixture = try makeFixture()
         let model = makeViewModel(fixture)
         model.setWorkingLoad(40, for: fixture.bench.uuid)
@@ -445,8 +477,208 @@ final class ActiveSessionViewModelTests: XCTestCase {
 
         model.clearWorkingLoad(for: fixture.bench.uuid)
 
-        XCTAssertFalse(model.needsLoadChoice(fixture.bench), "a série gravada já tem carga")
-        XCTAssertEqual(model.workingLoad(for: fixture.bench), 40)
+        XCTAssertEqual(model.workingLoad(for: fixture.bench), 40, "a série gravada já tem carga")
+        XCTAssertEqual(model.loadDisplay(for: fixture.bench), .load("40 kg"))
+    }
+
+    // MARK: - Sugestão delicada de anotar a carga (RF-44 c, RF-46)
+
+    /// SPEC RF-46 (2.3): depois da primeira série sem carga num exercício com equipamento, a sugestão
+    /// aparece uma vez só na vida do exercício, com dispensa; nunca em peso do corpo nem no aeróbico.
+    func testRF46_loadHintShowsOncePerExercise() throws {
+        let fixture = try makeFixture()
+        let defaults = makeDefaults()
+        let first = makeViewModel(fixture, defaults: defaults)
+        XCTAssertFalse(first.showsLoadHint(fixture.bench), "antes de marcar, nada")
+
+        first.markSet(sessionExerciseID: fixture.legPress.uuid)
+        XCTAssertFalse(first.showsLoadHint(fixture.legPress), "com carga, nada a sugerir")
+
+        first.markSet(sessionExerciseID: fixture.bench.uuid)
+        XCTAssertTrue(first.showsLoadHint(fixture.bench), "primeira série sem carga: a sugestão aparece")
+        XCTAssertEqual(
+            defaults.stringArray(forKey: ActiveSessionViewModel.loadHintShownKey),
+            [fixture.benchCatalog.uuid.uuidString],
+            "gravada como mostrada, pelo exercício do catálogo"
+        )
+
+        first.dismissLoadHint(for: fixture.bench.uuid)
+        XCTAssertFalse(first.showsLoadHint(fixture.bench), "\"Agora não\" some com a linha")
+        first.markSet(sessionExerciseID: fixture.bench.uuid)
+        XCTAssertFalse(first.showsLoadHint(fixture.bench), "nunca insiste na mesma sessão")
+
+        // Outra sessão com o mesmo exercício do catálogo: não volta.
+        let second = try addSecondSession(fixture, catalog: fixture.benchCatalog)
+        let secondModel = ActiveSessionViewModel(
+            sessionID: second.session.uuid,
+            coordinator: fixture.coordinator,
+            planner: fixture.planner,
+            restTimer: fixture.timer,
+            notifications: FakeNotificationScheduler(),
+            now: { self.clock },
+            loadHintDefaults: defaults
+        )
+        secondModel.markSet(sessionExerciseID: second.exercise.uuid)
+        XCTAssertEqual(second.exercise.sets.first?.load, 0)
+        XCTAssertFalse(secondModel.showsLoadHint(second.exercise), "uma vez só na vida do exercício")
+    }
+
+    func testRF46_loadHintNeverForBodyweightOrCardio() throws {
+        let fixture = try makeFixture()
+        // Peso do corpo sem carga.
+        fixture.benchCatalog.equipmentRaw = Equipment.bodyweight.rawValue
+        // Aeróbico numa máquina, sem nível: o nível é opcional (SPEC §7.14 F3).
+        fixture.legPressCatalog.movementPattern = .cardio
+        fixture.legPress.prescribedLoad = nil
+        try fixture.coordinator.context.save()
+        let defaults = makeDefaults()
+        let model = makeViewModel(fixture, defaults: defaults)
+
+        model.markSet(sessionExerciseID: fixture.bench.uuid)
+        model.markSet(sessionExerciseID: fixture.legPress.uuid)
+
+        XCTAssertEqual(fixture.bench.sets.first?.load, 0)
+        XCTAssertEqual(fixture.legPress.sets.first?.load, 0)
+        XCTAssertFalse(model.showsLoadHint(fixture.bench), "peso do corpo nunca")
+        XCTAssertFalse(model.showsLoadHint(fixture.legPress), "aeróbico nunca")
+        XCTAssertNil(defaults.stringArray(forKey: ActiveSessionViewModel.loadHintShownKey))
+    }
+
+    /// SPEC RF-44 c: "Anotar carga" depois de "Feito" sem carga leva a carga digitada às séries de hoje
+    /// marcadas sem carga; sem isso ela se perderia, porque não há próximas séries (P10).
+    func testRF44c_noteLoadFillsTodaysSetsWithoutLoad() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.markExerciseDone(sessionExerciseID: fixture.bench.uuid)
+        XCTAssertTrue(model.showsLoadHint(fixture.bench))
+
+        model.acceptLoadHint(for: fixture.bench.uuid)
+        XCTAssertFalse(model.showsLoadHint(fixture.bench), "a linha some")
+        model.setWorkingLoad(40, for: fixture.bench.uuid)
+        clock = start.addingTimeInterval(200)
+        model.loadEntryDidEnd(for: fixture.bench.uuid)
+
+        XCTAssertEqual(fixture.bench.sets.map(\.load), [40, 40], "as séries de hoje ganham a carga anotada")
+        XCTAssertEqual(fixture.bench.sets.map(\.reps), [8, 8], "as repetições ficam")
+        XCTAssertEqual(model.loadDisplay(for: fixture.bench), .load("40 kg"))
+        XCTAssertNil(model.errorMessage)
+
+        // Uma vez por "Anotar carga": fechar o teclado de novo não regrava nada.
+        let events = fixture.coordinator.appliedEvents.count
+        model.loadEntryDidEnd(for: fixture.bench.uuid)
+        XCTAssertEqual(fixture.coordinator.appliedEvents.count, events)
+    }
+
+    func testRF44c_noteLoadNeedsATypedLoad_plainEntryOnlyChangesNextSets() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+        model.markSet(sessionExerciseID: fixture.bench.uuid)
+
+        // "Anotar carga" e fechar o teclado sem digitar: nada muda.
+        model.acceptLoadHint(for: fixture.bench.uuid)
+        model.loadEntryDidEnd(for: fixture.bench.uuid)
+        XCTAssertEqual(fixture.bench.sets.map(\.load), [0])
+
+        // Tocar na carga e digitar, sem "Anotar carga", vale só para as próximas séries (P10).
+        model.setWorkingLoad(40, for: fixture.bench.uuid)
+        model.loadEntryDidEnd(for: fixture.bench.uuid)
+        model.markSet(sessionExerciseID: fixture.bench.uuid)
+        XCTAssertEqual(fixture.bench.sets.sorted { $0.index < $1.index }.map(\.load), [0, 40])
+    }
+
+    // MARK: - Aeróbico na ficha (SPEC §7.14 F1, F2)
+
+    func testF1_cardioOnTheSheet() throws {
+        let fixture = try makeFixture()
+        let run = addExercise(fixture, order: 2, name: "Intervalos de corrida", equipment: .bodyweight, prescribedLoad: nil, sets: 4)
+        run.exercise?.slug = "run-intervals"
+        run.exercise?.movementPattern = .cardio
+        run.prescribedRepMin = 3
+        run.prescribedRepMax = 4
+        run.prescribedTargetReps = 3
+        run.restSeconds = 180
+        try fixture.coordinator.context.save()
+        let model = makeViewModel(fixture)
+
+        XCTAssertTrue(model.isCardio(run))
+        XCTAssertTrue(model.isCardioIntervals(run))
+        XCTAssertEqual(model.cardioIntensity(for: run), .vigorous)
+        XCTAssertNil(model.loadLabel(for: run), "caminhar e correr não têm carga")
+        XCTAssertEqual(model.targetText(for: run), "3 min · só dá para dizer poucas palavras")
+        XCTAssertTrue(model.showsWarmupHint, "ainda há exercícios com carga na sessão")
+
+        model.markSet(sessionExerciseID: run.uuid)
+
+        XCTAssertEqual(model.restTitle, "Recuperação andando")
+        XCTAssertEqual(run.sets.first?.load, 0)
+        XCTAssertEqual(run.sets.first?.reps, 3, "o número da série é o de minutos")
+
+        model.markSet(sessionExerciseID: fixture.legPress.uuid)
+        XCTAssertEqual(model.restTitle, "Descanso")
+        XCTAssertNil(model.cardioIntensity(for: fixture.legPress))
+    }
+
+    func testF3_cardioMachineLevelIsOptional() throws {
+        let fixture = try makeFixture()
+        fixture.legPressCatalog.movementPattern = .cardio
+        fixture.legPressCatalog.loadUnitRaw = LoadUnit.level.rawValue
+        fixture.legPress.prescribedLoad = nil
+        fixture.legPress.prescribedSets = 1
+        try fixture.coordinator.context.save()
+        let model = makeViewModel(fixture)
+
+        XCTAssertEqual(model.loadLabel(for: fixture.legPress), "sem nível")
+        XCTAssertTrue(model.isLoadPlaceholder(for: fixture.legPress))
+
+        model.setWorkingLoad(7, for: fixture.legPress.uuid)
+        XCTAssertEqual(model.loadLabel(for: fixture.legPress), "nível 7")
+        XCTAssertFalse(model.isLoadPlaceholder(for: fixture.legPress))
+    }
+
+    func testRF44d_warmupHintHiddenInCardioOnlySession() throws {
+        let fixture = try makeFixture()
+        fixture.legPressCatalog.movementPattern = .cardio
+        fixture.benchCatalog.movementPattern = .cardio
+        try fixture.coordinator.context.save()
+        let model = makeViewModel(fixture)
+
+        XCTAssertFalse(model.showsWarmupHint, "só aeróbico: a dica dos exercícios com carga some")
+    }
+
+    // MARK: - Sessão guiada (RF-44 i)
+
+    func testRF44i_guideFollowsTheSheet() throws {
+        let fixture = try makeFixture()
+        let model = makeViewModel(fixture)
+
+        XCTAssertEqual(model.guideStep.exerciseID, fixture.legPress.uuid)
+        XCTAssertEqual(model.guideStep.action, .markSet)
+        XCTAssertEqual(model.guideLine, "Agora: Leg press 45° · série 1 de 3")
+        XCTAssertEqual(model.guideTarget, "8 repetições · 100 kg")
+
+        model.markGuideStep()
+
+        XCTAssertEqual(model.workingSetCount(of: fixture.legPress), 1, "o botão grande é a bolinha vazia")
+        XCTAssertTrue(fixture.timer.isRunning, "e inicia o descanso")
+        XCTAssertEqual(model.guideLine, "A seguir: série 2")
+
+        model.markGuideStep()
+        model.markGuideStep()
+        XCTAssertEqual(model.guideStep.exerciseID, fixture.bench.uuid)
+        XCTAssertEqual(model.guideLine, "A seguir: Supino reto")
+        XCTAssertEqual(model.guideTarget, "8 repetições · sem carga")
+
+        fixture.timer.skip()
+        XCTAssertEqual(model.guideLine, "Agora: Supino reto · série 1 de 2")
+        model.markGuideStep()
+        model.markGuideStep()
+
+        XCTAssertEqual(model.guideStep.action, .finish)
+        XCTAssertNil(model.guideTarget)
+        let events = fixture.coordinator.appliedEvents.count
+        model.markGuideStep()
+        XCTAssertEqual(fixture.coordinator.appliedEvents.count, events, "com tudo feito, o botão só conclui (pela tela)")
+        XCTAssertEqual(model.requestFinish(), .finished)
     }
 
     func testRF46_bodyweight_logsZeroWithoutAsking() throws {
@@ -455,8 +687,8 @@ final class ActiveSessionViewModelTests: XCTestCase {
         try fixture.coordinator.context.save()
         let model = makeViewModel(fixture)
 
-        XCTAssertFalse(model.isFirstTimeWithLoad(fixture.bench), "peso do corpo pula a primeira vez com carga")
-        XCTAssertFalse(model.needsLoadChoice(fixture.bench))
+        XCTAssertEqual(model.loadDisplay(for: fixture.bench), .hidden)
+        XCTAssertNil(model.loadLabel(for: fixture.bench), "peso do corpo sem carga não mostra nada")
         XCTAssertTrue(model.canMark(fixture.bench))
 
         model.markSet(sessionExerciseID: fixture.bench.uuid)
@@ -808,8 +1040,15 @@ final class ActiveSessionViewModelTests: XCTestCase {
 
         // O novo começa como primeira vez (P2): a carga digitada para o antigo não vale.
         XCTAssertNil(model.chosenLoad(for: fixture.legPress.uuid))
-        XCTAssertTrue(model.isFirstTimeWithLoad(fixture.legPress))
-        XCTAssertTrue(model.needsLoadChoice(fixture.legPress))
+        XCTAssertNil(model.workingLoad(for: fixture.legPress))
+        XCTAssertEqual(model.loadLabel(for: fixture.legPress), "sem carga")
+        XCTAssertTrue(model.canMark(fixture.legPress), "desde a 2.3, sem carga também se marca")
+
+        // SPEC E1: na sessão vale o exercício realizado, o substituto, para o "Como fazer".
+        let content = model.infoContent(for: fixture.legPress)
+        XCTAssertEqual(content.slug, "agachamento-hack")
+        XCTAssertEqual(content.primaryMuscles, [.quads, .glutes])
+        XCTAssertFalse(content.isCustom)
     }
 
     func testRF34_substituteFirstTimeWithoutLoad_passesBaseRIR() throws {
@@ -1034,6 +1273,27 @@ final class ActiveSessionViewModelTests: XCTestCase {
         XCTAssertNil(model.errorMessage, "o resumo só omite a linha")
     }
 
+    func testRF44_summary_twoPlans_flowerOfTheSessionPlan() throws {
+        let fixture = try makeFixture()
+        fixture.planner.activeGoalResult = .hypertrophy
+        let hypertrophyID = UUID()
+        let cardioID = UUID()
+        fixture.planner.planWeekProgressResult = [
+            PlanWeekProgress(programID: hypertrophyID, goal: .hypertrophy, completed: 1, perWeek: 4),
+            PlanWeekProgress(programID: cardioID, goal: .endurance, completed: 0, perWeek: 3),
+        ]
+        fixture.planner.daysByProgramID = [
+            hypertrophyID: [ProgramDayTemplate(name: "Dia A — Superior", order: 0)],
+            cardioID: [ProgramDayTemplate(id: fixture.session.programDayUUID, name: "Dia A — Base contínua", order: 0)],
+        ]
+        let model = makeViewModel(fixture)
+
+        XCTAssertEqual(model.activeGoal(), .endurance, "uma sessão do Cardio enche a pétala do Cardio")
+
+        fixture.planner.daysByProgramID[cardioID] = []
+        XCTAssertEqual(model.activeGoal(), .hypertrophy, "dia que nenhum plano tem: o principal")
+    }
+
     // MARK: - Totais
 
     func testStats_countsWorkingSetsOnly() throws {
@@ -1074,15 +1334,70 @@ final class ActiveSessionViewModelTests: XCTestCase {
         let timer: RestTimer
     }
 
-    private func makeViewModel(_ fixture: Fixture) -> ActiveSessionViewModel {
+    /// Cada ViewModel ganha um domínio próprio de `UserDefaults` (a sugestão de carga, RF-44 c), para os
+    /// testes não dependerem um do outro nem do `.standard` do app hospedeiro.
+    private func makeViewModel(_ fixture: Fixture, defaults: UserDefaults? = nil) -> ActiveSessionViewModel {
         ActiveSessionViewModel(
             sessionID: fixture.session.uuid,
             coordinator: fixture.coordinator,
             planner: fixture.planner,
             restTimer: fixture.timer,
             notifications: FakeNotificationScheduler(),
-            now: { self.clock }
+            now: { self.clock },
+            loadHintDefaults: defaults ?? makeDefaults()
         )
+    }
+
+    /// Um domínio vazio, apagado no fim do teste.
+    private func makeDefaults() -> UserDefaults {
+        let suiteName = "ActiveSessionViewModelTests.\(UUID().uuidString)"
+        addTeardownBlock {
+            UserDefaults(suiteName: suiteName)?.removePersistentDomain(forName: suiteName)
+        }
+        return UserDefaults(suiteName: suiteName) ?? .standard
+    }
+
+    /// Outra sessão em andamento, com um exercício do mesmo item de catálogo (sem carga prescrita, 2 séries).
+    private func addSecondSession(
+        _ fixture: Fixture,
+        catalog: ExerciseModel
+    ) throws -> (session: WorkoutSessionModel, exercise: SessionExerciseModel) {
+        let context = fixture.coordinator.context
+        let session = WorkoutSessionModel(
+            uuid: UUID(),
+            programDayUUID: UUID(),
+            programDayName: "Dia A — Superior",
+            statusRaw: SessionStatus.inProgress.rawValue,
+            startedAt: start.addingTimeInterval(86_400 * 2),
+            endedAt: nil,
+            notes: "",
+            hkWorkoutUUID: nil,
+            avgHeartRate: nil,
+            maxHeartRate: nil,
+            isDeload: false,
+            sourceRaw: DeviceSource.iphone.rawValue
+        )
+        context.insert(session)
+        let exercise = SessionExerciseModel(
+            uuid: UUID(),
+            order: 0,
+            exerciseUUID: catalog.uuid,
+            exerciseName: catalog.name,
+            prescribedLoad: nil,
+            prescribedSets: 2,
+            prescribedRepMin: 8,
+            prescribedRepMax: 12,
+            prescribedRIR: 2,
+            restSeconds: 90,
+            noteRaw: PrescriptionNote.hold.rawValue,
+            wasSkipped: false,
+            substitutedFromUUID: nil
+        )
+        context.insert(exercise)
+        exercise.exercise = catalog
+        session.exercises.append(exercise)
+        try context.save()
+        return (session: session, exercise: exercise)
     }
 
     private func makeFixture() throws -> Fixture {
@@ -1502,6 +1817,18 @@ private final class SessionTestPlanner: SessionPlanning {
             throw activeGoalError
         }
         return activeGoalResult
+    }
+
+    /// Os planos ativos (SPEC §7.15), para o resumo de uma sessão do segundo plano.
+    var planWeekProgressResult: [PlanWeekProgress] = []
+    var daysByProgramID: [UUID: [ProgramDayTemplate]] = [:]
+
+    func planWeekProgress(now: Date) throws -> [PlanWeekProgress] {
+        planWeekProgressResult
+    }
+
+    func days(ofProgramID programID: UUID) throws -> [ProgramDayTemplate] {
+        daysByProgramID[programID] ?? []
     }
 
     func lastSession(forExerciseID exerciseID: UUID) throws -> ExerciseLastSession? {

@@ -3,19 +3,21 @@ import Testing
 @testable import TrainerCore
 
 // CA6-2 e CA8-8 (SPEC RF-40 e §7.12; docs/V23-CORE-CONTRACT.md §4 e §5): todo exercício que os programas do seed
-// usam tem guia no bundle. Os programas são os do seed 4 (v6/core): o Equilibrado (D1), o Fôlego (D2) e também os
-// escondidos, como o Corpo todo e o Empurrar/Inferior/Puxar, porque quem já os tem ativos continua neles.
+// usam tem guia no bundle. Os programas são os do seed 4: o Equilibrado (D1), o Cardio (D2; desde a onda de telas, o
+// plano do VO2máx, sem complementos de força) e também os escondidos, como o Corpo todo e o Empurrar/Inferior/Puxar,
+// porque quem já os tem ativos continua neles. As guias dos complementos que saíram do Cardio continuam no bundle.
 
 /// Leitura do seed para os testes de cobertura das guias.
 private enum GuideCoverageSupport {
     /// "Hipertrofia — Equilibrado" (D1), ativo no seed 4.
     static let balancedProgramID: String = "9FE0818F-1417-4953-B357-43D757054FCC"
-    /// "Fôlego" (D2), com um aeróbico em minutos por dia.
+    /// "Cardio" (D2), com um aeróbico em minutos por dia.
     static let enduranceCardioProgramID: String = "09AB286E-D2B2-49C6-8C9F-400D118D8D03"
-    /// Os aeróbicos que o Fôlego usa (docs/V23-CORE-CONTRACT.md §2.3).
+    /// Os aeróbicos que o Cardio usa (docs/V23-UI-CONTRACT.md §4.5).
     static let programCardioSlugs: Set<String> = ["brisk-walk", "run-intervals", "stationary-bike"]
-    /// Exercícios distintos dos programas do seed 4: 52 de força, tronco e pescoço, mais os 3 aeróbicos do Fôlego.
-    static let programSlugCount: Int = 55
+    /// Exercícios distintos dos programas do seed 4: 51 de força, tronco e pescoço, mais os 3 aeróbicos do Cardio. A
+    /// `knee-push-up` saiu dos programas com os complementos do Cardio (a guia dela continua no bundle).
+    static let programSlugCount: Int = 54
 
     static func seedBundle() throws -> SeedBundle {
         try SeedBundle.decode(
@@ -25,7 +27,7 @@ private enum GuideCoverageSupport {
     }
 }
 
-@Test("CA6-2 todo exercício dos programas do seed (Equilibrado, Fôlego e os escondidos) tem guia no bundle")
+@Test("CA6-2 todo exercício dos programas do seed (Equilibrado, Cardio e os escondidos) tem guia no bundle")
 func guideCoverageOfSeedPrograms() throws {
     let bundle = try GuideCoverageSupport.seedBundle()
     let guides = try GuideTestSupport.bundleCatalog()
@@ -37,7 +39,7 @@ func guideCoverageOfSeedPrograms() throws {
     let balanced = try #require(UUID(uuidString: GuideCoverageSupport.balancedProgramID))
     let enduranceCardio = try #require(UUID(uuidString: GuideCoverageSupport.enduranceCardioProgramID))
     #expect(programIDs.contains(balanced), "o Equilibrado não está em programs.v2.json")
-    #expect(programIDs.contains(enduranceCardio), "o Fôlego não está em programs.v2.json")
+    #expect(programIDs.contains(enduranceCardio), "o Cardio não está em programs.v2.json")
 
     var needed = Set<String>()
     var missing: [String] = []
@@ -54,7 +56,7 @@ func guideCoverageOfSeedPrograms() throws {
     }
 
     #expect(missing.isEmpty, "sem guia: \(missing)")
-    #expect(needed.isSuperset(of: GuideCoverageSupport.programCardioSlugs), "os aeróbicos do Fôlego saíram dos programas")
+    #expect(needed.isSuperset(of: GuideCoverageSupport.programCardioSlugs), "os aeróbicos do Cardio saíram dos programas")
     #expect(
         needed.count == GuideCoverageSupport.programSlugCount,
         "os programas do seed usam \(needed.count) exercícios; atualize a contagem e as guias"

@@ -218,7 +218,8 @@ extension CoachFeedBuilder {
             return nil
         }
         let reduced = now.timeIntervalSince(last) > reducedLoadPause
-        var sentences = ["Sua última sessão foi há \(CoachText.days(days)); voltar também é progresso."]
+        // Owner notes item 16: the notice states the fact and what to do, with no effect phrase.
+        var sentences = ["Sua última sessão foi há \(CoachText.days(days))."]
         if let name = nextDayName?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
             sentences.append("Hoje o plano é \(name).")
         }

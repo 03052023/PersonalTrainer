@@ -49,6 +49,16 @@ import TrainerCore
     }
 }
 
+#Preview("Saúde — card sem passos (W7: nem Longevidade nem Cardio)") {
+    NavigationStack {
+        ScrollView {
+            HealthCardView(model: HealthPreviewFixture.connectedModel(showsSteps: false), references: HealthPreviewFixture.references)
+                .padding(16)
+        }
+        .navigationTitle("Treino")
+    }
+}
+
 #Preview("Saúde — detalhe") {
     NavigationStack {
         HealthDetailView(model: HealthPreviewFixture.connectedModel(), references: HealthPreviewFixture.references)
@@ -58,6 +68,12 @@ import TrainerCore
 #Preview("Saúde — detalhe sem dados") {
     NavigationStack {
         HealthDetailView(model: HealthPreviewFixture.emptyDataModel(), references: HealthPreviewFixture.references)
+    }
+}
+
+#Preview("Saúde — detalhe sem passos (W7)") {
+    NavigationStack {
+        HealthDetailView(model: HealthPreviewFixture.connectedModel(showsSteps: false), references: HealthPreviewFixture.references)
     }
 }
 
@@ -143,8 +159,13 @@ private enum HealthPreviewFixture {
 
     // MARK: ViewModels por estado
 
-    static func connectedModel() -> HealthViewModel {
-        makeModel(reader: FakeHealthDataReader(), suite: "HealthPreview.connected", authorized: true)
+    static func connectedModel(showsSteps: Bool = true) -> HealthViewModel {
+        makeModel(
+            reader: FakeHealthDataReader(),
+            suite: "HealthPreview.connected.\(showsSteps)",
+            authorized: true,
+            showsSteps: showsSteps
+        )
     }
 
     static func disconnectedModel() -> HealthViewModel {
@@ -174,7 +195,12 @@ private enum HealthPreviewFixture {
 
     /// O relógio vira uma constante local antes de entrar no fechamento `now`, que não é isolado
     /// ao MainActor (ao contrário das propriedades estáticas deste enum).
-    private static func makeModel(reader: any HealthDataReading, suite: String, authorized: Bool) -> HealthViewModel {
+    private static func makeModel(
+        reader: any HealthDataReading,
+        suite: String,
+        authorized: Bool,
+        showsSteps: Bool = true
+    ) -> HealthViewModel {
         let fixedNow = referenceDate
         return HealthViewModel(
             reader: reader,
@@ -183,7 +209,8 @@ private enum HealthPreviewFixture {
             calendar: calendar,
             defaults: defaults(suite: suite, authorized: authorized),
             // AGENTS R9: log do diálogo em memória, próprio deste preview, nunca o arquivo real.
-            logStore: FakeCoachLogStore()
+            logStore: FakeCoachLogStore(),
+            showsSteps: { showsSteps }
         )
     }
 

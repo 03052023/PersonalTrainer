@@ -36,6 +36,24 @@ final class TodayTargetTextTests: XCTestCase {
         XCTAssertEqual(TodayTargetText.loadDisplay(load: 5, unit: .kilograms, equipment: .household), .load("5 kg"), "mochila mostra a carga")
     }
 
+    /// SPEC RF-46 (2.3, D3): 0 num exercício com equipamento é "sem carga externa": nunca "0 kg" nem
+    /// "nível 0" na tela Hoje e no Histórico.
+    func testRF46_loadDisplay_zeroOnEquipmentShowsNoLoad() {
+        XCTAssertEqual(TodayTargetText.loadDisplay(load: 0, unit: .kilograms, equipment: .machine), .hidden)
+        XCTAssertEqual(TodayTargetText.loadDisplay(load: 0, unit: .level, equipment: .machine), .hidden)
+        XCTAssertEqual(TodayTargetText.loadDisplay(load: 0, unit: .kilograms, equipment: .barbell), .hidden)
+        XCTAssertEqual(TodayTargetText.row(sets: 3, goal: 12, measure: .reps, load: .hidden), "3 séries de 12")
+        XCTAssertEqual(
+            TodayTargetText.row(
+                sets: 1,
+                goal: 45,
+                measure: .minutes,
+                load: TodayTargetText.loadDisplay(load: 0, unit: .level, equipment: .machine)
+            ),
+            "45 min"
+        )
+    }
+
     func testLoadText_perUnit() {
         XCTAssertEqual(TodayTargetText.loadText(60, unit: .kilograms), "60 kg")
         XCTAssertEqual(TodayTargetText.loadText(62.5, unit: .kilograms), "62,5 kg")

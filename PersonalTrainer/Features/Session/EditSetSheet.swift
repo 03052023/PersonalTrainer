@@ -39,12 +39,15 @@ struct EditSetSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    LoadStepper(
-                        value: $edit.load,
-                        increment: edit.loadIncrement,
-                        unit: edit.loadUnit,
-                        title: edit.isBodyweight ? "Carga extra" : "Carga"
-                    )
+                    // SPEC §7.14: caminhar e correr (aeróbico de peso do corpo) não têm carga a corrigir.
+                    if !(edit.isCardio && edit.isBodyweight) {
+                        LoadStepper(
+                            value: $edit.load,
+                            increment: edit.loadIncrement,
+                            unit: edit.loadUnit,
+                            title: loadTitle
+                        )
+                    }
 
                     RepsStepper(
                         value: $edit.reps,
@@ -64,7 +67,7 @@ struct EditSetSheet: View {
                 }
                 .padding()
             }
-            .background(Theme.background.ignoresSafeArea())
+            .paperBackground()
             .navigationTitle("Corrigir série \(edit.number)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -94,6 +97,15 @@ struct EditSetSheet: View {
             }
         }
         .tint(Theme.accent)
+    }
+
+    /// "Nível" na máquina com nível (aeróbico, SPEC §7.14 F3), "Carga extra" no peso do corpo (RF-46),
+    /// "Carga" no resto.
+    private var loadTitle: String {
+        if edit.loadUnit == .level {
+            return "Nível"
+        }
+        return edit.isBodyweight ? "Carga extra" : "Carga"
     }
 }
 

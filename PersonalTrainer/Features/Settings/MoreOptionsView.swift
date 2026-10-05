@@ -19,10 +19,17 @@ struct MoreOptionsView: View {
 
     var body: some View {
         Form {
-            planningSection
-            scienceSection
-            aboutSection
+            // Papel (DESIGN §14): as linhas em `surface`, como nas outras listas da direção.
+            Group {
+                planningSection
+                scienceSection
+                aboutSection
+            }
+            .listRowBackground(Theme.surface)
         }
+        // Papel (DESIGN §14): o fundo do formulário dá lugar ao papel.
+        .scrollContentBackground(.hidden)
+        .paperBackground()
         .navigationTitle("Mais opções")
         .navigationBarTitleDisplayMode(.inline)
     }

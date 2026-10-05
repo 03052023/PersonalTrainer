@@ -133,7 +133,10 @@ extension AppEnvironment {
             watchSync: NoopWatchSyncService(),
             now: { Date() },
             storeLoadError: storeLoadError,
-            traits: traits
+            traits: traits,
+            // SPEC E8: arquivo ausente, ilegível ou reprovado vira `.empty` (sem botão "Como fazer"),
+            // com log; o launch nunca para por causa das guias.
+            exerciseGuides: ExerciseGuideLibrary.load(bundle: .main)
         )
     }
 
@@ -195,7 +198,8 @@ extension AppEnvironment {
             healthRecorder: nil,
             watchSync: NoopWatchSyncService(),
             now: { fixedNow },
-            traits: traits
+            traits: traits,
+            exerciseGuides: ExerciseGuideLibrary.load(bundle: .main)
         )
     }
 }

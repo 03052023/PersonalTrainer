@@ -38,10 +38,13 @@ struct SessionDetailView: View {
                     LabeledContent("Situação", value: statusText)
                 }
             }
+            .listRowBackground(Theme.surface)
             ForEach(orderedExercises, id: \.uuid) { sessionExercise in
                 SessionExerciseSection(sessionExercise: sessionExercise, references: references)
             }
         }
+        .scrollContentBackground(.hidden)
+        .paperBackground()
         .navigationTitle(session.programDayName)
         .navigationBarTitleDisplayMode(.inline)
     }

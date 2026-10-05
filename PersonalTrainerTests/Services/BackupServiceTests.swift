@@ -232,9 +232,10 @@ final class BackupServiceTests: XCTestCase {
             to: missingExercise.programs[activeIndex].template
         )
 
+        // SPEC §7.15 M1: dois ativos só de objetivos diferentes; o ativo do fixture é de Força.
         var twoActive = document
         let inactiveIndex = try XCTUnwrap(twoActive.programs.firstIndex { !$0.template.isActive })
-        twoActive.programs[inactiveIndex].template = activated(twoActive.programs[inactiveIndex].template)
+        twoActive.programs[inactiveIndex].template = activated(twoActive.programs[inactiveIndex].template, goal: .strength)
 
         var unknownStatus = document
         unknownStatus.sessions[0].statusRaw = "paused"
@@ -258,7 +259,7 @@ final class BackupServiceTests: XCTestCase {
             ("série repetida", duplicatedSetData, .referentialIntegrity),
             ("slug repetido", duplicatedSlugData, .referentialIntegrity),
             ("alvo sem exercício", missingExerciseData, .referentialIntegrity),
-            ("dois programas ativos", twoActiveData, .referentialIntegrity),
+            ("dois planos ativos com o mesmo objetivo", twoActiveData, .referentialIntegrity),
             ("status desconhecido", unknownStatusData, .referentialIntegrity),
         ]
 
@@ -279,6 +280,40 @@ final class BackupServiceTests: XCTestCase {
                 XCTFail("Erro inesperado em \(testCase.name): \(error)")
             }
             XCTAssertEqual(try service.exportBackup(now: now), baseline, "Store alterado por: \(testCase.name)")
+        }
+    }
+
+    /// SPEC §7.15 M1: até dois planos ativos, de objetivos diferentes, voltam do backup como estavam; três,
+    /// não.
+    func testM1_backupAcceptsTwoActiveWithDifferentGoals() throws {
+        let source = try makeContext()
+        let fixture = try insertFixture(into: source)
+        var document = try BackupDocument.decode(from: makeService(source).exportBackup(now: now))
+        let inactiveIndex = try XCTUnwrap(document.programs.firstIndex { !$0.template.isActive })
+        // Força (ativo) + Hipertrofia (o objetivo padrão do inativo).
+        document.programs[inactiveIndex].template = activated(document.programs[inactiveIndex].template)
+        XCTAssertNoThrow(try document.validate())
+
+        let target = try makeContext()
+        _ = try makeService(target).importBackup(document.encoded())
+
+        let active = try target.fetch(FetchDescriptor<ProgramModel>())
+            .filter { $0.isActive }
+            .map { $0.uuid.uuidString }
+            .sorted()
+        XCTAssertEqual(active, [fixture.activeProgramID.uuidString, fixture.inactiveProgramID.uuidString].sorted())
+
+        var three = document
+        three.programs.append(BackupDocument.ProgramRecord(
+            template: ProgramTemplate(id: UUID(), name: "Cardio", days: [], isActive: true, goal: .endurance),
+            createdAt: now
+        ))
+        XCTAssertThrowsError(try three.validate()) { error in
+            guard case .referentialIntegrity(let detail)? = error as? BackupError else {
+                XCTFail("Esperava referentialIntegrity, veio \(error)")
+                return
+            }
+            XCTAssertFalse(detail.isEmpty)
         }
     }
 
@@ -886,13 +921,14 @@ final class BackupServiceTests: XCTestCase {
         )
     }
 
-    private func activated(_ program: ProgramTemplate) -> ProgramTemplate {
+    /// Ativo, com `goal` no lugar do objetivo quando informado.
+    private func activated(_ program: ProgramTemplate, goal: ProgramGoal? = nil) -> ProgramTemplate {
         ProgramTemplate(
             id: program.id,
             name: program.name,
             days: program.days,
             isActive: true,
-            goal: program.goal,
+            goal: goal ?? program.goal,
             summary: program.summary
         )
     }

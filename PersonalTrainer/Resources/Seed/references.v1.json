@@ -530,6 +530,56 @@
       "doi": "10.1249/mss.0b013e3180304570",
       "level": "study",
       "summary": "Em adultos jovens e saudáveis, 8 semanas de intervalos fortes de 4 minutos aumentaram o VO2máx mais do que o treino contínuo moderado com o mesmo trabalho total."
+    },
+    {
+      "id": "schoenfeld-2017-load",
+      "authors": "Schoenfeld BJ, Grgic J, Ogborn D, Krieger JW",
+      "year": 2017,
+      "title": "Strength and Hypertrophy Adaptations Between Low- vs. High-Load Resistance Training: A Systematic Review and Meta-analysis",
+      "source": "Journal of Strength and Conditioning Research",
+      "doi": "10.1519/JSC.0000000000002200",
+      "level": "metaAnalysis",
+      "summary": "Meta-análise: cargas leves e pesadas deram ganho de massa muscular parecido, e as cargas altas deram mais força máxima."
+    },
+    {
+      "id": "stoggl-2014-polarized",
+      "authors": "Stöggl T, Sperlich B",
+      "year": 2014,
+      "title": "Polarized training has greater impact on key endurance variables than threshold, high intensity, or high volume training",
+      "source": "Frontiers in Physiology",
+      "doi": "10.3389/fphys.2014.00033",
+      "level": "study",
+      "summary": "Em atletas de resistência, 9 semanas com muito tempo leve e pouco tempo forte (treino polarizado) melhoraram o VO2máx e o desempenho mais do que as outras formas de distribuir a intensidade."
+    },
+    {
+      "id": "bacon-2013-vo2max",
+      "authors": "Bacon AP, Carter RE, Ogle EA, Joyner MJ",
+      "year": 2013,
+      "title": "VO2max Trainability and High Intensity Interval Training in Humans: A Meta-Analysis",
+      "source": "PLoS ONE",
+      "doi": "10.1371/journal.pone.0073182",
+      "level": "metaAnalysis",
+      "summary": "Meta-análise: treinos com intervalos longos e fortes, de 3 a 5 minutos, elevaram o VO2máx de adultos sedentários e ativos de forma consistente."
+    },
+    {
+      "id": "gist-2014-sit",
+      "authors": "Gist NH, Fedewa MV, Dishman RK, Cureton KJ",
+      "year": 2014,
+      "title": "Sprint Interval Training Effects on Aerobic Capacity: A Systematic Review and Meta-Analysis",
+      "source": "Sports Medicine",
+      "doi": "10.1007/s40279-013-0115-0",
+      "level": "metaAnalysis",
+      "summary": "Meta-análise: tiros curtos e muito fortes, com pausas leves, melhoraram o VO2máx de forma parecida com o treino contínuo, com bem menos tempo de exercício."
+    },
+    {
+      "id": "tomlin-2001-recovery",
+      "authors": "Tomlin DL, Wenger HA",
+      "year": 2001,
+      "title": "The Relationship Between Aerobic Fitness and Recovery from High Intensity Intermittent Exercise",
+      "source": "Sports Medicine",
+      "doi": "10.2165/00007256-200131010-00001",
+      "level": "narrativeReview",
+      "summary": "Revisão: uma boa aptidão aeróbica se associa a uma recuperação mais rápida entre esforços curtos e intensos repetidos."
     }
   ],
   "topics": {
@@ -547,9 +597,9 @@
     "note.decrease": ["helms-2016-rpe", "refalo-2023-failure"],
     "note.returning": ["mujika-2000-detraining", "bickel-2011-maintenance"],
     "note.deload": ["rogerson-2024-deload", "spiering-2021-maintenance", "coleman-2024-deload"],
-    "goal.hypertrophy": ["schoenfeld-2017-volume", "pelland-2026-dose-response", "schoenfeld-2019-frequency", "schoenfeld-2016-frequency", "schoenfeld-2021-loading", "robinson-2024-failure", "refalo-2023-failure", "acsm-2009-progression", "bickel-2011-maintenance"],
-    "goal.strength": ["acsm-2009-progression", "schoenfeld-2021-loading", "suchomel-2016-strength", "grgic-2018-rest-strength", "pelland-2026-dose-response", "ralston-2017-strength-volume", "grgic-2018-frequency"],
-    "goal.endurance": ["garber-2011-acsm", "bull-2020-who", "milanovic-2015-hiit", "foster-2008-talk-test"],
+    "goal.hypertrophy": ["schoenfeld-2017-volume", "pelland-2026-dose-response", "schoenfeld-2019-frequency", "schoenfeld-2016-frequency", "schoenfeld-2021-loading", "robinson-2024-failure", "refalo-2023-failure", "acsm-2009-progression", "bickel-2011-maintenance", "schoenfeld-2017-load"],
+    "goal.strength": ["acsm-2009-progression", "schoenfeld-2021-loading", "suchomel-2016-strength", "grgic-2018-rest-strength", "pelland-2026-dose-response", "ralston-2017-strength-volume", "grgic-2018-frequency", "schoenfeld-2017-load"],
+    "goal.endurance": ["garber-2011-acsm", "bull-2020-who", "helgerud-2007-intervals", "milanovic-2015-hiit", "bacon-2013-vo2max", "stoggl-2014-polarized", "foster-2008-talk-test"],
     "goal.longevity": ["bull-2020-who", "garber-2011-acsm", "momma-2022-strength-mortality", "mandsager-2018-fitness", "kodama-2009-fitness", "sherrington-2019-falls", "paluch-2022-steps", "watson-2015-sleep", "lauersen-2014-injury-prevention"],
     "goal.combat": ["suchomel-2016-strength", "cormie-2011-power", "james-2016-combat", "buchheit-2013-hiit", "collins-2014-neck"],
     "topic.rir": ["zourdos-2016-rir", "helms-2016-rpe", "halperin-2022-rir-accuracy", "refalo-2023-failure", "robinson-2024-failure"],
@@ -561,11 +611,14 @@
     "topic.concurrent": ["schumann-2022-concurrent", "wilson-2012-concurrent"],
     "topic.hrv": ["bellenger-2016-hrv", "plews-2013-hrv", "buchheit-2014-hr-monitoring"],
     "topic.aerobic": ["bull-2020-who", "garber-2011-acsm", "tanaka-2001-hrmax"],
-    "topic.cardio": ["foster-2008-talk-test", "garber-2011-acsm", "milanovic-2015-hiit", "helgerud-2007-intervals"],
+    "topic.cardio": ["foster-2008-talk-test", "garber-2011-acsm", "milanovic-2015-hiit", "helgerud-2007-intervals", "bacon-2013-vo2max", "stoggl-2014-polarized", "gist-2014-sit"],
     "topic.vo2max": ["mandsager-2018-fitness", "kodama-2009-fitness", "lambe-2025-watch-vo2max", "kaminsky-2015-friend"],
     "topic.sleep": ["watson-2015-sleep", "cappuccio-2010-sleep-mortality"],
     "topic.steps": ["paluch-2022-steps", "saintmaurice-2020-steps"],
-    "topic.e1rm": ["lesuer-1997-1rm-equations", "wood-2002-1rm-older-adults"]
+    "topic.e1rm": ["lesuer-1997-1rm-equations", "wood-2002-1rm-older-adults"],
+    "topic.combination": ["schumann-2022-concurrent", "wilson-2012-concurrent", "tomlin-2001-recovery", "schoenfeld-2016-frequency"],
+    "topic.load": ["schoenfeld-2017-load", "schoenfeld-2021-loading"],
+    "topic.weekFit": ["schoenfeld-2016-frequency", "schumann-2022-concurrent", "wilson-2012-concurrent"]
   },
   "explanations": {
     "rule.P2": "Sem histórico do exercício, a primeira sessão é de calibração: a meta é o mínimo da faixa e, se não há carga inicial definida, você escolhe a carga com 1 repetição a mais em reserva. Estimar quantas repetições faltam para a falha tem erro médio de cerca de 1 repetição, e essa folga evita começar pesado demais.",
@@ -582,11 +635,11 @@
     "note.decrease": "Duas sessões seguidas abaixo do mínimo na mesma carga: ela cai cerca de 10% para você voltar à faixa com folga, sem chegar ao limite. Chegar à falha não traz vantagem para hipertrofia, então reduzir a carga não atrasa o progresso; o corte exato é uma regra prática.",
     "note.returning": "Faz mais de 21 dias que você não faz este exercício, então a carga recomeça cerca de 10% abaixo da última. A força cai pouco em pausas curtas; o corte é uma margem de segurança prática, não um número tirado dos estudos.",
     "note.deload": "Semana leve: menos séries, carga cerca de 15% menor e mais folga em cada série para reduzir a fadiga acumulada. Estudos de manutenção indicam que força e massa se preservam por semanas com bem menos volume se a intensidade não cair muito, por isso o corte de carga é moderado; a evidência direta sobre semanas leves ainda é limitada.",
-    "goal.hypertrophy": "Hipertrofia usa 6–12 repetições nos compostos e 8–15 nos isolados, séries que terminam com uma pequena folga, 10–20 séries por grupo por semana e cada grupo treinado ao menos 2 vezes. Mais volume dá mais crescimento, com retornos decrescentes, e séries perto da falha (sem precisar alcançá-la) funcionam numa ampla faixa de cargas; nos formatos com foco, os grupos fora do foco recebem cerca de 1/3 do volume para manutenção.",
-    "goal.strength": "Força usa 3–6 repetições com uma pequena folga em cada série, 6–12 séries por grupo por semana e descansos de 3 a 5 minutos. Cargas altas e descansos longos maximizam a força máxima, e o benefício de volume extra diminui rápido, por isso o volume é menor que na hipertrofia.",
-    "goal.endurance": "Cardio treina o coração e os pulmões com sessões simples medidas em minutos: a OMS e o ACSM recomendam de 150 a 300 minutos por semana de esforço moderado, e cada minuto forte vale por dois. A intensidade é sentida pela fala: no moderado dá para conversar, mas não para cantar, e no forte só saem poucas palavras. Intervalos curtos e fortes melhoram o fôlego um pouco mais que o treino contínuo, e os exercícios leves de força completam a semana.",
+    "goal.hypertrophy": "Hipertrofia usa 6–12 repetições nos compostos e 8–15 nos isolados, séries que terminam com uma pequena folga, 10–20 séries por grupo por semana e cada grupo treinado ao menos 2 vezes. Mais volume dá mais crescimento, com retornos decrescentes; nos formatos com foco, os grupos fora do foco recebem cerca de 1/3 do volume para manutenção. Para o músculo, cargas leves ou pesadas dão resultado parecido quando a série termina perto do limite; na força máxima, a carga alta vence, e é isso que muda no objetivo Força.",
+    "goal.strength": "Força usa 3–6 repetições com uma pequena folga em cada série, 6–12 séries por grupo por semana e descansos de 3 a 5 minutos. Cargas altas e descansos longos maximizam a força máxima, e o benefício de volume extra diminui rápido, por isso o volume é menor que na hipertrofia. Na força máxima, a carga alta vence as leves, enquanto para ganhar músculo cargas leves ou pesadas dão resultado parecido perto do limite: por isso Força e Hipertrofia são planos diferentes.",
+    "goal.endurance": "Cardio treina o coração e os pulmões para subir o VO2máx, com três sessões medidas em minutos: uma base contínua, conversando, os intervalos 4 × 4 (4 blocos fortes de 3 a 4 minutos, com recuperação andando) e uma sessão longa e leve. A intensidade é sentida pela fala: no leve a conversa é fácil, no moderado dá para conversar, mas não para cantar, e no forte só saem poucas palavras. Muito tempo leve com pouco tempo forte melhora o fôlego, os intervalos longos e fortes elevam o VO2máx, e a semana soma perto dos 150 minutos moderados que a OMS recomenda, contando cada minuto forte por dois.",
     "goal.longevity": "Longevidade combina força 2–3 vezes por semana e 150–300 min de aeróbico moderado (OMS e ACSM), equilíbrio, que reduz quedas em idosos, passos e 7 horas ou mais de sono (consenso AASM/SRS). Treino de força, boa aptidão cardiorrespiratória e mais passos por dia se associam a menor mortalidade. Mobilidade é sugestão leve: o ACSM a recomenda para manter a amplitude de movimento, mas a evidência de benefício em lesões ou longevidade é limitada, e o alongamento não preveniu lesões esportivas numa meta-análise de ensaios randomizados.",
-    "goal.combat": "Combate prioriza força máxima, potência, esforços intensos e intermitentes como rounds, pegada e tronco; o app prepara o corpo, mas não ensina técnica de luta. Força, potência e capacidade anaeróbica distinguem lutadores de nível mais alto; a isometria de pescoço é sugestão leve, com evidência limitada a um estudo observacional em atletas do ensino médio (não de luta) que associou pescoço mais forte a menos concussões, sem testar se o treino de pescoço as reduz.",
+    "goal.combat": "Combate usa a mesma base de força máxima do objetivo Força, com compostos de 3 a 6 repetições, e acrescenta potência, esforços intensos e intermitentes como rounds, pegada, tronco e pescoço, com menos volume nos grandes levantamentos; o app prepara o corpo, mas não ensina técnica de luta. Força, potência e capacidade anaeróbica distinguem lutadores de nível mais alto. A isometria de pescoço é sugestão leve, com evidência limitada a um estudo observacional em atletas do ensino médio (não de luta) que associou pescoço mais forte a menos concussões, sem testar se o treino de pescoço as reduz.",
     "topic.rir": "RIR (repetições em reserva) é quantas repetições ainda faltavam para a falha; RPE = 10 − RIR. Terminar as séries com 1–3 repetições em reserva é uma escolha prática: análises exploratórias sugerem que a hipertrofia aumenta perto da falha, mas alcançá-la não traz vantagem, e a força pouco depende disso.",
     "topic.volume": "Volume é o número de séries de trabalho por grupo muscular por semana. Mais volume produz mais hipertrofia e mais força, com retornos decrescentes que são mais acentuados para a força.",
     "topic.frequency": "A meta padrão é treinar cada grupo muscular 2 vezes por semana, o que facilita distribuir o volume semanal. Com o volume igualado, a frequência tem efeito pequeno ou nulo na hipertrofia; para a força, frequências maiores ajudam, em parte porque somam volume.",
@@ -596,10 +649,13 @@
     "topic.concurrent": "Aeróbico junto com musculação não compromete a hipertrofia nem a força máxima, mas pode reduzir ganhos de força explosiva quando feito na mesma sessão. Uma meta-análise de 2012 viu mais interferência com corrida e com mais frequência e duração de aeróbico; a atualização de 2022 não confirmou o efeito de modalidade nem de frequência. Por prudência, o app separa as sessões e prefere baixo impacto perto de treinos de pernas.",
     "topic.hrv": "A variabilidade da frequência cardíaca (VFC) em repouso é acompanhada como média de vários dias, nunca como leitura isolada. A evidência de que ela reflete a recuperação é limitada e inconsistente: vem sobretudo de atletas de endurance, usa índices (rMSSD) diferentes do SDNN que o Apple Watch registra e, numa meta-análise, a VFC de repouso quase não mudou com o excesso de treino. Por isso ela só modula sugestões e nunca altera a carga.",
     "topic.aerobic": "A meta é de 150–300 min por semana de aeróbico moderado, em que 1 min vigoroso vale 2 moderados, como recomenda a OMS. A intensidade é classificada pela frequência cardíaca em relação à máxima estimada por 208 − 0,7 × idade.",
-    "topic.cardio": "A intensidade do aeróbico é sentida pela fala: no leve a conversa é fácil, no moderado dá para conversar, mas não para cantar, e no forte só dá para dizer poucas palavras. A duração sobe 1 minuto por sessão até o topo da faixa e fica lá, como a meta de repetições na musculação. O nível da máquina (bicicleta, remo, elíptico) é opcional: se você registrar um, ele sobe quando a duração chega ao topo, e os minutos recomeçam do mínimo.",
+    "topic.cardio": "A intensidade do aeróbico é sentida pela fala: no leve a conversa é fácil, no moderado dá para conversar, mas não para cantar, e no forte, como nos blocos dos intervalos 4 × 4, só dá para dizer poucas palavras; intervalos fortes, longos ou curtos, elevam o VO2máx, e muito tempo leve com pouco tempo forte melhora o fôlego. A duração sobe 1 minuto por sessão até o topo da faixa e fica lá, como a meta de repetições na musculação; no 4 × 4, cada bloco vai de 3 para 4 minutos. O nível da máquina (bicicleta, remo, elíptico) é opcional: se você registrar um, ele sobe quando a duração chega ao topo, e os minutos recomeçam do mínimo.",
     "topic.vo2max": "O VO2max mede a aptidão cardiorrespiratória e é estimado pelo Apple Watch em caminhadas e corridas ao ar livre. A faixa mostrada (de muito baixo a superior) usa os percentis por idade e sexo do registro americano FRIEND, com testes cardiopulmonares em esteira de adultos de 20 a 79 anos. Aptidão maior, medida em teste de esforço, se associa fortemente a menor mortalidade, sem limite superior de benefício observado, mas a estimativa do relógio é aproximada (numa validação, errou em média cerca de 13%, para baixo), por isso vale mais a tendência do que o valor isolado.",
     "topic.sleep": "A meta padrão é de 7 a 9 horas de sono por noite, como recomenda o consenso da AASM e da SRS. Dormir de forma habitual menos do que isso esteve associado a maior mortalidade por todas as causas numa meta-análise de estudos prospectivos.",
     "topic.steps": "A meta padrão é de pelo menos 7.000 passos por dia. Mais passos diários se associaram a menor mortalidade em várias coortes internacionais, com queda mais acentuada até cerca de 7.000–8.000 passos, e uma coorte americana também associou mais passos por dia a menor risco de morte, sem uma vantagem adicional clara da velocidade do passo.",
-    "topic.e1rm": "O 1RM estimado usa a fórmula de Epley (carga × (1 + repetições/30)) sobre a melhor série de trabalho, para acompanhar o progresso sem precisar testar a carga máxima real a cada sessão. Estudos que compararam essa e outras fórmulas com o teste direto de 1RM encontram boa correlação, mas erro individual relevante que cresce com mais repetições até a falha, por isso o app usa a tendência entre sessões, não o valor isolado como alvo."
+    "topic.e1rm": "O 1RM estimado usa a fórmula de Epley (carga × (1 + repetições/30)) sobre a melhor série de trabalho, para acompanhar o progresso sem precisar testar a carga máxima real a cada sessão. Estudos que compararam essa e outras fórmulas com o teste direto de 1RM encontram boa correlação, mas erro individual relevante que cresce com mais repetições até a falha, por isso o app usa a tendência entre sessões, não o valor isolado como alvo.",
+    "topic.combination": "Dois planos juntos somam o que cada um dá, e também o cansaço: quando treinam os mesmos músculos, a recuperação fica mais difícil, e quando um é de força e o outro de aeróbico, os dois convivem bem com as sessões separadas. Um coração mais condicionado ajuda a recuperar entre esforços curtos e fortes, como as séries e os rounds. Por isso o app confere os dias, as 48 h entre treinos dos mesmos músculos e a ordem das sessões antes de aceitar o segundo plano.",
+    "topic.load": "Para ganhar músculo, cargas leves ou pesadas dão resultado parecido quando a série termina perto do limite. Para a força máxima, a carga alta vence, porque o corpo melhora mais no que treina. Por isso a Hipertrofia usa faixas de 6 a 15 repetições, e a Força, de 3 a 6.",
+    "topic.weekFit": "Com dois planos, o app distribui as sessões nos dias que você escolheu: nunca duas de força com os mesmos músculos em dias seguidos, nunca um cardio forte na véspera de pernas e, no mesmo dia, a força antes do cardio. Treinar cada grupo 2 vezes por semana, com 48 h entre as sessões, é um jeito prático de distribuir o volume. Se não couber, o app mostra o que muda para caber, e você escolhe."
   }
 }

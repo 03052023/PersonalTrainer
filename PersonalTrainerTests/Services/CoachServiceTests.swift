@@ -400,6 +400,75 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertEqual(fixture.programs.activated, [balanced.id])
     }
 
+    /// SPEC §7.15 M8: com um segundo plano ativo, o C2 troca só o formato da Hipertrofia (tira o antigo e
+    /// acrescenta o próximo, nessa ordem) e mantém o outro. O principal sai do objetivo, não da ordem da lista.
+    func testM8_coachC2KeepsSecondPlan() throws {
+        let suggestion = ProgramSuggestion(
+            id: "switchProgram:old:2026-W39",
+            kind: .switchProgram,
+            rule: "R5",
+            title: "Experimentar um novo programa",
+            reason: "Você treina com este plano há 9 semanas.",
+            strength: .optional,
+            referenceTopic: "topic.substitution"
+        )
+        let fixture = try makeFixture(logStore: storeWithReview([suggestion]))
+        defer { fixture.cleanUp() }
+        let formats = CoachService.hypertrophyFormats.map(\.id)
+        let cardio = program(name: "Cardio", goal: .endurance, isActive: true)
+        let next = program(id: formats[1], name: "Hipertrofia — Foco inferior", goal: .hypertrophy)
+        fixture.programs.programs = [
+            cardio,
+            program(id: formats[0], name: "Hipertrofia — Equilibrado", goal: .hypertrophy, isActive: true),
+            next,
+        ]
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        let message = try XCTUnwrap(fixture.service.messages.first { $0.rule == .review })
+        XCTAssertEqual(
+            fixture.service.applySummary(for: message),
+            "O plano passa a ser Mais pernas e glúteos. As cargas de cada exercício são mantidas."
+        )
+        fixture.service.handle(.apply, on: message)
+
+        XCTAssertEqual(fixture.programs.removed, [formats[0]])
+        XCTAssertEqual(fixture.programs.added, [next.id])
+        XCTAssertEqual(fixture.programs.activated, [], "activate deixaria um plano só")
+        XCTAssertNil(fixture.service.errorMessage)
+        XCTAssertEqual(fixture.logStore.log.entries.map(\.action), [.apply])
+    }
+
+    /// SPEC §7.15 M8: se acrescentar o novo formato falhar, o antigo volta e nada é gravado no log.
+    func testM8_coachC2FailedAddRestoresThePrincipal() throws {
+        let suggestion = ProgramSuggestion(
+            id: "switchProgram:old:2026-W39",
+            kind: .switchProgram,
+            rule: "R5",
+            title: "Experimentar um novo programa",
+            reason: "Você treina com este plano há 9 semanas.",
+            strength: .optional,
+            referenceTopic: "topic.substitution"
+        )
+        let fixture = try makeFixture(logStore: storeWithReview([suggestion]))
+        defer { fixture.cleanUp() }
+        let formats = CoachService.hypertrophyFormats.map(\.id)
+        fixture.programs.programs = [
+            program(id: formats[0], name: "Hipertrofia — Equilibrado", goal: .hypertrophy, isActive: true),
+            program(name: "Cardio", goal: .endurance, isActive: true),
+            program(id: formats[1], name: "Hipertrofia — Foco inferior", goal: .hypertrophy),
+        ]
+        fixture.programs.failingAddIDs = [formats[1]]
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        let message = try XCTUnwrap(fixture.service.messages.first { $0.rule == .review })
+        fixture.service.handle(.apply, on: message)
+
+        XCTAssertEqual(fixture.programs.removed, [formats[0]])
+        XCTAssertEqual(fixture.programs.added, [formats[0]], "O plano anterior volta")
+        XCTAssertNotNil(fixture.service.errorMessage)
+        XCTAssertTrue(fixture.logStore.log.entries.isEmpty)
+    }
+
     func testHandle_applySwitchProgram_withoutAnotherProgram_asksThePersonToChoose() throws {
         let suggestion = ProgramSuggestion(
             id: "switchProgram:old:2026-W39",
@@ -764,6 +833,56 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertEqual(startRequests, 1)
     }
 
+    /// SPEC §7.15 M2: com dois planos, o C5 olha o principal, com as sessões dos dias dele. O cardio de
+    /// ontem não apaga 8 dias sem a força, e o próximo dia é o do principal. Com um plano só, todas contam.
+    func testM2_comebackUsesPrincipal() throws {
+        let fixture = try makeFixture()
+        defer { fixture.cleanUp() }
+        let cardio = program(name: "Cardio", goal: .endurance, isActive: true)
+        let balanced = program(name: "Hipertrofia — Equilibrado", goal: .hypertrophy, isActive: true)
+        fixture.programs.programs = [cardio, balanced]
+        let cardioDayID = try XCTUnwrap(cardio.days.first).id
+        let balancedDayID = try XCTUnwrap(balanced.days.first).id
+        fixture.planner.sessionsToReturn = [
+            SessionSummary(
+                programDayID: balancedDayID,
+                startedAt: date(2026, 9, 16),
+                endedAt: date(2026, 9, 16, hour: 13),
+                status: .completed,
+                workingSetCount: 12
+            ),
+            SessionSummary(
+                programDayID: cardioDayID,
+                startedAt: date(2026, 9, 23),
+                endedAt: date(2026, 9, 23, hour: 13),
+                status: .completed,
+                workingSetCount: 1
+            ),
+        ]
+        fixture.planner.planToReturn = SessionPlan(
+            programID: balanced.id,
+            programName: balanced.name,
+            programDayID: UUID(),
+            programDayName: "Dia B — Inferior",
+            exercises: [],
+            generatedAt: now
+        )
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+
+        let message = try XCTUnwrap(fixture.service.messages.first { $0.rule == .comeback })
+        XCTAssertTrue(message.reason.contains("Dia B — Inferior"), message.reason)
+        XCTAssertTrue(message.reason.contains("8 dias"), message.reason)
+
+        fixture.programs.programs = [cardio]
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+
+        XCTAssertFalse(
+            fixture.service.messages.contains { $0.rule == .comeback },
+            "Com um plano só, a sessão de ontem é a última"
+        )
+    }
+
     // MARK: - C6 Melhor marca
 
     func testRefresh_newBestMark_ofTheLastSession_andSeeProgress() throws {
@@ -887,6 +1006,22 @@ final class CoachServiceTests: XCTestCase {
             fixture.service.messages.contains { $0.itemKey == CoachInput.balanceKey },
             "Semana nova: equilíbrio volta a ser lembrado"
         )
+    }
+
+    /// SPEC §7.15 M2: o C8 vale quando qualquer plano ativo é de Longevidade, principal ou não.
+    func testM2_longevityRemindersWithSecondPlan() throws {
+        let fixture = try makeFixture()
+        defer { fixture.cleanUp() }
+        fixture.planner.goalToReturn = .hypertrophy
+        fixture.planner.goalsToReturn = [.hypertrophy, .longevity]
+
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        XCTAssertTrue(fixture.service.messages.contains { $0.itemKey == CoachInput.balanceKey })
+        XCTAssertTrue(fixture.service.messages.contains { $0.itemKey == CoachInput.mobilityKey })
+
+        fixture.planner.goalsToReturn = [.hypertrophy, .endurance]
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        XCTAssertFalse(fixture.service.messages.contains { $0.rule == .longevity })
     }
 
     func testIsoWeekLabel_matchesTheCoachPeriods() {
@@ -1198,6 +1333,8 @@ final class CoachTestPlanner: SessionPlanning {
     var sessionsToReturn: [SessionSummary] = []
     var reviewInputToReturn: ReviewInput?
     var goalToReturn: ProgramGoal?
+    /// `nil`: só `goalToReturn`, como o padrão do protocolo.
+    var goalsToReturn: [ProgramGoal]?
     var planToReturn: SessionPlan?
     var substitutesToReturn: [ExerciseDefinition] = []
     /// `nil`: `programSubstitutes` devolve o mesmo que `substitutes` (sem modo casa, as duas
@@ -1224,6 +1361,13 @@ final class CoachTestPlanner: SessionPlanning {
 
     func activeProgramGoal() throws -> ProgramGoal? {
         goalToReturn
+    }
+
+    func activeProgramGoals() throws -> [ProgramGoal] {
+        if let goalsToReturn {
+            return goalsToReturn
+        }
+        return goalToReturn.map { [$0] } ?? []
     }
 
     func substitutes(for exerciseID: UUID, limit: Int) throws -> [ExerciseDefinition] {
@@ -1278,6 +1422,10 @@ final class CoachTestPrograms: ProgramRepositoring {
     var programs: [ProgramTemplate] = []
     var updateError: (any Error)?
     private(set) var activated: [UUID] = []
+    /// `addActivePlan` lança para estes ids (e não os registra).
+    var failingAddIDs: Set<UUID> = []
+    private(set) var added: [UUID] = []
+    private(set) var removed: [UUID] = []
     private(set) var updates: [CoachTargetUpdate] = []
     private(set) var replacements: [(targetID: UUID, exerciseID: UUID)] = []
 
@@ -1291,6 +1439,17 @@ final class CoachTestPrograms: ProgramRepositoring {
 
     func activate(programID: UUID) throws {
         activated.append(programID)
+    }
+
+    func addActivePlan(programID: UUID) throws {
+        if failingAddIDs.contains(programID) {
+            throw ProgramRepositoryError.invalidParameters("Falha de teste.")
+        }
+        added.append(programID)
+    }
+
+    func removeActivePlan(programID: UUID) throws {
+        removed.append(programID)
     }
 
     func rename(programID: UUID, to name: String) throws {}

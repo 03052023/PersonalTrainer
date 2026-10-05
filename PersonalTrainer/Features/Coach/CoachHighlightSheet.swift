@@ -59,6 +59,8 @@ struct CoachHighlightSheet: View {
                 .padding(24)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            // Papel (DESIGN §14).
+            .paperBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

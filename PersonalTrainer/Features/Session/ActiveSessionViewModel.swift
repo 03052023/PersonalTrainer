@@ -4,15 +4,24 @@ import os
 import TrainerCore
 
 /// Estado da ficha da sessão (SPEC RF-44, RF-04, RF-46, RF-10, RF-19, RF-34; docs/V22-CONTRACT.md
-/// §3.1).
+/// §3.1; docs/V23-UI-CONTRACT.md §4.4).
 ///
 /// A ficha mostra todos os exercícios; cada toque grava pelo `SessionCoordinating` (AGENTS R4),
 /// que salva na hora (RF-06): a bolinha vazia grava uma série com a meta de hoje (`markSet`),
 /// "Feito" grava as séries que faltam (`markExerciseDone`) e "Marcar como feitos, como previsto"
-/// faz o mesmo em cada pendente que tem carga (`markRemainingAsPrescribed`; só oferecido quando
-/// algum pendente pode ser marcado, `canMarkAnyPending`). Toda série nova grava
+/// faz o mesmo em cada pendente (`markRemainingAsPrescribed`). Toda série nova grava
 /// `rir = nil` e `isWarmup = false` (SPEC RF-03, RF-41, decisão 18); a correção de uma série
 /// regrava o `rir` que ela já tinha.
+///
+/// Desde a 2.3:
+/// - **Carga opcional** (RF-44 c, RF-46, D3): marcar nunca depende de carga; sem carga escolhida nem
+///   prescrita, a série grava 0 ("sem carga externa"). Depois da primeira série sem carga num
+///   exercício com equipamento (nem peso do corpo nem aeróbico), a ficha sugere uma vez na vida
+///   daquele exercício "Anotar a carga ajuda a sugerir quando subir." (`showsLoadHint`); os ids já
+///   sugeridos ficam no `UserDefaults` injetado. "Anotar carga" leva a carga digitada também às séries
+///   de hoje marcadas sem carga (`acceptLoadHint`, `loadEntryDidEnd`).
+/// - **Sessão guiada** (RF-44 i): o passo atual e o texto do botão grande vêm de `SessionGuide`.
+/// - **Aeróbico** (§7.14 F1, F2): a intensidade pelo teste da fala e a recuperação andando.
 ///
 /// O estado vem do próprio `WorkoutSessionModel`: `@Model` é `Observable`, então a tela se
 /// atualiza quando o coordinator grava. Só a carga digitada no teclado fica em memória
@@ -44,6 +53,8 @@ final class ActiveSessionViewModel {
         var isBodyweight: Bool = false
         /// "Agachamento livre · previsto: 3 repetições · 62,5 kg"; vazio nos previews.
         var plannedLine: String = ""
+        /// Aeróbico (SPEC §7.14): sem carga no peso do corpo (caminhar, correr), a folha não mostra carga.
+        var isCardio: Bool = false
 
         var id: UUID { setID }
     }
@@ -70,13 +81,24 @@ final class ActiveSessionViewModel {
     /// Carga digitada no teclado, por `SessionExerciseModel.uuid` (SPEC RF-04, P10). Só memória.
     private var chosenLoads: [UUID: Double] = [:]
     /// Exercício cuja bolinha iniciou o descanso atual: base do "A seguir" do descanso.
-    private var restSourceExerciseID: UUID? = nil
+    private(set) var restSourceExerciseID: UUID? = nil
+    /// Exercícios da sessão (`SessionExerciseModel.uuid`) com a sugestão de anotar a carga à vista
+    /// (RF-44 c). Some com "Anotar carga" ou "Agora não".
+    private(set) var loadHintExerciseIDs: Set<UUID> = []
+    /// Exercícios em que a pessoa tocou "Anotar carga": quando o teclado fecha, a carga digitada vai
+    /// também para as séries de hoje marcadas sem carga (`loadEntryDidEnd`). Estado interno, não de tela.
+    @ObservationIgnored private var loadNoteExerciseIDs: Set<UUID> = []
+
+    /// Chave no `UserDefaults` dos exercícios do catálogo (`exerciseUUID`) que já receberam a
+    /// sugestão: uma vez só na vida de cada um, respondida ou não (SPEC RF-44 c).
+    static let loadHintShownKey = "session.loadHintShownExerciseIDs"
 
     private let coordinator: any SessionCoordinating
     private let planner: any SessionPlanning
     private let notifications: any NotificationScheduling
     private let now: () -> Date
     private let traits: ExerciseTraitsCatalog
+    private let loadHintDefaults: UserDefaults
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "PersonalTrainer",
         category: "ActiveSessionViewModel"
@@ -96,7 +118,8 @@ final class ActiveSessionViewModel {
         restTimer: RestTimer,
         notifications: any NotificationScheduling,
         now: @escaping () -> Date,
-        traits: ExerciseTraitsCatalog = .empty
+        traits: ExerciseTraitsCatalog = .empty,
+        loadHintDefaults: UserDefaults = .standard
     ) {
         self.coordinator = coordinator
         self.planner = planner
@@ -104,6 +127,7 @@ final class ActiveSessionViewModel {
         self.notifications = notifications
         self.now = now
         self.traits = traits
+        self.loadHintDefaults = loadHintDefaults
         let session = coordinator.session(withID: sessionID)
         self.session = session
 
@@ -201,6 +225,42 @@ final class ActiveSessionViewModel {
         exercise.exercise?.equipment == .bodyweight
     }
 
+    /// Aeróbico (SPEC §7.14 F1): o padrão `cardio` do catálogo do exercício realizado.
+    func isCardio(_ exercise: SessionExerciseModel) -> Bool {
+        exercise.exercise?.movementPattern == .cardio
+    }
+
+    /// Intensidade pelo teste da fala (SPEC F2), com o slug, as séries e o `repMax` do snapshot; `nil`
+    /// fora do aeróbico.
+    func cardioIntensity(for exercise: SessionExerciseModel) -> CardioIntensity? {
+        CardioText.intensity(
+            pattern: exercise.exercise?.movementPattern,
+            slug: exercise.exercise?.slug,
+            sets: exercise.prescribedSets,
+            repMax: exercise.prescribedRepMax
+        )
+    }
+
+    /// Intervalos (aeróbico com mais de uma série): o descanso é a recuperação andando e a ficha mostra
+    /// a linha fixa de aquecimento (SPEC F1, F2).
+    func isCardioIntervals(_ exercise: SessionExerciseModel) -> Bool {
+        isCardio(exercise) && exercise.prescribedSets > 1
+    }
+
+    /// A dica fixa de aquecimento (RF-44 d) fala dos exercícios com carga: some numa sessão só de
+    /// aeróbico.
+    var showsWarmupHint: Bool {
+        exercises.contains { !isCardio($0) }
+    }
+
+    /// Título do descanso (RF-44 f): nos intervalos do aeróbico, "Recuperação andando" (SPEC F1).
+    var restTitle: String {
+        guard let sourceID = restSourceExerciseID, let source = findExercise(id: sourceID), isCardioIntervals(source) else {
+            return "Descanso"
+        }
+        return CardioText.recoveryTitle
+    }
+
     // MARK: - Meta e carga de hoje (SPEC RF-04, RF-44, RF-46)
 
     /// Meta de repetições (ou segundos, passos) de hoje: o que cada bolinha grava (RF-04).
@@ -210,7 +270,8 @@ final class ActiveSessionViewModel {
 
     /// A carga que a próxima bolinha grava (RF-04): a escolhida no teclado; senão, a da última
     /// série de trabalho deste exercício nesta sessão; senão, a prescrita; em peso do corpo sem
-    /// nada disso, 0 (P8). `nil` = primeira vez com carga, ainda sem carga (P2): não dá para marcar.
+    /// nada disso, 0 (P8). `nil` = sem carga escolhida nem prescrita (P2): desde a 2.3 (D3), marcar
+    /// grava 0, "sem carga externa".
     func workingLoad(for exercise: SessionExerciseModel) -> Double? {
         if let chosen = chosenLoads[exercise.uuid] {
             return chosen
@@ -225,13 +286,50 @@ final class ActiveSessionViewModel {
     }
 
     /// Como a carga aparece na ficha, já com a carga escolhida (RF-46): peso do corpo sem carga
-    /// não mostra nada; primeira vez sem carga, "escolha a carga".
+    /// não mostra nada; num exercício com equipamento, sem carga ou com 0 (D3), `toChoose`, que a
+    /// ficha escreve "sem carga" (ou "sem nível" no aeróbico com nível) e que se toca para pôr uma.
     func loadDisplay(for exercise: SessionExerciseModel) -> TodayTargetText.LoadDisplay {
-        TodayTargetText.loadDisplay(
-            load: workingLoad(for: exercise),
-            unit: loadUnit(of: exercise),
-            equipment: exercise.exercise?.equipment
-        )
+        let load = workingLoad(for: exercise)
+        let equipment = exercise.exercise?.equipment
+        if equipment != .bodyweight, let load, load <= 0 {
+            return .toChoose
+        }
+        return TodayTargetText.loadDisplay(load: load, unit: loadUnit(of: exercise), equipment: equipment)
+    }
+
+    /// O texto da carga no cartão e na linha do botão grande (RF-44 c, RF-46; SPEC §7.14 F3):
+    /// "62,5 kg", "+ 2,5 kg extra", "sem carga"; no aeróbico, só o nível da máquina ("nível 7",
+    /// "sem nível"); peso do corpo sem carga extra, `nil`.
+    func loadLabel(for exercise: SessionExerciseModel) -> String? {
+        let display = loadDisplay(for: exercise)
+        guard isCardio(exercise) else {
+            return SessionSheetText.loadLabel(display)
+        }
+        switch display {
+        case .hidden:
+            return nil
+        case .toChoose:
+            return loadUnit(of: exercise) == .level ? SessionSheetText.noLevelText : nil
+        case .load(let text), .extra(let text):
+            return text
+        }
+    }
+
+    /// A carga está vazia e se toca para pôr uma ("sem carga", "sem nível").
+    func isLoadPlaceholder(for exercise: SessionExerciseModel) -> Bool {
+        loadDisplay(for: exercise) == .toChoose
+    }
+
+    /// A meta de hoje numa linha, para o botão grande e a folha de correção: "10 repetições · 60 kg",
+    /// "10 repetições · sem carga"; no aeróbico, a meta de uma série com o teste da fala, "30 min · dá
+    /// para conversar, mas não para cantar" (SPEC F2).
+    func targetText(for exercise: SessionExerciseModel) -> String {
+        let todayGoal = self.goal(for: exercise)
+        if let intensity = cardioIntensity(for: exercise) {
+            return "\(CardioText.amount(sets: 1, minutes: todayGoal)) · \(CardioText.talkTest(intensity))"
+        }
+        let amount = TodayTargetText.amount(todayGoal, measure: measure(for: exercise))
+        return SessionSheetText.headline(amount: amount, loadLabel: loadLabel(for: exercise))
     }
 
     /// Unidade da carga do exercício; sem catálogo relacionado, kg.
@@ -244,40 +342,88 @@ final class ActiveSessionViewModel {
         chosenLoads[sessionExerciseID]
     }
 
-    /// Primeira vez com carga (SPEC RF-44 c): sem carga prescrita (P2), não é peso do corpo e ainda
-    /// sem nenhuma série de trabalho. A ficha mostra a dica e o campo de carga no lugar da meta.
-    func isFirstTimeWithLoad(_ exercise: SessionExerciseModel) -> Bool {
-        exercise.prescribedLoad == nil && !isBodyweight(exercise) && workingSets(of: exercise).isEmpty
-    }
-
-    /// Falta escolher a carga (RF-44 c): primeira vez sem carga, não é peso do corpo, e nenhuma
-    /// carga maior que 0 escolhida ou já gravada neste exercício.
-    func needsLoadChoice(_ exercise: SessionExerciseModel) -> Bool {
-        guard exercise.prescribedLoad == nil, !isBodyweight(exercise) else {
-            return false
-        }
-        guard let load = workingLoad(for: exercise) else {
-            return true
-        }
-        return load <= 0
-    }
-
-    /// Bolinhas e "Feito" funcionam: sessão aberta, exercício não pulado e com carga (RF-44 c).
+    /// Bolinhas e "Feito" funcionam: sessão aberta e exercício não pulado. Desde a 2.3 (RF-44 c,
+    /// D3), nunca dependem de carga.
     func canMark(_ exercise: SessionExerciseModel) -> Bool {
-        isOpen && !exercise.wasSkipped && !needsLoadChoice(exercise)
+        isOpen && !exercise.wasSkipped
     }
 
     /// Teclado da carga (RF-44 b, P10): vale para as próximas bolinhas do exercício, sem gravar
-    /// nada. Aceita de 0 (só peso do corpo, carga extra) ou mais de 0 até 1.000; fora disso, a
-    /// escolha é desfeita e a ficha volta à carga de antes.
+    /// nada. Aceita de 0 ("sem carga" ou sem carga extra, D3) até 1.000; fora disso, a escolha é
+    /// desfeita e a ficha volta à carga de antes.
     func setWorkingLoad(_ load: Double, for sessionExerciseID: UUID) {
-        guard let exercise = findExercise(id: sessionExerciseID) else {
+        guard findExercise(id: sessionExerciseID) != nil else {
             return
         }
-        if SessionSheetText.isValidLoad(load, allowsZero: isBodyweight(exercise)) {
+        if SessionSheetText.isValidLoad(load, allowsZero: true) {
             chosenLoads[sessionExerciseID] = load
         } else {
             chosenLoads[sessionExerciseID] = nil
+        }
+    }
+
+    // MARK: - Sugestão delicada de anotar a carga (SPEC RF-44 c, RF-46)
+
+    /// A sugestão vale para exercícios com equipamento que não são peso do corpo nem aeróbico.
+    func offersLoadHint(for exercise: SessionExerciseModel) -> Bool {
+        guard let catalogExercise = exercise.exercise, let equipment = catalogExercise.equipment else {
+            return false
+        }
+        return equipment != .bodyweight && catalogExercise.movementPattern != .cardio
+    }
+
+    /// A linha "Anotar a carga ajuda a sugerir quando subir." está à vista embaixo do cartão.
+    func showsLoadHint(_ exercise: SessionExerciseModel) -> Bool {
+        loadHintExerciseIDs.contains(exercise.uuid)
+    }
+
+    /// "Agora não" (e "Anotar carga"): a linha some e nunca volta para aquele exercício.
+    func dismissLoadHint(for sessionExerciseID: UUID) {
+        loadHintExerciseIDs.remove(sessionExerciseID)
+    }
+
+    /// "Anotar carga": a linha some e a tela abre o teclado. A carga digitada vale para as próximas séries
+    /// (P10) e, quando o teclado fecha (`loadEntryDidEnd`), também para as séries de hoje deste exercício
+    /// marcadas sem carga. Sem isso, depois de "Feito" (nenhuma série a seguir) a carga anotada se perderia.
+    func acceptLoadHint(for sessionExerciseID: UUID) {
+        dismissLoadHint(for: sessionExerciseID)
+        loadNoteExerciseIDs.insert(sessionExerciseID)
+    }
+
+    /// O teclado da carga saiu do exercício. Só depois de "Anotar carga" e com uma carga maior que 0
+    /// digitada: cada série de trabalho de hoje gravada sem carga (0) recebe essa carga pelo coordinator
+    /// (`setUpdated`, com as repetições e o `rir` que já tinha; AGENTS R4). Vale uma vez por "Anotar carga";
+    /// fora disso, a carga digitada só vale para as próximas séries (P10).
+    func loadEntryDidEnd(for sessionExerciseID: UUID) {
+        guard loadNoteExerciseIDs.contains(sessionExerciseID) else {
+            return
+        }
+        loadNoteExerciseIDs.remove(sessionExerciseID)
+        guard
+            let session,
+            isOpen,
+            let exercise = findExercise(id: sessionExerciseID),
+            let load = chosenLoads[sessionExerciseID],
+            load > 0
+        else {
+            return
+        }
+        let timestamp = now()
+        let setsWithoutLoad = workingSets(of: exercise).filter { $0.load <= 0 }
+        for setLog in setsWithoutLoad {
+            do {
+                try coordinator.updateSet(
+                    sessionID: session.uuid,
+                    setID: setLog.uuid,
+                    load: load,
+                    reps: setLog.reps,
+                    rir: setLog.rir,
+                    now: timestamp
+                )
+            } catch {
+                errorMessage = message(for: error, fallback: "Não foi possível anotar a carga.")
+                return
+            }
         }
     }
 
@@ -289,7 +435,9 @@ final class ActiveSessionViewModel {
     // MARK: - Marcar (SPEC RF-44 b)
 
     /// Bolinha vazia: grava 1 série com a meta de hoje e a carga de `workingLoad`, `rir = nil`,
-    /// `isWarmup = false`, e inicia o descanso do exercício (RF-05). Só com série faltando.
+    /// `isWarmup = false`, e inicia o descanso do exercício (RF-05). Só com série faltando. A última
+    /// série da sessão não inicia descanso nem pede a permissão de avisos: não há mais o que esperar, e o
+    /// botão grande já vira "Concluir a sessão" (RF-44 i).
     func markSet(sessionExerciseID: UUID) {
         guard
             let session,
@@ -300,10 +448,14 @@ final class ActiveSessionViewModel {
             return
         }
         let timestamp = now()
-        guard logPrescribedSet(for: exercise, sessionID: session.uuid, now: timestamp) else {
+        guard let loggedLoad = logPrescribedSet(for: exercise, sessionID: session.uuid, now: timestamp) else {
             return
         }
         markCount += 1
+        offerLoadHintIfNeeded(for: exercise, loggedLoad: loggedLoad)
+        guard !pendingExercises.isEmpty else {
+            return
+        }
         requestNotificationAuthorizationIfNeeded()
         if exercise.restSeconds > 0 {
             restSourceExerciseID = exercise.uuid
@@ -314,40 +466,18 @@ final class ActiveSessionViewModel {
     /// "Feito": uma série como a da bolinha para cada série que falta até `prescribedSets`. Nada
     /// se o exercício já está completo. Não inicia descanso (o exercício acabou).
     func markExerciseDone(sessionExerciseID: UUID) {
-        guard
-            let session,
-            let exercise = findExercise(id: sessionExerciseID),
-            canMark(exercise)
-        else {
-            return
-        }
-        let missing = exercise.prescribedSets - workingSetCount(of: exercise)
-        guard missing > 0 else {
-            return
-        }
-        let timestamp = now()
-        var logged = 0
-        for _ in 0..<missing {
-            guard logPrescribedSet(for: exercise, sessionID: session.uuid, now: timestamp) else {
-                break
-            }
-            logged += 1
-        }
-        guard logged > 0 else {
-            return
-        }
-        markCount += 1
-        requestNotificationAuthorizationIfNeeded()
+        markMissingSets(sessionExerciseID: sessionExerciseID, offeringLoadHint: true)
     }
 
-    /// "Marcar como feitos, como previsto" (RF-44 e): "Feito" em cada pendente que dá para marcar;
-    /// os de primeira vez sem carga ficam de fora, e os pulados não são pendentes. Devolve `false`
-    /// se alguma gravação falhou (a mensagem fica em `errorMessage`): quem chamou não conclui.
+    /// "Marcar como feitos, como previsto" (RF-44 e): "Feito" em cada pendente, com ou sem carga
+    /// (desde a 2.3, os sem carga gravam 0); os pulados não são pendentes. Sem a sugestão de anotar
+    /// a carga, porque a sessão vai terminar. Devolve `false` se alguma gravação falhou (a mensagem
+    /// fica em `errorMessage`): quem chamou não conclui.
     @discardableResult
     func markRemainingAsPrescribed() -> Bool {
         var allLogged = true
         for exercise in pendingExercises where canMark(exercise) {
-            markExerciseDone(sessionExerciseID: exercise.uuid)
+            markMissingSets(sessionExerciseID: exercise.uuid, offeringLoadHint: false)
             if isPending(exercise) {
                 allLogged = false
             }
@@ -355,16 +485,53 @@ final class ActiveSessionViewModel {
         return allLogged
     }
 
-    /// Algum pendente pode ser marcado como previsto (RF-44 e). Sem nenhum, a opção
-    /// "Marcar como feitos, como previsto" não aparece.
+    /// Algum pendente pode ser marcado como previsto (RF-44 e): com a sessão aberta, todo pendente
+    /// pode. Sem nenhum, a opção "Marcar como feitos, como previsto" não aparece.
     var canMarkAnyPending: Bool {
         pendingExercises.contains { canMark($0) }
     }
 
-    /// Nomes dos pendentes que "Marcar como feitos, como previsto" deixa de fora: primeira vez com
-    /// carga, ainda sem carga (RF-44 c, e).
-    var pendingNamesNeedingLoad: [String] {
-        pendingExercises.filter { !canMark($0) }.map(\.exerciseName)
+    // MARK: - Sessão guiada (SPEC RF-44 i)
+
+    /// Os exercícios na ordem da ficha, como o `SessionGuide` os lê.
+    var guideItems: [SessionGuide.Item] {
+        exercises.map { (exercise: SessionExerciseModel) -> SessionGuide.Item in
+            SessionGuide.Item(
+                id: exercise.uuid,
+                name: exercise.exerciseName,
+                prescribedSets: exercise.prescribedSets,
+                loggedSets: workingSetCount(of: exercise),
+                isSkipped: exercise.wasSkipped
+            )
+        }
+    }
+
+    /// O passo atual: o primeiro pendente, com a série seguinte; sem pendentes, concluir.
+    var guideStep: SessionGuide.Step {
+        SessionGuide.step(for: guideItems)
+    }
+
+    /// "Agora: Agachamento livre · série 2 de 3"; durante o descanso, "A seguir: série 3".
+    var guideLine: String {
+        SessionGuide.line(for: guideStep, isResting: restTimer.isRunning, restSourceID: restSourceExerciseID)
+    }
+
+    /// A meta de hoje do passo atual ("10 repetições · 60 kg"); `nil` com tudo feito.
+    var guideTarget: String? {
+        guard let exerciseID = guideStep.exerciseID, let exercise = findExercise(id: exerciseID) else {
+            return nil
+        }
+        return targetText(for: exercise)
+    }
+
+    /// O botão grande marcando a série seguinte do passo atual, como a bolinha vazia (RF-44 b):
+    /// grava e inicia o descanso; durante o descanso, marcar adianta. Com tudo feito, não faz nada
+    /// (a tela chama o "Concluir").
+    func markGuideStep() {
+        guard let exerciseID = guideStep.exerciseID else {
+            return
+        }
+        markSet(sessionExerciseID: exerciseID)
     }
 
     /// "A seguir" do descanso (RF-44 f): a próxima série do exercício que iniciou o descanso; se
@@ -507,11 +674,7 @@ final class ActiveSessionViewModel {
                 ? exercise.sets.sorted(by: { $0.index < $1.index })
                 : workingSets(of: exercise)
             let position = siblings.firstIndex(where: { $0.uuid == setID }) ?? 0
-            let headline = TodayTargetText.headline(
-                goal: goal(for: exercise),
-                measure: measure(for: exercise),
-                load: loadDisplay(for: exercise)
-            )
+            let headline = targetText(for: exercise)
             editingSet = SetEdit(
                 setID: setLog.uuid,
                 number: position + 1,
@@ -524,7 +687,8 @@ final class ActiveSessionViewModel {
                 repMax: exercise.prescribedRepMax,
                 measure: measure(for: exercise),
                 isBodyweight: isBodyweight(exercise),
-                plannedLine: SessionSheetText.plannedLine(exerciseName: exercise.exerciseName, headline: headline)
+                plannedLine: SessionSheetText.plannedLine(exerciseName: exercise.exerciseName, headline: headline),
+                isCardio: isCardio(exercise)
             )
             return
         }
@@ -625,14 +789,42 @@ final class ActiveSessionViewModel {
 
     // MARK: - Resumo (SPEC RF-44 h)
 
-    /// Objetivo do programa ativo, para a flor do resumo. Falha → sem pétala preenchida (log).
+    /// Objetivo da sessão, para a flor do resumo (RF-44 h). Com dois planos (SPEC §7.15), o do plano que
+    /// tem o dia desta sessão: uma caminhada do Cardio enche a pétala do Cardio, não a do principal. Sem
+    /// achar o dia (saiu do plano), ou com um plano só, o do programa ativo. Falha → sem pétala (log).
     func activeGoal() -> ProgramGoal? {
+        do {
+            if let goal = try sessionPlanGoal() {
+                return goal
+            }
+        } catch {
+            logger.error("Falha ao ler o plano da sessão: \(String(describing: error), privacy: .public)")
+        }
         do {
             return try planner.activeProgramGoal()
         } catch {
             logger.error("Falha ao ler o objetivo ativo: \(String(describing: error), privacy: .public)")
             return nil
         }
+    }
+
+    /// Com dois planos ativos, o objetivo daquele que tem o dia desta sessão; `nil` com um plano só ou se
+    /// nenhum plano ativo tem o dia.
+    private func sessionPlanGoal() throws -> ProgramGoal? {
+        guard let dayID = session?.programDayUUID else {
+            return nil
+        }
+        let plans = try planner.planWeekProgress(now: now())
+        guard plans.count > 1 else {
+            return nil
+        }
+        for plan in plans {
+            let days = try planner.days(ofProgramID: plan.programID)
+            if days.contains(where: { $0.id == dayID }) {
+                return plan.goal
+            }
+        }
+        return nil
     }
 
     /// Nome do dia da próxima sessão ("Dia B — …"). Falha → a linha some do resumo (log).
@@ -651,26 +843,77 @@ final class ActiveSessionViewModel {
         exercises.first { $0.uuid == id }
     }
 
-    /// Grava uma série como prevista (RF-04, RF-44 b). `index` = maior índice gravado + 1
-    /// (aquecimentos antigos incluídos), único mesmo depois de apagar uma série do meio (RF-19).
-    private func logPrescribedSet(for exercise: SessionExerciseModel, sessionID: UUID, now timestamp: Date) -> Bool {
+    /// Grava uma série como prevista (RF-04, RF-44 b) e devolve a carga gravada; `nil` se a gravação
+    /// falhou (a mensagem fica em `errorMessage`). `index` = maior índice gravado + 1 (aquecimentos
+    /// antigos incluídos), único mesmo depois de apagar uma série do meio (RF-19). Sem carga
+    /// escolhida nem prescrita, grava 0 (D3).
+    private func logPrescribedSet(for exercise: SessionExerciseModel, sessionID: UUID, now timestamp: Date) -> Double? {
         let index = (exercise.sets.map(\.index).max() ?? -1) + 1
+        let load = workingLoad(for: exercise) ?? 0
         do {
             try coordinator.logSet(
                 sessionID: sessionID,
                 sessionExerciseID: exercise.uuid,
                 index: index,
-                load: workingLoad(for: exercise) ?? 0,
+                load: load,
                 reps: goal(for: exercise),
                 rir: nil,
                 isWarmup: false,
                 now: timestamp
             )
-            return true
+            return load
         } catch {
             errorMessage = message(for: error, fallback: "Não foi possível registrar a série.")
-            return false
+            return nil
         }
+    }
+
+    /// "Feito" (e "Marcar como feitos"): as séries que faltam até `prescribedSets`, sem descanso.
+    private func markMissingSets(sessionExerciseID: UUID, offeringLoadHint: Bool) {
+        guard
+            let session,
+            let exercise = findExercise(id: sessionExerciseID),
+            canMark(exercise)
+        else {
+            return
+        }
+        let missing = exercise.prescribedSets - workingSetCount(of: exercise)
+        guard missing > 0 else {
+            return
+        }
+        let timestamp = now()
+        var lastLoad: Double? = nil
+        for _ in 0..<missing {
+            guard let load = logPrescribedSet(for: exercise, sessionID: session.uuid, now: timestamp) else {
+                break
+            }
+            lastLoad = load
+        }
+        guard let lastLoad else {
+            return
+        }
+        markCount += 1
+        requestNotificationAuthorizationIfNeeded()
+        if offeringLoadHint {
+            offerLoadHintIfNeeded(for: exercise, loggedLoad: lastLoad)
+        }
+    }
+
+    /// RF-44 c: depois de uma série marcada sem carga num exercício com equipamento (nem peso do corpo
+    /// nem aeróbico), a sugestão aparece embaixo do cartão, uma vez só na vida daquele exercício do
+    /// catálogo. Fica gravada como mostrada no instante em que aparece, respondida ou não.
+    private func offerLoadHintIfNeeded(for exercise: SessionExerciseModel, loggedLoad: Double) {
+        guard loggedLoad <= 0, offersLoadHint(for: exercise) else {
+            return
+        }
+        let key = exercise.exerciseUUID.uuidString
+        var shown = loadHintDefaults.stringArray(forKey: Self.loadHintShownKey) ?? []
+        guard !shown.contains(key) else {
+            return
+        }
+        shown.append(key)
+        loadHintDefaults.set(shown, forKey: Self.loadHintShownKey)
+        loadHintExerciseIDs.insert(exercise.uuid)
     }
 
     /// Próximo pendente depois de `exercise`, dando a volta ao início. `nil` se não resta nenhum.

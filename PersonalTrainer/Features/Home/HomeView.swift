@@ -10,6 +10,12 @@ import TrainerCore
 /// 4. só a primeira mensagem do diálogo (SPEC §7.11), com "Ver todas (N)" quando há mais;
 /// 5. o cartão de Saúde, sem as sugestões (elas já aparecem no diálogo, C3).
 ///
+/// Com dois planos (SPEC §7.15 M6; DESIGN §9.7), no lugar do 2 e do 3: a faixa de quando os planos não
+/// cabem, "Hoje é dia de descanso." com "Treinar mesmo assim", a linha "Hoje: Superior + Cardio leve
+/// 25 min", um cartão por sessão (a força antes do aeróbico; "✓ Feito hoje" com "A seguir: …"; o
+/// segundo com "Começar esta", menor) e o "Começar" da primeira sessão pendente, o único botão
+/// proeminente. Com um plano só, a tela fica como na 2.2.
+///
 /// A Home não conhece `ActiveSessionView` (TASKS T1.4): devolve o `uuid` da sessão em
 /// `onOpenSession` e o `RootView` decide para onde navegar. ViewModels, diálogo e referências
 /// chegam por `init`; nada aqui lê o `AppEnvironment` do ambiente nem escreve no `ModelContext`
@@ -48,12 +54,17 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     GoalHeaderView(
-                        goal: model.goal,
+                        goals: model.headerGoals,
                         isSessionInProgress: model.isSessionInProgress,
                         onChangeGoal: onChangeGoal
                     )
-                    content
-                    primaryButton
+                    if model.isMultiPlan {
+                        multiPlanContent
+                        multiPlanPrimaryButton
+                    } else {
+                        content
+                        primaryButton
+                    }
                     coachSection
                     // O cartão já abre `HealthDetailView` por `NavigationLink` quando há dados.
                     HealthCardView(model: health, references: references, showsSuggestions: false)
@@ -71,7 +82,7 @@ struct HomeView: View {
             }
             // DESIGN §9.1: nada acima do objetivo. O título fica para o botão de voltar das telas
             // abertas daqui; a aba já diz "Hoje".
-            .background(Theme.background)
+            .paperBackground()
             .navigationTitle("Hoje")
             .toolbar(.hidden, for: .navigationBar)
             .onAppear {
@@ -188,5 +199,149 @@ struct HomeView: View {
     /// SPEC RF-43: a medida (repetições, segundos ou passos) vem do ambiente, não do ViewModel.
     private func measure(for exercise: PlannedExercise) -> ExerciseMeasure {
         traits.traits(for: exercise.exercise).measure
+    }
+
+    // MARK: - Dois planos (SPEC §7.15 M6)
+
+    @ViewBuilder
+    private var multiPlanContent: some View {
+        if model.didFailToLoad && model.overview == nil {
+            ContentUnavailableView(
+                "Não foi possível carregar as sessões",
+                systemImage: "exclamationmark.triangle",
+                description: Text("Puxe para baixo para tentar de novo.")
+            )
+            .frame(maxWidth: .infinity)
+            .padding(.top, 24)
+        } else {
+            if model.showsNotFitBanner {
+                notFitBanner
+            }
+            if model.isRestDay {
+                restDayCard
+            } else if let line = model.todayLine {
+                Text(line)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(Text(model.spokenTodayLine ?? line))
+            }
+            if model.isAllDoneToday {
+                Text(TodayPlansText.allDone)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Theme.textPrimary)
+            }
+            ForEach(Array(model.todayCards.enumerated()), id: \.element.id) { index, card in
+                todaySessionCard(card, isFirst: index == 0)
+            }
+            if model.showsTrainAnyway {
+                trainAnywayButton
+            }
+        }
+    }
+
+    /// Faixa calma, nunca vermelha (DESIGN §9.3): os planos não cabem mais nos dias escolhidos.
+    private var notFitBanner: some View {
+        Label(TodayPlansText.notFitBanner, systemImage: "calendar")
+            .font(.subheadline)
+            .foregroundStyle(Theme.textPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    /// "Hoje é dia de descanso.", sem frase depois (DESIGN §6, §9.3).
+    private var restDayCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Hoje")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.textSecondary)
+                .textCase(.uppercase)
+                .accessibilityHidden(true)
+            Text(TodayPlansText.restDay)
+                .font(.system(.title3, design: .serif, weight: .semibold))
+                .foregroundStyle(Theme.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .inkCard()
+    }
+
+    private var trainAnywayButton: some View {
+        Button {
+            model.trainAnyway()
+        } label: {
+            Text(TodayPlansText.trainAnyway)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Theme.accentSoft, in: Capsule())
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// O interruptor "Em casa" vale para o dia todo: fica só no primeiro cartão.
+    private func todaySessionCard(_ card: HomeTodayCard, isFirst: Bool) -> some View {
+        let programID = card.id
+        var toggleHomeMode: ((Bool) -> Void)?
+        if isFirst {
+            toggleHomeMode = { enabled in
+                model.setHomeMode(enabled)
+            }
+        }
+        return TodaySessionCard(
+            card: card,
+            references: references,
+            canChooseDay: !model.isSessionInProgress,
+            isHomeModeOn: model.isHomeMode,
+            onToggleHomeMode: toggleHomeMode,
+            onSelectDay: { dayID in
+                model.selectDay(dayID)
+            },
+            onSelectAutomatic: {
+                model.selectAutomaticDay(forProgramID: programID)
+            },
+            onSelectExercise: { exercise in
+                infoContent = model.infoContent(for: exercise, measure: measure(for: exercise))
+            },
+            onStart: {
+                if let sessionID = model.startSession(programID: programID) {
+                    onOpenSession(sessionID)
+                }
+            }
+        )
+    }
+
+    /// "Começar" da primeira sessão pendente (M6) ou "Retomar"; nada num dia de descanso ou com tudo
+    /// feito, até "Treinar mesmo assim".
+    @ViewBuilder
+    private var multiPlanPrimaryButton: some View {
+        if model.activeSessionID != nil {
+            Button {
+                if let sessionID = model.startSession() {
+                    onOpenSession(sessionID)
+                }
+            } label: {
+                Text("Retomar")
+            }
+            .buttonStyle(.primary)
+        } else if let primary = model.primaryCard {
+            let programID = primary.id
+            Button {
+                if let sessionID = model.startSession(programID: programID) {
+                    onOpenSession(sessionID)
+                }
+            } label: {
+                Text("Começar")
+            }
+            .buttonStyle(.primary)
+            .disabled(primary.plan.exercises.isEmpty)
+        }
     }
 }

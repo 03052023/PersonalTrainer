@@ -25,46 +25,53 @@ struct RenewalHelpView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    Text(validityText)
-                    Text("Renovar é instalar o Magister de novo por cima do que já está no iPhone. Suas sessões, programas e ajustes continuam aqui.")
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Passo a passo") {
-                    ForEach(Array(Self.steps.enumerated()), id: \.offset) { index, step in
-                        HStack(alignment: .firstTextBaseline, spacing: 12) {
-                            Text("\(index + 1)")
-                                .font(.headline)
-                                .fontDesign(.rounded)
-                                .monospacedDigit()
-                                .foregroundStyle(.tint)
-                                .frame(minWidth: 20, alignment: .leading)
-                            Text(step)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .accessibilityElement(children: .combine)
-                    }
-                }
-
-                if onReminderChange != nil {
+                // Papel (DESIGN §14): as linhas em `surface`, como nas outras listas da direção.
+                Group {
                     Section {
-                        Toggle("Avisar na véspera, às 10h", isOn: $isReminderOn)
-                    } footer: {
-                        Text("Na primeira vez, o iPhone pergunta se o Magister pode mandar notificações.")
+                        Text(validityText)
+                        Text("Renovar é instalar o Magister de novo por cima do que já está no iPhone. Suas sessões, programas e ajustes continuam aqui.")
+                            .foregroundStyle(.secondary)
                     }
-                }
 
-                Section {
-                    Label {
-                        Text("O Magister nunca pede sua conta Apple nem sua senha. Elas são digitadas só no Impactor, no computador.")
-                    } icon: {
-                        Image(systemName: "lock")
+                    Section("Passo a passo") {
+                        ForEach(Array(Self.steps.enumerated()), id: \.offset) { index, step in
+                            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                Text("\(index + 1)")
+                                    .font(.headline)
+                                    .fontDesign(.rounded)
+                                    .monospacedDigit()
+                                    .foregroundStyle(.tint)
+                                    .frame(minWidth: 20, alignment: .leading)
+                                Text(step)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .accessibilityElement(children: .combine)
+                        }
                     }
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+
+                    if onReminderChange != nil {
+                        Section {
+                            Toggle("Avisar na véspera, às 10h", isOn: $isReminderOn)
+                        } footer: {
+                            Text("Na primeira vez, o iPhone pergunta se o Magister pode mandar notificações.")
+                        }
+                    }
+
+                    Section {
+                        Label {
+                            Text("O Magister nunca pede sua conta Apple nem sua senha. Elas são digitadas só no Impactor, no computador.")
+                        } icon: {
+                            Image(systemName: "lock")
+                        }
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    }
                 }
+                .listRowBackground(Theme.surface)
             }
+            // Papel (DESIGN §14): o fundo da lista dá lugar ao papel.
+            .scrollContentBackground(.hidden)
+            .paperBackground()
             .navigationTitle("Como renovar")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

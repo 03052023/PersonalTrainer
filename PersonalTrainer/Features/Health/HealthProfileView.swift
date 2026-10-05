@@ -35,51 +35,57 @@ struct HealthProfileView: View {
 
     var body: some View {
         Form {
-            if let health = model.healthProvidedPhysiology {
-                healthSection(health)
-            }
-
-            Section {
-                Picker("Ano de nascimento", selection: $birthYear) {
-                    Text("Não informado").tag(Int?.none)
-                    ForEach(yearOptions, id: \.self) { year in
-                        Text(verbatim: String(year)).tag(Int?.some(year))
-                    }
+            // Papel (DESIGN §14): as linhas em `surface`, como nas outras listas da direção.
+            Group {
+                if let health = model.healthProvidedPhysiology {
+                    healthSection(health)
                 }
-                .pickerStyle(.navigationLink)
 
-                Picker("Sexo", selection: $sex) {
-                    Text("Não informado").tag(BiologicalSexValue?.none)
-                    ForEach(Self.sexOptions, id: \.self) { option in
-                        Text(Self.sexLabel(option)).tag(BiologicalSexValue?.some(option))
+                Section {
+                    Picker("Ano de nascimento", selection: $birthYear) {
+                        Text("Não informado").tag(Int?.none)
+                        ForEach(yearOptions, id: \.self) { year in
+                            Text(verbatim: String(year)).tag(Int?.some(year))
+                        }
                     }
-                }
-            } header: {
-                Text("Idade e sexo")
-            } footer: {
-                Text("A idade estima a sua FCmáx (208 − 0,7 × idade), que separa minutos moderados de vigorosos. Idade e sexo escolhem a tabela da faixa de VO2máx; a tabela só existe para feminino e masculino.")
-            }
+                    .pickerStyle(.navigationLink)
 
-            Section {
-                TextField("Ex.: 185", text: $maxHeartRateText)
-                    .keyboardType(.numberPad)
-                if maxHeartRateIsInvalid {
-                    Text("Use um valor entre \(HealthViewModel.maxHeartRateRange.lowerBound) e \(HealthViewModel.maxHeartRateRange.upperBound) bpm.")
+                    Picker("Sexo", selection: $sex) {
+                        Text("Não informado").tag(BiologicalSexValue?.none)
+                        ForEach(Self.sexOptions, id: \.self) { option in
+                            Text(Self.sexLabel(option)).tag(BiologicalSexValue?.some(option))
+                        }
+                    }
+                } header: {
+                    Text("Idade e sexo")
+                } footer: {
+                    Text("A idade estima a sua FCmáx (208 − 0,7 × idade), que separa minutos moderados de vigorosos. Idade e sexo escolhem a tabela da faixa de VO2máx; a tabela só existe para feminino e masculino.")
+                }
+
+                Section {
+                    TextField("Ex.: 185", text: $maxHeartRateText)
+                        .keyboardType(.numberPad)
+                    if maxHeartRateIsInvalid {
+                        Text("Use um valor entre \(HealthViewModel.maxHeartRateRange.lowerBound) e \(HealthViewModel.maxHeartRateRange.upperBound) bpm.")
+                            .font(.footnote)
+                            .foregroundStyle(.orange)
+                    }
+                } header: {
+                    Text("FCmáx medida (opcional)")
+                } footer: {
+                    Text("Só preencha se mediu a sua frequência cardíaca máxima num teste de esforço. Em branco, o app usa a estimativa pela idade.")
+                }
+
+                Section {
+                    Text("Estes dados ficam só neste aparelho, servem apenas ao painel de saúde e nunca mudam a carga da musculação.")
                         .font(.footnote)
-                        .foregroundStyle(.orange)
+                        .foregroundStyle(.secondary)
                 }
-            } header: {
-                Text("FCmáx medida (opcional)")
-            } footer: {
-                Text("Só preencha se mediu a sua frequência cardíaca máxima num teste de esforço. Em branco, o app usa a estimativa pela idade.")
             }
-
-            Section {
-                Text("Estes dados ficam só neste aparelho, servem apenas ao painel de saúde e nunca mudam a carga da musculação.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
+            .listRowBackground(Theme.surface)
         }
+        .scrollContentBackground(.hidden)
+        .paperBackground()
         .navigationTitle("Perfil de saúde")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

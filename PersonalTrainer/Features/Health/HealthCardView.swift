@@ -123,7 +123,10 @@ struct HealthCardView: View {
             VStack(alignment: .leading, spacing: 4) {
                 metricLine(systemImage: "lungs", text: Format.vo2MaxLine(report.vo2Max))
                 metricLine(systemImage: "bed.double", text: Format.sleepLine(report.recovery.sleep7))
-                metricLine(systemImage: "figure.walk", text: Format.stepsLine(report.steps.average7))
+                // SPEC §7.16 W7: passos só com um plano ativo de Longevidade ou de Cardio.
+                if model.showsSteps {
+                    metricLine(systemImage: "figure.walk", text: Format.stepsLine(report.steps.average7))
+                }
             }
 
             if showsSuggestions, let suggestion = model.visibleSuggestions.first {
@@ -169,14 +172,14 @@ struct HealthCardView: View {
         }
     }
 
-    /// Mesmo acabamento do `PlanCard` da Home; a passada de design troca por tokens terrosos.
+    /// Papel da direção Tinta e papel (docs/V23-UI-CONTRACT.md §3.2, §4.3).
     private func card<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             content()
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .inkCard()
         .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }

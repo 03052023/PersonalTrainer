@@ -52,7 +52,7 @@ struct SessionFlowView: View {
     var body: some View {
         content
             .tint(Theme.accent)
-            .background(Theme.background.ignoresSafeArea())
+            .paperBackground()
     }
 
     @ViewBuilder

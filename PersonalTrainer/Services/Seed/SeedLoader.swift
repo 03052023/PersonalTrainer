@@ -31,8 +31,9 @@ enum SeedLoaderError: Error, Equatable {
 ///   2.3), os aeróbicos (RF-48); nenhum dos dois muda os campos de um exercício do seed anterior.
 /// - Programas: insere cada programa do seed cujo `uuid` ainda não existe no store; nunca
 ///   altera nem apaga programas existentes. Se o store já tem um programa ativo, os inseridos
-///   entram inativos (SPEC S1: um único programa ativo). Primeiro launch: o programa marcado
-///   `isActive` no seed fica ativo e os demais inativos.
+///   entram inativos (SPEC S1; desde a 2.3, um segundo plano ativo só por escolha da pessoa,
+///   §7.15 M8). Primeiro launch: o programa marcado `isActive` no seed fica ativo e os demais
+///   inativos.
 /// - `UserSettingsModel`: criado na primeira execução com os padrões de ARCHITECTURE §5;
 ///   `schemaSeedVersion` recebe `currentSeedVersion` ao final, no mesmo `save()`.
 /// - Tudo ou nada: ler e validar vem antes de qualquer escrita, e uma falha durante a escrita
@@ -45,9 +46,12 @@ enum SeedLoader {
     /// dos arquivos). `SeedValidator` só exige `version >= 1` nos arquivos; a comparação com o
     /// store é feita contra esta constante, não contra o campo do JSON.
     /// 3 = versão 2.1: exercícios de casa (RF-42) e descansos dos programas de foco (§7.9).
-    /// 4 = versão 2.3: os 10 aeróbicos (RF-48), o Equilibrado (RF-35) e o Fôlego (§7.14). Quem já tem
+    /// 4 = versão 2.3: os 10 aeróbicos (RF-48), o Equilibrado (RF-35) e o Cardio (§7.14). Quem já tem
     /// o seed 3 recebe os dois programas inativos e mantém o ativo e os antigos (Corpo todo,
     /// Resistência muscular), porque o loader nunca altera nem apaga um programa existente.
+    /// O Cardio mudou na onda de telas da 2.3 (o plano do VO2máx: base contínua, 4 × 4 e longo e leve,
+    /// sem complementos de força) sem subir a versão: o plano do núcleo só existiu em IPAs de teste que
+    /// não foram entregues, e quem instalou um deles fica com o programa já gravado (nada é reescrito).
     static let currentSeedVersion = 4
 
     /// Stores com o seed abaixo desta versão (o v1 da M1, sem `movementPattern`) recebem o upsert
@@ -221,7 +225,8 @@ enum SeedLoader {
                 exercises: exercisesBySeedID,
                 createdAt: now
             )
-            // SPEC S1: um único programa ativo. O que o usuário já treina continua ativo.
+            // SPEC S1 e §7.15 M8: o seed nunca ativa um segundo plano. O que o usuário já treina
+            // continua ativo.
             if hasActiveProgram {
                 program.isActive = false
             } else if program.isActive {

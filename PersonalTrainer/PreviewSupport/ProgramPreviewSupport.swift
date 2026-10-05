@@ -18,6 +18,41 @@ import TrainerCore
     )
 }
 
+#Preview("Plano — dois planos") {
+    ProgramTabView(
+        programs: ProgramPreviewRepository(programs: ProgramPreviewFixture.makePrograms(
+            activeIDs: [ProgramPreviewFixture.balancedID, ProgramPreviewFixture.enduranceID]
+        )),
+        catalog: ProgramPreviewCatalog(),
+        references: ProgramPreviewFixture.references,
+        now: { ProgramPreviewFixture.referenceDate },
+        planner: ProgramPreviewPlanner(nextDayID: ProgramPreviewFixture.balancedDayBID)
+    )
+}
+
+#Preview("Adicionar um plano") {
+    GoalSheet(
+        programs: ProgramPreviewRepository.make(),
+        catalog: ProgramPreviewCatalog(),
+        references: ProgramPreviewFixture.references,
+        mode: .add,
+        planner: ProgramPreviewPlanner(nextDayID: ProgramPreviewFixture.balancedDayBID),
+        now: { ProgramPreviewFixture.referenceDate },
+        onFinish: { _ in }
+    )
+}
+
+#Preview("Sua semana — não cabe") {
+    NavigationStack {
+        PlanFitFlowView(
+            model: ProgramPreviewFixture.makeNotFittingFlow(),
+            references: ProgramPreviewFixture.references,
+            onCancel: {},
+            onDone: {}
+        )
+    }
+}
+
 #Preview("Plano — sem objetivo ativo") {
     ProgramTabView(
         programs: ProgramPreviewRepository(programs: ProgramPreviewFixture.makePrograms(activeID: nil)),
@@ -158,6 +193,7 @@ private enum ProgramPreviewFixture {
         ExerciseDefinition(slug: "farmer-walk", name: "Caminhada do fazendeiro com halteres", primaryMuscles: [.core], equipment: .dumbbell, loadUnit: .kilograms, loadIncrement: 2, movementPattern: .carry),
         ExerciseDefinition(slug: "caminhada-rapida", name: "Caminhada rápida", primaryMuscles: [.quads, .glutes], equipment: .bodyweight, loadUnit: .kilograms, loadIncrement: 2.5, movementPattern: .cardio),
         ExerciseDefinition(slug: "bicicleta", name: "Bicicleta ergométrica", primaryMuscles: [.quads, .glutes], equipment: .machine, loadUnit: .level, loadIncrement: 1, movementPattern: .cardio),
+        ExerciseDefinition(slug: "run-intervals", name: "Intervalos de corrida", primaryMuscles: [.quads, .glutes], equipment: .bodyweight, loadUnit: .kilograms, loadIncrement: 2.5, movementPattern: .cardio),
     ]
 
     static func exerciseID(_ slug: String) -> UUID {
@@ -171,6 +207,11 @@ private enum ProgramPreviewFixture {
 
     /// Mesmos programas com `activeID` ativo (`nil`: nenhum ativo).
     static func makePrograms(activeID: UUID?) -> [ProgramTemplate] {
+        makePrograms(activeIDs: activeID.map { Set([$0]) } ?? Set<UUID>())
+    }
+
+    /// Mesmos programas com vários ativos (SPEC §7.15 M1).
+    static func makePrograms(activeIDs: Set<UUID>) -> [ProgramTemplate] {
         [
             ProgramTemplate(
                 id: balancedID,
@@ -181,7 +222,7 @@ private enum ProgramPreviewFixture {
                     day("Dia C — Superior", order: 2, slugs: ["supino-halteres", "puxada-frente", "elevacao-lateral", "rosca-direta", "triceps-corda"]),
                     day("Dia D — Inferior", order: 3, slugs: ["leg-press-45", "stiff", "farmer-walk"]),
                 ],
-                isActive: activeID == balancedID,
+                isActive: activeIDs.contains(balancedID),
                 goal: .hypertrophy,
                 summary: "Quatro dias que alternam superior e inferior, com cada grupo duas vezes por semana."
             ),
@@ -194,7 +235,7 @@ private enum ProgramPreviewFixture {
                     day("Dia C — Inferior (posteriores e glúteos)", order: 2, slugs: ["stiff", "leg-press-45"]),
                     day("Dia D — Superior (manutenção)", order: 3, slugs: ["supino-halteres", "puxada-frente"]),
                 ],
-                isActive: activeID == lowerFocusID,
+                isActive: activeIDs.contains(lowerFocusID),
                 goal: .hypertrophy,
                 summary: "Glúteos e pernas com mais volume; superior em manutenção."
             ),
@@ -207,7 +248,7 @@ private enum ProgramPreviewFixture {
                     day("Dia C — Superior", order: 2, slugs: ["supino-halteres", "remada-baixa", "rosca-direta"]),
                     day("Dia D — Inferior (manutenção)", order: 3, slugs: ["leg-press-45", "stiff"]),
                 ],
-                isActive: activeID == upperFocusID,
+                isActive: activeIDs.contains(upperFocusID),
                 goal: .hypertrophy,
                 summary: "Peito, ombros, braços e costas com mais volume; inferior em manutenção."
             ),
@@ -219,18 +260,19 @@ private enum ProgramPreviewFixture {
                     day("Dia B — Levantamento terra", order: 1, slugs: ["stiff", "puxada-frente"]),
                     day("Dia C — Agachamento e supino", order: 2, slugs: ["agachamento-livre", "supino-halteres"]),
                 ],
-                isActive: activeID == strengthID,
+                isActive: activeIDs.contains(strengthID),
                 goal: .strength
             ),
+            // SPEC RF-48 (2.3): o Cardio focado no VO2máx, um aeróbico por dia.
             ProgramTemplate(
                 id: enduranceID,
-                name: "Fôlego",
+                name: "Cardio",
                 days: [
-                    day("Dia A — Contínuo", order: 0, slugs: ["caminhada-rapida", "flexao"]),
-                    day("Dia B — Intervalos", order: 1, slugs: ["caminhada-rapida", "agachamento-livre"]),
-                    day("Dia C — Longo e leve", order: 2, slugs: ["bicicleta", "flexao"]),
+                    day("Dia A — Base contínua", order: 0, slugs: ["caminhada-rapida"]),
+                    day("Dia B — Intervalos 4 × 4", order: 1, slugs: ["run-intervals"]),
+                    day("Dia C — Longo e leve", order: 2, slugs: ["bicicleta"]),
                 ],
-                isActive: activeID == enduranceID,
+                isActive: activeIDs.contains(enduranceID),
                 goal: .endurance
             ),
             ProgramTemplate(
@@ -241,7 +283,7 @@ private enum ProgramPreviewFixture {
                     day("Dia B — Corpo inteiro", order: 1, slugs: ["agachamento-livre", "remada-baixa"]),
                     day("Dia C — Corpo inteiro", order: 2, slugs: ["stiff", "puxada-frente"]),
                 ],
-                isActive: activeID == longevityID,
+                isActive: activeIDs.contains(longevityID),
                 goal: .longevity
             ),
             ProgramTemplate(
@@ -252,7 +294,7 @@ private enum ProgramPreviewFixture {
                     day("Dia B — Salto, terra e supino", order: 1, slugs: ["stiff", "supino-reto-barra"]),
                     day("Dia C — Potência rotacional e ombros", order: 2, slugs: ["elevacao-lateral", "farmer-walk"]),
                 ],
-                isActive: activeID == combatID,
+                isActive: activeIDs.contains(combatID),
                 goal: .combat,
                 summary: "Força máxima, potência, pegada e tronco."
             ),
@@ -314,6 +356,41 @@ private enum ProgramPreviewFixture {
         model.refresh()
         return model
     }
+
+    /// "Sua semana" de Hipertrofia + Cardio que não cabe, com duas saídas (SPEC §7.15 M5).
+    @MainActor
+    static func makeNotFittingFlow() -> PlanFitFlowModel {
+        let planner = ProgramPreviewPlanner(nextDayID: balancedDayBID)
+        planner.fitsWeek = false
+        let repository = ProgramPreviewRepository.make()
+        let all = programs
+        let current = all.first { $0.id == balancedID } ?? ProgramTemplate(name: "Hipertrofia", goal: .hypertrophy)
+        let candidate = all.first { $0.id == enduranceID } ?? ProgramTemplate(name: "Cardio", goal: .endurance)
+        let date = referenceDate
+        let flow = PlanFitFlowModel(
+            purpose: .addPlan(current: current, candidate: candidate),
+            programs: repository,
+            planner: planner,
+            now: { date }
+        )
+        flow.next()
+        flow.next()
+        return flow
+    }
+
+    /// Uma semana de Hipertrofia + Cardio (SPEC §7.15 M4), com os nomes dos dias.
+    static let week = WeekSchedule(
+        slots: [
+            PlannedSlot(weekday: .monday, programID: balancedID, indexInWeek: 0, kind: .strength, orderInDay: 0, dayName: "Dia A — Superior"),
+            PlannedSlot(weekday: .tuesday, programID: enduranceID, indexInWeek: 0, kind: .cardio, orderInDay: 0, dayName: "Dia A — Base contínua", cardioIntensity: .moderate),
+            PlannedSlot(weekday: .wednesday, programID: balancedID, indexInWeek: 1, kind: .strength, orderInDay: 0, dayName: "Dia B — Inferior"),
+            PlannedSlot(weekday: .thursday, programID: balancedID, indexInWeek: 2, kind: .strength, orderInDay: 0, dayName: "Dia C — Superior"),
+            PlannedSlot(weekday: .thursday, programID: enduranceID, indexInWeek: 1, kind: .cardio, orderInDay: 1, dayName: "Dia B — Intervalos 4 × 4", cardioIntensity: .vigorous),
+            PlannedSlot(weekday: .saturday, programID: balancedID, indexInWeek: 3, kind: .strength, orderInDay: 0, dayName: "Dia D — Inferior"),
+            PlannedSlot(weekday: .sunday, programID: enduranceID, indexInWeek: 2, kind: .cardio, orderInDay: 0, dayName: "Dia C — Longo e leve", cardioIntensity: .light),
+        ],
+        notes: [.strengthBeforeCardio(.thursday)]
+    )
 }
 
 // MARK: - Doubles
@@ -350,6 +427,34 @@ private final class ProgramPreviewRepository: ProgramRepositoring {
             throw ProgramRepositoryError.programNotFound(programID)
         }
         programs = programs.map { Self.rebuild($0, isActive: $0.id == programID) }
+    }
+
+    /// SPEC §7.15 M1: até dois ativos, de objetivos diferentes.
+    func addActivePlan(programID: UUID) throws {
+        guard let program = programs.first(where: { $0.id == programID }) else {
+            throw ProgramRepositoryError.programNotFound(programID)
+        }
+        guard !program.isActive else { return }
+        let actives = programs.filter(\.isActive)
+        guard
+            actives.count < ActivePlanOrder.maxActivePlans,
+            !actives.contains(where: { $0.effectiveGoal == program.effectiveGoal })
+        else {
+            throw ProgramRepositoryError.invalidParameters("Só dá para ter dois planos, de objetivos diferentes.")
+        }
+        try updateProgram(programID) { Self.rebuild($0, isActive: true) }
+    }
+
+    /// SPEC §7.15 M8: nunca tira o último.
+    func removeActivePlan(programID: UUID) throws {
+        guard let program = programs.first(where: { $0.id == programID }) else {
+            throw ProgramRepositoryError.programNotFound(programID)
+        }
+        guard program.isActive else { return }
+        guard programs.filter(\.isActive).count > 1 else {
+            throw ProgramRepositoryError.invalidParameters("Sempre fica um plano ativo.")
+        }
+        try updateProgram(programID) { Self.rebuild($0, isActive: false) }
     }
 
     func rename(programID: UUID, to name: String) throws {
@@ -625,6 +730,9 @@ private final class ProgramPreviewRepository: ProgramRepositoring {
 @MainActor
 private final class ProgramPreviewPlanner: SessionPlanning {
     private let nextDayID: UUID
+    /// Falso: a conferência da semana não cabe e mostra as saídas (SPEC §7.15 M5).
+    var fitsWeek = true
+    private var preferences = WeekPreferences.default
 
     init(nextDayID: UUID) {
         self.nextDayID = nextDayID
@@ -647,6 +755,46 @@ private final class ProgramPreviewPlanner: SessionPlanning {
 
     func startSession(from plan: SessionPlan, now: Date) throws -> UUID {
         UUID()
+    }
+
+    /// Só o Equilibrado marca o próximo dia; o Cardio fica sem marca no preview.
+    func nextPlan(forProgramID programID: UUID, now: Date) throws -> SessionPlan? {
+        guard programID == ProgramPreviewFixture.balancedID else { return nil }
+        return try nextPlan(now: now)
+    }
+
+    func weekSchedule(now: Date) throws -> WeekSchedule? {
+        ProgramPreviewFixture.week
+    }
+
+    func weekPreferences() -> WeekPreferences {
+        preferences
+    }
+
+    func saveWeekPreferences(_ preferences: WeekPreferences) throws {
+        self.preferences = preferences
+    }
+
+    func fitCheck(programIDs: [UUID], preferences: WeekPreferences, now: Date) throws -> FitResult {
+        let week = ProgramPreviewFixture.week
+        guard !fitsWeek else {
+            return FitResult(schedule: week)
+        }
+        var everyDay = preferences
+        everyDay.availableDays = Set(PlanWeekday.allCases)
+        let fewerChange = FitChange.fewerSessions(programID: ProgramPreviewFixture.enduranceID, perWeek: 2)
+        return FitResult(
+            schedule: nil,
+            problems: [.notEnoughDays(needed: 7, available: 6)],
+            alternatives: [
+                FitAlternative(changes: [.addDays([.sunday])], preferences: everyDay, schedule: week),
+                FitAlternative(
+                    changes: [fewerChange],
+                    preferences: fewerChange.applied(to: preferences),
+                    schedule: WeekSchedule(slots: week.slots.filter { $0.weekday != .sunday })
+                ),
+            ]
+        )
     }
 }
 

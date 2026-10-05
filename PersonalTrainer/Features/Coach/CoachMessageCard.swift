@@ -48,7 +48,8 @@ struct CoachMessageCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        // DESIGN §14 (Tinta e papel): o cartão do diálogo é papel novo, com o fio fino de `inkCard()`.
+        .inkCard()
         .accessibilityElement(children: .contain)
     }
 }

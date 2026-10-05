@@ -58,3 +58,16 @@ extension ProgramGoal {
         }
     }
 }
+
+/// Vários planos (SPEC §7.15 M1; DESIGN §9.7): os objetivos ativos juntos num nome só.
+extension Array where Element == ProgramGoal {
+    /// "Hipertrofia + Cardio", na ordem recebida (o principal primeiro). Vazio sem objetivo.
+    var joinedDisplayName: String {
+        map(\.displayName).joined(separator: " + ")
+    }
+
+    /// Leitura do VoiceOver, sem o "+": "Hipertrofia e Cardio".
+    var spokenDisplayName: String {
+        PlanWeekText.joinedList(map(\.displayName))
+    }
+}

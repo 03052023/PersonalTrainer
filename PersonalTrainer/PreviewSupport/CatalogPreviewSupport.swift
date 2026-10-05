@@ -12,6 +12,8 @@ import TrainerCore
     NavigationStack {
         CatalogListView(catalog: CatalogPreviewRepository())
     }
+    // "Como fazer" nas linhas que têm guia (SPEC RF-40): as guias reais do bundle.
+    .environment(\.exerciseGuides, ExerciseGuideLibrary.load(bundle: .main))
 }
 
 #Preview("Catálogo — vazio") {
@@ -109,7 +111,7 @@ private struct CatalogPreviewSelectorHost: View {
 
 private enum CatalogPreviewFixture {
     static let barbellBench = ExerciseDefinition(
-        slug: "supino-reto-barra",
+        slug: "barbell-bench-press",
         name: "Supino reto com barra",
         primaryMuscles: [.chest],
         secondaryMuscles: [.triceps, .shoulders],
@@ -140,7 +142,7 @@ private enum CatalogPreviewFixture {
         movementPattern: .horizontalPush
     )
     static let pushUp = ExerciseDefinition(
-        slug: "flexao",
+        slug: "push-up",
         name: "Flexão de braço",
         primaryMuscles: [.chest],
         secondaryMuscles: [.triceps, .core],
@@ -150,7 +152,7 @@ private enum CatalogPreviewFixture {
         movementPattern: .horizontalPush
     )
     static let latPulldown = ExerciseDefinition(
-        slug: "puxada-frontal",
+        slug: "lat-pulldown",
         name: "Puxada frontal",
         primaryMuscles: [.back],
         secondaryMuscles: [.biceps],
@@ -182,7 +184,7 @@ private enum CatalogPreviewFixture {
         movementPattern: .squat
     )
     static let legExtension = ExerciseDefinition(
-        slug: "cadeira-extensora",
+        slug: "leg-extension",
         name: "Cadeira extensora",
         primaryMuscles: [.quads],
         equipment: .machine,
