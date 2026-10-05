@@ -4,7 +4,8 @@ import TrainerCore
 /// As páginas do fluxo da semana com dois planos (SPEC §7.15 M4, M5, M7, M9; DESIGN §13):
 /// (a) "O que muda": a flor com os dois objetivos, os grupos "Ganha", "Fica igual" e "Custa", cada frase
 ///     com "Por quê?", e o aviso de grande sobreposição (M7);
-/// (b) "Seus dias": os dias de segunda a domingo e as duas chaves (M9);
+/// (b) "Seus dias": os dias de segunda a domingo e, só com um plano de Cardio e outro que não é, as duas
+///     chaves (M9, B9);
 /// (c) "Sua semana": se cabe, a semana e o botão principal; se não, o motivo e as saídas, cada uma com a
 ///     semana dela e "Escolher esta" (M5).
 ///
@@ -155,21 +156,25 @@ struct PlanFitFlowView: View {
                     }
                 }
             }
-            VStack(alignment: .leading, spacing: 14) {
-                toggleRow(
-                    title: PlanWeekText.twoSessionsToggle,
-                    hint: PlanWeekText.twoSessionsHint,
-                    isOn: $model.allowsTwoSessionsPerDay
-                )
-                Divider()
-                toggleRow(
-                    title: PlanWeekText.lightCardioToggle,
-                    hint: PlanWeekText.lightCardioHint,
-                    isOn: $model.allowsLightCardioAfterStrength
-                )
+            // B9 (2.4): as duas chaves só com um plano de Cardio e outro que não é; com dois planos de
+            // força elas nada mudariam.
+            if model.showsDayToggles {
+                VStack(alignment: .leading, spacing: 14) {
+                    toggleRow(
+                        title: PlanWeekText.twoSessionsToggle,
+                        hint: PlanWeekText.twoSessionsHint,
+                        isOn: $model.allowsTwoSessionsPerDay
+                    )
+                    Divider()
+                    toggleRow(
+                        title: PlanWeekText.lightCardioToggle,
+                        hint: PlanWeekText.lightCardioHint,
+                        isOn: $model.allowsLightCardioAfterStrength
+                    )
+                }
+                .padding(14)
+                .inkCard()
             }
-            .padding(14)
-            .inkCard()
         }
     }
 

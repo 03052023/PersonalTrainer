@@ -97,6 +97,51 @@ import TrainerCore
     }
 }
 
+#Preview("Hoje — também hoje") {
+    if let container = HomePreviewFixture.makeContainer() {
+        HomePreviewFixture.makeHome(
+            planner: HomePreviewMultiPlanner(day: .twoSessions),
+            coordinator: HomePreviewCoordinator(),
+            references: HomePreviewFixture.references,
+            container: container,
+            activities: HomePreviewFixture.makeActivities()
+        )
+        .modelContainer(container)
+    } else {
+        Text("Não foi possível montar os dados de preview")
+    }
+}
+
+#Preview("Hoje — um plano e também hoje") {
+    if let container = HomePreviewFixture.makeContainer() {
+        HomePreviewFixture.makeHome(
+            planner: HomePreviewPlanner(fixedPlan: HomePreviewFixture.plan),
+            coordinator: HomePreviewCoordinator(),
+            references: HomePreviewFixture.references,
+            container: container,
+            activities: HomePreviewFixture.makeActivities()
+        )
+        .modelContainer(container)
+    } else {
+        Text("Não foi possível montar os dados de preview")
+    }
+}
+
+#Preview("Hoje — descanso e também hoje") {
+    if let container = HomePreviewFixture.makeContainer() {
+        HomePreviewFixture.makeHome(
+            planner: HomePreviewMultiPlanner(day: .restDay),
+            coordinator: HomePreviewCoordinator(),
+            references: HomePreviewFixture.references,
+            container: container,
+            activities: HomePreviewFixture.makeActivities()
+        )
+        .modelContainer(container)
+    } else {
+        Text("Não foi possível montar os dados de preview")
+    }
+}
+
 #Preview("Hoje — não cabem") {
     if let container = HomePreviewFixture.makeContainer() {
         HomePreviewFixture.makeHome(
@@ -267,7 +312,8 @@ private enum HomePreviewFixture {
         planner: any SessionPlanning,
         coordinator: any SessionCoordinating,
         references: ReferenceCatalog,
-        container: ModelContainer
+        container: ModelContainer,
+        activities: ActivitiesModel? = nil
     ) -> HomeView {
         let fixedNow = referenceDate
         // Um log em memória para o diálogo e o Saúde, como no app (A4/B8; AGENTS R9).
@@ -296,8 +342,23 @@ private enum HomePreviewFixture {
             coach: coach,
             health: health,
             references: references,
-            onOpenSession: { _ in }
+            onOpenSession: { _ in },
+            activities: activities
         )
+    }
+
+    /// As atividades fora do app de mentira (AGENTS R9): uma fixa de hoje às 19h, sem o "Feito" ainda
+    /// (SPEC §7.17 X2), no mesmo relógio fixo dos outros previews da Home.
+    @MainActor
+    static func makeActivities() -> ActivitiesModel {
+        let date = referenceDate
+        let today = PlanWeekday.of(date, calendar: .current)
+        let store = FakeOutsideActivityStore(log: OutsideActivityLog(fixed: [
+            FixedOutsideActivity(kind: .pilates, weekday: today, startMinuteOfDay: 19 * 60, minutes: 50, intensity: .light),
+        ]))
+        let model = ActivitiesModel(store: store, now: { date })
+        model.refresh()
+        return model
     }
 
     /// Mesmo Dia A com outro motivo, para ver a faixa do cartão (CA4-5).
