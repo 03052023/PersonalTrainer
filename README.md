@@ -1,6 +1,6 @@
 # PersonalTrainer
 
-App pessoal de musculação para iPhone + Apple Watch que funciona como personal trainer automático: diz o treino do dia (exercícios, séries, repetições, cargas), registra o resultado e recalcula o próximo treino de forma determinística.
+**Magister**: app de treino de força e cardio para iPhone, com lançamento planejado na App Store do Brasil. É uma ferramenta de organização e acompanhamento de treino, baseada em estudos publicados: diz o treino do dia (exercícios, séries, repetições, cargas), registra o resultado e recalcula o próximo treino de forma determinística. Os dados ficam no aparelho. O app do Apple Watch está planejado para o M3.
 
 | Documento | Conteúdo |
 |-----------|----------|
@@ -11,9 +11,9 @@ App pessoal de musculação para iPhone + Apple Watch que funciona como personal
 
 ## Ambiente atual
 
-Windows 11, sem Mac, custo zero. iPhone 17 (iOS 26.6.2) e Apple Watch Series 7 (watchOS 26.5), conta Apple gratuita.
-Builds Apple no GitHub Actions (`macos-26`, Xcode 26.6, projeto gerado por XcodeGen); instalação por sideload no Windows.
-A instalação gratuita dos apps ainda precisa ser comprovada nos aparelhos: roteiro e riscos em [WINDOWS_SETUP.md](WINDOWS_SETUP.md).
+Windows 11, sem Mac. iPhone 17 (iOS 26.6.2) e Apple Watch Series 7 (watchOS 26.5), conta Apple gratuita (hoje, na cópia de teste).
+Builds Apple no GitHub Actions (`macos-26`, Xcode 26.6, projeto gerado por XcodeGen); a cópia de teste é instalada por sideload no Windows: roteiro e riscos em [WINDOWS_SETUP.md](WINDOWS_SETUP.md).
+A partir da 2.5 (SPEC §7.18, decisão 22), a distribuição passa a ser pela App Store, com a conta paga do Apple Developer Program; o sideload fica só para testes.
 
 ## Estado (2026-09-22)
 
@@ -41,6 +41,6 @@ Cópia de trabalho: `C:\Users\leona\Developer\PersonalTrainer`. Não desenvolva 
 
 ## Identificadores
 
-- Bundle IDs: `com.personaltrainer.app` (iPhone) e `com.personaltrainer.app.watchkitapp` (Watch). Fixos: cada mudança consome App IDs da conta gratuita.
-- `DEVELOPMENT_TEAM` vazio: o CI gera IPA sem assinatura; a assinatura acontece na ferramenta de sideload.
+- Bundle IDs atuais: `com.personaltrainer.app` (iPhone) e `com.personaltrainer.app.watchkitapp` (Watch). Os da App Store esperam uma decisão (TASKS T11.10) e, depois do primeiro envio à loja, não mudam.
+- `DEVELOPMENT_TEAM` vazio: o CI gera IPA sem assinatura; a assinatura da cópia de teste acontece na ferramenta de sideload. O envio à loja terá workflow próprio (TASKS T11.7).
 - Deployment: iOS 18.0 / watchOS 11.0.

@@ -1,6 +1,6 @@
 # AGENTS — Regras para agentes de código (Claude Code, Codex e humanos)
 
-Versão 0.1 · 2026-09-22. Vale para qualquer agente que edite este repositório.
+Versão 0.2 · 2026-10-05 (App Store, SPEC decisão 22; a 0.1 é de 2026-09-22). Vale para qualquer agente que edite este repositório.
 
 ## 1. Leia nesta ordem antes de qualquer tarefa
 
@@ -18,6 +18,7 @@ Se algo na tarefa contradiz a SPEC ou a ARCHITECTURE, **pare e reporte**; não "
 - Repositório canônico: `C:\Users\leona\Developer\PersonalTrainer`. Não desenvolva dentro de OneDrive/iCloud Drive: eles corrompem `.git`. Agentes em paralelo trabalham em **worktrees** separados (um `.build` por worktree); nunca rode `swift test` em dois processos sobre o mesmo diretório.
 - Sem dependências externas no app (SwiftPM de terceiros, CocoaPods). XcodeGen é ferramenta de build instalada só no runner. Se achar que precisa de outra, reporte em vez de adicionar.
 - Nunca manipule credenciais Apple ou GitHub: o usuário digita tudo nas ferramentas dele. Ver [WINDOWS_SETUP.md](WINDOWS_SETUP.md).
+- **Quando o "App build" roda** (política da T11.1, em implementação em 2026-10-05): em push para `ci/**`, ele compila e roda os testes, e só gera o IPA quando o run é manual (`workflow_dispatch`), quando o branch termina em `-final` ou quando a mensagem do commit contém `[ipa]`. Commits só de documentação não disparam o App build. Peça o IPA só quando for instalar ou fechar uma versão: o repositório vai ficar privado, e lá os minutos de macOS são limitados (SPEC decisão 22 e §13).
 
 ## 3. Regras invioláveis
 
@@ -27,7 +28,7 @@ Se algo na tarefa contradiz a SPEC ou a ARCHITECTURE, **pare e reporte**; não "
 | R2 | Nenhuma métrica de frequência cardíaca entra em `TrainerCore/Engine` (`ProgressionRule`, `WorkoutSelector`, `DeloadPolicy`). `SetResult` e `ExerciseHistoryEntry` não ganham campo de FC. Os módulos `TrainerCore/Review` (sugestões de programa, SPEC §7.8 R6) e `TrainerCore/Health` (SPEC §7.10) podem consumir tendências **agregadas** de recuperação e FC de aeróbico, nunca amostras brutas de sessões de musculação. | `Scripts/check-boundaries.sh`: grep por `heartRate|bpm` em `TrainerCore/Engine` retorna vazio. |
 | R3 | O motor não chama `Date()`. `now` é parâmetro. | grep por `Date()` em `TrainerCore/Engine` retorna vazio. |
 | R4 | Views não escrevem no `ModelContext`. Escrita de sessão só via `SessionCoordinator.apply(SessionEvent)`; catálogo/programa só via `*Repository`. | grep por `modelContext.insert\|modelContext.delete\|\.save()` em `PersonalTrainer/Features` retorna vazio. |
-| R5 | `project.yml`, `.github/workflows/*`, `*.entitlements` e `Scripts/build-*.sh` só em tarefas **[PROJ]**. `Persistence/Schema/` só em tarefas **[SCHEMA]**. Uma por vez. `*.xcodeproj` e `Info.plist` são gerados e não entram no Git. | Se sua tarefa não tem a tag, não toque nesses arquivos. Se precisar, pare e reporte. |
+| R5 | `project.yml`, `.github/workflows/*` (inclusive `release.yml`), `*.entitlements`, `ExportOptions.plist` e `Scripts/build-*.sh` (inclusive `build-release.sh`) só em tarefas **[PROJ]**. `Persistence/Schema/` só em tarefas **[SCHEMA]**. Uma por vez. `*.xcodeproj` e `Info.plist` são gerados e não entram no Git. | Se sua tarefa não tem a tag, não toque nesses arquivos. Se precisar, pare e reporte. |
 | R6 | Toda mudança de esquema SwiftData = novo `SchemaVN.swift` + estágio no `MigrationPlan` + teste que abre fixture da versão anterior. Nunca editar `SchemaV1` depois de M0 fechar. | Revisão de PR. |
 | R7 | Toda regra de negócio nova ou alterada começa na SPEC (tabela P/S/D numerada) e tem ao menos um teste de tabela com o nome da regra. | O PR toca `SPEC.md` **e** um `*Tests.swift`. |
 | R8 | Identificadores estáveis são `UUID` gerados no cliente. Nunca usar `PersistentIdentifier` fora de `Persistence/`. | grep por `PersistentIdentifier` fora de `Persistence/` retorna vazio. |
@@ -72,14 +73,15 @@ Conflito em TASKS.md é sempre de uma linha de status; resolva mantendo as duas 
 | `Services/*` outros | Uma tarefa por subpasta | Entre subpastas |
 | `Features/<Nome>` | Uma tarefa por feature | Outras features |
 | `PersonalTrainerWatch/**` | Tarefas T3.x | Tudo do iPhone |
-| `project.yml`, `.github/workflows/`, `Scripts/build-*.sh`, `*/Support/*.entitlements` | **[PROJ]** exclusiva | Nada |
+| `project.yml`, `.github/workflows/` (inclusive `release.yml`), `Scripts/build-*.sh` (inclusive `build-release.sh`), `ExportOptions.plist`, `*/Support/*.entitlements` | **[PROJ]** exclusiva | Nada |
 | `Validation/DeviceProbe/**` | T0.0 apenas (probe isolado; não é o app) | Tudo |
 | `Scripts/swift-test.ps1`, `Scripts/check-boundaries.sh` | Infra; mudar só com motivo e em tarefa própria | — |
 | `SPEC.md`, `ARCHITECTURE.md` | Qualquer tarefa que mude regra/desenho, na mesma PR | — (conflitos são raros e textuais) |
 
 ## 7. O que NÃO fazer
 
-- Não adicionar CloudKit, iCloud sync, contas, backend, analytics, pacotes de terceiros, nem qualquer chamada a LLM/IA (SPEC decisão 13).
+- Não adicionar CloudKit, iCloud sync, contas, backend, analytics, pacotes de terceiros, nem qualquer chamada a LLM/IA (SPEC decisão 13, em revisão pelo dono; até ele decidir, continua valendo).
+- Não adicionar código de rede (`URLSession`, sockets, serviço web), SDK de terceiros, analytics, anúncio ou rastreamento: isso quebra o rótulo "Dados não coletados" da loja (SPEC §7.18 L1). As únicas saídas permitidas são as que a pessoa inicia: abrir um link (`Link`) e exportar ou compartilhar pela folha do sistema.
 - Não colocar SwiftData no target do Watch.
 - Não usar FC para carga, volume, deload ou seleção de treino, nem "só como desempate".
 - Não criar `ExerciseState` ou cache de progressão persistido; a prescrição é derivada do histórico (ADR 003).
@@ -88,8 +90,10 @@ Conflito em TASKS.md é sempre de uma linha de status; resolva mantendo as duas 
 - Não editar arquivos de outra tarefa em andamento. Não refatorar o que não está no seu escopo.
 - Não usar `Task.sleep` como sincronização em testes; use expectativas/`AsyncStream`.
 - Não pedir permissão de HealthKit ou notificações no launch; só na primeira ação que precisa.
-- Não usar capabilities indisponíveis na conta Apple gratuita: Push Notifications, iCloud/CloudKit, Siri, Sign in with Apple, Associated Domains, NFC. Um entitlement desses faz a assinatura local falhar.
-- Não alterar bundle IDs (`com.personaltrainer.app`, `com.personaltrainer.app.watchkitapp`) nem adicionar extensões/widgets: cada App ID consome a cota semanal da conta gratuita.
+- Não usar as capabilities Push Notifications, iCloud/CloudKit, Siri, Sign in with Apple, Associated Domains e NFC. Desde a 2.5, a proibição é de produto (dados só no aparelho, sem conta e sem servidor; SPEC §7.18 L1), e não só da conta gratuita. Continua valendo também que um entitlement desses faz falhar a assinatura com a conta gratuita (a cópia de teste do dono, pelo Impactor).
+- Bundle IDs: os da App Store são definidos numa tarefa **[PROJ]** própria, por decisão do dono (TASKS T11.10 e T11.3). Depois do primeiro envio à App Store, eles nunca mudam: a loja não deixa trocar o bundle ID de um app já enviado. Até essa tarefa, não altere os atuais (`com.personaltrainer.app`, `com.personaltrainer.app.watchkitapp`). Não adicione extensões nem widgets sem decisão do dono: enquanto a cópia de teste usar a conta gratuita, cada App ID novo consome a cota semanal dela.
+- `release.yml`, `ExportOptions.plist` e `Scripts/build-release.sh` são **[PROJ]** (R5): só numa tarefa com essa tag, uma por vez.
+- Segredos da Apple (a chave da API do App Store Connect, o certificado e o perfil de distribuição) só o dono cadastra, nos Secrets do GitHub. Agentes nunca leem, imprimem nem pedem esses valores, e nunca os gravam em log, arquivo, commit ou mensagem. Os workflows os usam só por `${{ secrets.NOME }}`.
 - Não rodar `swift test` diretamente nem em dois worktrees ao mesmo tempo no mesmo diretório (ver §2).
 
 ## 8. Modelo de prompt para delegar uma tarefa

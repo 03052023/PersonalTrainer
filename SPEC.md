@@ -1,6 +1,6 @@
 # SPEC — Personal Trainer Automático (iPhone + Apple Watch)
 
-Versão 0.1 · 2026-09-22 · Uso pessoal (um único usuário). Revisão 2.2 · 2026-09-27: simplificação pedida pelo dono (decisão 18; contrato `docs/V22-CONTRACT.md`). Revisão 2.3 · 2026-09-27: formato Equilibrado, objetivo cardiovascular (cardio em minutos), carga opcional e "Como fazer" (decisão 19; contrato do núcleo `docs/V23-CORE-CONTRACT.md`). Revisão 2.3, telas · 2026-09-28: Cardio, tela inicial, Metas da semana, abertura, sessão guiada, vários planos, direção Tinta e papel e nenhuma mensagem de efeito (decisão 20; contrato `docs/V23-UI-CONTRACT.md`). Revisão 2.4 · 2026-10-05: atividades fora do app (§7.17, RF-53) e as pendências das versões 2.1 a 2.3 (decisão 21; contrato `docs/V24-CONTRACT.md`).
+Versão 0.1 · 2026-09-22 · Uso pessoal até a 2.4; distribuição na App Store a partir da 2.5. Revisão 2.2 · 2026-09-27: simplificação pedida pelo dono (decisão 18; contrato `docs/V22-CONTRACT.md`). Revisão 2.3 · 2026-09-27: formato Equilibrado, objetivo cardiovascular (cardio em minutos), carga opcional e "Como fazer" (decisão 19; contrato do núcleo `docs/V23-CORE-CONTRACT.md`). Revisão 2.3, telas · 2026-09-28: Cardio, tela inicial, Metas da semana, abertura, sessão guiada, vários planos, direção Tinta e papel e nenhuma mensagem de efeito (decisão 20; contrato `docs/V23-UI-CONTRACT.md`). Revisão 2.4 · 2026-10-05: atividades fora do app (§7.17, RF-53) e as pendências das versões 2.1 a 2.3 (decisão 21; contrato `docs/V24-CONTRACT.md`). Revisão 2.5 · 2026-10-05: distribuição na App Store (§7.18, decisão 22).
 
 Este é o documento de **produto e regras de domínio**. A arquitetura técnica está em [ARCHITECTURE.md](ARCHITECTURE.md), o plano de execução em [TASKS.md](TASKS.md) e as regras para agentes de código em [AGENTS.md](AGENTS.md).
 
@@ -22,12 +22,12 @@ Depois que cada série é registrada (carga e repetições; um toque grava a met
 | # | Princípio | Consequência prática |
 |---|-----------|----------------------|
 | P-1 | Zero decisões na academia | A sessão de hoje já vem com tudo preenchido. Desde a 2.3, o app abre no Início (RF-49), calmo, e a sessão de hoje fica a um toque; na sessão, um botão grande guia série por série (RF-44 i), e a ficha continua para consultar (RF-44). |
-| P-2 | Tudo determinístico, sem IA | Mesma entrada → mesma prescrição e mesma sugestão. Toda regra é explícita, numerada na SPEC, testada por tabela e auditável na tela ("por que isso apareceu"). Decisão de 2026-09-23: não há LLM em nenhuma fase. |
+| P-2 | Tudo determinístico, sem IA | Mesma entrada → mesma prescrição e mesma sugestão. Toda regra é explícita, numerada na SPEC, testada por tabela e auditável na tela ("por que isso apareceu"). Decisão de 2026-09-23: não há LLM em nenhuma fase. Desde 2026-10-05, essa decisão (13) está em revisão pelo dono para o plano pago; até ele decidir, vale esta regra (decisão 22). |
 | P-3 | Offline-first | Todas as funções principais funcionam sem rede. Nenhum backend, nenhuma API paga. |
 | P-4 | iPhone é a fonte da verdade | O Apple Watch é um cliente fino que espelha a sessão ativa e envia eventos. Não há dois bancos de dados a reconciliar. |
 | P-5 | Dados são sagrados | Cada série é persistida no momento em que é concluída. Exportação completa em JSON a partir do M2. |
 | P-6 | Frequência cardíaca é informação, não controle | FC é registrada e exibida, nunca usada para prescrever carga/volume (ver §7.6). |
-| P-7 | Simplicidade adequada a app pessoal | Sem contas, sem sync em nuvem, sem localização, sem App Store. Instalação pessoal a validar via compilação hospedada e assinatura local no Windows (T0.0), sem assinatura paga. |
+| P-7 | Simplicidade | Sem contas, sem sync em nuvem, sem servidor, sem localização (interface só em pt-BR). Desde a 2.5, a distribuição é pela App Store do Brasil, com a conta paga do Apple Developer Program (§7.18, decisão 22). O sideload pelo Impactor (T0.0) continua só como ferramenta de teste do dono. |
 
 ## 3. Escopo
 
@@ -65,7 +65,7 @@ Depois que cada série é registrada (carga e repetições; um toque grava a met
 
 ### 3.4 Fora do escopo (explicitamente)
 
-Backend, contas, sync em nuvem/CloudKit, funções sociais, nutrição, prescrição detalhada de cardio: zonas de FC, ritmo, distância, planos de prova. Desde a 2.3, o objetivo Cardio prescreve só sessões simples em minutos, com a intensidade pelo teste da fala (§7.14, decisão 14 revista); o resto do aeróbico continua no app Exercício do Watch, lido pelo HealthKit. Também ficam fora: vídeos de exercícios, planos pagos, Android, layout de iPad, publicação na App Store, localização para outros idiomas (UI em pt-BR fixo), **qualquer uso de IA/LLM**.
+Backend, contas, sync em nuvem/CloudKit, funções sociais, nutrição, prescrição detalhada de cardio: zonas de FC, ritmo, distância, planos de prova. Desde a 2.3, o objetivo Cardio prescreve só sessões simples em minutos, com a intensidade pelo teste da fala (§7.14, decisão 14 revista); o resto do aeróbico continua no app Exercício do Watch, lido pelo HealthKit. Também ficam fora: vídeos de exercícios, plano pago (modelo e conteúdo em decisão; não antes do lançamento), Android, layout de iPad, localização para outros idiomas (UI em pt-BR fixo) e **qualquer uso de IA/LLM** (em revisão pelo dono para o plano pago; decisão pendente, decisão 22). A publicação na App Store saiu desta lista na 2.5 (§7.18).
 
 ## 4. Contexto de uso
 
@@ -328,13 +328,13 @@ O app conversa com o usuário por **mensagens** curtas, geradas por regras deter
 | **C1 Deload** | Gatilhos de §7.5 (≥ 50 % dos exercícios com `decrease`, ou N semanas desde o último deload, padrão 6) → "Semana mais leve programada" com o motivo. O deload é **aplicado automaticamente** na próxima passagem da rotação, com opção de desfazer. Rearme conforme §7.5. Desde a 2.4, o motivo traz os números do gatilho: "Em 4 de 7 exercícios a carga precisou baixar; …" ou "Já são 6 semanas desde a última semana leve; …" ("desde a primeira sessão" quando nunca houve uma); no pedido manual, sem números. | "Ok" / "Seguir normal" | Quando dispara |
 | **C2 Revisão periódica** | Sugestões de §7.8 (R1–R6): mais/menos séries por grupo, trocar exercício ou faixa de reps após estagnação, reduzir dias se a aderência cair, trocar de programa após o mesociclo (padrão 8 semanas, preservando cargas). | "Aplicar" / "Agora não" / "Não sugerir mais isto" | A cada 4 semanas ou gatilho |
 | **C3 Saúde** | Sugestões de §7.10 (usar o Watch à noite, caminhada/corrida de 20 min ao ar livre para o VO2máx, completar minutos de aeróbico evitando a véspera de pernas, sono baixo, recuperação em queda, passos). | "Entendi" / "Lembrar amanhã" | Diária, no máximo 1 por tipo a cada 3 dias |
-| **C4 Validade da instalação** | Lê a data de expiração do perfil de assinatura embutido no app; 2 dias antes: "O app expira em 2 dias; renove pelo Impactor" + notificação local na véspera. | "Como renovar" | Diária nos últimos 2 dias |
+| **C4 Validade da instalação** (removida na 2.5) | Nota histórica: até a 2.4, lia a data de expiração do perfil de assinatura embutido no app e, 2 dias antes, avisava "O app expira em 2 dias; renove pelo Impactor", com notificação local na véspera. Desde a 2.5, o app é distribuído pela App Store, que não tem esse vencimento de 7 dias, e não fala de sideload: a regra sai, com o aviso, a notificação, a seção "Avisos" dos Ajustes e "Como renovar" (§7.18 L4). | — | — |
 | **C5 Retomada** | ≥ 6 dias sem sessão → "Bom te ver de volta" com o próximo dia e, se ≥ 21 dias, aviso de que as cargas vêm reduzidas (P9). | "Começar" | Ao abrir |
 | **C6 Marco pessoal** | Novo melhor 1RM estimado de um exercício (Epley), em tom de progresso, sem linguagem de academia. | "Ver evolução" | Por sessão |
 | **C7 Backup** | Último backup há ≥ 14 dias (ou nunca, com ≥ 5 sessões) → lembrete. | "Fazer backup" / "Depois" | Semanal |
 | **C8 Longevidade** | Com objetivo Longevidade: lembrete leve de equilíbrio e mobilidade (5–10 min) se não marcados na semana; registra "feito". Desde a 2.4, "Feito" também grava um registro de 10 min de equilíbrio ou de mobilidade nas atividades fora do app (§7.17 X6), e um registro de equilíbrio ou de mobilidade na semana (inclusive em "Fora do app") já conta como marcado: o lembrete daquele bloco não aparece. | "Feito" / "Pular" | Semanal |
 
-Mensagens dispensadas respeitam a cadência (não voltam antes); "Não sugerir mais isto" silencia a regra para aquele item. Decisões ficam registradas localmente (log JSON) para auditoria e para não repetir.
+Mensagens dispensadas respeitam a cadência (não voltam antes); "Não sugerir mais isto" silencia a regra para aquele item. Decisões ficam registradas localmente (log JSON) para auditoria e para não repetir. Desde a 2.5, as regras ativas são C1–C3 e C5–C8 (C4 removida, §7.18 L4).
 
 ### 7.12 Como fazer: guias de execução (v2.1)
 
@@ -470,9 +470,24 @@ Pedido do dono de 2026-09-29 (owner notes, item 19): um espaço para registrar e
 
 Base: a OMS conta toda atividade moderada ou vigorosa para os 150 min, venha de onde vier (Bull 2020); o gasto de cada atividade segue o Compêndio de Atividades Físicas (Ainsworth 2011), em que pilates e ioga ficam no leve, e spinning, futebol e circuito, no vigoroso; a interferência entre força e aeróbico é pequena com as sessões separadas (Schumann 2022). Entram no `references.v1.json` o `ainsworth-2011-compendium` e o tópico `topic.activities`.
 
+### 7.18 Distribuição na App Store (v2.5)
+
+Decisão do dono de 2026-10-05 (decisão 22): o app do iPhone vai para a App Store do Brasil. Estas regras dizem o que muda no app e na ficha da loja. As tarefas estão no [TASKS.md](TASKS.md), milestone M6.
+
+| Regra | Descrição |
+|-------|-----------|
+| **L1 Dados não coletados** | Nada sai do aparelho:<br>- o app não faz conexão de rede: não tem servidor, conta nem serviço próprio;<br>- as únicas saídas são as que a pessoa inicia: abrir um link fora do app, no Safari ou na App Store (as referências do "Por quê?" e as páginas de L2 e L3), e exportar ou compartilhar o backup e os arquivos de dados pela folha do sistema;<br>- o HealthKit é lido e gravado só no aparelho, pelas APIs da Apple;<br>- nenhum SDK de terceiros, analytics, anúncio ou rastreamento.<br>Por isso, o rótulo de privacidade da loja é **"Dados não coletados"**. Para a Apple, coletar é transmitir dados para fora do aparelho de um jeito que o desenvolvedor ou outra empresa possa acessá-los; aqui, nada é transmitido, e o dono do app não recebe dado nenhum. O manifesto de privacidade do app (`PrivacyInfo.xcprivacy`) diz o mesmo: sem rastreamento, sem domínios, nenhum dado coletado, mais as APIs de motivo obrigatório que o app usa, com o motivo.<br>Qualquer recurso que envie dados para fora (servidor, sync, IA por API, analytics, relatório de falhas de terceiros) quebra esta regra. Antes de entrar, exige decisão do dono, SPEC nova e rótulo novo na loja. |
+| **L2 Privacidade no app** | Na seção Sobre dos Ajustes (hoje dentro de "Mais opções", ao lado da versão), uma página "Privacidade" com texto factual:<br>- o que fica no aparelho (treinos, planos, atividades e ajustes), sem servidor e sem conta;<br>- o que o app lê do Saúde e o que grava nele (os mesmos itens dos textos de permissão do iOS), e como tirar a permissão nos Ajustes do iPhone;<br>- o backup, que é um arquivo que a pessoa exporta e guarda onde quiser;<br>- o link da política de privacidade e o da página de suporte. As URLs entram quando o dono tiver o site; a loja exige os dois endereços.<br>Os textos dizem fatos e não fazem promessas absolutas ("100% seguro"). Não é mensagem de efeito (decisão 20): é informação. |
+| **L3 Pedido de avaliação, o mínimo invasivo** | Decisão do dono: "do jeito menos invasivo possível e só depois do cara usar o app por uma semana".<br>- Só a caixa do sistema (`RequestReviewAction`).<br>- Aparece ao fechar o resumo de uma sessão concluída (não abandonada), quando já passaram pelo menos 7 dias desde a primeira sessão concluída e há pelo menos 3 sessões concluídas.<br>- No máximo uma vez por versão do app (`CFBundleShortVersionString`, L7).<br>- Nunca na primeira abertura, no meio do treino, depois de um erro ou depois de uma sessão abandonada.<br>- Sem texto próprio do app pedindo avaliação, sem incentivo e sem filtrar quem está satisfeito (diretrizes 5.6.1 e 5.6.3 da App Store).<br>- Um item passivo "Avaliar o Magister", na seção Sobre dos Ajustes, abre a página de avaliação da loja. O ID do app (o número que o App Store Connect dá ao app) entra quando existir; sem ele, o item não aparece.<br>- A decisão de pedir é uma função pura e testável: datas, contagens e versões são parâmetros, sem `Date()` (R3).<br>O iOS decide se a caixa aparece de fato e não conta ao app; por isso a regra registra o pedido, não a exibição. |
+| **L4 Sem sideload no app** | A App Store não tem o vencimento de 7 dias da conta gratuita. Saem do app:<br>- a regra C4 (aviso de vencimento da instalação) e a notificação da véspera;<br>- a seção "Avisos" dos Ajustes, com "Avisar na véspera de o app expirar" e "Como renovar";<br>- todo texto que cita o "Impactor".<br>Na §7.11, a C4 fica como nota histórica. A cópia de teste do dono continua sendo instalada pelo Impactor; ela só deixa de avisar o vencimento. |
+| **L5 Aviso de saúde mínimo** | Só o indispensável (decisão do dono): uma linha fixa na seção Sobre dos Ajustes, "O Magister não substitui a orientação de um médico ou de um profissional de educação física.", e a mesma frase nos termos de uso. Sem tela de triagem nem questionário na primeira abertura. |
+| **L6 Watch fora da loja** | O app do Watch (ainda um placeholder) não vai no envio à loja até o M3. A FC do relógio continua chegando pelo app Exercício e pelo Saúde, como hoje (§7.6). |
+| **L7 Versão** | A versão pública começa em 1.0.0 (`CFBundleShortVersionString`) no lançamento. O número do build (`CFBundleVersion`) é gerado automaticamente no envio e sempre cresce, como a loja exige. As revisões desta SPEC (2.1 a 2.5) são nomes internos e não aparecem para o público. |
+| **L8 Linguagem** | O app e a ficha da loja não usam "personal", "treinador" nem "coach" para o app, porque esses nomes podem ser lidos como serviço de profissional de educação física, profissão regulamentada (Lei 9.696/1998) e fiscalizada pelo CONFEF e pelos CREFs. O app é descrito como uma ferramenta de organização e acompanhamento de treino, baseada em estudos publicados. Os termos internos do código (`PersonalTrainer`, `Coach`) não mudam. |
+
 ### 7.7 Determinismo
 
-Motor de prescrição (§7.2, §7.3), políticas de programa (§7.5, §7.8), saúde (§7.10), encaixe de planos (§7.15), metas da semana (§7.16) e atividades fora do app (§7.17) são código puro em Swift, testados por casos de tabela, sem aleatoriedade e sem IA. O usuário sempre vê a regra e os números por trás de qualquer número ou sugestão.
+Motor de prescrição (§7.2, §7.3), políticas de programa (§7.5, §7.8), saúde (§7.10), encaixe de planos (§7.15), metas da semana (§7.16), atividades fora do app (§7.17) e a decisão do pedido de avaliação (§7.18 L3) são código puro em Swift, testados por casos de tabela, sem aleatoriedade e sem IA. O usuário sempre vê a regra e os números por trás de qualquer número ou sugestão.
 
 ## 8. Requisitos não funcionais
 
@@ -482,7 +497,7 @@ Motor de prescrição (§7.2, §7.3), políticas de programa (§7.5, §7.8), sa�
 | RNF-02 | Resposta a toque na sessão ativa < 100 ms; cada toque que grava (bolinha, "Feito", "Marcar como feitos") persiste antes de retornar. |
 | RNF-03 | Matar o app ou o relógio ficar sem bateria não perde nenhuma série já concluída. |
 | RNF-04 | Backup completo em JSON legível, importável em instalação limpa. |
-| RNF-05 | Dados só no aparelho e no HealthKit. Nenhuma telemetria. |
+| RNF-05 | Dados só no aparelho e no HealthKit. Nenhuma telemetria. Desde a 2.5, é a regra L1 (§7.18): "Dados não coletados". |
 | RNF-06 | Dynamic Type e botões ≥ 44 pt na sessão ativa (mãos suadas, luvas). |
 | RNF-07 | Watch: sessão de 90 min com FC ao vivo sem esgotar bateria (uso padrão de `HKWorkoutSession`). |
 | RNF-08 | Motor de treino com cobertura de testes de tabela para todas as regras P1–P12 e S1–S7. |
@@ -495,7 +510,7 @@ Sem HealthKit, sem Watch, sem edição de programa, sem exportação. Isso já e
 
 ## 10. Fases
 
-Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → **versão 2 = M2 (objetivos, edição, backup, HealthKit) + M4 (deload, frequência, revisão periódica, diálogo) + M5 (saúde aeróbica e recuperação) + identidade visual** → M3 app do Apple Watch (adiado por decisão do usuário em 2026-09-23).
+Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → **versão 2 = M2 (objetivos, edição, backup, HealthKit) + M4 (deload, frequência, revisão periódica, diálogo) + M5 (saúde aeróbica e recuperação) + identidade visual** → M3 app do Apple Watch (adiado por decisão do usuário em 2026-09-23). Depois da 2.4: **M6 = distribuição na App Store** (versão 2.5, §7.18, decisão 22).
 
 ## 11. Decisões já tomadas
 
@@ -514,7 +529,7 @@ Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → **versão 2 = M2 (o
 10. Só RIR entra na avaliação; séries com RIR ausente não recebem o bônus de P4.
 11. O app do Watch é **opcional** por desenho: tudo em M1–M2 funciona só com o iPhone, e a FC vem do app Exercício nativo do relógio via HealthKit até o companion existir (ver §7.6 e §13).
 12. Sem Mac: o projeto Xcode é gerado por XcodeGen no GitHub Actions; o motor é testado localmente no Windows (ARCHITECTURE ADR 008/009).
-13. **Sem IA no app gratuito** (2026-09-23). Revisão periódica e saúde são regras determinísticas (§7.8, §7.10). Ideia futura do usuário, fora do escopo atual: uma camada paga opcional com IA para personalização extra. Se for adiante, exige ADR própria e continua sem tocar no motor determinístico (a IA só proporia ajustes que o usuário aceita).
+13. **Sem IA no app gratuito** (2026-09-23). Revisão periódica e saúde são regras determinísticas (§7.8, §7.10). Ideia futura do usuário, fora do escopo atual: uma camada paga opcional com IA para personalização extra. Se for adiante, exige ADR própria e continua sem tocar no motor determinístico (a IA só proporia ajustes que o usuário aceita). Desde 2026-10-05, esta decisão está em revisão pelo dono, junto com o modelo do plano pago (decisão 22, pendências); até ele decidir, continua valendo.
 15. **Identidade visual desvinculada da cultura de academia** (pedido do usuário, 2026-09-23): nada de halteres, preto/neon, músculos ou linguagem agressiva. Paleta terrosa (bege, areia, marrom), ícone com símbolo de pétalas ligado aos objetivos, e os **objetivos como elemento central** da interface. Guia em `DESIGN.md`; aplicado numa passada de design logo após a integração do M2.
 14. Aeróbico (revista na 2.3, decisão 19):
     - Até a 2.2, o aeróbico era registrado pelo app Exercício do Watch e só lido pelo app, que não prescrevia cardio (só meta semanal e sugestões de encaixe).
@@ -562,12 +577,29 @@ Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → **versão 2 = M2 (o
     - **Decisões conservadoras:** a sessão vazia de "Sair sem registrar" some do Histórico, mas não é apagada (RF-09); o nome "Intervalos 4 × 4" fica, e a folha explica a progressão (RF-47); o 4 × 4 começa em 4 blocos, como no seed já instalado, e vai até 5 (F6); o dia D de tiros curtos fica fora, porque mede em segundos e seria um dia opcional, que o app não tem; os intervalos do Combate não ganham exercício novo, porque a aula de luta registrada cobre (X6); a marca de exercício do seed editado (C11) espera um SchemaV3, que esta versão não tem.
     - **Sem mudança de esquema nem de programa:** nada em `Persistence/Schema/`; nenhum programa do seed muda (o `references.v1.json` ganha a referência e o tópico das atividades).
 
+22. **Distribuição na App Store, versão 2.5** (decisões do dono em 2026-10-05: "1. aprovo" lançar na App Store; "3. só o que for indispensável; avaliação depois de 1 semana"; sobre o rótulo de privacidade, "Dados não coletados: inclua"; regras em §7.18, tarefas no milestone M6 do TASKS):
+    - **Loja:** o app do iPhone vai para a App Store do Brasil, com a conta paga do Apple Developer Program (P-7). O sideload pelo Impactor fica só como ferramenta de teste do dono.
+    - **Privacidade:** nada sai do aparelho, e o rótulo da loja é "Dados não coletados" (L1). Sem anúncios, sem analytics e sem SDK de terceiros. Uma página "Privacidade" factual nos Ajustes, com os links da política e do suporte quando o site existir (L2).
+    - **Avisos, só o indispensável:** uma linha de aviso de saúde, sem triagem na primeira abertura (L5).
+    - **Avaliação** "do jeito menos invasivo possível e só depois do cara usar o app por uma semana": a caixa do sistema, ao fechar o resumo de uma sessão concluída, depois de 7 dias e de 3 sessões concluídas, no máximo uma vez por versão (L3).
+    - **Sem sideload no app:** saem a C4, a seção "Avisos", "Como renovar" e todo texto com "Impactor" (L4, §7.11).
+    - **Watch fora da loja até o M3** (L6); **versão pública 1.0.0**, com o número do build automático no envio (L7).
+    - **Linguagem:** sem "personal", "treinador" e "coach" para o app (L8).
+    - **Plano pago:** não entra no lançamento (§3.4).
+    - **CI:** os builds de CI ficam menores (T11.1: o IPA só sai em run manual, em branch terminado em `-final` ou com `[ipa]` na mensagem do commit). Depois disso, o repositório deixa de ser público; no privado, os minutos de macOS do GitHub Actions são limitados (§13).
+    - **Pendentes do dono** (nenhum agente decide):
+      - o nome na loja;
+      - o bundle ID da loja. O Impactor já instala a cópia de teste como `com.personaltrainer.app.<TEAMID>`, então a versão da loja é outro app no iPhone em qualquer caso, e os dados passam pelo backup (exportar na cópia de teste, importar na da loja). A frase "Os bundle IDs não mudam", da decisão 16, foi escrita para a instalação pela conta gratuita; para a loja, vale o que o dono decidir;
+      - a classificação de idade;
+      - o modelo do plano pago e o uso de IA: a decisão 13 está em revisão; até o dono decidir, continua valendo (P-2, §3.4).
+
 ## 12. Questões abertas (não bloqueiam M0–M1)
 
 - Exercícios unilaterais: registrar um lado ou os dois? (Proposta M2: uma série = os dois lados; reps do lado mais fraco.)
 - Regra de "grande salto" (P4, +2·inc) pode ser agressiva em máquinas de 5 kg; revisar após 4 semanas de uso real. (Desde a 2.2 as séries novas não têm RIR, então o salto não acontece com dados novos; decisão 18.)
 - Peso do corpo no topo da faixa (RF-46): hoje recebe carga extra (P4/H4). Se incomodar, sobretudo em explosivos e no Combate em casa, a alternativa "nunca pôr carga e sugerir uma variação mais difícil" é regra nova do motor, em tarefa própria com SPEC e teste de tabela. Desde a 2.3 (D3), qualquer outro exercício sem carga fica em 0 no topo da faixa. Se o dono quiser o mesmo no peso do corpo, basta tirar a exceção do P4.
 - Precisão de 1 s nas datas dos eventos de sync (ISO 8601 sem fração); só importa para "último que escreve vence" em `setUpdated` (M3).
+- App Store (2.5): o nome na loja, o bundle ID da loja, a classificação de idade e o modelo do plano pago com o uso de IA esperam o dono (decisão 22).
 
 ## 13. Restrição de execução confirmada — 2026-09-22
 
@@ -582,3 +614,5 @@ Fatos verificados em 2026-09-22 (fontes em [WINDOWS_SETUP.md](WINDOWS_SETUP.md))
 - HealthKit **está** disponível para a conta Apple gratuita em iOS e watchOS. O risco não é a Apple, é a ferramenta de sideload: AltStore, SideStore e iLoader (upstream) não pedem a capability HealthKit e removem o entitlement na assinatura. Só um fork comunitário recente (Rzbck/iLoader) e, para iPhone apenas, o Impactor têm código que preserva o entitlement. Nada disso foi validado nos aparelhos do usuário.
 - Instalar o companion no Watch a partir do Windows depende exclusivamente desse fork, sem aceite upstream e sem renovação automática; o Developer Mode do relógio pode exigir pareamento com Xcode. Consequência de produto: **o app do Watch é opcional** (decisão 11) e M3 só começa depois de V3–V5 aprovados.
 - Builds Apple no GitHub Actions são gratuitos e ilimitados em repositório público; em privado, a franquia estimada é de ~200 min macOS/mês.
+
+Revisão de 2026-10-05 (decisão 22): a distribuição passa a ser pela App Store, com a conta paga do Apple Developer Program; o custo zero deixa de valer para a distribuição. Continuam: só Windows, sem Mac, build no GitHub Actions e HealthKit. O sideload gratuito descrito acima fica só para os testes do dono.
