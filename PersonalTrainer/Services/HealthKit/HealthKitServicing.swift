@@ -29,6 +29,12 @@ protocol HealthKitServicing: Sendable {
     // M2 — requisitos para despacho dinâmico; padrões na extensão abaixo.
     func findOverlappingStrengthWorkout(start: Date, end: Date) async throws -> UUID?
     func removeOwnStrengthWorkout(sessionUUID: UUID) async throws
+
+    // 2.4 (F5, F7) — também com padrão na extensão. Quem implementa usa EXATAMENTE estas assinaturas:
+    // com outro rótulo ou tipo, o Swift usa o padrão em silêncio.
+    func saveWorkout(_ kind: WorkoutRecordKind, start: Date, end: Date, sessionUUID: UUID) async throws -> UUID
+    func findOverlappingWorkout(_ kind: WorkoutRecordKind, start: Date, end: Date) async throws -> UUID?
+    func heartRateMinutes(start: Date, end: Date) async throws -> [Double]
 }
 
 // MARK: - M2 (contrato; T2.1)
@@ -39,13 +45,39 @@ extension HealthKitServicing {
     /// `nil` se não houver. Implementação padrão devolve `nil` (fakes antigos).
     func findOverlappingStrengthWorkout(start: Date, end: Date) async throws -> UUID? { nil }
 
-    /// Apaga o treino que ESTE app gravou para a sessão (achado pela `HKMetadataKeyExternalUUID`).
-    /// Termina sem erro quando não há treino deste app para a sessão: na volta, nenhum treino deste
-    /// app sobrou para ela. Usado só na reconciliação, quando o treino do app Exercício chegou depois
-    /// e o do iPhone virou duplicata (RF-13: um treino por sessão). O HealthKit nunca deixa apagar
-    /// dados de outros apps. Implementação padrão lança `.unavailable`: sem apagar, o gravador mantém
-    /// o vínculo que já tinha.
+    /// Apaga o treino que ESTE app gravou para a sessão (achado pela `HKMetadataKeyExternalUUID`,
+    /// seja de força ou aeróbico: a consulta não olha o tipo). Termina sem erro quando não há treino
+    /// deste app para a sessão: na volta, nenhum treino deste app sobrou para ela. Usado só na
+    /// reconciliação, quando o treino do app Exercício chegou depois e o do iPhone virou duplicata
+    /// (RF-13: um treino por sessão). O HealthKit nunca deixa apagar dados de outros apps.
+    /// Implementação padrão lança `.unavailable`: sem apagar, o gravador mantém o vínculo que já tinha.
     func removeOwnStrengthWorkout(sessionUUID: UUID) async throws {
         throw HealthKitServiceError.unavailable
     }
+}
+
+// MARK: - 2.4 (contrato; T10.4)
+
+extension HealthKitServicing {
+    /// Grava o treino do tipo `kind` e devolve o `HKWorkout.uuid` (SPEC RF-13, F5). Padrão: grava um
+    /// treino de força, como antes da 2.4 (fakes antigos).
+    func saveWorkout(_ kind: WorkoutRecordKind, start: Date, end: Date, sessionUUID: UUID) async throws -> UUID {
+        try await saveStrengthWorkout(start: start, end: end, sessionUUID: sessionUUID)
+    }
+
+    /// UUID de um treino de OUTRO app do mesmo tipo que cobre ≥ 50 % de `[start, end]` (RF-13): força
+    /// vincula com força; aeróbico vincula com qualquer treino aeróbico. Padrão: força usa
+    /// `findOverlappingStrengthWorkout` e aeróbico devolve `nil` (fakes antigos).
+    func findOverlappingWorkout(_ kind: WorkoutRecordKind, start: Date, end: Date) async throws -> UUID? {
+        switch kind {
+        case .strength:
+            return try await findOverlappingStrengthWorkout(start: start, end: end)
+        case .aerobic, .jumpRope:
+            return nil
+        }
+    }
+
+    /// FC média de cada minuto de `[start, end]`, em bpm, na ordem do tempo; minuto sem leitura fica
+    /// de fora (F7). Só leitura, só para exibição (SPEC P12). Padrão: lista vazia (sem FC).
+    func heartRateMinutes(start: Date, end: Date) async throws -> [Double] { [] }
 }

@@ -100,8 +100,8 @@ final class LiveHealthDataReader: HealthDataReading, @unchecked Sendable {
 
     // MARK: Tipos lidos
 
-    /// Tudo que `healthInput` consulta. Nada de escrita (`toShare` vazio): gravar treinos de
-    /// musculação é do `HealthKitServicing`, que pede a própria autorização.
+    /// Tudo que `healthInput` consulta. Nada de escrita (`toShare` vazio): gravar treinos (força
+    /// e aeróbico) é do `HealthKitServicing`, que pede a própria autorização.
     static func readTypes() -> Set<HKObjectType> {
         var types: Set<HKObjectType> = [
             HKObjectType.workoutType(),
@@ -192,7 +192,12 @@ final class LiveHealthDataReader: HealthDataReading, @unchecked Sendable {
     /// (arco, boliche, curling, pesca, golfe, caça, vela, hipismo). Esses últimos ficam de fora
     /// porque, sem FC, `.other` vale como moderado pela duração inteira (A1) e uma partida de
     /// golfe de 4 h viraria 240 min aeróbicos. Qualquer outro tipo (lutas, esportes coletivos,
-    /// corda, esqui…) conta como `.other` e é classificado pela FC; sem FC, moderado.
+    /// esqui…) conta como `.other` e é classificado pela FC; sem FC, moderado.
+    ///
+    /// Desde a 2.4 o app grava no Saúde as sessões só de aeróbicos (F5, `LiveHealthKitService`), e
+    /// todos os tipos que ele grava voltam daqui como aeróbicos: caminhada, corrida, bicicleta, remo,
+    /// elíptico, escada, HIIT e cardio misto (o aeróbico de tipo desconhecido, `.other`). O pular
+    /// corda entra como HIIT: forte pelo tipo (A1), sem depender de FC.
     static func aerobicActivity(for type: HKWorkoutActivityType) -> AerobicActivity? {
         switch type {
         case .walking:
@@ -211,7 +216,7 @@ final class LiveHealthDataReader: HealthDataReading, @unchecked Sendable {
             return .hiking
         case .stairClimbing, .stairs:
             return .stairs
-        case .highIntensityIntervalTraining:
+        case .highIntensityIntervalTraining, .jumpRope:
             return .hiit
         case .cardioDance, .socialDance:
             return .dance

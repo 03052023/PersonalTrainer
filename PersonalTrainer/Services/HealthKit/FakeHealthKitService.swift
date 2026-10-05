@@ -11,28 +11,60 @@ import Foundation
 /// O custo é que configuração posterior e leitura de registros são `async`; a configuração
 /// inicial continua síncrona no `init`, o que basta para previews e `AppEnvironment`.
 final class FakeHealthKitService: HealthKitServicing {
-    /// Uma chamada a `saveStrengthWorkout` e o UUID devolvido por ela.
+    /// Uma chamada a `saveWorkout` (ou `saveStrengthWorkout`) e o UUID devolvido por ela.
     struct SavedWorkout: Sendable, Hashable {
         let start: Date
         let end: Date
         let sessionUUID: UUID
         let returnedUUID: UUID
+        /// O tipo pedido; `saveStrengthWorkout` grava `.strength`.
+        let kind: WorkoutRecordKind
+
+        init(start: Date, end: Date, sessionUUID: UUID, returnedUUID: UUID, kind: WorkoutRecordKind = .strength) {
+            self.start = start
+            self.end = end
+            self.sessionUUID = sessionUUID
+            self.returnedUUID = returnedUUID
+            self.kind = kind
+        }
     }
 
-    /// Uma chamada a `heartRateSummary(start:end:)`.
+    /// Uma chamada a `heartRateSummary(start:end:)` ou a `heartRateMinutes(start:end:)`.
     struct HeartRateQuery: Sendable, Hashable {
         let start: Date
         let end: Date
     }
 
-    /// Uma chamada a `findOverlappingStrengthWorkout(start:end:)`.
+    /// Uma chamada a `findOverlappingWorkout` (ou a `findOverlappingStrengthWorkout`).
     struct OverlapQuery: Sendable, Hashable {
         let start: Date
         let end: Date
+        /// O tipo pedido; `findOverlappingStrengthWorkout` consulta `.strength`.
+        let kind: WorkoutRecordKind
+
+        init(start: Date, end: Date, kind: WorkoutRecordKind = .strength) {
+            self.start = start
+            self.end = end
+            self.kind = kind
+        }
     }
 
     /// FC sintética padrão, plausível para uma sessão de musculação de cerca de 60 min.
     static let syntheticSummary = HeartRateSummary(averageBPM: 118, maxBPM: 152, sampleCount: 90)
+
+    /// FC por minuto sintética e determinística para `[start, end]`: três minutos de aquecimento e
+    /// depois uma oscilação pequena entre 118 e 138 bpm, um valor por minuto inteiro do intervalo
+    /// (no máximo 600). Intervalo menor que 1 min dá lista vazia.
+    static func syntheticMinuteHeartRates(start: Date, end: Date) -> [Double] {
+        let seconds = end.timeIntervalSince(start)
+        guard seconds.isFinite, seconds >= 60 else {
+            return []
+        }
+        let minutes = Int(min(seconds / 60, 600))
+        return (0..<minutes).map { minute in
+            minute < 3 ? Double(100 + 8 * minute) : Double(118 + (minute % 6) * 4)
+        }
+    }
 
     let isAvailable: Bool
 
@@ -43,20 +75,28 @@ final class FakeHealthKitService: HealthKitServicing {
     ///   - shouldFailAuthorization: `true` faz `requestAuthorization()` lançar `.notAuthorized`.
     ///   - summaryToReturn: resposta de `heartRateSummary`; `nil` simula "sem amostras"
     ///     ou "leitura negada" (ARCHITECTURE §15 trata os dois igual).
-    ///   - overlappingWorkoutToReturn: resposta de `findOverlappingStrengthWorkout`; um UUID
+    ///   - overlappingWorkoutToReturn: resposta de `findOverlappingWorkout(.strength, …)`; um UUID
     ///     simula um treino de força de outro app (ex.: app Exercício do Watch) cobrindo
     ///     ≥ 50 % da sessão (SPEC RF-13). `nil` (padrão) = nenhum treino para vincular.
+    ///   - overlappingAerobicWorkoutToReturn: o mesmo para o aeróbico (`.aerobic` e `.jumpRope`),
+    ///     que não enxerga o treino de força acima (F5: o vínculo é pelo mesmo tipo).
+    ///   - minuteHeartRatesToReturn: resposta de `heartRateMinutes`; `nil` (padrão) devolve a série
+    ///     sintética de `syntheticMinuteHeartRates`, e uma lista vazia simula "sem FC" (F7).
     init(
         isAvailable: Bool = true,
         shouldFailAuthorization: Bool = false,
         summaryToReturn: HeartRateSummary? = FakeHealthKitService.syntheticSummary,
-        overlappingWorkoutToReturn: UUID? = nil
+        overlappingWorkoutToReturn: UUID? = nil,
+        overlappingAerobicWorkoutToReturn: UUID? = nil,
+        minuteHeartRatesToReturn: [Double]? = nil
     ) {
         self.isAvailable = isAvailable
         self.state = State(
             shouldFailAuthorization: shouldFailAuthorization,
             summaryToReturn: summaryToReturn,
-            overlappingWorkoutToReturn: overlappingWorkoutToReturn
+            overlappingWorkoutToReturn: overlappingWorkoutToReturn,
+            overlappingAerobicWorkoutToReturn: overlappingAerobicWorkoutToReturn,
+            minuteHeartRatesToReturn: minuteHeartRatesToReturn
         )
     }
 
@@ -82,7 +122,13 @@ final class FakeHealthKitService: HealthKitServicing {
         get async { await state.heartRateQueries }
     }
 
-    /// Intervalos consultados em `findOverlappingStrengthWorkout`, na ordem das chamadas.
+    /// Intervalos consultados em `heartRateMinutes`, na ordem das chamadas.
+    var heartRateMinuteQueries: [HeartRateQuery] {
+        get async { await state.heartRateMinuteQueries }
+    }
+
+    /// Consultas de treino sobreposto (`findOverlappingWorkout` e `findOverlappingStrengthWorkout`),
+    /// na ordem das chamadas.
     var overlapQueries: [OverlapQuery] {
         get async { await state.overlapQueries }
     }
@@ -105,13 +151,21 @@ final class FakeHealthKitService: HealthKitServicing {
         await state.setOverlappingWorkoutToReturn(workoutUUID)
     }
 
-    /// `true` faz `saveStrengthWorkout` lançar `.saveFailed` (ex.: builder inválido).
+    func setOverlappingAerobicWorkoutToReturn(_ workoutUUID: UUID?) async {
+        await state.setOverlappingAerobicWorkoutToReturn(workoutUUID)
+    }
+
+    func setMinuteHeartRatesToReturn(_ minutes: [Double]?) async {
+        await state.setMinuteHeartRatesToReturn(minutes)
+    }
+
+    /// `true` faz `saveStrengthWorkout` e `saveWorkout` lançarem `.saveFailed` (ex.: builder inválido).
     func setShouldFailSave(_ shouldFail: Bool) async {
         await state.setShouldFailSave(shouldFail)
     }
 
-    /// `true` faz `findOverlappingStrengthWorkout` lançar `.queryFailed` (ex.: banco do Saúde
-    /// inacessível com o aparelho bloqueado).
+    /// `true` faz `findOverlappingStrengthWorkout` e `findOverlappingWorkout` lançarem `.queryFailed`
+    /// (ex.: banco do Saúde inacessível com o aparelho bloqueado).
     func setShouldFailOverlapQuery(_ shouldFail: Bool) async {
         await state.setShouldFailOverlapQuery(shouldFail)
     }
@@ -126,10 +180,14 @@ final class FakeHealthKitService: HealthKitServicing {
     }
 
     func saveStrengthWorkout(start: Date, end: Date, sessionUUID: UUID) async throws -> UUID {
+        try await saveWorkout(.strength, start: start, end: end, sessionUUID: sessionUUID)
+    }
+
+    func saveWorkout(_ kind: WorkoutRecordKind, start: Date, end: Date, sessionUUID: UUID) async throws -> UUID {
         guard isAvailable else {
             throw HealthKitServiceError.unavailable
         }
-        return try await state.saveStrengthWorkout(start: start, end: end, sessionUUID: sessionUUID)
+        return try await state.saveWorkout(kind, start: start, end: end, sessionUUID: sessionUUID)
     }
 
     func heartRateSummary(start: Date, end: Date) async throws -> HeartRateSummary? {
@@ -139,11 +197,22 @@ final class FakeHealthKitService: HealthKitServicing {
         return await state.heartRateSummary(start: start, end: end)
     }
 
-    func findOverlappingStrengthWorkout(start: Date, end: Date) async throws -> UUID? {
+    func heartRateMinutes(start: Date, end: Date) async throws -> [Double] {
         guard isAvailable else {
             throw HealthKitServiceError.unavailable
         }
-        return try await state.findOverlappingStrengthWorkout(start: start, end: end)
+        return await state.heartRateMinutes(start: start, end: end)
+    }
+
+    func findOverlappingStrengthWorkout(start: Date, end: Date) async throws -> UUID? {
+        try await findOverlappingWorkout(.strength, start: start, end: end)
+    }
+
+    func findOverlappingWorkout(_ kind: WorkoutRecordKind, start: Date, end: Date) async throws -> UUID? {
+        guard isAvailable else {
+            throw HealthKitServiceError.unavailable
+        }
+        return try await state.findOverlappingWorkout(kind, start: start, end: end)
     }
 
     func removeOwnStrengthWorkout(sessionUUID: UUID) async throws {
@@ -159,19 +228,30 @@ final class FakeHealthKitService: HealthKitServicing {
         private(set) var shouldFailAuthorization: Bool
         private(set) var summaryToReturn: HeartRateSummary?
         private(set) var overlappingWorkoutToReturn: UUID?
+        private(set) var overlappingAerobicWorkoutToReturn: UUID?
+        private(set) var minuteHeartRatesToReturn: [Double]?
         private(set) var shouldFailSave = false
         private(set) var shouldFailOverlapQuery = false
         private(set) var isAuthorized = false
         private(set) var authorizationRequestCount = 0
         private(set) var savedWorkouts: [SavedWorkout] = []
         private(set) var heartRateQueries: [HeartRateQuery] = []
+        private(set) var heartRateMinuteQueries: [HeartRateQuery] = []
         private(set) var overlapQueries: [OverlapQuery] = []
         private(set) var removedWorkoutSessions: [UUID] = []
 
-        init(shouldFailAuthorization: Bool, summaryToReturn: HeartRateSummary?, overlappingWorkoutToReturn: UUID?) {
+        init(
+            shouldFailAuthorization: Bool,
+            summaryToReturn: HeartRateSummary?,
+            overlappingWorkoutToReturn: UUID?,
+            overlappingAerobicWorkoutToReturn: UUID?,
+            minuteHeartRatesToReturn: [Double]?
+        ) {
             self.shouldFailAuthorization = shouldFailAuthorization
             self.summaryToReturn = summaryToReturn
             self.overlappingWorkoutToReturn = overlappingWorkoutToReturn
+            self.overlappingAerobicWorkoutToReturn = overlappingAerobicWorkoutToReturn
+            self.minuteHeartRatesToReturn = minuteHeartRatesToReturn
         }
 
         func setShouldFailAuthorization(_ shouldFail: Bool) {
@@ -184,6 +264,14 @@ final class FakeHealthKitService: HealthKitServicing {
 
         func setOverlappingWorkoutToReturn(_ workoutUUID: UUID?) {
             overlappingWorkoutToReturn = workoutUUID
+        }
+
+        func setOverlappingAerobicWorkoutToReturn(_ workoutUUID: UUID?) {
+            overlappingAerobicWorkoutToReturn = workoutUUID
+        }
+
+        func setMinuteHeartRatesToReturn(_ minutes: [Double]?) {
+            minuteHeartRatesToReturn = minutes
         }
 
         func setShouldFailSave(_ shouldFail: Bool) {
@@ -204,7 +292,7 @@ final class FakeHealthKitService: HealthKitServicing {
 
         /// Exige autorização prévia, como o HealthKit real: um gravador que esquecer
         /// `requestAuthorization()` falha já no simulador, não só no aparelho.
-        func saveStrengthWorkout(start: Date, end: Date, sessionUUID: UUID) throws -> UUID {
+        func saveWorkout(_ kind: WorkoutRecordKind, start: Date, end: Date, sessionUUID: UUID) throws -> UUID {
             guard isAuthorized else {
                 throw HealthKitServiceError.notAuthorized
             }
@@ -216,7 +304,7 @@ final class FakeHealthKitService: HealthKitServicing {
             }
             let returnedUUID = UUID()
             savedWorkouts.append(
-                SavedWorkout(start: start, end: end, sessionUUID: sessionUUID, returnedUUID: returnedUUID)
+                SavedWorkout(start: start, end: end, sessionUUID: sessionUUID, returnedUUID: returnedUUID, kind: kind)
             )
             return returnedUUID
         }
@@ -228,14 +316,29 @@ final class FakeHealthKitService: HealthKitServicing {
             return summaryToReturn
         }
 
+        /// Também é leitura, sem autorização. Sem configuração, a série sintética do intervalo.
+        func heartRateMinutes(start: Date, end: Date) -> [Double] {
+            heartRateMinuteQueries.append(HeartRateQuery(start: start, end: end))
+            if let configured = minuteHeartRatesToReturn {
+                return configured
+            }
+            return FakeHealthKitService.syntheticMinuteHeartRates(start: start, end: end)
+        }
+
         /// Também é leitura: não exige autorização, pelo mesmo motivo de `heartRateSummary`
-        /// (com leitura negada o HealthKit real devolve lista vazia, ou seja, `nil` aqui).
-        func findOverlappingStrengthWorkout(start: Date, end: Date) throws -> UUID? {
-            overlapQueries.append(OverlapQuery(start: start, end: end))
+        /// (com leitura negada o HealthKit real devolve lista vazia, ou seja, `nil` aqui). O treino
+        /// de força e o aeróbico têm respostas separadas: o vínculo é pelo mesmo tipo (RF-13).
+        func findOverlappingWorkout(_ kind: WorkoutRecordKind, start: Date, end: Date) throws -> UUID? {
+            overlapQueries.append(OverlapQuery(start: start, end: end, kind: kind))
             guard !shouldFailOverlapQuery else {
                 throw HealthKitServiceError.queryFailed(underlying: "fake overlap query failure")
             }
-            return overlappingWorkoutToReturn
+            switch kind {
+            case .strength:
+                return overlappingWorkoutToReturn
+            case .aerobic, .jumpRope:
+                return overlappingAerobicWorkoutToReturn
+            }
         }
 
         /// Escrita, como no HealthKit real: exige autorização prévia.
