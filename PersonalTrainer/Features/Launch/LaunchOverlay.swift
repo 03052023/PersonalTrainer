@@ -84,10 +84,14 @@ private struct LaunchOverlayModifier: ViewModifier {
                     }
                 }
                 .statusBar(hidden: showsOverlay && !displayFrame.statusBarVisible)
+                // O toque só existe enquanto a abertura está na tela: depois dela, `.subviews` desliga
+                // este gesto (e só ele), para a raiz do app não carregar um toque extra por cima de
+                // listas, campos e botões pelo resto da vida do processo.
                 .simultaneousGesture(
                     TapGesture().onEnded {
                         requestSkip(elapsedTime: elapsedTime, frame: liveFrame)
-                    }
+                    },
+                    including: showsOverlay ? .all : .subviews
                 )
                 .onChange(of: elapsedTime) { _, newValue in
                     checkFinished(elapsedTime: newValue)
