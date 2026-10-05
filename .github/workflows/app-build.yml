@@ -9,7 +9,8 @@
 # 11,7 dias, ~12 min cada, dos quais ~3,5 min eram o build Release de dispositivo que gera o IPA).
 #   1. Push para `ci/**` que muda só documentação (`**/*.md`, `docs/**`, `ideia.txt`) não dispara o workflow.
 #      Push sem nenhum arquivo mudado (commit vazio) também não: o GitHub não roda workflow com filtro de
-#      caminho quando o diff está vazio.
+#      caminho quando o diff está vazio (verificado em 05/10/2026: commit vazio com `[ipa]` não criou run).
+#      Para gerar o IPA de um código que já passou sem mudar arquivo, use workflow_dispatch.
 #   2. Todo run compila e roda os testes no simulador (e a checagem estrutural do Watch). O IPA ("Build
 #      unsigned device IPA" + "Keep package for local re-signing") só sai quando o run é manual
 #      (workflow_dispatch), ou o branch termina em `-final` (ex.: `ci/v9-final`), ou a mensagem do commit da
