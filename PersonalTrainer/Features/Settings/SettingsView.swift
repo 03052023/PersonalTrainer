@@ -85,6 +85,9 @@ struct SettingsView: View {
                 remindersSection
                 moreOptionsSection
             }
+            // Papel (DESIGN §14): o fundo do formulário dá lugar ao papel.
+            .scrollContentBackground(.hidden)
+            .paperBackground()
             .navigationTitle("Ajustes")
             // Rótulo `onCompletion:` explícito: o iOS 17 acrescentou sobrecargas com
             // `onCancellation:` e o fechamento final poderia ficar ambíguo.

@@ -65,6 +65,9 @@ struct RenewalHelpView: View {
                     .foregroundStyle(.secondary)
                 }
             }
+            // Papel (DESIGN §14): o fundo da lista dá lugar ao papel.
+            .scrollContentBackground(.hidden)
+            .paperBackground()
             .navigationTitle("Como renovar")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

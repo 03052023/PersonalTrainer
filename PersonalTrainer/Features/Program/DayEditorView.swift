@@ -67,6 +67,8 @@ struct DayEditorView: View {
                 )
             }
         }
+        // Papel (DESIGN §14): por baixo da lista (com o fundo dela escondido) e do estado vazio.
+        .paperBackground()
         .sheet(item: $pickerRequest, onDismiss: { applyPendingChange() }) { request in
             switch request.kind {
             case .add:
@@ -160,6 +162,7 @@ struct DayEditorView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
         .navigationTitle(day.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

@@ -36,6 +36,9 @@ struct ReferenceListView: View {
                 }
             }
         }
+        // Papel (DESIGN §14): o fundo da lista dá lugar ao papel.
+        .scrollContentBackground(.hidden)
+        .paperBackground()
         .navigationTitle("Referências")
     }
 

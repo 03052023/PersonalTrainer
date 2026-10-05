@@ -71,8 +71,11 @@ struct ExerciseProgressView: View {
                         }
                     }
                 }
+                .scrollContentBackground(.hidden)
             }
         }
+        // Papel (DESIGN §14): o fundo da lista (e do estado vazio) dá lugar ao papel.
+        .paperBackground()
         .navigationTitle(exerciseName)
         .navigationBarTitleDisplayMode(.inline)
     }

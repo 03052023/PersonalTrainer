@@ -73,6 +73,9 @@ struct TargetEditorSheet: View {
                     }
                 }
             }
+            // Papel (DESIGN §14): o fundo do formulário dá lugar ao papel.
+            .scrollContentBackground(.hidden)
+            .paperBackground()
             .navigationTitle(exerciseName)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -26,6 +26,9 @@ struct WhySheet: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            // Papel (DESIGN §14): o fundo da lista dá lugar ao papel.
+            .scrollContentBackground(.hidden)
+            .paperBackground()
             .navigationTitle(Self.title(for: topic))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

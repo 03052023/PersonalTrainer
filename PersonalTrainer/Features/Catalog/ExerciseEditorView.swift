@@ -29,6 +29,9 @@ struct ExerciseEditorView: View {
                     seedNoticeSection
                 }
             }
+            // Papel (DESIGN §14): o fundo do formulário dá lugar ao papel.
+            .scrollContentBackground(.hidden)
+            .paperBackground()
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(model.title)
             .navigationBarTitleDisplayMode(.inline)

@@ -53,6 +53,8 @@ struct ProgramDetailView: View {
                 )
             }
         }
+        // Papel (DESIGN §14): por baixo da lista (com o fundo dela escondido) e dos estados vazios.
+        .paperBackground()
         .navigationTitle("Ajustar exercícios")
         .navigationBarTitleDisplayMode(.inline)
         // Reaparece ao voltar do editor de dia: relê o que foi gravado.
@@ -120,6 +122,7 @@ struct ProgramDetailView: View {
                 Text("Toque num dia para trocar, editar ou reordenar os exercícios. De \(ProgramLimits.minDays) a \(ProgramLimits.maxDays) dias; hoje, \(GoalPlanCatalog.dayCountText(model.days.count)).")
             }
         }
+        .scrollContentBackground(.hidden)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 EditButton()

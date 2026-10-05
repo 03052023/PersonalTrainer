@@ -53,6 +53,9 @@ struct ExercisePickerView: View {
                     }
                 }
             }
+            // Papel (DESIGN §14): o fundo da lista dá lugar ao papel.
+            .scrollContentBackground(.hidden)
+            .paperBackground()
             .overlay {
                 if suggestedExercises.isEmpty && sections.isEmpty {
                     ContentUnavailableView(
