@@ -305,6 +305,17 @@ final class HomeViewModel {
         return overview.sessions.allSatisfy(\.isDoneToday)
     }
 
+    /// Onde a tela põe o cartão "Também hoje" (SPEC RF-53, §7.17 X2; DESIGN §9 item 8): embaixo das
+    /// sessões, nos dois modos, e, num dia de descanso, embaixo da frase "Hoje é dia de descanso.".
+    enum ActivitiesCardSlot: Equatable {
+        case belowSessions
+        case belowRestDayText
+    }
+
+    var activitiesCardSlot: ActivitiesCardSlot {
+        isRestDay ? .belowRestDayText : .belowSessions
+    }
+
     /// Os planos não cabem mais nos dias escolhidos (M6).
     var showsNotFitBanner: Bool {
         isMultiPlan && overview?.fitsWeek == false

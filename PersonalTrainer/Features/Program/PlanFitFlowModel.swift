@@ -250,6 +250,16 @@ final class PlanFitFlowModel {
         result = nil
     }
 
+    /// As duas chaves ("Aceito 2 sessões no mesmo dia" e "Cardio leve depois da força") só aparecem quando um
+    /// dos planos é de aeróbico (o Cardio, `endurance`, o único plano de aeróbico) e o outro não é: o mesmo
+    /// critério do `mixesCardioAndStrength` das saídas de M5, lido pelo objetivo. Com dois planos de força
+    /// elas nada mudariam, porque duas forças nunca dividem o dia (SPEC §7.15 M5 e M9; achado B9 da 2.3).
+    /// Escondidas, o que já estava gravado nas preferências continua valendo.
+    var showsDayToggles: Bool {
+        let planGoals: [ProgramGoal] = goals
+        return planGoals.contains(.endurance) && planGoals.contains { (goal: ProgramGoal) -> Bool in goal != .endurance }
+    }
+
     /// "Aceito 2 sessões no mesmo dia".
     var allowsTwoSessionsPerDay: Bool {
         get { preferences.allowsTwoSessionsPerDay }
@@ -305,10 +315,12 @@ final class PlanFitFlowModel {
         return PlanWeekText.notes(schedule)
     }
 
-    /// O motivo em uma frase, quando não cabe.
+    /// O motivo em uma frase, quando não cabe. Os lugares de 2 por dia só contam com um plano de Cardio e
+    /// outro que não é (M5, B9): com dois planos de força, a frase fala em dias.
     var problemText: String? {
         guard let result, !result.fits else { return nil }
-        return PlanWeekText.problemSentence(result.problems, twoPerDay: preferences.allowsTwoSessionsPerDay)
+        let twoPerDay = preferences.allowsTwoSessionsPerDay && showsDayToggles
+        return PlanWeekText.problemSentence(result.problems, twoPerDay: twoPerDay)
     }
 
     /// As saídas de M5, na ordem, quando não cabe.

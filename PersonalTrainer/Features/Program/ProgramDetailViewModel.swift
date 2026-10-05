@@ -446,7 +446,8 @@ final class ProgramDetailViewModel {
 
 extension ProgramDetailViewModel {
     /// Parâmetros editáveis de um alvo, com os limites do `ProgramRepositoring.updateTarget`:
-    /// séries 1…10, 1 ≤ repMin < repMax ≤ 50, descanso 15…600 s em passos de 15 s, carga inicial
+    /// séries 1…10, 1 ≤ repMin < repMax ≤ o teto da medida (RF-16: 50 repetições, 300 s, 100 passos ou
+    /// 180 min; o repositório aceita até 300), descanso 15…600 s em passos de 15 s, carga inicial
     /// ≥ 0 e múltipla do incremento (SPEC P8) ou `nil`.
     ///
     /// `targetRIR` não é editável nem aparece (RF-16, RF-41): é o valor gravado, que volta igual
@@ -455,10 +456,20 @@ extension ProgramDetailViewModel {
     struct TargetDraft: Sendable, Hashable {
         static let setsRange = 1...10
         static let repMinLimit = 1
-        static let repMaxLimit = 50
         static let rirRange = 0...5
         static let restRange = 15...600
         static let restStep = 15
+
+        /// O teto do máximo da faixa pela medida (SPEC RF-16, RF-43): o "Longo e leve" do Cardio vai a 75 min,
+        /// uma prancha passa de 50 s e uma carregada, de 50 passos.
+        static func maxLimit(for measure: ExerciseMeasure) -> Int {
+            switch measure {
+            case .reps: return 50
+            case .seconds: return 300
+            case .steps: return 100
+            case .minutes: return 180
+            }
+        }
 
         var sets: Int
         var repMin: Int
@@ -485,7 +496,7 @@ extension ProgramDetailViewModel {
             measure: ExerciseMeasure = .reps
         ) {
             let safeIncrement = loadIncrement.isFinite && loadIncrement > 0 ? loadIncrement : 1
-            let repMax = min(max(target.repMax, Self.repMinLimit + 1), Self.repMaxLimit)
+            let repMax = min(max(target.repMax, Self.repMinLimit + 1), Self.maxLimit(for: measure))
             self.sets = min(max(target.sets, Self.setsRange.lowerBound), Self.setsRange.upperBound)
             self.repMax = repMax
             self.repMin = min(max(target.repMin, Self.repMinLimit), repMax - 1)
@@ -498,13 +509,18 @@ extension ProgramDetailViewModel {
             self.measure = measure
         }
 
+        /// O teto do máximo da faixa para a medida deste exercício (RF-16).
+        var repMaxLimit: Int {
+            Self.maxLimit(for: measure)
+        }
+
         /// Faixas dos steppers de repetições; nunca vazias porque `repMin < repMax` é mantido.
         var repMinRange: ClosedRange<Int> {
             Self.repMinLimit...max(Self.repMinLimit, repMax - 1)
         }
 
         var repMaxRange: ClosedRange<Int> {
-            min(repMin + 1, Self.repMaxLimit)...Self.repMaxLimit
+            min(repMin + 1, repMaxLimit)...repMaxLimit
         }
 
         /// Menor carga inicial aceita pelo stepper.
@@ -527,8 +543,8 @@ extension ProgramDetailViewModel {
             if !Self.setsRange.contains(sets) {
                 return "Séries devem ficar entre 1 e 10."
             }
-            if repMin < Self.repMinLimit || repMax > Self.repMaxLimit || repMin >= repMax {
-                return "A faixa de repetições deve ter mínimo menor que o máximo, entre 1 e 50."
+            if repMin < Self.repMinLimit || repMax > repMaxLimit || repMin >= repMax {
+                return "A faixa de \(MeasureText.pluralNoun(measure)) deve ter o mínimo menor que o máximo, entre 1 e \(repMaxLimit)."
             }
             if !Self.restRange.contains(restSeconds) {
                 return "O descanso deve ficar entre 15 s e 10 min."

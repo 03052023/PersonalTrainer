@@ -30,6 +30,57 @@ import TrainerCore
     )
 }
 
+#Preview("Plano — dois planos e atividades fixas") {
+    ProgramTabView(
+        programs: ProgramPreviewRepository(programs: ProgramPreviewFixture.makePrograms(
+            activeIDs: [ProgramPreviewFixture.balancedID, ProgramPreviewFixture.enduranceID]
+        )),
+        catalog: ProgramPreviewCatalog(),
+        references: ProgramPreviewFixture.references,
+        now: { ProgramPreviewFixture.referenceDate },
+        planner: ProgramPreviewPlanner(
+            nextDayID: ProgramPreviewFixture.balancedDayBID,
+            week: ProgramPreviewFixture.weekWithFixed
+        ),
+        activities: ProgramPreviewFixture.makeActivities()
+    )
+}
+
+#Preview("Plano — um plano e atividades fixas") {
+    ProgramTabView(
+        programs: ProgramPreviewRepository.make(),
+        catalog: ProgramPreviewCatalog(),
+        references: ProgramPreviewFixture.references,
+        now: { ProgramPreviewFixture.referenceDate },
+        planner: ProgramPreviewPlanner(nextDayID: ProgramPreviewFixture.balancedDayBID),
+        activities: ProgramPreviewFixture.makeActivities()
+    )
+}
+
+#Preview("Seus dias — Hipertrofia e Cardio") {
+    NavigationStack {
+        PlanFitFlowView(
+            model: ProgramPreviewFixture.makeDaysFlow(goalIDs: [ProgramPreviewFixture.balancedID, ProgramPreviewFixture.enduranceID]),
+            references: ProgramPreviewFixture.references,
+            firstPageBackTitle: "Cancelar",
+            onCancel: {},
+            onDone: {}
+        )
+    }
+}
+
+#Preview("Seus dias — dois planos de força") {
+    NavigationStack {
+        PlanFitFlowView(
+            model: ProgramPreviewFixture.makeDaysFlow(goalIDs: [ProgramPreviewFixture.balancedID, ProgramPreviewFixture.strengthID]),
+            references: ProgramPreviewFixture.references,
+            firstPageBackTitle: "Cancelar",
+            onCancel: {},
+            onDone: {}
+        )
+    }
+}
+
 #Preview("Adicionar um plano") {
     GoalSheet(
         programs: ProgramPreviewRepository.make(),
@@ -377,6 +428,45 @@ private enum ProgramPreviewFixture {
         flow.next()
         return flow
     }
+
+    /// "Seus dias" (SPEC §7.15 M9) dos dois planos de `goalIDs`, já na página dos dias.
+    @MainActor
+    static func makeDaysFlow(goalIDs: [UUID]) -> PlanFitFlowModel {
+        let planner = ProgramPreviewPlanner(nextDayID: balancedDayBID)
+        let all = makePrograms(activeIDs: Set(goalIDs))
+        let repository = ProgramPreviewRepository(programs: all)
+        let date = referenceDate
+        return PlanFitFlowModel(
+            purpose: .editDays(programs: all.filter { $0.isActive }),
+            programs: repository,
+            planner: planner,
+            now: { date }
+        )
+    }
+
+    /// As atividades fora do app de mentira (AGENTS R9): um Pilates na terça às 19h e um Futebol na quinta
+    /// às 21h, já lidas.
+    @MainActor
+    static func makeActivities() -> ActivitiesModel {
+        let store = FakeOutsideActivityStore(log: OutsideActivityLog(fixed: [
+            FixedOutsideActivity(kind: .pilates, weekday: .tuesday, startMinuteOfDay: 19 * 60, minutes: 50, intensity: .light),
+            FixedOutsideActivity(kind: .teamSport, weekday: .thursday, startMinuteOfDay: 21 * 60, minutes: 60, intensity: .vigorous),
+        ]))
+        let date = referenceDate
+        let model = ActivitiesModel(store: store, now: { date })
+        model.refresh()
+        return model
+    }
+
+    /// A mesma semana de Hipertrofia + Cardio com as duas atividades fixas de `makeActivities()` (SPEC §7.17 X4).
+    static let weekWithFixed = WeekSchedule(
+        slots: week.slots,
+        notes: week.notes,
+        fixed: [
+            FixedActivityDemand(id: UUID(), name: "Pilates", weekday: .tuesday, role: .light, minutes: 50),
+            FixedActivityDemand(id: UUID(), name: "Futebol ou esporte com bola", weekday: .thursday, role: .cardio, cardioIntensity: .vigorous, minutes: 60),
+        ]
+    )
 
     /// Uma semana de Hipertrofia + Cardio (SPEC §7.15 M4), com os nomes dos dias.
     static let week = WeekSchedule(
@@ -730,12 +820,15 @@ private final class ProgramPreviewRepository: ProgramRepositoring {
 @MainActor
 private final class ProgramPreviewPlanner: SessionPlanning {
     private let nextDayID: UUID
+    /// A semana de "Sua semana" (SPEC §7.15 M4); com atividades fixas, a de §7.17 X4.
+    private let week: WeekSchedule
     /// Falso: a conferência da semana não cabe e mostra as saídas (SPEC §7.15 M5).
     var fitsWeek = true
     private var preferences = WeekPreferences.default
 
-    init(nextDayID: UUID) {
+    init(nextDayID: UUID, week: WeekSchedule = ProgramPreviewFixture.week) {
         self.nextDayID = nextDayID
+        self.week = week
     }
 
     func nextPlan(now: Date) throws -> SessionPlan? {
@@ -764,7 +857,7 @@ private final class ProgramPreviewPlanner: SessionPlanning {
     }
 
     func weekSchedule(now: Date) throws -> WeekSchedule? {
-        ProgramPreviewFixture.week
+        week
     }
 
     func weekPreferences() -> WeekPreferences {
@@ -776,7 +869,6 @@ private final class ProgramPreviewPlanner: SessionPlanning {
     }
 
     func fitCheck(programIDs: [UUID], preferences: WeekPreferences, now: Date) throws -> FitResult {
-        let week = ProgramPreviewFixture.week
         guard !fitsWeek else {
             return FitResult(schedule: week)
         }

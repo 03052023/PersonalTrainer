@@ -16,6 +16,10 @@ import TrainerCore
 /// segundo com "Começar esta", menor) e o "Começar" da primeira sessão pendente, o único botão
 /// proeminente. Com um plano só, a tela fica como na 2.2.
 ///
+/// Com o `ActivitiesModel` (2.4, SPEC RF-53, §7.17 X2; DESIGN §9 item 8), o cartão "Também hoje" entra
+/// embaixo das sessões, nos dois modos, e, no dia de descanso, embaixo da frase. Sem fixa hoje ele não
+/// desenha nada, e nunca é o botão proeminente da tela.
+///
 /// A Home não conhece `ActiveSessionView` (TASKS T1.4): devolve o `uuid` da sessão em
 /// `onOpenSession` e o `RootView` decide para onde navegar. ViewModels, diálogo e referências
 /// chegam por `init`; nada aqui lê o `AppEnvironment` do ambiente nem escreve no `ModelContext`
@@ -28,6 +32,8 @@ struct HomeView: View {
     private let onOpenSession: (UUID) -> Void
     /// `nil`: o topo mostra o objetivo, mas não é botão (docs/V22-CONTRACT.md §2.5).
     private let onChangeGoal: (() -> Void)?
+    /// `nil`: sem o cartão "Também hoje" (previews e testes sem atividades).
+    private let activities: ActivitiesModel?
 
     @State private var infoContent: ExerciseInfoContent?
 
@@ -39,7 +45,8 @@ struct HomeView: View {
         health: HealthViewModel,
         references: ReferenceCatalog,
         onOpenSession: @escaping (UUID) -> Void,
-        onChangeGoal: (() -> Void)? = nil
+        onChangeGoal: (() -> Void)? = nil,
+        activities: ActivitiesModel? = nil
     ) {
         self.model = model
         self.coach = coach
@@ -47,6 +54,7 @@ struct HomeView: View {
         self.references = references
         self.onOpenSession = onOpenSession
         self.onChangeGoal = onChangeGoal
+        self.activities = activities
     }
 
     var body: some View {
@@ -64,6 +72,9 @@ struct HomeView: View {
                     } else {
                         content
                         primaryButton
+                    }
+                    if model.activitiesCardSlot == .belowSessions {
+                        activitiesCard
                     }
                     coachSection
                     // O cartão já abre `HealthDetailView` por `NavigationLink` quando há dados.
@@ -196,6 +207,14 @@ struct HomeView: View {
         .disabled(model.activeSessionID == nil && (model.plan?.exercises.isEmpty ?? true))
     }
 
+    /// "Também hoje" (2.4): o cartão cuida de si (sem fixa hoje, não desenha nada).
+    @ViewBuilder
+    private var activitiesCard: some View {
+        if let activities {
+            TodayActivitiesCard(model: activities)
+        }
+    }
+
     /// SPEC RF-43: a medida (repetições, segundos ou passos) vem do ambiente, não do ViewModel.
     private func measure(for exercise: PlannedExercise) -> ExerciseMeasure {
         traits.traits(for: exercise.exercise).measure
@@ -219,6 +238,9 @@ struct HomeView: View {
             }
             if model.isRestDay {
                 restDayCard
+                if model.activitiesCardSlot == .belowRestDayText {
+                    activitiesCard
+                }
             } else if let line = model.todayLine {
                 Text(line)
                     .font(.subheadline.weight(.semibold))
