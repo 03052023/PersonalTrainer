@@ -107,7 +107,8 @@ struct CoachRemindersTests {
         )
 
         #expect(message.title == "Bom te ver de volta")
-        #expect(message.reason == "Sua última sessão foi há 7 dias; voltar também é progresso. Hoje o plano é Dia B.")
+        // Owner notes item 16: o fato e o que fazer, sem frase de efeito.
+        #expect(message.reason == "Sua última sessão foi há 7 dias. Hoje o plano é Dia B.")
         #expect(message.actions == [.start])
         #expect(message.referenceTopic == "rule.P9")
         #expect(message.highlightsOnLaunch)
@@ -118,7 +119,7 @@ struct CoachRemindersTests {
         let unnamed = try #require(CF.feed(CoachInput(lastSessionStart: CF.at(-5))).first)
         let blank = try #require(CF.feed(CoachInput(lastSessionStart: CF.at(-5), nextDayName: "  ")).first)
 
-        #expect(unnamed.reason == "Sua última sessão foi há 7 dias; voltar também é progresso.")
+        #expect(unnamed.reason == "Sua última sessão foi há 7 dias.")
         #expect(blank.reason == unnamed.reason)
     }
 
