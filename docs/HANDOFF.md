@@ -89,3 +89,7 @@ Workflow `wf_b80f610e-930`:
 ## 7. Como os agentes trabalharam bem neste projeto
 
 Contratos escritos primeiro pelo arquiteto → implementadores em worktrees separados (um branch cada, escopo de arquivos exclusivo) → integrador único no `main` → revisores somente leitura com lentes distintas → corretor único. Código de app é escrito às cegas (sem Xcode): exigir lista de "verificado/incerto" e revisão estática antes do CI. O limite de uso do plano do usuário já foi atingido duas vezes com muitos agentes ao mesmo tempo; prefira ondas menores.
+
+## 5e. Versão 2.4 em andamento (2026-10-04)
+
+Pedido do dono: "gere a próxima versão já com tudo que está pendente". O workflow `wf_f96cfe1b-071` cobre: o arquiteto reúne as pendências (item 19 das notas, os achados adiados da 2.3 e os [ ] antigos do TASKS) em `docs/V24-CONTRACT.md`; depois vêm os worktrees `pt-wt/w8-*`, `v8/integration` → `ci/v8-final`, revisão, correção e merge no main. **Ao retomar** (se o limite interromper): `Workflow({scriptPath: <script do run>, resumeFromRunId: "wf_f96cfe1b-071"})`; depois, IPA do run final e a página e o PDF da Amanda (`docs/install/` + `build-pdf.ps1` no scratchpad).
