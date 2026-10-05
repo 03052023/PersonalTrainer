@@ -465,6 +465,137 @@ final class BackupServiceTests: XCTestCase {
         XCTAssertEqual(try context.fetchCount(FetchDescriptor<ProgramModel>()), 0)
     }
 
+    // MARK: - Atividades fora do app (SPEC §7.17 X8)
+
+    func testX8_backupExportsActivities() throws {
+        let context = try makeContext()
+        _ = try insertFixture(into: context)
+        let log = activitiesLog()
+        let store = FakeOutsideActivityStore(log: log)
+
+        let data = try makeService(context, activities: store).exportBackup(now: now)
+
+        let document = try BackupDocument.decode(from: data)
+        XCTAssertEqual(document.outsideActivities, log)
+        XCTAssertEqual(document.schemaVersion, 1, "O campo é opcional: a versão do formato não muda")
+        let object = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let activities = try XCTUnwrap(object["outsideActivities"] as? [String: Any])
+        XCTAssertEqual((activities["entries"] as? [Any])?.count, 2)
+        XCTAssertEqual((activities["fixed"] as? [Any])?.count, 1)
+        XCTAssertEqual(store.saveCount, 0, "Exportar não grava nada")
+
+        // Sem o store, o campo não vai: o arquivo fica igual ao de antes da 2.4.
+        let without = try makeService(context).exportBackup(now: now)
+        let plain = try XCTUnwrap(try JSONSerialization.jsonObject(with: without) as? [String: Any])
+        XCTAssertNil(plain["outsideActivities"])
+        XCTAssertNil(try BackupDocument.decode(from: without).outsideActivities)
+    }
+
+    func testX8_importReplacesActivities() throws {
+        let source = try makeContext()
+        _ = try insertFixture(into: source)
+        let exported = activitiesLog(kind: .swimming)
+        let data = try makeService(source, activities: FakeOutsideActivityStore(log: exported)).exportBackup(now: now)
+
+        let target = try makeContext()
+        let local = FakeOutsideActivityStore(log: activitiesLog(kind: .dance))
+        let report = try makeService(target, activities: local).importBackup(data)
+
+        XCTAssertEqual(report, BackupImportReport(exercises: 3, programs: 2, sessions: 2, sets: 4))
+        XCTAssertEqual(local.log, exported, "A importação substitui a lista do aparelho pela do arquivo")
+        XCTAssertEqual(local.saveCount, 1)
+        // Reexportar dá o mesmo arquivo, com as atividades.
+        XCTAssertEqual(try makeService(target, activities: local).exportBackup(now: now), data)
+    }
+
+    func testX8_oldBackupImportsWithoutActivities() throws {
+        let source = try makeContext()
+        _ = try insertFixture(into: source)
+        // Backup de antes da 2.4: sem o campo.
+        let data = try makeService(source).exportBackup(now: now)
+        XCTAssertNil(try BackupDocument.decode(from: data).outsideActivities)
+
+        let target = try makeContext()
+        let local = FakeOutsideActivityStore(log: activitiesLog())
+        _ = try makeService(target, activities: local).importBackup(data)
+
+        XCTAssertEqual(local.log, OutsideActivityLog.empty, "SPEC X8: a importação substitui tudo, inclusive esta lista")
+        XCTAssertEqual(local.saveCount, 1)
+        XCTAssertEqual(try counts(in: target).sessions, 2)
+    }
+
+    func testX8_failedImportRestoresActivities() throws {
+        let source = try makeContext()
+        _ = try insertFixture(into: source)
+        let incoming = activitiesLog(kind: .swimming)
+        let data = try makeService(source, activities: FakeOutsideActivityStore(log: incoming)).exportBackup(now: now)
+        let original = activitiesLog(kind: .dance)
+
+        // 1. Importação recusada (sessão em andamento) e arquivo inválido: as atividades ficam como estavam.
+        let busy = try makeContext()
+        busy.insert(WorkoutSessionModel(
+            uuid: UUID(),
+            programDayUUID: UUID(),
+            programDayName: "Dia A",
+            statusRaw: SessionStatus.inProgress.rawValue,
+            startedAt: now,
+            endedAt: nil,
+            notes: "",
+            hkWorkoutUUID: nil,
+            avgHeartRate: nil,
+            maxHeartRate: nil,
+            isDeload: false,
+            sourceRaw: DeviceSource.iphone.rawValue
+        ))
+        try busy.save()
+        let busyStore = FakeOutsideActivityStore(log: original)
+        let busyService = makeService(busy, activities: busyStore)
+        XCTAssertThrowsError(try busyService.importBackup(data)) { error in
+            XCTAssertEqual(error as? BackupError, .inProgressSession)
+        }
+        XCTAssertThrowsError(try busyService.importBackup(Data("{}".utf8)))
+        XCTAssertEqual(busyStore.log, original)
+        XCTAssertEqual(busyStore.saveCount, 0)
+
+        // 2. O retrato tirado antes de apagar leva as atividades do aparelho.
+        let snapshotContext = try makeContext()
+        _ = try insertFixture(into: snapshotContext)
+        let snapshotService = makeService(snapshotContext, activities: FakeOutsideActivityStore(log: original))
+        XCTAssertEqual(try snapshotService.makeDocument(exportedAt: now).outsideActivities, original)
+
+        // 3. O processo morreu entre apagar e inserir: a recuperação do launch devolve o banco e as
+        // atividades do retrato.
+        let snapshot = try snapshotService.exportBackup(now: now)
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let restoreURL = pendingRestoreURL(in: directory)
+        try snapshot.write(to: restoreURL, options: .atomic)
+
+        let relaunched = try makeContext()
+        let relaunchedStore = FakeOutsideActivityStore()
+        let service = makeService(relaunched, pendingRestoreURL: restoreURL, activities: relaunchedStore)
+        XCTAssertTrue(service.recoverInterruptedImportIfNeeded())
+        XCTAssertEqual(relaunchedStore.log, original)
+        XCTAssertEqual(try service.exportBackup(now: now), snapshot, "Nada se perdeu, nem as atividades")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: restoreURL.path(percentEncoded: false)))
+    }
+
+    func testX8_activitiesSaveFailure_keepsTheImport() throws {
+        let source = try makeContext()
+        _ = try insertFixture(into: source)
+        let data = try makeService(source, activities: FakeOutsideActivityStore(log: activitiesLog())).exportBackup(now: now)
+
+        let target = try makeContext()
+        let local = FakeOutsideActivityStore(log: activitiesLog(kind: .dance))
+        local.saveError = OutsideActivityStoreError.storageUnavailable
+        let report = try makeService(target, activities: local).importBackup(data)
+
+        XCTAssertEqual(report, BackupImportReport(exercises: 3, programs: 2, sessions: 2, sets: 4))
+        XCTAssertEqual(try counts(in: target).sessions, 2, "A importação do banco já terminou e fica")
+        XCTAssertEqual(local.log.entries.first?.kind, .dance, "A lista do aparelho fica como estava; a falha vai para o log")
+        XCTAssertEqual(local.saveCount, 0)
+    }
+
     // MARK: - Formato
 
     func testRF18_exportFormat_isVersionedSortedISO8601() throws {
@@ -564,13 +695,46 @@ final class BackupServiceTests: XCTestCase {
         return container.mainContext
     }
 
-    private func makeService(_ context: ModelContext, pendingRestoreURL: URL? = nil) -> BackupService {
+    private func makeService(
+        _ context: ModelContext,
+        pendingRestoreURL: URL? = nil,
+        activities: (any OutsideActivityStoring)? = nil
+    ) -> BackupService {
         BackupService(
             modelContext: context,
             appVersion: "9.9.9 (99)",
             timeZone: TimeZone(secondsFromGMT: 0) ?? .current,
-            pendingRestoreURL: pendingRestoreURL
+            pendingRestoreURL: pendingRestoreURL,
+            activities: activities
         )
+    }
+
+    /// Um registro avulso, o "Feito" de uma fixa e a fixa, com datas em segundos inteiros (o JSON do
+    /// backup guarda milissegundos).
+    private func activitiesLog(kind: OutsideActivityKind = .teamSport) -> OutsideActivityLog {
+        let fixedID = UUID()
+        let fixed = FixedOutsideActivity(
+            id: fixedID,
+            kind: .pilates,
+            weekday: .tuesday,
+            startMinuteOfDay: 19 * 60,
+            minutes: 50,
+            intensity: .light
+        )
+        let single = OutsideActivityEntry(
+            kind: kind,
+            start: now.addingTimeInterval(-86_400 * 3),
+            minutes: 90,
+            intensity: .vigorous
+        )
+        let done = OutsideActivityEntry(
+            kind: .pilates,
+            start: now.addingTimeInterval(-86_400),
+            minutes: 50,
+            intensity: .light,
+            fixedActivityID: fixedID
+        )
+        return OutsideActivityLog(entries: [single, done], fixed: [fixed])
     }
 
     /// Pasta temporária própria do teste; quem chama a apaga com `defer`.

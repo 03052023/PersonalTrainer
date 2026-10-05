@@ -18,6 +18,7 @@ extension CoachService {
         rememberTargets(from: reviewInput)
         let exercises = exerciseCatalog(from: reviewInput)
         let deload = deloadState(sessions: sessions, now: now)
+        let deloadDetail = deloadTriggerDetail(for: deload, now: now)
         let review = relevantReview(
             currentReview(log: &log, input: reviewInput, firstSessionAt: trainedStarts.min(), now: now),
             activeProgramID: reviewInput?.programID
@@ -40,7 +41,8 @@ extension CoachService {
             lastBackupAt: lastBackupAt,
             completedSessionCount: completedCount,
             goal: reminderGoal(),
-            longevityDoneThisWeek: longevityDone
+            longevityDoneThisWeek: longevityDone,
+            deloadDetail: deloadDetail
         )
     }
 
@@ -165,6 +167,23 @@ extension CoachService {
         }
         markPendingDeload(since: now, trigger: trigger)
         return now
+    }
+
+    /// Os números do C1 (SPEC §7.11 C1, achado B11 da 2.1): só com a semana leve programada, que é
+    /// quando o planejador pode tê-los (`SessionPlanning.deloadTriggerDetail` devolve `nil` fora de
+    /// `.pending`). Assim o diálogo não recalcula o programa à toa em cada atualização. Numa falha de
+    /// leitura, `nil` com log: o C1 fica com o texto sem números.
+    func deloadTriggerDetail(for state: CoachDeloadState, now: Date) -> DeloadTriggerDetail? {
+        guard case .scheduled = state else {
+            return nil
+        }
+        do {
+            return try planner.deloadTriggerDetail(now: now)
+        } catch {
+            let reason = String(describing: error)
+            Self.logger.error("Números da semana leve indisponíveis: \(reason, privacy: .public)")
+            return nil
+        }
     }
 
     var storedPendingSince: Date? {

@@ -19,7 +19,10 @@ final class ProgramRepository: ProgramRepositoring {
 
     // Limites de `updateTarget` (contrato em `ProgramRepositoring`).
     private static let setsRange = 1...10
-    private static let maxReps = 50
+    /// SPEC RF-16 (2.4): o maior limite das medidas (300 segundos). O editor limita cada medida (50
+    /// repetições, 300 s, 100 passos, 180 min); aqui fica só o teto comum, que antes era 50 e recusava o
+    /// "Longo e leve" do Cardio (45–75 min).
+    private static let maxRangeValue = 300
     private static let rirRange = 0...5
     private static let restRange = 15...600
 
@@ -330,9 +333,9 @@ final class ProgramRepository: ProgramRepositoring {
         guard Self.setsRange.contains(sets) else {
             throw ProgramRepositoryError.invalidParameters("As séries devem ficar entre 1 e 10.")
         }
-        guard repMin >= 1, repMin < repMax, repMax <= Self.maxReps else {
+        guard repMin >= 1, repMin < repMax, repMax <= Self.maxRangeValue else {
             throw ProgramRepositoryError.invalidParameters(
-                "A faixa de repetições deve ir de 1 a 50, com o mínimo menor que o máximo."
+                "A faixa deve ir de 1 a 300, com o mínimo menor que o máximo."
             )
         }
         guard Self.rirRange.contains(targetRIR) else {
