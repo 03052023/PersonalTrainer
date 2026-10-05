@@ -192,7 +192,7 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
   - Depende de: T1.2, T1.3, T1.10.
   - Aceite: CA1-5.
 
-- [ ] **T1.12 [CI] Instalar no iPhone e treinar uma vez** — G5
+- [x] **T1.12 [CI] Instalar no iPhone e treinar uma vez** — G5 (o dono instala pelo Impactor e treina com o app desde a 2.1)
   - Escopo: nenhum arquivo; anotar achados em `TASKS.md` seção "Achados de campo".
   - Depende de: tudo de M1.
   - Aceite: CA1-1 a CA1-9 marcados manualmente.
@@ -247,7 +247,7 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 - [~] **T2.19 Padrão de movimento e substitutos (RF-34)** — catálogo ganha `movementPattern` (ex.: `horizontalPush`, `verticalPull`, `squat`, `hinge`, `lunge`, `carry`...) e `equipment`; `Domain/ExerciseSubstitution.swift` ranqueia substitutos (mesmo padrão + mesmo grupo primário, depois equipamento parecido); catálogo ampliado para ter ≥ 3 opções por padrão. Botão "Trocar" usa o evento `exerciseSubstituted` já existente. Testes de tabela.
 - [~] **T2.20 Adicionar/remover exercícios (RF-33)** — parte de T2.6 (edição de programa): limites 1–10 por dia.
 - [~] **T2.21 Formatos de hipertrofia (RF-35)** — três programas semente: completo, foco inferior, foco superior; escolha junto com o objetivo.
-- [ ] **T2.22 [CI] Dias do programa: adicionar, remover, renomear, reordenar (RF-36)** (pedido do usuário, 2026-09-23) — `ProgramRepositoring` ganha `addDay(programID:name:) -> UUID` (novo dia com o próximo rótulo livre: A, B, C, D, E…), `removeDay(id:)` (mínimo 1 dia; se era o dia da última sessão, S2 recomeça em D1), `renameDay(id:to:)`, `moveDay(id:toIndex:)` (renumera `order`); limites 1–7 dias; UI no `ProgramDetailView`. Rodada seguinte à integração do M2 (os agentes atuais já estavam em execução quando o pedido chegou).
+- [x] **T2.22 [CI] Dias do programa: adicionar, remover, renomear, reordenar (RF-36)** (conferido no código em 2026-10-05: `ProgramDetailView` e `ProgramRepositoring`; desde a 2.4, apagar o dia da última sessão faz S2 seguir a sessão anterior num dia que existe) (pedido do usuário, 2026-09-23) — `ProgramRepositoring` ganha `addDay(programID:name:) -> UUID` (novo dia com o próximo rótulo livre: A, B, C, D, E…), `removeDay(id:)` (mínimo 1 dia; se era o dia da última sessão, S2 recomeça em D1), `renameDay(id:to:)`, `moveDay(id:toIndex:)` (renumera `order`); limites 1–7 dias; UI no `ProgramDetailView`. Rodada seguinte à integração do M2 (os agentes atuais já estavam em execução quando o pedido chegou).
 - [~] **T2.12 [CI] Escolha do objetivo na edição de programa** — Escopo: `Features/Program/GoalPicker.swift`, ajuste em T2.6. Depende de: T2.11.
 - [~] **T2.9 [CI] Substituir exercício + editar/excluir série + abandonar** — G2 — Escopo: `Features/Session/ExercisePickerSheet.swift`, `Features/Session/SetEditSheet.swift`, ajustes em `ActiveSessionViewModel`. Eventos já existem (T1.3). Depende de: T1.5, T2.5. Aceite: CA2-3, CA2-8.
 - [~] **T2.10 [CI] Resumo enriquecido + gráfico de carga por exercício** — G3 — Escopo: `Features/History/ExerciseProgressChart.swift` (Swift Charts), `SessionSummaryView` com tonelagem e FC. Depende de: T2.2, T2.3.
@@ -297,17 +297,37 @@ Grupos paralelos: dentro de cada milestone, tarefas com a mesma letra de grupo (
 
 **Estado em 2026-09-24:** cálculo (DeloadPolicy, DeloadScheduler com rearme, FrequencyAwareSelector, ProgramReviewer, PersonalRecordDetector, Coach C1–C8) verde no Core tests. App (planejador com semana leve e seletor, diálogo com feed, destaque, revisão aplicável e aviso de expiração) integrado, revisado por 2 lentes adversariais e corrigido. App build verde em `ci/v3-final`. Falta a verificação no aparelho.
 
+### Versão 2.4: atividades fora do app e pendências (pedido do dono, 2026-10-04)
+
+Pedido do dono: "gere a próxima versão já com tudo que está pendente de ser incluído". Contrato `docs/V24-CONTRACT.md`, com a lista completa das pendências e a decisão de cada uma; SPEC decisão 21, RF-53 e §7.17. Worktrees `C:\Users\leona\Developer\pt-wt\w8-<key>`, branches `v8/<key>`, CI em `ci/v8-<key>`.
+
+- [x] **T10.0 Documentos e andaime** (arquiteto): o contrato; na SPEC, RF-01, RF-09, RF-13, RF-16, RF-34, RF-44 (e, j), RF-45, RF-46, RF-47, RF-48, RF-49, RF-52, RF-53 (novo), S2, S6, S8, §7.5, R4, R8, C1, C8, §7.10, §7.14 (F3, F5, F6 e F7), §7.15 (M4, M5, M9), §7.16 (W2, W4), §7.17 (novo) e a decisão 21; DESIGN 1.5; ARCHITECTURE §12 e §17; `docs/design/exercise-guides/batches.json` com os lotes 4 a 7; este TASKS; o andaime (`TrainerCore/Activities`, `FixedActivityDemand`, `RecoveryLoad`, `DeloadTriggerDetail`, os parâmetros novos com padrão, `OutsideActivityStoring` com o Fake, o `ActivitiesModel` e as duas views em esboço).
+- [ ] **T10.1 [CI] `activities-core`** — X1–X8 testadas; encaixe com fixas (X4); B9 no núcleo; Metas com as atividades (W2.3, W2.6, W4); A1 com a intensidade declarada; referência Ainsworth 2011 e `topic.activities`.
+- [ ] **T10.2 [CI] `engine`** — S2 pelos dias do programa (A3 da 2.3); S6 com as atividades (X5); blocos do 4 × 4 (F6); semana leve no aeróbico (F5); C1 com números (B11 da 2.1); R8 com segundos e passos; vocabulário "plano" na revisão.
+- [ ] **T10.3 [CI] `data`** — JSON das atividades (X8), backup, planejador (S6, encaixe, semana leve, medida na revisão, números do C1), "Feito" do C8 como registro (X6), faixa até 300 no repositório (B-2 da 2.1).
+- [ ] **T10.4 [CI] `healthkit`** — sessão do Cardio como treino aeróbico e vínculo pelo tipo (F5); FC por minuto para o Histórico (F7).
+- [ ] **T10.5 [CI] `activities-ui`** — registro e fixas (RF-53), "Também hoje", Metas com "Fora do app" e "1 de 2 vezes", Início com os textos da tela Hoje (B8 da 2.3) e Saúde com as atividades.
+- [ ] **T10.6 [CI] `plans-ui`** — "Também hoje" na tela Hoje, "Atividades fixas" e as fixas em "Sua semana", chaves de "Seus dias" (B9 da 2.3), faixa por medida no editor (B-2 da 2.1).
+- [ ] **T10.7 [CI] `session`** — carga digitada (A4 da 2.2), cartão aberto (B6 da 2.2), Trocar em casa (B-5 da 2.1), "sem carga" na tela Hoje (B11 da 2.3), progressão dos intervalos (B10 da 2.3, F6), evolução sem carga (A5 da 2.2), sessão vazia fora do Histórico (A7 da 2.2), zonas e VO2máx (F7).
+- [ ] **T10.8 [CI] `launch`** — halo (A7), ordem das pétalas (B5) e degradê (B6) da abertura (achados da 2.3).
+- [ ] **T10.9 `guides-4` a `guides-7`** — as 78 guias que faltam, nos lotes 4 a 7 (T6.9 e CA8-8).
+- [ ] **T10.10 [CI] Integração** — `v8/integration`: as guias juntadas, a raiz, os testes cruzados, a conferência de mensagens, `ci/v8-final`, revisão adversarial e correção. Depois, IPA novo, HANDOFF, a página e o PDF da Amanda e as folhas das guias para o dono.
+
+Decisões conservadoras do arquiteto (SPEC decisão 21): a fixa só conta com "Feito"; pilates, ioga e cross ficam fora do aeróbico; com um plano só continua sem encaixe; as atividades ficam fora do painel de músculos; a sessão vazia de "Sair sem registrar" some do Histórico sem ser apagada; o nome "Intervalos 4 × 4" fica; o 4 × 4 vai de 4 a 5 blocos; o dia D fica fora; os intervalos do Combate ficam com a aula de luta registrada; o C11 espera um SchemaV3.
+
+**Critérios de aceitação da 2.4:** CA10-1 a CA10-13, em `docs/V24-CONTRACT.md` §6.
+
 ### Versão 2.3: equilibrado, fôlego, carga opcional e "Como fazer" (pedidos do dono, 2026-09-27, depois de usar a 2.2)
 
 Pedidos, na redação do dono, com a tarefa que resolve cada um. As decisões estão na SPEC (decisão 19), e o contrato do núcleo é `docs/V23-CORE-CONTRACT.md`.
-- [ ] **D1** "O hipertrofia corpo todo é treino de corpo todo todo dia? O correto seria equilibrado, … com as divisões por dia habituais." → formato **Equilibrado**: 4 dias Superior/Inferior, padrão no seed, com o Corpo todo escondido (RF-35, §7.9): **T8.1 `core`**.
-- [ ] **D2** "O programa de resistência muscular deve mudar, deve ser cardiovascular. Aumentar o fôlego." → objetivo **Fôlego**, cardio simples em minutos, com 10 aeróbicos no catálogo (RF-48, §7.14): **T8.1 `core`**. A parte de tela vai para a onda de telas.
+- [x] **D1** "O hipertrofia corpo todo é treino de corpo todo todo dia? O correto seria equilibrado, … com as divisões por dia habituais." → formato **Equilibrado**: 4 dias Superior/Inferior, padrão no seed, com o Corpo todo escondido (RF-35, §7.9): **T8.1 `core`**.
+- [x] **D2** "O programa de resistência muscular deve mudar, deve ser cardiovascular. Aumentar o fôlego." → objetivo **Fôlego**, cardio simples em minutos, com 10 aeróbicos no catálogo (RF-48, §7.14): **T8.1 `core`**. A parte de tela vai para a onda de telas.
 - [x] **Pergunta** "Por que o treino de hipertrofia superior tem 4 dias? É para ter descanso?" → Não é descanso. São 2 dias de superior, para cada grupo em foco treinar 2×/semana, e 2 dias de pernas em manutenção, com menos séries. Agora os três formatos têm 4 dias (RF-35).
-- [ ] **D3** "Não obrigar colocar carga para poder marcar as séries e o exercício feito; a carga é só se o cara usar carga." → motor em **T8.1 `core`** (P8 D3); a ficha, na onda de telas (RF-44 c, RF-46).
-- [ ] **D4** Medida `minutes` (RF-43): **T8.1 `core`**.
-- [ ] **D5** "Você já incluiu os desenhos explicando os exercícios? Se não, inclua já na próxima." → motor e ferramenta em **T8.2 `guide-engine`**; os 62 desenhos em **T8.3** (lotes); a folha e o botão, na onda de telas.
-- [ ] "Deixe ainda mais simples a interação quando ele aperta Começar", com as informações que recomendam treinos, cargas, exercícios e mudanças → onda de telas (sessão guiada), com contrato próprio.
-- [ ] Estética mais bonita, "budista, porém estoica", com uma animação elegante de abertura → pesquisa em `docs/design/v23-aesthetics/` e passada estética na onda de telas.
+- [x] **D3** "Não obrigar colocar carga para poder marcar as séries e o exercício feito; a carga é só se o cara usar carga." → motor em **T8.1 `core`** (P8 D3); a ficha, na onda de telas (RF-44 c, RF-46).
+- [x] **D4** Medida `minutes` (RF-43): **T8.1 `core`**.
+- [x] **D5** "Você já incluiu os desenhos explicando os exercícios? Se não, inclua já na próxima." → motor e ferramenta em **T8.2 `guide-engine`**; os 62 desenhos em **T8.3** (lotes); a folha e o botão, na onda de telas.
+- [x] "Deixe ainda mais simples a interação quando ele aperta Começar", com as informações que recomendam treinos, cargas, exercícios e mudanças → onda de telas (sessão guiada), com contrato próprio.
+- [x] Estética mais bonita, "budista, porém estoica", com uma animação elegante de abertura → pesquisa em `docs/design/v23-aesthetics/` e passada estética na onda de telas.
 
 Tarefas do núcleo (contrato `docs/V23-CORE-CONTRACT.md`; worktrees `C:\Users\leona\Developer\pt-wt\w6-<key>`, branches `v6/<key>`):
 - [x] **T8.0 Documentos** (arquiteto): contrato do núcleo; na SPEC, RF-04, RF-35, RF-40, RF-43, RF-44 c, RF-45, RF-46, RF-48 (novo), P2/P4/P6/P8, §7.4, §7.5, R8 (novo), §7.9, §7.10, §7.12 (E2, E5–E10), H1/H2, §7.14 (novo) e as decisões 8, 14 e 19; DESIGN §1, §3 e §4 (nome Fôlego); este TASKS.
@@ -322,43 +342,43 @@ Tarefas do núcleo (contrato `docs/V23-CORE-CONTRACT.md`; worktrees `C:\Users\le
 ### Versão 2.3: onda de telas (pedidos do dono, 2026-09-27 e 2026-09-28)
 
 Decisões do dono em `docs/design/v23-owner-notes.md` (itens 1 a 18) e na SPEC (decisão 20); contrato `docs/V23-UI-CONTRACT.md`. Os itens 15 a 18 prevalecem sobre os anteriores.
-- [ ] **Cardio** "Coração forte e mais condicionamento", com o plano focado no VO2máx: base contínua, 4 × 4, longo e leve (itens 1 e 8; RF-48, §7.14) → **T9.5 `plans-core`** (seed, referências) e **T9.4 `session`** (ficha).
-- [ ] **Carga opcional com sugestão delicada** (item 2; RF-44 c, RF-46) → **T9.4 `session`**.
-- [ ] **Abertura** com a flor, amanhecer de areia, pétala do objetivo e pólen discreto; sem vibração (itens 3, 6, 13 e 14; RF-50) → **T9.2 `launch`**.
-- [ ] **Vários planos** com encaixe, saídas e consequências (itens 4, 9, 10, 11 e 12; RF-51, §7.15, S8) → **T9.5 `plans-core`** e **T9.6 `plans-ui`**.
+- [x] **Cardio** "Coração forte e mais condicionamento", com o plano focado no VO2máx: base contínua, 4 × 4, longo e leve (itens 1 e 8; RF-48, §7.14) → **T9.5 `plans-core`** (seed, referências) e **T9.4 `session`** (ficha).
+- [x] **Carga opcional com sugestão delicada** (item 2; RF-44 c, RF-46) → **T9.4 `session`**.
+- [x] **Abertura** com a flor, amanhecer de areia, pétala do objetivo e pólen discreto; sem vibração (itens 3, 6, 13 e 14; RF-50) → **T9.2 `launch`**.
+- [x] **Vários planos** com encaixe, saídas e consequências (itens 4, 9, 10, 11 e 12; RF-51, §7.15, S8) → **T9.5 `plans-core`** e **T9.6 `plans-ui`**.
 - [x] **Sem cardio base** nos outros planos (item 7): nada muda.
-- [ ] **Direção A · Tinta e papel**, só no visual (item 14; DESIGN §3, §14) → **T9.1 `ink`**; desenhos do "Como fazer" aprovados → folha e botões em **T9.4 `session`**.
-- [ ] **Início** antes do treino do dia, sem mensagem (itens 14 e 15; RF-49) e **Metas da semana** (item 17; RF-52, §7.16) → **T9.3 `home`**.
-- [ ] **Sem mensagens em nenhum lugar do app** (item 16; decisão 20; DESIGN §6) → regra de todas as tarefas e conferência na **T9.7**.
-- [ ] **Passos só com Longevidade ou Cardio** (item 18; §7.16 W7) → **T9.3 `home`**.
-- [ ] "Deixe ainda mais simples a interação quando ele aperta Começar" → sessão guiada (RF-44 i): **T9.4 `session`**.
+- [x] **Direção A · Tinta e papel**, só no visual (item 14; DESIGN §3, §14) → **T9.1 `ink`**; desenhos do "Como fazer" aprovados → folha e botões em **T9.4 `session`**.
+- [x] **Início** antes do treino do dia, sem mensagem (itens 14 e 15; RF-49) e **Metas da semana** (item 17; RF-52, §7.16) → **T9.3 `home`**.
+- [x] **Sem mensagens em nenhum lugar do app** (item 16; decisão 20; DESIGN §6) → regra de todas as tarefas e conferência na **T9.7**.
+- [x] **Passos só com Longevidade ou Cardio** (item 18; §7.16 W7) → **T9.3 `home`**.
+- [x] "Deixe ainda mais simples a interação quando ele aperta Começar" → sessão guiada (RF-44 i): **T9.4 `session`**.
 
 Tarefas (worktrees `C:\Users\leona\Developer\pt-wt\w7-<key>`, branches `v7/<key>`, CI em `ci/v7-<key>`):
 - [x] **T9.0 Documentos e andaime** (arquiteto): contrato `docs/V23-UI-CONTRACT.md`; na SPEC, P-1, F1, RF-01, RF-17, RF-31, RF-44 (c, i), RF-45, RF-47, RF-48, RF-49 a RF-52 (novos), S8, §7.9, §7.10, §7.14 (Cardio VO2máx), §7.15 (M1–M9, novo), §7.16 (W1–W7, novo), §7.7 e as decisões 14, 19 e 20; DESIGN 1.4 (§1, §3, §4, §6, §7, §8, §9, §10, §11, §13 e §14 novo); ARCHITECTURE §17; este TASKS; o andaime (`473345a`, `29d1256`, `cfb6b39`: `TrainerCore/Plans`, requisitos novos do `SessionPlanning` e do `ProgramRepositoring`, DTOs da tela Hoje, stubs do DesignSystem e o nome Cardio).
-- [ ] **T9.1 [CI] `ink`** — Tinta e papel: tokens, papel, cartões, flor em aguada, ensō, marca de tinta, aguada de montanha, folhas de conferência e a pele de Ajustes, Diálogo e Referências.
-- [ ] **T9.2 [CI][PROJ] `launch`** — tela de lançamento (`project.yml`, assets) e a abertura com o pólen (RF-50).
-- [ ] **T9.3 [CI] `home`** — Início (RF-49), Metas da semana (RF-52, W1–W7 no TrainerCore), Histórico sem o painel (RF-17) e passos só com Longevidade ou Cardio no Saúde (W7).
-- [ ] **T9.4 [CI] `session`** — sessão guiada, carga opcional com a sugestão, Cardio na ficha e na tela Hoje, "Como fazer" (T6.5, T6.7), descanso em ensō.
-- [ ] **T9.5 [CI] `plans-core`** — `WeeklyFit` (M4, M5), `PlanCombination` (M7), Cardio VO2máx no seed, referências, vários planos no repositório, no backup, no planejador (S8, M6, W2) e no diálogo (C2, C8).
-- [ ] **T9.6 [CI] `plans-ui`** — folha "Seu objetivo" com Adicionar, aba Plano com a semana e os dias, tela Hoje com as sessões do dia.
-- [ ] **T9.7 [CI] Integração** — `v7/integration`: aba Início, abertura, guias no ambiente, passos (W7), conferência de mensagens, `ci/v7-final`, revisão adversarial e correção. Depois, IPA novo, HANDOFF e a página e o PDF da Amanda.
-- [ ] **Para depois da onda:** HealthKit do Cardio e semana leve em minutos (F5); o 4 × 4 que cresce em blocos; o dia D de tiros curtos; zonas de FC no Cardio; registro próprio de equilíbrio e mobilidade (C10).
+- [x] **T9.1 [CI] `ink`** — Tinta e papel: tokens, papel, cartões, flor em aguada, ensō, marca de tinta, aguada de montanha, folhas de conferência e a pele de Ajustes, Diálogo e Referências.
+- [x] **T9.2 [CI][PROJ] `launch`** — tela de lançamento (`project.yml`, assets) e a abertura com o pólen (RF-50).
+- [x] **T9.3 [CI] `home`** — Início (RF-49), Metas da semana (RF-52, W1–W7 no TrainerCore), Histórico sem o painel (RF-17) e passos só com Longevidade ou Cardio no Saúde (W7).
+- [x] **T9.4 [CI] `session`** — sessão guiada, carga opcional com a sugestão, Cardio na ficha e na tela Hoje, "Como fazer" (T6.5, T6.7), descanso em ensō.
+- [x] **T9.5 [CI] `plans-core`** — `WeeklyFit` (M4, M5), `PlanCombination` (M7), Cardio VO2máx no seed, referências, vários planos no repositório, no backup, no planejador (S8, M6, W2) e no diálogo (C2, C8).
+- [x] **T9.6 [CI] `plans-ui`** — folha "Seu objetivo" com Adicionar, aba Plano com a semana e os dias, tela Hoje com as sessões do dia.
+- [x] **T9.7 [CI] Integração** — `v7/integration`: aba Início, abertura, guias no ambiente, passos (W7), conferência de mensagens, `ci/v7-final`, revisão adversarial e correção. Depois, IPA novo, HANDOFF e a página e o PDF da Amanda.
+- [~] **Para depois da onda:** HealthKit do Cardio e semana leve em minutos (F5); o 4 × 4 que cresce em blocos; o dia D de tiros curtos; zonas de FC no Cardio; registro próprio de equilíbrio e mobilidade (C10). → versão 2.4: T10.2, T10.3, T10.4 e T10.7 (F5, F6, F7) e T10.1/T10.5 (C10, X6). O dia D fica fora (decisão 21).
 
 **Critérios de aceitação da onda de telas:** CA9-1 a CA9-13, em `docs/V23-UI-CONTRACT.md` §6.
 
 ### Versão 2.2: simplificação (pedido do dono, 2026-09-27, depois de usar a 2.1 no aparelho)
 
 O app está rodando no iPhone do dono (prints de 2026-09-27: sessão e tela Hoje). Pedidos, na redação dele, com a tarefa do contrato `docs/V22-CONTRACT.md` que resolve cada um (respostas do dono na SPEC, decisão 18):
-- [ ] **S1** Mudar o subtítulo "Saber se defender" do Combate. → "Potência e resistência" (DESIGN §4): **T7.6 `flower`**.
-- [ ] **S2** Poder mudar de programa com facilidade. → topo da tela Hoje com "Trocar" (**T7.3 `home`**) e a folha "Seu objetivo" (**T7.4 `goal-plan`**, RF-45).
-- [ ] **S3** "Objetivo e programa está confuso, devem ser uma coisa só." → objetivo = plano, Hipertrofia com 3 formatos, aba Plano, primeiro uso em um passo: **T7.4 `goal-plan`** (RF-35, RF-45).
-- [ ] **S4** "Muito complexo, simplifique." Vale para o app inteiro. → tela Hoje enxuta (**T7.3 `home`**, RF-01), ficha da sessão (**T7.1 `session`**), aba Plano (**T7.4**), Ajustes com "Mais opções" (**T7.5 `settings`**), "Esta semana" e Histórico sem RIR (**T7.7 `history`**), vocabulário leigo (DESIGN §7).
-- [ ] **S5** Avaliar se o RIR é indispensável; se ficar, que seja mais simples. → RIR interno e invisível (RF-41): **T7.1 `session`**, **T7.3 `home`**, **T7.4 `goal-plan`** (editor sem RIR), **T7.7 `history`**; textos do "Por quê?" sem a sigla em **T7.2 `exercise-info`**.
-- [ ] **S6** Flexão e agachamento são peso do corpo: não mostrar carga. → RF-46, com os textos compartilhados de **T7.2 `exercise-info`** (`TodayTargetText`), usados por **T7.1**, **T7.3** e **T7.7**.
-- [ ] **S7** Qual a função da chave "Aquecimento"? Esclarecer ou tirar. → a chave sai e vira a dica fixa da ficha (RF-44 d): **T7.1 `session`**.
-- [ ] **S8** Clicar menos na tela durante o treino. → bolinhas, "Feito", concluir com pendentes e tela acesa (RF-44): **T7.1 `session`**.
-- [ ] **S9** "Ele quer mais consultar as infos": a sessão como consulta, com o registro mais leve. → ficha (**T7.1 `session`**) e "Informações do exercício" com "Da última vez" (**T7.2 `exercise-info`**, RF-47).
-- [ ] **S10** Flor/ícone com pétalas com mais movimento, irregularidade, organicidade e vivacidade. Referências enviadas: pinwheel arredondado colorido, asterisco orgânico irregular, espiral de gotas. → candidato 6 · Brisa no ícone (padrão, escuro e tingido) e na `FlowerView`: **T7.6 `flower`** (DESIGN §2, §4).
+- [x] **S1** Mudar o subtítulo "Saber se defender" do Combate. → "Potência e resistência" (DESIGN §4): **T7.6 `flower`**.
+- [x] **S2** Poder mudar de programa com facilidade. → topo da tela Hoje com "Trocar" (**T7.3 `home`**) e a folha "Seu objetivo" (**T7.4 `goal-plan`**, RF-45).
+- [x] **S3** "Objetivo e programa está confuso, devem ser uma coisa só." → objetivo = plano, Hipertrofia com 3 formatos, aba Plano, primeiro uso em um passo: **T7.4 `goal-plan`** (RF-35, RF-45).
+- [x] **S4** "Muito complexo, simplifique." Vale para o app inteiro. → tela Hoje enxuta (**T7.3 `home`**, RF-01), ficha da sessão (**T7.1 `session`**), aba Plano (**T7.4**), Ajustes com "Mais opções" (**T7.5 `settings`**), "Esta semana" e Histórico sem RIR (**T7.7 `history`**), vocabulário leigo (DESIGN §7).
+- [x] **S5** Avaliar se o RIR é indispensável; se ficar, que seja mais simples. → RIR interno e invisível (RF-41): **T7.1 `session`**, **T7.3 `home`**, **T7.4 `goal-plan`** (editor sem RIR), **T7.7 `history`**; textos do "Por quê?" sem a sigla em **T7.2 `exercise-info`**.
+- [x] **S6** Flexão e agachamento são peso do corpo: não mostrar carga. → RF-46, com os textos compartilhados de **T7.2 `exercise-info`** (`TodayTargetText`), usados por **T7.1**, **T7.3** e **T7.7**.
+- [x] **S7** Qual a função da chave "Aquecimento"? Esclarecer ou tirar. → a chave sai e vira a dica fixa da ficha (RF-44 d): **T7.1 `session`**.
+- [x] **S8** Clicar menos na tela durante o treino. → bolinhas, "Feito", concluir com pendentes e tela acesa (RF-44): **T7.1 `session`**.
+- [x] **S9** "Ele quer mais consultar as infos": a sessão como consulta, com o registro mais leve. → ficha (**T7.1 `session`**) e "Informações do exercício" com "Da última vez" (**T7.2 `exercise-info`**, RF-47).
+- [x] **S10** Flor/ícone com pétalas com mais movimento, irregularidade, organicidade e vivacidade. Referências enviadas: pinwheel arredondado colorido, asterisco orgânico irregular, espiral de gotas. → candidato 6 · Brisa no ícone (padrão, escuro e tingido) e na `FlowerView`: **T7.6 `flower`** (DESIGN §2, §4).
 - Continuam valendo: "Como fazer" (RF-40, T6.1 e T6.4–T6.9) e as pendências da revisão da 2.1 (logo abaixo). A folha de informações (RF-47) é onde o "Como fazer" vai entrar.
 
 Tarefas da versão 2.2 (contrato `docs/V22-CONTRACT.md`; worktrees `C:\Users\leona\Developer\pt-wt\w5-<key>`, branches `v5/<key>`, CI em `ci/v5-<key>`):
@@ -370,25 +390,25 @@ Tarefas da versão 2.2 (contrato `docs/V22-CONTRACT.md`; worktrees `C:\Users\leo
 - [x] **T7.5 [CI] `settings`** — Ajustes com "Mais opções"; sai "Onde treinar".
 - [x] **T7.6 [CI] `flower`** — flor Brisa no ícone e na `FlowerView`; subtítulo do Combate.
 - [x] **T7.7 [CI] `history`** — "Esta semana" no Histórico; Histórico sem RIR e com os selos leigos.
-- [~] integrador · v5/integration — **T7.8 [CI] Integração** — `v5/integration`: RootView (aba Plano, folha "Seu objetivo", parâmetros novos), limpeza do código morto, `ci/v5-final`, revisão adversarial e correção.
-- [ ] **Pendências da revisão da 2.2** (achados menores deixados para depois): a carga digitada antes da 1ª série se perde ao tocar em "Voltar" e retomar (A4: o ViewModel da ficha é recriado); a evolução do exercício (Histórico e "Ver evolução") ainda mostra "0 kg" e 1RM estimado em peso do corpo (A5, RF-46); "Sair sem registrar" grava a sessão vazia como encerrada e ela aparece no Histórico (A7: decisão do dono entre esconder no Histórico ou apagar, com a SPEC); a última série marcada recolhe o cartão e corrigir custa 1 toque a mais que no mockup (B6); o texto da revisão R5 no TrainerCore ainda diz "programa X" (→ T8.1, SPEC R8).
+- [x] **T7.8 [CI] Integração** — `v5/integration`: RootView (aba Plano, folha "Seu objetivo", parâmetros novos), limpeza do código morto, `ci/v5-final`, revisão adversarial e correção.
+- [~] **Pendências da revisão da 2.2** → versão 2.4 (A4, A5, A7 e B6 na T10.7; o texto do ProgramReviewer já foi na T8.1, e o vocabulário que faltava vai na T10.2; A7 com a decisão conservadora de esconder, sem apagar). Texto original (achados menores deixados para depois): a carga digitada antes da 1ª série se perde ao tocar em "Voltar" e retomar (A4: o ViewModel da ficha é recriado); a evolução do exercício (Histórico e "Ver evolução") ainda mostra "0 kg" e 1RM estimado em peso do corpo (A5, RF-46); "Sair sem registrar" grava a sessão vazia como encerrada e ela aparece no Histórico (A7: decisão do dono entre esconder no Histórico ou apagar, com a SPEC); a última série marcada recolhe o cartão e corrigir custa 1 toque a mais que no mockup (B6); o texto da revisão R5 no TrainerCore ainda diz "programa X" (→ T8.1, SPEC R8).
 
 ### Versão 2.1 (entregue em 2026-09-24, App build 36037123014) e pendências
 
 - [x] **Modo casa (RF-42, §7.13)**, **medida (RF-43)**, **RIR explicado (RF-41)**, saúde para qualquer relógio (A3/A4), B7 duração estimada, B10 backup direto, A4/B8 dispensa nos dois sentidos, A5 importar limpa decisões — contrato `docs/V21-CONTRACT.md`; revisão adversarial com 8 achados (3 major corrigidos: import de backup 2.0 reaplica o seed, revisão antiga some após importar, equivalente de casa com a mesma medida).
-- [ ] **Pendências da revisão da 2.1:** aba Programa sem unidade (s/passos) no resumo e no editor do alvo (B-2); o seletor de RIR mostra só o significado do valor escolhido, e a escala inteira fica no cartão e na folha (B-3, mantido); a folha Trocar vazia em modo casa diz "catálogo" sem explicar que só mostra opções de casa (B-5); a sugestão R5 "outra faixa de repetições" e o 1RM de Epley (R1/C6 no core) não consideram segundos e passos; o app do Watch não mostra a medida.
+- [~] **Pendências da revisão da 2.1** → versão 2.4: as unidades da aba Plano já estavam feitas, e o limite da faixa por medida vai na T10.3/T10.6; B-3 cancelada (RIR invisível desde a 2.2); B-5 na T10.7; R5 e Epley sem segundos e passos na T10.2/T10.3 (o C6 já filtrava no app); o app do Watch fica com o M3. Texto original: aba Programa sem unidade (s/passos) no resumo e no editor do alvo (B-2); o seletor de RIR mostra só o significado do valor escolhido, e a escala inteira fica no cartão e na folha (B-3, mantido); a folha Trocar vazia em modo casa diz "catálogo" sem explicar que só mostra opções de casa (B-5); a sugestão R5 "outra faixa de repetições" e o 1RM de Epley (R1/C6 no core) não consideram segundos e passos; o app do Watch não mostra a medida.
 
-- [ ] **Como fazer (RF-40, SPEC §7.12)**: estilo aprovado em 2026-09-24 (protótipo v2). Tarefas T6.1 e T6.4–T6.9 na seção "Versão 2.1: Como fazer", logo abaixo.
+- [x] **Como fazer (RF-40, SPEC §7.12)**: entregue na 2.3 (T8.2, T8.3 e T9.4); o resto do catálogo vai na 2.4 (T10.9). Estilo aprovado em 2026-09-24 (protótipo v2). Tarefas T6.1 e T6.4–T6.9 na seção "Versão 2.1: Como fazer", logo abaixo.
 - [x] **T6.2 [CI] RIR explicado na sessão (RF-41)** — entregue na v2.1 (2026-09-24; seletor 0–5 com o significado do valor escolhido, folha "O que é RIR?", cartão da primeira sessão, leitura acessível) — Escopo: `Features/Session/RIRPicker.swift` (rótulos por valor), `Features/Session/RIRExplainerSheet.swift` (nova), cartão de primeira vez em `Features/Session/ActiveSessionView.swift` (marca `hasSeenRIRExplainer` em `@AppStorage`), leitura acessível em `Features/Home/PrescriptionRow.swift`. Aceite: os 4 itens do RF-41 visíveis no simulador, e o cartão some depois de "Entendi" e não volta.
 - [x] **T6.3 Exercícios medidos em tempo ou passos (RF-43)** — entregue na v2.1 SEM SchemaV3: a medida vem do catálogo do seed pelo slug (texto original a seguir) (achado de 2026-09-24): isometrias (pescoço, prancha) e carregadas aparecem como "10–20 repetições", quando são segundos ou passos. Acrescentar ao exercício a medida (`reps` | `seconds` | `steps`), com SchemaV3 e estágio de migração (R6), seed e rótulos na sessão, no histórico e na prescrição. A progressão (P4–P6) passa a usar a mesma lógica sobre a medida.
 - [x] **A5** (feito na v2.1: importar apaga as decisões de semana leve, a revisão guardada e a chave pendente; o log do diálogo fica) Importar backup mantinha decisões de semana leve, o log e a revisão do diálogo tomados sobre os dados antigos; esses JSON também não entram no backup. Decidir o que o import zera.
 - [x] **B7** (feito na v2.1) Duração estimada no cartão da sessão (DESIGN §9.2).
 - [x] **B10** (feito na v2.1) "Fazer backup" (C7) deveria abrir a exportação direto, não só a aba Ajustes.
-- [ ] **B11** Motivo do C1 com os números do gatilho (quantos exercícios baixaram; N semanas): exige campos no `CoachDeloadState`.
+- [~] **B11** → versão 2.4 (T10.2, T10.3). Motivo do C1 com os números do gatilho (quantos exercícios baixaram; N semanas): exige campos no `CoachDeloadState`.
 - [x] **A4/B8** (feito na v2.1) Dispensar uma sugestão de saúde no feed deveria escondê-la também no detalhe de Saúde (hoje só o sentido inverso funciona).
-- [ ] Programas Foco inferior e Foco superior: revisar para 2×/semana no grupo em foco e alinhar os descansos ao §7.9 (150/90 s).
-- [ ] C10 (corretor do M2): blocos de intervalos do Combate e de equilíbrio/mobilidade com registro próprio; hoje são lembretes C8.
-- [ ] C11 (corretor do M2): marcar exercício do seed editado pelo usuário (SchemaV3) antes de qualquer seed v3.
+- [x] Programas Foco inferior e Foco superior: revisar para 2×/semana no grupo em foco e alinhar os descansos ao §7.9 (150/90 s). Conferido no seed 4 em 2026-10-05: 4 dias, cada grupo em foco 2×/semana e descansos de 150/90 s.
+- [~] C10 (corretor do M2) → versão 2.4: equilíbrio e mobilidade ganham registro próprio pelas atividades fora do app (SPEC §7.17 X6; T10.1, T10.3, T10.5); os intervalos do Combate ficam com a "Aula de luta" registrada (decisão 21). Texto original: blocos de intervalos do Combate e de equilíbrio/mobilidade com registro próprio; hoje são lembretes C8.
+- [ ] C11 (corretor do M2): marcar exercício do seed editado pelo usuário (SchemaV3) antes de qualquer seed v3. Continua pendente na 2.4: sem SchemaV3 nem seed novo (decisão 21).
 
 ### Versão 2.1: Como fazer (RF-40, SPEC §7.12)
 
@@ -425,7 +445,7 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
     - opção `-Golden` com as coordenadas em t = 0, ¼, ½, ¾ e 1, gravadas em `Tests/TrainerCoreTests/Fixtures/exercise-guides-golden.v1.json`;
     - `GuideGoldenTests.swift`: o Swift e o script concordam em até 0,001 H. Isso protege contra os dois renderizadores divergirem, já que o Swift não roda localmente.
   - Depende de: T6.1. Aceite: CA6-1 completo.
-- [ ] **T6.5 [CI] Ilustração e folha "Como fazer"** — G2
+- [x] **T6.5 [CI] Ilustração e folha "Como fazer"** — G2 (entregue na 2.3, T9.4)
   - Escopo em `Features/ExerciseGuide/`:
     - `GuideIllustrationView.swift`: `TimelineView(.animation(minimumInterval: 1.0 / 30, paused:))` + `Canvas`, com um único `accessibilityLabel`;
     - `GuideStaticFramesView.swift`: modo Reduzir Movimento;
@@ -438,7 +458,7 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
   - Fáceis e médios primeiro. Os difíceis (cadeira abdutora, Pallof, salto na caixa, arremesso rotacional) podem sair como `motion: "static"`, com setas.
   - Não usar o campo `equipment` para decidir a cena: os 6 exercícios de medicine ball estão como `dumbbell`.
   - Depende de: T6.1 e T6.4. Aceite: CA6-2 (54) e folha pronta para o dono.
-- [ ] **T6.7 [CI] "Como fazer" no app** — G3
+- [x] **T6.7 [CI] "Como fazer" no app** — G3 (entregue na 2.3, T9.4)
   - Escopo:
     - `Services/ExerciseGuides/ExerciseGuideLibrary.swift`: lê o bundle, valida e devolve `.empty` em caso de falha (E8);
     - injeção em `App/AppEnvironment*.swift`;
@@ -446,7 +466,7 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
   - Depende de: T6.5 e T6.2. Não rodar em paralelo com a T6.2, porque as duas editam `PrescriptionRow.swift`.
   - Aceite: CA6-3 a CA6-6 no simulador.
 - [ ] **T6.8 [USER] Revisão do lote 1 e teste no aparelho** — G4 — O dono olha a folha e o app e anota as correções por exercício; o agente corrige no escopo da T6.6. Aceite: CA6-7 (lote 1) e CA6-3 a CA6-6 no iPhone.
-- [ ] **T6.9 Conteúdo, lote 2: os restantes do catálogo** — G5 — depois da 2.3, os que não estão nos programas nem são aeróbicos
+- [~] **T6.9 Conteúdo, lote 2: os restantes do catálogo** → versão 2.4, T10.9 (lotes 4 a 7: os 7 aeróbicos que faltavam e os 71 do resto do catálogo, 133 no total) — G5 — depois da 2.3, os que não estão nos programas nem são aeróbicos
   - Escopo: `exercise-guides.v1.json`, as folhas `sheet-2*.png` e a cobertura dos 99.
   - Difíceis previstos: voador, crucifixo inverso na máquina, abdominal na máquina, power clean suspenso, salto horizontal, arremesso para trás e extensão de pescoço na polia.
   - Depende de: T6.8. Aceite: CA6-2 (99) e CA6-7 (lote 2).

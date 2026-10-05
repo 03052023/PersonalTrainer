@@ -23,8 +23,23 @@
     },
     {
       "id": 4,
-      "title": "Aeróbicos fora dos programas",
-      "slugs": ["bike-intervals", "bodyweight-circuit", "easy-run", "elliptical", "jump-rope", "rowing-machine", "stair-climb"]
+      "title": "Aeróbicos fora dos programas, tronco, carregadas e pescoço",
+      "slugs": ["bike-intervals", "bodyweight-circuit", "cable-neck-extension", "easy-run", "elliptical", "floor-crunch", "grocery-bag-carry", "jump-rope", "kettlebell-front-rack-carry", "lying-leg-raise", "machine-crunch", "manual-neck-isometric", "plank", "rowing-machine", "side-plank", "stair-climb", "superman"]
+    },
+    {
+      "id": 5,
+      "title": "Catálogo: empurrar e ombros",
+      "slugs": ["cable-crossover", "cable-face-pull", "cable-lateral-raise", "chair-dip", "chair-incline-push-up", "dumbbell-bench-press", "dumbbell-fly", "dumbbell-front-raise", "lying-barbell-triceps-extension", "overhead-cable-triceps-extension", "parallel-bar-dip", "pec-deck-machine", "pike-push-up", "prone-ytw-raise", "reverse-pec-deck", "shoulder-press-machine", "smith-machine-incline-bench-press", "smith-machine-shoulder-press", "water-bottle-lateral-raise", "water-bottle-overhead-triceps-extension", "water-bottle-shoulder-press"]
+    },
+    {
+      "id": 6,
+      "title": "Catálogo: puxar e potência",
+      "slugs": ["backpack-bent-over-row", "backpack-curl", "backpack-pullover", "barbell-hang-power-clean", "broad-jump", "cable-curl", "inverted-row", "jump-squat", "machine-preacher-curl", "machine-row", "medicine-ball-backward-throw", "medicine-ball-overhead-throw", "medicine-ball-slam", "medicine-ball-supine-chest-throw", "neutral-grip-lat-pulldown", "one-arm-backpack-row", "plyometric-push-up", "reverse-grip-lat-pulldown"]
+    },
+    {
+      "id": 7,
+      "title": "Catálogo: pernas e quadril",
+      "slugs": ["bodyweight-lunge", "bodyweight-reverse-lunge", "bodyweight-squat", "cable-glute-kickback", "chair-bulgarian-split-squat", "dumbbell-lunge", "dumbbell-reverse-lunge", "glute-bridge", "hack-squat", "leg-press-calf-raise", "machine-hip-thrust", "nordic-hamstring-curl", "single-leg-dumbbell-calf-raise", "single-leg-extension", "single-leg-glute-bridge", "single-leg-romanian-deadlift", "single-leg-step-calf-raise", "sissy-squat", "smith-machine-squat", "standing-leg-curl", "step-calf-raise", "towel-leg-curl"]
     }
   ]
 }

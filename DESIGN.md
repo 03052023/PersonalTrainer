@@ -1,6 +1,6 @@
 # Guia de design: Magister
 
-Versão 1.4 · 2026-09-28. Vale para iPhone e Apple Watch. Decisões do dono registradas na SPEC (decisões 15, 16, 18 e 20): nome **Magister**, ícone de cinco pétalas creme separadas com miolo areia sobre **azul-marinho**, desde a 2.2 no desenho **Brisa** (pétalas com giro leve e feitas à mão), nada de cultura de academia, uma interface simples (cada tela responde a uma pergunta) e, desde a 2.3, a direção visual **A · Tinta e papel** (§3, §14), só no visual: nenhuma mensagem de efeito em tela alguma (§6).
+Versão 1.5 · 2026-10-05 (2.4: atividades fora do app, §9.3, e os ajustes do §13). Vale para iPhone e Apple Watch. Decisões do dono registradas na SPEC (decisões 15, 16, 18, 20 e 21): nome **Magister**, ícone de cinco pétalas creme separadas com miolo areia sobre **azul-marinho**, desde a 2.2 no desenho **Brisa** (pétalas com giro leve e feitas à mão), nada de cultura de academia, uma interface simples (cada tela responde a uma pergunta) e, desde a 2.3, a direção visual **A · Tinta e papel** (§3, §14), só no visual: nenhuma mensagem de efeito em tela alguma (§6).
 
 ## 0. O nome
 
@@ -138,6 +138,8 @@ Selos da nota da prescrição (2.2), só quando há novidade:
 
 Outras palavras da 2.2: "Informações do exercício", "Da última vez", "Por que esta carga", "Marcar como feitos, como previsto", "Encerrar só com o que marquei", "Sair sem registrar", "Voltar ao treino", "escolha a carga", "+ 2,5 kg extra", "Trocar" (objetivo), "Ajustar exercícios", "Mais opções".
 
+Palavras da 2.4: "Fora do app", "Registrar atividade", "Atividades fixas", "Acrescentar atividade fixa", "Toda semana", "Também hoje", "Feito", "Apagar atividade", "Duração", "Intensidade", "Leve", "Moderada", "Forte", "Mais um bloco", "1 de 2 vezes", e os nomes dos tipos da SPEC §7.17 ("Pilates", "Cross ou funcional", "Aula de luta"…). A carga vazia diz "sem carga" também na tela Hoje (antes "escolha a carga").
+
 Palavras da 2.3: "Início", "Metas da semana", "Ver a sessão de hoje", "Retomar a sessão", "Ver o dia", "Marcar série", "Marcar como feito", "Concluir a sessão", "Agora: …", "A seguir: …", "sem carga", "Anotar carga", "Agora não", "Como fazer", "Recuperação andando", "Adicionar X ao seu plano", "Tirar este plano", "Sua semana", "Seus dias", "Aceito 2 sessões no mesmo dia", "Cardio leve depois da força", "Treinar mesmo assim", "Ganha", "Fica igual", "Custa", "sem dados". Intensidade do Cardio pelo teste da fala: "Leve: a conversa é fácil", "Moderado: dá para conversar, mas não para cantar", "Forte: só dá para dizer poucas palavras".
 
 Termos técnicos úteis ficam, com explicação no primeiro uso ou no "Por quê?":
@@ -178,13 +180,14 @@ Tela Hoje da 2.2 em `docs/design/v22/mockup.html` ("Hoje"). Critério: a tela re
 5. O **"Por quê?"** (referências) fica a um toque de qualquer sugestão. Na linha do exercício, **o próprio selo da nota abre o "Por quê?"** (sem link separado); o selo só aparece quando há novidade (§7). Tocar na linha abre "Informações do exercício" (§13).
 6. **Proibido na Home:** anéis concêntricos (a estética do app Fitness), sequências punitivas, confete, fotos ou silhuetas de corpo, números gigantes de calorias.
 7. **Dois planos (2.3, SPEC §7.15 M6):** o topo mostra os dois objetivos ("Hipertrofia + Cardio") com a flor de duas pétalas cheias; em cima dos cartões, a linha "Hoje: Superior + Cardio leve 25 min"; um cartão por sessão, a força antes do aeróbico. **Começar** continua o único botão proeminente (a primeira sessão pendente); o segundo cartão tem "Começar esta", menor. Sessão feita hoje vira "✓ Feito hoje" com "A seguir: …". Com um plano só, a tela fica como na 2.2.
+8. **Também hoje (2.4, SPEC RF-01, §7.17 X2):** embaixo das sessões (e no lugar delas, no dia de descanso), um cartão de papel com o rótulo pequeno "Também hoje" e uma linha por atividade fixa de hoje ("Pilates · 19h · 50 min"), com "Feito" em `accent` à direita (botão sem fundo, ≥ 44 pt). Depois do toque, a linha vira "✓ Feito", em `textSecondary`. Sem fixa hoje, o cartão não existe. Nunca é o botão proeminente da tela.
 
 ### 9.1 Início (2.3, SPEC RF-49)
 
 A primeira aba responde "como eu estou?" antes de "o que eu faço hoje?". É a tela mais vazia do app (ma, §14): o vazio pesa tanto quanto o cheio.
 1. De cima para baixo: a aguada de montanha no canto de cima, atrás de tudo (cerca de 55 % da largura e 140 pt de altura); a data em `textSecondary` ("segunda-feira, 28 de setembro"); a flor pintada grande (168 pt), centralizada; a saudação em New York ("Bom dia", "Boa tarde", "Boa noite"); os objetivos ativos em `textSecondary`.
 2. "Esta semana": 7 marcas de tinta, de segunda a domingo (cheia nos dias com sessão concluída com ao menos uma série; hoje com um fio fino em volta), e uma frase de fato ("2 sessões nesta semana."). O bloco inteiro é um botão que abre as **Metas da semana** (§9.2), com um "›" discreto.
-3. O caminho para hoje, num cartão de papel com o rótulo pequeno "Hoje", o nome da sessão ("Dia A — Superior + Dia B — Contínuo") e o **único botão proeminente**: "Ver a sessão de hoje", "Retomar a sessão", "Ver o dia" ou "Escolher um objetivo".
+3. O caminho para hoje, num cartão de papel com o rótulo pequeno "Hoje", o nome da sessão com os textos da tela Hoje (2.4: "Superior + Cardio moderado 30 min"; numa sessão só de aeróbico, "30 min") e o **único botão proeminente**: "Ver a sessão de hoje", "Retomar a sessão", "Ver o dia" ou "Escolher um objetivo". Com uma atividade fixa hoje ainda sem "Feito", uma linha pequena em `textSecondary`: "Também hoje: Pilates às 19h".
 4. Sem mensagem, sem diálogo, sem Saúde, sem números grandes, sem anéis. A florzinha da abertura pousa na flor desta tela (§10).
 
 ### 9.2 Metas da semana (2.3, SPEC RF-52 e §7.16)
@@ -194,6 +197,17 @@ Responde "como está a minha semana?" sem cobrar.
 2. Uma linha por meta, na ordem de W2: nome, o número em palavras ("3 de 4 sessões", "95 de 150 min", "média de 6.200 por dia", "média de 7 h 20 min"), o "Por quê?" e a **marca de tinta**: um traço de pincel horizontal que se pinta da esquerda para a direita conforme a fração (o mesmo pincel do ensō, §14), em `inkMuted` sobre o trilho `line`; a meta cumprida fica com o traço inteiro e "✓". As sessões de cada plano usam a cor do objetivo dele. A linha de passos só existe com um plano de Longevidade ou de Cardio (SPEC §7.16 W7), e o mesmo vale para os passos do cartão e do detalhe de Saúde.
 3. Músculos: a linha dos grupos e, embaixo, os 10 grupos em duas colunas ("Peito 1 de 2"), com um ponto de tinta por vez feita.
 4. "sem dados" em `textSecondary`, com o trilho pontilhado, para o que depende do app Saúde e não chegou; no fim, a linha "Aeróbico, passos e sono vêm do app Saúde.". Nunca vermelho, nunca "faltam", nunca porcentagem, nunca anel.
+5. **Na 2.4:** o aeróbico soma as atividades fora do app (sem o app Saúde, só elas, com a linha "Aeróbico só das atividades registradas no app."); equilíbrio e mobilidade dizem "1 de 2 vezes"; e, depois das metas, a seção **"Fora do app"** (§9.3).
+
+### 9.3 Atividades fora do app (2.4, SPEC RF-53 e §7.17)
+
+Responde "o que eu fiz fora do app conta?" com o mínimo de toques e nenhuma cobrança.
+1. **Seção "Fora do app"** nas Metas da semana: um cartão de papel com uma linha por registro da semana, do mais antigo ao mais novo ("Pilates · terça · 50 min · leve"; o dia em palavras, o nome do tipo em `textPrimary`, o resto em `textSecondary`), tocar abre a edição e deslizar mostra "Apagar" (com confirmação). Sem registros: "Nada registrado nesta semana." Embaixo, o botão sem fundo **"Registrar atividade"** (`plus.circle`, `accent`) e o "Por quê?" do `topic.activities`.
+2. **Folha "Registrar atividade"** (e a mesma para editar e para a fixa): título em New York; o tipo em chips de duas colunas, na ordem da tabela X1 (o tocado com borda `accent`); "Duração" com um stepper de 5 em 5 min (5 a 300), já com a duração sugerida do tipo; "Intensidade" em três opções empilhadas, cada uma com a frase do teste da fala ("Leve: a conversa é fácil", "Moderada: dá para conversar, mas não para cantar", "Forte: só dá para dizer poucas palavras"), já na sugerida do tipo; "Quando" com dia e hora (padrão: agora menos a duração, arredondado a 5 min); a chave **"Toda semana"**, que transforma o registro numa fixa daquele dia da semana e hora; e o botão principal "Registrar" (ou "Salvar"). Sem campos de texto livre, sem FC, sem calorias.
+3. **"Atividades fixas"** na aba Plano, depois dos planos: uma linha por fixa ("Pilates · terça · 19h · 50 min"), tocar edita, deslizar apaga (com confirmação, avisando que os registros já feitos ficam); embaixo, "Acrescentar atividade fixa". Até 10.
+4. **"Também hoje"** na tela Hoje (§9, item 8) e a linha "Também hoje: …" do Início (§9.1).
+5. **Na semana da aba Plano** (dois planos), a fixa aparece no dia dela, depois das sessões ("Ter · Dia B — Inferior + Pilates"), sem cor de objetivo.
+6. Sem ícones por tipo (nenhum `figure.*`, §8), sem selos de conquista, sem contagem de "dias seguidos". Os textos dizem o fato (§6).
 
 ## 10. Movimento e retorno
 
@@ -249,6 +263,14 @@ Telas de referência em `docs/design/v22/mockup.html`; regras em SPEC RF-44 a RF
 **Seu objetivo** é uma folha só para trocar de objetivo e para o primeiro uso: a flor grande, os 5 objetivos na ordem das pétalas (flor pequena com a pétala dele, nome, subtítulo, dias), o tocado com borda `accent`, o formato em chips (só na Hipertrofia), a prévia do Dia A em `textSecondary`, a frase sobre as cargas e um botão principal que diz o que vai acontecer ("Trocar para Hipertrofia").
 
 **Sessão concluída** usa a flor do objetivo (a pétala se enche devagar, §10), duração, "Exercícios 5 de 5", séries, FC quando houver e "A próxima sessão já está pronta: Dia B". Sem tonelagem, sem verde nem laranja do sistema.
+
+**Na 2.4** (SPEC RF-44 j, RF-46, RF-47, §7.14 F5 a F7; decisão 21):
+- O cartão do exercício que acabou de ser concluído **continua aberto** até a pessoa marcar outro exercício: corrigir uma série é um toque na bolinha.
+- A carga digitada vale até o fim da sessão, mesmo depois de "Voltar".
+- A tela Hoje também diz **"sem carga"**.
+- Nos intervalos do Cardio, o selo da nota `increase` diz **"Mais um bloco"**, e a folha de informações explica que cada bloco sobe 1 min por sessão até o topo e que depois entra mais um bloco, até 5.
+- **Histórico:** a evolução de um exercício sem carga mostra as repetições (ou a medida), sem "0 kg" nem 1RM; a sessão encerrada sem nenhuma série não aparece; e o detalhe de uma sessão de aeróbico mostra, quando o relógio gravou FC, o tempo em cada intensidade ("Leve 6 min · Moderada 22 min · Forte 12 min", em `textSecondary`, numa barra de tinta fina dividida em três tons de `health`, sem vermelho) e o último VO2máx com a faixa. Só leitura, sem conselho.
+- **Trocar em modo casa:** a folha sem opções diz "Nenhuma opção de casa parecida com este exercício.".
 
 **Na 2.3** (SPEC RF-44 c e i, RF-46, RF-47, §7.14; SPEC decisão 20):
 - **Sessão guiada:** um botão grande preso embaixo (56 pt, `accent`) guia a sessão: "Marcar série", "Marcar como feito" ou "Concluir a sessão". Acima dele, uma linha: "Agora: Agachamento livre · série 2 de 3" e a meta de hoje em SF Rounded. Durante o descanso, "A seguir: série 3". A lista de cartões continua em cima, para consultar; bolinhas, "Feito", carga, Trocar e Pular continuam nos cartões, como caminho secundário.

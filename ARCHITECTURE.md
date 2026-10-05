@@ -285,6 +285,8 @@ Tipos: escrita `HKWorkoutType`; leitura `heartRate` (M2). M5 acrescenta só leit
 
 `BackupService.export() -> BackupDocument` (Codable: catálogo, programas, sessões, séries, settings, `schemaVersion`). Exportado via `fileExporter` para o app Arquivos (pasta iCloud Drive do app, se houver — isso é sync "grátis" de backup sem CloudKit). Importação em instalação limpa: apaga tudo, insere, valida contagens. A importação reusa os DTOs de domínio; não há um segundo formato.
 
+**Atividades fora do app (2.4, SPEC §7.17 X8):** `BackupDocument` ganha o campo opcional `outsideActivities` (`OutsideActivityLog` de `TrainerCore/Activities`), lido do `OutsideActivityStoring` (`Application Support/PersonalTrainer/outside-activities.json`, fora do SwiftData, sem SchemaV3). O `schemaVersion` continua 1: o campo é opcional, e um backup antigo importa sem ele. A importação substitui a lista do aparelho pela do arquivo (vazia quando o campo falta), e o retrato de antes da importação também a leva, para desfazer uma falha.
+
 ## 13. Estratégia de testes
 
 | Camada | Ferramenta | O que cobre |
@@ -389,6 +391,7 @@ PersonalTrainer/                        ← raiz do repo (Windows: C:\Users\leon
 │       ├── Sources/TrainerCore/{Domain,Engine,Sync,Summary}/   (M4: Review/ · M5: Health/ — separados de Engine/ por R2; 2.3: Summary/WeeklyGoals, as Metas da semana, SPEC §7.16)
 │       │   ├── Coach/   diálogo do app (SPEC §7.11 C1–C8): CoachFeedBuilder, CoachLog, ReviewSchedule, ProvisioningProfileParser; lê Review/ e Health/, recebe o estado do deload pronto
 │       │   ├── Plans/   (2.3, onda de telas) vários planos (SPEC §7.15 M1–M9): PlanDemand, WeeklyFit (encaixe semanal), PlanCombination (consequências), ActivePlanOrder, WeekPreferences, PlanWeekProgress; só Foundation, sem Date(), sem FC
+│       │   ├── Activities/   (2.4) atividades fora do app (SPEC §7.17 X1–X8): OutsideActivityKind, OutsideActivityEntry, FixedOutsideActivity, OutsideActivityLog e OutsideActivities (aeróbico, encaixe, recuperação, equilíbrio e mobilidade); só Foundation, sem Date(), sem FC
 │       │   └── Guide/   (2.3) "Como fazer" (SPEC §7.12 E1–E10): formato das guias (ExerciseGuide, ExerciseGuideCatalog, GuideFrame, GuidePose…), cinemática (GuideKinematics, GuideSkeleton, GuideRig), partes que se movem e seta (GuideMotion), tempo (GuideTiming) e ExerciseGuideValidator; só Foundation, sem Date(), função pura de t
 │       └── Tests/TrainerCoreTests/
 │           └── Fixtures/   goldens do "Como fazer" gravados por docs/design/exercise-guides/merge-guides.ps1 (exercise-guides-golden.v1.json, exercise-guides-vocabulary-golden.v1.json); fora do alvo (exclude no Package.swift), lidos por #filePath
@@ -398,11 +401,13 @@ PersonalTrainer/                        ← raiz do repo (Windows: C:\Users\leon
 │   │                   DesignSystem/ (Theme, GoalStyle, FlowerView, PrimaryButtonStyle — DESIGN.md §3/§4/§9) ·
 │   │                   (v2.2) ExerciseInfo/ (folha "Informações do exercício" e textos da meta de hoje, usados pela Home, pela Sessão e pelo Histórico — SPEC RF-47) ·
 │   │                   (2.3, onda de telas) ExerciseGuide/ (GuideIllustrationView com TimelineView + Canvas, GuideStaticFramesView, folha e botão "Como fazer" — SPEC §7.12) ·
-│   │                   (2.3, onda de telas) Landing/ (Início e Metas da semana — SPEC RF-49, RF-52) · Launch/ (abertura com a flor, LaunchTimeline e LaunchOverlay — SPEC RF-50)
+│   │                   (2.3, onda de telas) Landing/ (Início e Metas da semana — SPEC RF-49, RF-52) · Launch/ (abertura com a flor, LaunchTimeline e LaunchOverlay — SPEC RF-50) ·
+│   │                   (2.4) Activities/ (atividades fora do app: ActivitiesModel, a folha de registro, "Fora do app", "Atividades fixas" e "Também hoje" — SPEC RF-53, §7.17)
 │   ├── PreviewSupport/ doubles privados de SessionPlanning/SessionCoordinating para #Preview (fora de Features/ para o grep R4 ficar limpo)
 │   ├── Services/       Planning/ · Session/ · RestTimer/ · Seed/ · Notifications/ · HealthKit/ · WatchSync/ · (M2) Backup/ · References/ ·
 │   │                   (M4) Decisions/ (decisões de semana leve em JSON) · Coach/ (diálogo, SPEC §7.11: CoachService, log em JSON, validade da instalação) ·
-│   │                   (2.3, onda de telas) ExerciseGuides/ (ExerciseGuideLibrary: lê exercise-guides.v1.json, valida e cai em .empty com log — SPEC E8)
+│   │                   (2.3, onda de telas) ExerciseGuides/ (ExerciseGuideLibrary: lê exercise-guides.v1.json, valida e cai em .empty com log — SPEC E8) ·
+│   │                   (2.4) Activities/ (OutsideActivityStoring + Live + Fake: outside-activities.json em Application Support — SPEC §7.17 X8)
 │   ├── Persistence/    Schema/{SchemaV1,CurrentSchema}.swift · MigrationPlan.swift · ModelContainerFactory.swift · Mappers/ · Repositories/
 │   ├── Resources/      Seed/exercises.v1.json · Seed/program-default.v1.json · (2.3) Seed/exercise-guides.v1.json (gerado pela junção dos lotes) · (Assets.xcassets)
 │   └── Support/        PersonalTrainer.entitlements · Info.plist (gerado, fora do Git)
