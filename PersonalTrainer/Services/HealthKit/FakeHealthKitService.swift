@@ -61,9 +61,17 @@ final class FakeHealthKitService: HealthKitServicing {
             return []
         }
         let minutes = Int(min(seconds / 60, 600))
-        return (0..<minutes).map { minute in
-            minute < 3 ? Double(100 + 8 * minute) : Double(118 + (minute % 6) * 4)
+        var values: [Double] = []
+        values.reserveCapacity(minutes)
+        for minute in 0..<minutes {
+            if minute < 3 {
+                values.append(Double(100 + 8 * minute))
+            } else {
+                let swing = (minute % 6) * 4
+                values.append(Double(118 + swing))
+            }
         }
+        return values
     }
 
     let isAvailable: Bool
