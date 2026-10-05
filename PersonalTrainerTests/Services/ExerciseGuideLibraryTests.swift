@@ -11,7 +11,7 @@ final class ExerciseGuideLibraryTests: XCTestCase {
     func testE8_bundleGuidesLoadAndValidate() throws {
         let catalog = ExerciseGuideLibrary.load(bundle: .main)
 
-        XCTAssertEqual(catalog.guides.count, 55, "as 55 guias aprovadas pelo dono")
+        XCTAssertEqual(catalog.guides.count, 73, "as 55 guias aprovadas pelo dono e as 18 do lote 6")
         XCTAssertEqual(Set(catalog.guides.map(\.slug)).count, catalog.guides.count, "E1: uma guia por slug")
         XCTAssertNotNil(catalog.guide(forSlug: "barbell-back-squat"))
         XCTAssertNotNil(catalog.guide(forSlug: "brisk-walk"))
