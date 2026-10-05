@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import TrainerCore
 
 /// Implementação real do `HealthKitServicing` (ARCHITECTURE §8; T2.1, T2.2; SPEC RF-13, RF-14).
 /// É o único arquivo do app que importa HealthKit: o resto do app só conhece o protocolo e os
@@ -54,10 +55,17 @@ final class LiveHealthKitService: HealthKitServicing, @unchecked Sendable {
         }
     }
 
-    /// Grava um `HKWorkout` de musculação com início/fim reais da sessão (RF-13). Idempotente por
+    /// Grava um `HKWorkout` de musculação com início/fim reais da sessão (RF-13). É `saveWorkout`
+    /// com o tipo `.strength`.
+    func saveStrengthWorkout(start: Date, end: Date, sessionUUID: UUID) async throws -> UUID {
+        try await saveWorkout(.strength, start: start, end: end, sessionUUID: sessionUUID)
+    }
+
+    /// Grava um `HKWorkout` do tipo `kind` com início/fim reais da sessão (RF-13, F5). Idempotente por
     /// `sessionUUID`: se este app já gravou um treino com essa `HKMetadataKeyExternalUUID`, devolve
     /// o UUID dele em vez de criar outro (invariante "um HKWorkout por sessão", ARCHITECTURE §8).
-    func saveStrengthWorkout(start: Date, end: Date, sessionUUID: UUID) async throws -> UUID {
+    /// Só o treino de força diz que é em local fechado; no aeróbico a sessão não sabe onde foi.
+    func saveWorkout(_ kind: WorkoutRecordKind, start: Date, end: Date, sessionUUID: UUID) async throws -> UUID {
         guard isAvailable else {
             throw HealthKitServiceError.unavailable
         }
@@ -74,8 +82,10 @@ final class LiveHealthKitService: HealthKitServicing, @unchecked Sendable {
         }
 
         let configuration = HKWorkoutConfiguration()
-        configuration.activityType = .traditionalStrengthTraining
-        configuration.locationType = .indoor
+        configuration.activityType = Self.activityType(for: kind)
+        if kind == .strength {
+            configuration.locationType = .indoor
+        }
         let builder = HKWorkoutBuilder(healthStore: store, configuration: configuration, device: HKDevice.local())
 
         // Formas com completion handler (existem desde o iOS 12 com estes nomes), adaptadas com
@@ -132,9 +142,61 @@ final class LiveHealthKitService: HealthKitServicing, @unchecked Sendable {
         }
     }
 
+    /// FC média de cada minuto de `[start, end]` (F7), em bpm e na ordem do tempo, com baldes de 1 min
+    /// ancorados no início, como o `LiveHealthDataReader` faz para os treinos aeróbicos. Minuto sem
+    /// amostra fica de fora, e "sem dados" (ou leitura negada, que o HealthKit não distingue) é lista
+    /// vazia. Não pede autorização (AGENTS §7); só devolve números, nenhuma amostra sai daqui.
+    func heartRateMinutes(start: Date, end: Date) async throws -> [Double] {
+        guard isAvailable else {
+            throw HealthKitServiceError.unavailable
+        }
+        guard end > start else {
+            return []
+        }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: .strictStartDate)
+        do {
+            return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[Double], any Error>) in
+                let query = HKStatisticsCollectionQuery(
+                    quantityType: HKQuantityType(.heartRate),
+                    quantitySamplePredicate: predicate,
+                    options: .discreteAverage,
+                    anchorDate: start,
+                    intervalComponents: DateComponents(minute: 1)
+                )
+                query.initialResultsHandler = { _, collection, error in
+                    if let error {
+                        if let healthKitError = error as? HKError, healthKitError.code == .errorNoData {
+                            continuation.resume(returning: [])
+                        } else {
+                            continuation.resume(throwing: error)
+                        }
+                        return
+                    }
+                    // Converte aqui dentro: só valores `Sendable` atravessam a continuation.
+                    let beatsPerMinute = HKUnit.count().unitDivided(by: HKUnit.minute())
+                    let ordered = (collection?.statistics() ?? []).sorted { $0.startDate < $1.startDate }
+                    let values = ordered.compactMap { statistics in
+                        statistics.averageQuantity()?.doubleValue(for: beatsPerMinute)
+                    }
+                    continuation.resume(returning: values)
+                }
+                store.execute(query)
+            }
+        } catch {
+            throw HealthKitServiceError.queryFailed(underlying: String(describing: error))
+        }
+    }
+
     /// Treino de força de OUTRO app que cobre ≥ 50 % de `[start, end]` (RF-13), o de maior
-    /// sobreposição. Treinos gravados por este app (mesmo bundle id) nunca contam.
+    /// sobreposição. É `findOverlappingWorkout` com o tipo `.strength`.
     func findOverlappingStrengthWorkout(start: Date, end: Date) async throws -> UUID? {
+        try await findOverlappingWorkout(.strength, start: start, end: end)
+    }
+
+    /// Treino de OUTRO app do mesmo tipo que `kind` e que cobre ≥ 50 % de `[start, end]` (RF-13, F5),
+    /// o de maior sobreposição: força com força; aeróbico com qualquer treino que o leitor de saúde
+    /// conta como aeróbico (A1). Treinos gravados por este app (mesmo bundle id) nunca contam.
+    func findOverlappingWorkout(_ kind: WorkoutRecordKind, start: Date, end: Date) async throws -> UUID? {
         guard isAvailable else {
             throw HealthKitServiceError.unavailable
         }
@@ -169,8 +231,7 @@ final class LiveHealthKitService: HealthKitServicing, @unchecked Sendable {
                         guard let workout = sample as? HKWorkout else {
                             continue
                         }
-                        let activity = workout.workoutActivityType
-                        guard activity == .traditionalStrengthTraining || activity == .functionalStrengthTraining else {
+                        guard LiveHealthKitService.workoutType(workout.workoutActivityType, matches: kind) else {
                             continue
                         }
                         guard workout.sourceRevision.source.bundleIdentifier != ownBundleID else {
@@ -219,6 +280,56 @@ final class LiveHealthKitService: HealthKitServicing, @unchecked Sendable {
                     ))
                 }
             }
+        }
+    }
+
+    // MARK: - Tipos de treino (puros, testáveis sem HealthKit)
+
+    /// `HKWorkoutActivityType` que o app grava para cada tipo (SPEC F5). O leitor de saúde conta todos
+    /// como aeróbicos (A1), menos o de força.
+    static func activityType(for kind: WorkoutRecordKind) -> HKWorkoutActivityType {
+        switch kind {
+        case .strength:
+            return .traditionalStrengthTraining
+        case .jumpRope:
+            return .jumpRope
+        case .aerobic(let activity):
+            switch activity {
+            case .walking:
+                return .walking
+            case .running:
+                return .running
+            case .cycling:
+                return .cycling
+            case .swimming:
+                return .swimming
+            case .rowing:
+                return .rowing
+            case .elliptical:
+                return .elliptical
+            case .hiking:
+                return .hiking
+            case .stairs:
+                return .stairClimbing
+            case .hiit:
+                return .highIntensityIntervalTraining
+            case .dance:
+                return .cardioDance
+            case .other:
+                return .mixedCardio
+            }
+        }
+    }
+
+    /// `true` quando um treino de outro app serve para vincular com a sessão de tipo `kind` (RF-13):
+    /// força só com força (a tradicional ou a funcional); aeróbico com qualquer tipo que o leitor de
+    /// saúde conta como aeróbico, o que deixa de fora musculação, mente-corpo e esportes de precisão.
+    static func workoutType(_ type: HKWorkoutActivityType, matches kind: WorkoutRecordKind) -> Bool {
+        switch kind {
+        case .strength:
+            return type == .traditionalStrengthTraining || type == .functionalStrengthTraining
+        case .aerobic, .jumpRope:
+            return LiveHealthDataReader.aerobicActivity(for: type) != nil
         }
     }
 
