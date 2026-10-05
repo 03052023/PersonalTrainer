@@ -2,9 +2,14 @@
 #
 # Gera os assets [PROJ] que `project.yml` referencia em `UILaunchScreen` (owner notes item 3;
 # docs/V23-UI-CONTRACT.md §4.2, ponto 1): a cor lisa `LaunchBackground` (azul-marinho do meio do
-# degradê do ícone) e a imagem `LaunchFlower` (a flor Brisa com o halo, fundo transparente, 256 pt de
-# largura, claro e escuro, @2x e @3x) — "idêntica ao ícone". Também escreve `launch-assets-check.png`,
-# a folha de conferência (a flor sobre os dois fundos, nas duas aparências).
+# degradê do ícone) e a imagem `LaunchFlower` (a flor Brisa com o halo, fundo transparente, claro e
+# escuro, @2x e @3x) — "idêntica ao ícone". Também escreve `launch-assets-check.png`, a folha de
+# conferência (a flor sobre os dois fundos, nas duas aparências).
+#
+# Desde a 2.4 (T10.8, achado A7 da 2.3): a flor continua com 256 pt de ponta a ponta das pétalas (a
+# escala é a mesma de `LaunchOverlay`), mas a imagem tem 312 pt de lado, mais que o diâmetro do halo
+# (2 x 430 px do ícone = cerca de 307,2 pt). Antes eram 256 pt e o halo saía cortado num quadrado. O
+# script confere que nenhum pixel da borda tem alfa > 0 e para com erro se algum tiver.
 #
 # A geometria da flor (Get-Petal/Get-Center/Get-Bounds) e as cores de cada aparência são as MESMAS de
 # `docs/design/render-app-icon.ps1` (candidato 6 · Brisa, docs/design/icon-v22/render-icon-v22.ps1):
@@ -123,14 +128,19 @@ $Looks = [ordered]@{
 # formato só aceita uma cor sólida (docs/V23-UI-CONTRACT.md §4.2, ponto 1; owner notes item 3).
 $LaunchBg = @{ light = '#24354C'; dark = '#141D29' }
 
-# ---------------- render: flor + halo, fundo TRANSPARENTE, 256 pt de largura ----------------
+# ---------------- render: flor + halo, fundo TRANSPARENTE, imagem de 312 pt (flor de 256 pt) ----------------
+# `$flowerPt`: diâmetro da flor, ponta a ponta das pétalas (o mesmo de `LaunchOverlay.flowerDiameter`).
+# `$canvasPt`: lado da imagem. O halo tem raio 430 px do ícone = 430 * (flowerPt / 2 / maxR) pt, ou seja
+# cerca de 153,6 pt; a imagem precisa de pelo menos o dobro disso (307,2 pt) para não cortar o halo.
+$flowerPt = 256
+$canvasPt = 312
 function Render-Flower($look, [int]$scale) {
-  $ptSize = 256; $px = $ptSize * $scale
+  $px = $canvasPt * $scale
   $bmp = New-Object System.Drawing.Bitmap($px, $px, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
   $g = [System.Drawing.Graphics]::FromImage($bmp)
   $g.SmoothingMode = 'AntiAlias'; $g.CompositingQuality = 'HighQuality'; $g.PixelOffsetMode = 'HighQuality'; $g.InterpolationMode = 'HighQualityBicubic'
   $g.Clear([System.Drawing.Color]::Transparent)
-  $k = ($px / 2.0) / $bounds1.maxR
+  $k = (($flowerPt * $scale) / 2.0) / $bounds1.maxR
   $fl = Get-Flower $k
   $cx = $px / 2.0; $cy = $px / 2.0
   if ($look.glowA -gt 0) {
@@ -159,10 +169,27 @@ function Render-Flower($look, [int]$scale) {
   $bmp
 }
 
+# A7: o halo termina dentro da imagem. Nenhum pixel da borda pode ter alfa > 0; se algum tiver, o halo
+# sairia cortado num quadrado na tela de lançamento.
+function Assert-EdgeTransparent($bmp, [string]$name) {
+  $maxAlpha = 0; $w = $bmp.Width; $h = $bmp.Height
+  for ($i = 0; $i -lt $w; $i++) {
+    $a = $bmp.GetPixel($i, 0).A; if ($a -gt $maxAlpha) { $maxAlpha = $a }
+    $a = $bmp.GetPixel($i, $h - 1).A; if ($a -gt $maxAlpha) { $maxAlpha = $a }
+  }
+  for ($j = 0; $j -lt $h; $j++) {
+    $a = $bmp.GetPixel(0, $j).A; if ($a -gt $maxAlpha) { $maxAlpha = $a }
+    $a = $bmp.GetPixel($w - 1, $j).A; if ($a -gt $maxAlpha) { $maxAlpha = $a }
+  }
+  if ($maxAlpha -ne 0) { throw "A7: a borda de $name tem alfa $maxAlpha (o halo sai cortado)" }
+  "ok {0}: {1}x{2} px, borda com alfa 0" -f $name, $w, $h | Write-Host
+}
+
 $images = [ordered]@{}
 foreach ($appearance in @('light', 'dark')) {
   foreach ($scale in @(2, 3)) {
     $images["$appearance@${scale}x"] = Render-Flower $Looks[$appearance] $scale
+    Assert-EdgeTransparent $images["$appearance@${scale}x"] "$appearance@${scale}x"
   }
 }
 $images['light@2x'].Save((Join-Path $ImageSet 'LaunchFlower@2x.png'), [System.Drawing.Imaging.ImageFormat]::Png)
@@ -274,7 +301,8 @@ $gs.Clear((HexColor '#F2F2F7'))
 $fTitle = New-Object System.Drawing.Font 'Segoe UI', 18, ([System.Drawing.FontStyle]::Bold), ([System.Drawing.GraphicsUnit]::Pixel)
 $fName = New-Object System.Drawing.Font 'Segoe UI', 13, ([System.Drawing.FontStyle]::Regular), ([System.Drawing.GraphicsUnit]::Pixel)
 $ink = New-Object System.Drawing.SolidBrush((HexColor '#1C1C1E'))
-$gs.DrawString('Magister · tela de lançamento (2.3, T9.2) — conferência', $fTitle, $ink, $pad, 16)
+$labelLight = New-Object System.Drawing.SolidBrush((HexColor '#E3DED3'))
+$gs.DrawString('Magister · tela de lançamento (2.4, T10.8) — conferência', $fTitle, $ink, $pad, 16)
 
 $appPaper = @{ light = '#F4EEE4'; dark = '#191715' }
 $cells = @(
@@ -288,9 +316,18 @@ for ($i = 0; $i -lt $cells.Count; $i++) {
   $x0 = $pad + $col * ($cellW + $pad); $y0 = 50 + $pad + $row * ($cellH + $pad)
   $bgBrush = New-Object System.Drawing.SolidBrush((HexColor $c.bg)); $gs.FillRectangle($bgBrush, $x0, $y0, $cellW, $cellH); $bgBrush.Dispose()
   $img = $images["$($c.appearance)@3x"]
-  $drawSize = 220
-  $gs.DrawImage($img, ($x0 + ($cellW - $drawSize) / 2), ($y0 + ($cellH - 40 - $drawSize) / 2), $drawSize, $drawSize)
-  $gs.DrawString($c.label, $fName, $ink, $x0, ($y0 + $cellH - 30))
+  # 220 px para a flor de 256 pt (como antes); a imagem inteira de 312 pt sai proporcional (268 px).
+  $drawSize = [int][Math]::Round(220.0 * $canvasPt / $flowerPt)
+  $ix = $x0 + ($cellW - $drawSize) / 2; $iy = $y0 + ($cellH - 40 - $drawSize) / 2
+  $gs.DrawImage($img, [single]$ix, [single]$iy, [single]$drawSize, [single]$drawSize)
+  # Moldura fina da imagem: o halo tem de acabar bem antes dela (A7), sem corte reto.
+  $framePen = New-Object System.Drawing.Pen((WithAlpha (HexColor '#8A8F99') 200), 1)
+  $framePen.DashStyle = [System.Drawing.Drawing2D.DashStyle]::Dash
+  $gs.DrawRectangle($framePen, [single]$ix, [single]$iy, [single]($drawSize - 1), [single]($drawSize - 1)); $framePen.Dispose()
+  # Rótulo claro sobre fundo escuro (antes ficava tinta sobre azul, quase ilegível).
+  $bgc = HexColor $c.bg
+  $labelBrush = if ((0.299 * $bgc.R + 0.587 * $bgc.G + 0.114 * $bgc.B) -lt 128) { $labelLight } else { $ink }
+  $gs.DrawString($c.label, $fName, $labelBrush, $x0, ($y0 + $cellH - 30))
 }
 $sheet.Save((Join-Path $CheckDir 'launch-assets-check.png'), [System.Drawing.Imaging.ImageFormat]::Png)
 $gs.Dispose(); $sheet.Dispose()

@@ -24,10 +24,18 @@ enum LaunchFlowerGeometry {
         /// Direção unitária (comprimento 1), do centro da flor até o centroide de área da pétala: o
         /// eixo pelo qual ela desliza para fora ao abrir.
         let direction: CGPoint
+        /// A ponta da espinha da pétala (largura 0), em coordenadas unitárias: o fim do degradê da base
+        /// para a ponta (o `Tip` que `Get-Petal` devolve em `render-launch-assets.ps1`; B6 da 2.3).
+        let tip: CGPoint
     }
 
     /// Um item por pétala, na ordem de `ProgramGoal.petalIndex` (0 = topo, sentido horário).
     static let petalAxes: [PetalAxis] = BrisaGeometry.unitPetalOutlines.map(axis(for:))
+
+    /// Meia altura do degradê vertical do miolo, em coordenadas unitárias: o raio do miolo (52 px do
+    /// ícone de 1024) mais 4 px de folga, como o `LinearGradientBrush` do script (`render-launch-assets.ps1`,
+    /// `Render-Flower`) e o protótipo (`s-ca`/`s-cb`, de `-centerR - 4` a `centerR + 4`).
+    static let coreGradientHalfHeight: CGFloat = CGFloat((52.0 + 4.0) / LaunchPollen.iconMaxRadius)
 
     private static func axis(for outline: [CGPoint]) -> PetalAxis {
         // O primeiro ponto do contorno (`BrisaGeometry.outline`, j = 0, largura 0 na base) é a base da
@@ -36,14 +44,18 @@ enum LaunchFlowerGeometry {
         // `FlowerAndGoalStyleTests`), mas isto nunca derruba a tela (R11): sem pontos, a pétala fica
         // parada no centro, apontando para cima.
         guard let base = outline.first else {
-            return PetalAxis(base: .zero, direction: CGPoint(x: 0, y: -1))
+            return PetalAxis(base: .zero, direction: CGPoint(x: 0, y: -1), tip: CGPoint(x: 0, y: -1))
         }
+        // O contorno tem `2 * cnt + 1` pontos: o flanco de ida (j = 0...cnt), cujo último ponto (j = cnt,
+        // índice `count / 2`) é a ponta da espinha, com largura 0, e o flanco de volta (j = cnt - 1...0).
+        // `count / 2` é sempre um índice válido de um array não vazio.
+        let tip = outline[outline.count / 2]
         let centroid = areaCentroid(of: outline)
         let length = (centroid.x * centroid.x + centroid.y * centroid.y).squareRoot()
         guard length > 0.0001 else {
-            return PetalAxis(base: base, direction: CGPoint(x: 0, y: -1))
+            return PetalAxis(base: base, direction: CGPoint(x: 0, y: -1), tip: tip)
         }
-        return PetalAxis(base: base, direction: CGPoint(x: centroid.x / length, y: centroid.y / length))
+        return PetalAxis(base: base, direction: CGPoint(x: centroid.x / length, y: centroid.y / length), tip: tip)
     }
 
     /// Centroide de área de um polígono fechado (fórmula do sapateiro), a mesma conta do protótipo
