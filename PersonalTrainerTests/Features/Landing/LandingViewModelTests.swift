@@ -129,7 +129,7 @@ final class LandingViewModelTests: XCTestCase {
 
         XCTAssertEqual(model.weekReadErrorMessage, "Não foi possível ler a semana.")
         XCTAssertEqual(model.weekMarks, Array(repeating: false, count: 7))
-        XCTAssertEqual(model.pathState, .todaySessions(label: "Dia A — Superior", subtitle: "5 exercícios · ≈ 55 min"))
+        XCTAssertEqual(model.pathState, .todaySessions(label: "Superior", subtitle: "5 exercícios · ≈ 55 min"))
     }
 
     func testRF49_pathReadFailure_saysNothingFalse() {
@@ -158,7 +158,7 @@ final class LandingViewModelTests: XCTestCase {
         planner.goalsError = nil
         model.refresh()
 
-        XCTAssertEqual(model.pathState, .todaySessions(label: "Dia A — Superior", subtitle: "5 exercícios · ≈ 55 min"))
+        XCTAssertEqual(model.pathState, .todaySessions(label: "Superior", subtitle: "5 exercícios · ≈ 55 min"))
     }
 
     // MARK: - RF-49: estados do caminho
@@ -181,7 +181,8 @@ final class LandingViewModelTests: XCTestCase {
 
         let state = LandingViewModel.computePathState(activeSession: nil, hasActiveGoal: true, overview: overview)
 
-        XCTAssertEqual(state, .todaySessions(label: "Dia A — Superior", subtitle: "5 exercícios · ≈ 55 min"))
+        // B8 (2.4): o nome curto do dia, como na linha da tela Hoje.
+        XCTAssertEqual(state, .todaySessions(label: "Superior", subtitle: "5 exercícios · ≈ 55 min"))
     }
 
     func testRF49_path_twoSessions() {
@@ -196,7 +197,7 @@ final class LandingViewModelTests: XCTestCase {
 
         XCTAssertEqual(
             state,
-            .todaySessions(label: "Dia A — Superior + Dia B — Base contínua", subtitle: "2 sessões · ≈ 85 min")
+            .todaySessions(label: "Superior + Base contínua", subtitle: "2 sessões · ≈ 85 min")
         )
     }
 
@@ -236,6 +237,114 @@ final class LandingViewModelTests: XCTestCase {
         let state = LandingViewModel.computePathState(activeSession: activeSession, hasActiveGoal: false, overview: .empty)
 
         XCTAssertEqual(state, .inProgress(sessionID: activeSession.uuid, label: "Sessão em andamento: Dia C — Pernas"))
+    }
+
+    // MARK: - RF-49 (2.4, B8 da 2.3): os textos da tela Hoje
+
+    func testRF49_labelUsesTodayTexts() {
+        // Duas sessões: a linha de cima da tela Hoje, sem o "Hoje:" ("Superior + Cardio moderado 30 min").
+        let strength = makePlan(dayName: "Dia A — Superior", exerciseCount: 5, estimatedMinutes: 55)
+        let cardio = makeCardioPlan(dayName: "Dia A — Base contínua", minutes: 30)
+        let overview = TodayOverview(sessions: [
+            TodaySession(plan: strength, goal: .hypertrophy, isDoneToday: false),
+            TodaySession(plan: cardio, goal: .endurance, isDoneToday: false),
+        ])
+
+        let state = LandingViewModel.computePathState(activeSession: nil, hasActiveGoal: true, overview: overview)
+
+        guard case .todaySessions(let label, _) = state else {
+            return XCTFail("esperava as sessões de hoje, veio \(state)")
+        }
+        XCTAssertEqual(label, "Superior + Cardio moderado 30 min")
+        XCTAssertEqual("Hoje: \(label)", TodayPlansText.todayLine([strength, cardio]), "a mesma fala da tela Hoje")
+
+        // Uma sessão de força: o nome curto do dia e o detalhe do cartão da tela Hoje.
+        let single = LandingViewModel.computePathState(
+            activeSession: nil,
+            hasActiveGoal: true,
+            overview: TodayOverview(sessions: [TodaySession(plan: strength, goal: .hypertrophy, isDoneToday: false)])
+        )
+        XCTAssertEqual(single, .todaySessions(label: "Superior", subtitle: PlanCard.detailText(for: strength)))
+    }
+
+    func testRF49_cardioSubtitle() {
+        // Numa sessão só de aeróbico, "30 min" no lugar de "1 exercício · ≈ 41 min" (RF-49, B8).
+        let cardio = makeCardioPlan(dayName: "Dia A — Base contínua", minutes: 30)
+        let overview = TodayOverview(sessions: [TodaySession(plan: cardio, goal: .endurance, isDoneToday: false)])
+
+        let state = LandingViewModel.computePathState(activeSession: nil, hasActiveGoal: true, overview: overview)
+
+        XCTAssertEqual(state, .todaySessions(label: "Base contínua", subtitle: "30 min"))
+        XCTAssertEqual(TodayPlansText.detailText(for: cardio), "30 min")
+    }
+
+    // MARK: - RF-49 (2.4, §7.17 X2): "Também hoje"
+
+    func testRF49_alsoTodayLine() {
+        let pilates = FixedOutsideActivity(kind: .pilates, weekday: .monday, startMinuteOfDay: 19 * 60, minutes: 50, intensity: .light)
+        let football = FixedOutsideActivity(kind: .teamSport, weekday: .monday, startMinuteOfDay: 21 * 60, minutes: 60, intensity: .vigorous)
+        let tuesdayDance = FixedOutsideActivity(kind: .dance, weekday: .tuesday, startMinuteOfDay: 20 * 60, minutes: 60, intensity: .moderate)
+        var log = OutsideActivityLog(fixed: [football, tuesdayDance, pilates])
+        let planner = LandingTestPlanner()
+        planner.activeGoals = [.hypertrophy]
+        let model = LandingViewModel(
+            planner: planner,
+            coordinator: LandingTestCoordinator(),
+            now: { self.monday },
+            calendar: calendar,
+            activityLog: { log }
+        )
+
+        model.refresh()
+        XCTAssertEqual(
+            model.alsoTodayText,
+            "Também hoje: Pilates às 19h e Futebol ou esporte com bola às 21h",
+            "só as fixas de hoje, pela hora"
+        )
+
+        // Com o "Feito" de hoje, a fixa sai da linha.
+        log.entries = [OutsideActivities.entry(loggingFixed: pilates, on: monday, calendar: calendar)]
+        model.refresh()
+        XCTAssertEqual(model.alsoTodayText, "Também hoje: Futebol ou esporte com bola às 21h")
+
+        log.entries.append(OutsideActivities.entry(loggingFixed: football, on: monday, calendar: calendar))
+        model.refresh()
+        XCTAssertNil(model.alsoTodayText, "tudo feito: a linha some")
+
+        XCTAssertNil(
+            LandingViewModel.alsoTodayText(log: .empty, now: monday, calendar: calendar),
+            "sem fixa, sem linha"
+        )
+    }
+
+    // MARK: - W2.3, W4 (2.4, §7.17 X3): aeróbico das atividades sem o app Saúde
+
+    func testW23_activitiesOnlyAerobicLine() {
+        let walk = OutsideActivityEntry(kind: .walkRun, start: monday.addingTimeInterval(-3_600), minutes: 30, intensity: .moderate)
+        let lightYoga = OutsideActivityEntry(kind: .yoga, start: monday.addingTimeInterval(-7_200), minutes: 50, intensity: .light)
+        let planner = LandingTestPlanner()
+        planner.activeGoals = [.hypertrophy]
+        var report: HealthReport?
+        var log = OutsideActivityLog(entries: [lightYoga])
+        let model = LandingViewModel(
+            planner: planner,
+            coordinator: LandingTestCoordinator(),
+            now: { self.monday },
+            calendar: calendar,
+            healthReport: { report },
+            activityLog: { log }
+        )
+
+        model.refresh()
+        XCTAssertFalse(model.aerobicFromActivitiesOnly, "ioga não conta no aeróbico (X3)")
+
+        log.entries.append(walk)
+        model.refresh()
+        XCTAssertTrue(model.aerobicFromActivitiesOnly, "sem o app Saúde, os minutos vêm só dos registros")
+
+        report = HealthCalculator.report(input: HealthInput(), targets: HealthTargets(), now: monday, calendar: calendar)
+        model.refresh()
+        XCTAssertFalse(model.aerobicFromActivitiesOnly, "com o app Saúde, os registros já estão no relatório")
     }
 
     // MARK: - RF-52: Metas da semana nunca pedem autorização
@@ -384,6 +493,36 @@ final class LandingViewModelTests: XCTestCase {
             exercises: exercises,
             generatedAt: monday,
             estimatedMinutes: estimatedMinutes
+        )
+    }
+
+    /// Uma sessão só de aeróbico (padrão `cardio`, SPEC F1): uma série contínua de `minutes` minutos, faixa
+    /// até 45 (moderado por M3). A estimativa de duração (41 min) é diferente dos minutos de propósito.
+    private func makeCardioPlan(dayName: String, minutes: Int) -> SessionPlan {
+        let exercise = ExerciseDefinition(
+            slug: "easy-run",
+            name: "Corrida leve",
+            primaryMuscles: [.quads, .glutes],
+            equipment: .bodyweight,
+            loadUnit: .kilograms,
+            loadIncrement: 2.5,
+            movementPattern: .cardio
+        )
+        let target = ExerciseTarget(
+            exerciseID: exercise.id, order: 0, sets: 1, repMin: minutes, repMax: 45, targetRIR: 2, restSeconds: 0
+        )
+        let prescription = ExercisePrescription(
+            exerciseID: exercise.id, load: nil, sets: 1, repMin: minutes, repMax: 45,
+            targetReps: minutes, targetRIR: 2, restSeconds: 0, note: .hold
+        )
+        return SessionPlan(
+            programID: UUID(),
+            programName: "Cardio",
+            programDayID: UUID(),
+            programDayName: dayName,
+            exercises: [PlannedExercise(id: UUID(), exercise: exercise, target: target, prescription: prescription)],
+            generatedAt: monday,
+            estimatedMinutes: 41
         )
     }
 }

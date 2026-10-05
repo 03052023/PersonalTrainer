@@ -27,8 +27,25 @@ final class WeeklyGoalsTextTests: XCTestCase {
             WeeklyGoalsText.valueText(goal(.sleep, done: 7.0 + 20.0 / 60.0, target: 7)),
             "média de 7 h 20 min"
         )
-        XCTAssertEqual(WeeklyGoalsText.valueText(goal(.balance, done: 1, target: 1)), "Feito nesta semana")
-        XCTAssertEqual(WeeklyGoalsText.valueText(goal(.mobility, done: 0, target: 1)), "Ainda não marcado nesta semana")
+        XCTAssertEqual(WeeklyGoalsText.valueText(goal(.balance, done: 1, target: 2)), "1 de 2 vezes")
+        XCTAssertEqual(WeeklyGoalsText.valueText(goal(.mobility, done: 0, target: 2)), "0 de 2 vezes")
+    }
+
+    /// SPEC W2.6, §7.17 X6 (2.4): equilíbrio e mobilidade contam as vezes registradas na semana contra 2.
+    func testW26_longevityTimesText() {
+        XCTAssertEqual(WeeklyGoalsText.valueText(goal(.balance, done: 0, target: 2)), "0 de 2 vezes")
+        XCTAssertEqual(WeeklyGoalsText.valueText(goal(.balance, done: 1, target: 2)), "1 de 2 vezes")
+        XCTAssertEqual(WeeklyGoalsText.valueText(goal(.mobility, done: 2, target: 2)), "2 de 2 vezes")
+        XCTAssertEqual(WeeklyGoalsText.valueText(goal(.mobility, done: 3, target: 2)), "3 de 2 vezes", "W3: o número real")
+        XCTAssertEqual(WeeklyGoalsText.valueText(goal(.balance, done: 1, target: 1)), "1 de 1 vez", "singular com meta 1")
+        XCTAssertEqual(
+            WeeklyGoalsText.accessibilityText(goal(.balance, done: 1, target: 2)),
+            "Equilíbrio: 1 de 2 vezes nesta semana"
+        )
+        XCTAssertEqual(
+            WeeklyGoalsText.accessibilityText(goal(.mobility, done: 2, target: 2)),
+            "Mobilidade: 2 de 2 vezes nesta semana, meta cumprida"
+        )
     }
 
     func testRF52_valueText_singularWhenTheTargetIsOne() {
@@ -79,8 +96,8 @@ final class WeeklyGoalsTextTests: XCTestCase {
             "Passos: média de 7.200 por dia, meta cumprida"
         )
         XCTAssertEqual(
-            WeeklyGoalsText.accessibilityText(goal(.balance, done: 1, target: 1)),
-            "Equilíbrio: Feito nesta semana"
+            WeeklyGoalsText.accessibilityText(goal(.balance, done: 1, target: 2)),
+            "Equilíbrio: 1 de 2 vezes nesta semana"
         )
     }
 
@@ -97,7 +114,8 @@ final class WeeklyGoalsTextTests: XCTestCase {
             goal(.aerobic, done: nil, target: 150),
             goal(.steps, done: 3_000, target: 7_000),
             goal(.sleep, done: 6, target: 7),
-            goal(.balance, done: 0, target: 1),
+            goal(.balance, done: 0, target: 2),
+            goal(.mobility, done: 2, target: 2),
         ]
         for goal in goals {
             let texts = [

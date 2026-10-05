@@ -76,13 +76,8 @@ enum LandingText {
         }
     }
 
-    /// "5 exercícios · ≈ 55 min" / "1 exercício · ≈ 10 min", para uma única sessão pendente hoje.
-    static func exerciseCountSubtitle(exerciseCount: Int, estimatedMinutes: Int) -> String {
-        let noun = exerciseCount == 1 ? "exercício" : "exercícios"
-        return "\(exerciseCount) \(noun) · ≈ \(estimatedMinutes) min"
-    }
-
-    /// "2 sessões · ≈ 85 min", para duas sessões pendentes hoje (SPEC §7.15 M6).
+    /// "2 sessões · ≈ 85 min", para duas sessões pendentes hoje (SPEC §7.15 M6). Uma sessão só usa o
+    /// detalhe do cartão da tela Hoje (`TodayPlansText.detailText(for:)`, B8 da 2.3).
     static func multipleSessionsSubtitle(count: Int, estimatedMinutes: Int) -> String {
         "\(count) sessões · ≈ \(estimatedMinutes) min"
     }
