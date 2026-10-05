@@ -1,4 +1,4 @@
-# Passagem de bastão — estado em 2026-10-05 (versão 2.4 entregue, §5e)
+# Passagem de bastão — estado em 2026-10-05 (versão 2.4 entregue, §5e; lançamento na App Store em preparo, §5f)
 
 Documento para continuar o projeto num chat novo. Leia inteiro antes de agir. Os documentos de referência continuam sendo SPEC.md, ARCHITECTURE.md, TASKS.md, AGENTS.md, WINDOWS_SETUP.md e docs/M2-CONTRACT.md.
 
@@ -103,3 +103,13 @@ Contratos escritos primeiro pelo arquiteto → implementadores em worktrees sepa
 Pedido do dono: "gere a próxima versão já com tudo que está pendente". O workflow `wf_f96cfe1b-071` cobre: o arquiteto reúne as pendências (item 19 das notas, os achados adiados da 2.3 e os [ ] antigos do TASKS) em `docs/V24-CONTRACT.md`; depois vêm os worktrees `pt-wt/w8-*`, `v8/integration` → `ci/v8-final`, revisão, correção e merge no main. **Ao retomar** (se o limite interromper): `Workflow({scriptPath: <script do run>, resumeFromRunId: "wf_f96cfe1b-071"})`; depois, IPA do run final e a página e o PDF da Amanda (`docs/install/` + `build-pdf.ps1` no scratchpad).
 
 Contrato escrito: `docs/V24-CONTRACT.md` (lista das 31 pendências com a decisão de cada uma, 12 tarefas `v8/*` e o integrador), com o andaime T10.0 no `main` e a SPEC (RF-53, §7.17, decisão 21), o DESIGN 1.5 e o TASKS (seção "Versão 2.4") atualizados.
+
+## 5f. Lançamento na App Store (2.5), em preparo desde 2026-10-05
+
+- **Decisões do dono:** lançar grátis na App Store do Brasil; nome na loja "Magister: Treino com Ciência"; "Dados não coletados"; avisos só o indispensável; pedido de avaliação depois de 1 semana, o menos invasivo possível. Registro: SPEC decisão 22 e §7.18 (L1–L8), owner notes item 20, TASKS milestone M6 (T11.0–T11.10).
+- **Plano completo** (respostas verificadas, fases com datas, custos, riscos, o que é do dono e o que é do Claude): artifact privado https://claude.ai/artifact/NMWbKJ3ZDkVi1KUw4DdcxE. Lançamento sugerido em 05/01/2027, com beta no TestFlight em novembro e dezembro.
+- **Feito:** T11.0 (documentos) e T11.1 [PROJ] (CI menor), `main` 563d1e7. Em push para `ci/**`, o App build roda os testes e só gera o IPA em run manual, em branch terminado em `-final` ou com `[ipa]` num commit que muda algum arquivo fora da documentação; commit só de documentação não dispara nada (runs 37314805402 sem IPA, 10 min; 37316606216 com IPA, 13 min).
+- **Próximo, sem bloqueio do dono:** T11.2 (PrivacyInfo.xcprivacy), T11.3 [PROJ] (project.yml da loja, sem bundle ID), T11.4 (tirar o sideload do app), T11.5 (Sobre e Privacidade), T11.6 (pedido de avaliação).
+- **Do dono:** inscrição no Apple Developer Program; busca e pedido de marca no INPI; domínio e e-mail de suporte; fechar o repositório. Antes de fechar, instalar o GitHub CLI e fazer login no terminal dele (`winget install GitHub.cli` e `gh auth login`), porque com o repositório privado os resultados do CI só podem ser lidos com login; o agente usa `gh api` sem ver o token.
+- **Pendentes do dono:** subtítulo da loja, bundle ID da loja, classificação de idade, modelo e conteúdo do plano pago (decisão 13 em revisão).
+
