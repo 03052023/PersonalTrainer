@@ -92,10 +92,13 @@ public enum DeloadPolicy: Sendable {
     ///   - normal: the prescription `DoubleProgressionRule` gives for today.
     ///   - loadIncrement: the exercise's `loadIncrement` (SPEC P8).
     ///   - isBodyweight: `equipment == .bodyweight`, where the P8 minimum is 0.
+    ///   - isCardio: the exercise is aerobic (pattern `cardio`, SPEC §7.14). 2.4 scaffold
+    ///     (docs/V24-CONTRACT.md §3.1): not read yet; the `engine` task shortens the minutes (SPEC §7.5, F5).
     public static func deloadPrescription(
         from normal: ExercisePrescription,
         loadIncrement: Double,
-        isBodyweight: Bool
+        isBodyweight: Bool,
+        isCardio: Bool = false
     ) -> ExercisePrescription {
         ExercisePrescription(
             exerciseID: normal.exerciseID,

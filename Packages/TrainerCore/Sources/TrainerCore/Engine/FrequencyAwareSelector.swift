@@ -29,6 +29,10 @@ public struct FrequencyAwareSelector: WorkoutSelector {
     public let weekStartsOnMonday: Bool
     /// Primary muscle groups of each program day, keyed by `ProgramDayTemplate.id`.
     public let dayMuscles: [UUID: Set<MuscleGroup>]
+    /// Groups worked outside the app that are still resting (SPEC §7.17 X5): they join S6 for their own
+    /// window. 2.4 scaffold (docs/V24-CONTRACT.md §3.1): stored but not read yet; the `engine` task adds
+    /// them to S6.
+    public let recoveryLoads: [RecoveryLoad]
 
     public init(
         weeklyTargets: [MuscleGroup: Int] = [:],
@@ -36,7 +40,8 @@ public struct FrequencyAwareSelector: WorkoutSelector {
         recoveryHours: Double = 48,
         calendar: Calendar,
         weekStartsOnMonday: Bool = true,
-        dayMuscles: [UUID: Set<MuscleGroup>]
+        dayMuscles: [UUID: Set<MuscleGroup>],
+        recoveryLoads: [RecoveryLoad] = []
     ) {
         self.weeklyTargets = weeklyTargets
         self.defaultWeeklyTarget = defaultWeeklyTarget
@@ -44,6 +49,7 @@ public struct FrequencyAwareSelector: WorkoutSelector {
         self.calendar = calendar
         self.weekStartsOnMonday = weekStartsOnMonday
         self.dayMuscles = dayMuscles
+        self.recoveryLoads = recoveryLoads
     }
 
     public func nextDay(

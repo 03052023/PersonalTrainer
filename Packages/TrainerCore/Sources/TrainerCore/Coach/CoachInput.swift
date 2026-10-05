@@ -40,6 +40,10 @@ public struct CoachInput: Sendable {
     public var goal: ProgramGoal?
     /// C8: blocks already marked this week (`balanceKey`, `mobilityKey`).
     public var longevityDoneThisWeek: Set<String>
+    /// C1: the numbers behind a scheduled lighter week (`DeloadScheduler.triggerDetail`), for the reason
+    /// with numbers (TASKS B11). `nil` keeps the reason without numbers. 2.4 scaffold
+    /// (docs/V24-CONTRACT.md §3.1): not read yet; the `engine` task uses it.
+    public var deloadDetail: DeloadTriggerDetail?
 
     public init(
         deload: CoachDeloadState = .none,
@@ -54,7 +58,8 @@ public struct CoachInput: Sendable {
         lastBackupAt: Date? = nil,
         completedSessionCount: Int = 0,
         goal: ProgramGoal? = nil,
-        longevityDoneThisWeek: Set<String> = []
+        longevityDoneThisWeek: Set<String> = [],
+        deloadDetail: DeloadTriggerDetail? = nil
     ) {
         self.deload = deload
         self.review = review
@@ -69,5 +74,6 @@ public struct CoachInput: Sendable {
         self.completedSessionCount = completedSessionCount
         self.goal = goal
         self.longevityDoneThisWeek = longevityDoneThisWeek
+        self.deloadDetail = deloadDetail
     }
 }

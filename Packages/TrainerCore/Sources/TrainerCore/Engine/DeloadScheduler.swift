@@ -98,6 +98,23 @@ public enum DeloadScheduler: Sendable {
         }
         return .inactive
     }
+
+    /// The numbers behind `status` when it is `.pending(.manyDecreases)` or `.pending(.scheduled)`, for the
+    /// C1 reason (SPEC §7.11 C1; TASKS B11). Same inputs and the same re-arm as `status`; `nil` in every
+    /// other case, including a manual request.
+    ///
+    /// 2.4 scaffold (docs/V24-CONTRACT.md §3.1): always `nil` for now; the `engine` task fills it.
+    public static func triggerDetail(
+        normalPrescriptions: [ExercisePrescription],
+        histories: [UUID: [ExerciseHistoryEntry]],
+        sessions: [SessionSummary],
+        programDayCount: Int,
+        decisions: DeloadDecisions,
+        weeksBetweenDeloads: Int = DeloadPolicy.defaultWeeksBetweenDeloads,
+        now: Date
+    ) -> DeloadTriggerDetail? {
+        nil
+    }
 }
 
 // MARK: - Deload runs

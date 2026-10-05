@@ -13,7 +13,15 @@ import Foundation
 /// - A busca é exaustiva (no máximo C(7, k₁) × C(7, k₂) escolhas), em `WeeklyFitSearch`.
 public enum WeeklyFit {
     /// A melhor semana para `plans` com `preferences` (M4) ou, se não couber, os motivos e as saídas (M5).
-    public static func fit(_ plans: [PlanDemand], preferences: WeekPreferences) -> FitResult {
+    ///
+    /// `fixed`: as atividades fixas fora do app (SPEC §7.17 X4), presas ao dia delas em todas as semanas.
+    /// Andaime da 2.4 (docs/V24-CONTRACT.md §3.1): por enquanto ignoradas; a tarefa `activities-core` as
+    /// leva para a busca e para `WeekSchedule.fixed`.
+    public static func fit(
+        _ plans: [PlanDemand],
+        preferences: WeekPreferences,
+        fixed: [FixedActivityDemand] = []
+    ) -> FitResult {
         let search = WeeklyFitSearch(plans: plans, preferences: preferences)
         if let schedule = search.bestSchedule() {
             return FitResult(schedule: schedule)

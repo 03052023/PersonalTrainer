@@ -17,6 +17,12 @@ public struct WeeklyGoalsInput: Sendable, Hashable {
     public let longevityDone: Set<String>
     /// Metas de aeróbico, passos e sono (SPEC §7.9); mesmo tipo do painel de Saúde.
     public let targets: HealthTargets
+    /// Minutos moderados-equivalentes das atividades fora do app na semana (`OutsideActivities.aerobicMinutes`,
+    /// SPEC §7.17 X3). Só valem quando `health` é `nil`: com o app Saúde, os registros já estão no relatório.
+    public let outsideAerobicMinutes: Int
+    /// Vezes de equilíbrio e de mobilidade registradas na semana, pelas chaves do C8
+    /// (`OutsideActivities.longevityCounts`, SPEC §7.17 X6).
+    public let longevityCounts: [String: Int]
 
     public init(
         plans: [PlanWeekProgress],
@@ -24,7 +30,9 @@ public struct WeeklyGoalsInput: Sendable, Hashable {
         frequency: WeeklyFrequencyReport,
         health: HealthReport?,
         longevityDone: Set<String>,
-        targets: HealthTargets = HealthTargets()
+        targets: HealthTargets = HealthTargets(),
+        outsideAerobicMinutes: Int = 0,
+        longevityCounts: [String: Int] = [:]
     ) {
         self.plans = plans
         self.activeGoals = activeGoals
@@ -32,5 +40,7 @@ public struct WeeklyGoalsInput: Sendable, Hashable {
         self.health = health
         self.longevityDone = longevityDone
         self.targets = targets
+        self.outsideAerobicMinutes = outsideAerobicMinutes
+        self.longevityCounts = longevityCounts
     }
 }
