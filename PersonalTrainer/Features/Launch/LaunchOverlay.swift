@@ -48,7 +48,7 @@ private struct LaunchOverlayModifier: ViewModifier {
                 at: min(elapsedTime, effectiveDuration),
                 reduceMotion: reduceMotion,
                 dark: colorScheme == .dark,
-                hasGoal: !goals.isEmpty
+                goalPetalIndex: goalPetalIndex
             )
 
             let displayFrame = frozenFrameAtSkip ?? liveFrame
@@ -141,9 +141,10 @@ private struct LaunchCanvasView: View {
     let goalColor: Color?
     let goalPetalIndex: Int?
 
-    /// Diâmetro de referência (ponta a ponta das pétalas) em pontos: o mesmo de `LaunchFlower.imageset`
+    /// Diâmetro de referência (ponta a ponta das pétalas) em pontos: o da flor de `LaunchFlower.imageset`
     /// (docs/V23-UI-CONTRACT.md §4.2), para o primeiro quadro da `Canvas` bater com a tela de
-    /// lançamento sem salto.
+    /// lançamento sem salto. A imagem em si tem 312 pt de lado (A7 da 2.4: o halo, de raio ~153,6 pt,
+    /// precisa caber inteiro), mas a flor continua com 256 pt, a mesma escala de sempre.
     private static let flowerDiameter: CGFloat = 256
     private static let haloRadiusFraction: CGFloat = 430.0 / 358.24
 
@@ -205,36 +206,37 @@ private struct LaunchCanvasView: View {
         }
     }
 
+    /// Cada pétala leva o degradê da base para a ponta (B6; as mesmas misturas do script que gera a
+    /// tela de lançamento, em `LaunchPalette.petalRamp`). O caminho e os dois pontos do eixo são
+    /// transformados juntos, aqui, e o desenho vai para um contexto sem transformação: assim o degradê
+    /// acompanha a pétala (cresce, desliza e gira com ela) sem depender de em que espaço o SwiftUI lê
+    /// os pontos de um degradê dentro de um contexto transformado (não dá para conferir sem o CI).
     private func drawPetals(context: GraphicsContext, center: CGPoint, scale: CGFloat) {
         let turnRadians = frame.turn * .pi / 180
+        let gradient = LaunchPalette.petalRamp(dark: isDark).gradient
         for petalIndex in 0..<5 {
-            let petal = displayPetal(for: petalIndex)
+            let petal = frame.petals[petalIndex]
             guard petal.opacity > 0.001 else { continue }
+
+            let transform = petalTransform(for: petalIndex, petal: petal, turnRadians: turnRadians, center: center, scale: scale)
+            let axis = LaunchFlowerGeometry.petalAxes[petalIndex]
+            let path = Self.petalPaths[petalIndex].applying(transform)
 
             var layer = context
             layer.opacity = petal.opacity
-            layer.concatenate(petalTransform(for: petalIndex, petal: petal, turnRadians: turnRadians, center: center, scale: scale))
-            layer.fill(Self.petalPaths[petalIndex], with: .color(LaunchPalette.petal(dark: isDark)))
+            layer.fill(
+                path,
+                with: .linearGradient(
+                    gradient,
+                    startPoint: axis.base.applying(transform),
+                    endPoint: axis.tip.applying(transform)
+                )
+            )
 
             if petalIndex == goalPetalIndex, let goalColor, frame.goalTint > 0 {
-                layer.fill(Self.petalPaths[petalIndex], with: .color(goalColor.opacity(frame.goalTint)))
+                layer.fill(path, with: .color(goalColor.opacity(frame.goalTint)))
             }
         }
-    }
-
-    /// `LaunchTimeline` sempre trata `LaunchTimeline.designatedGoalPetalIndex` como "a pétala do
-    /// objetivo" internamente (a assinatura congelada só recebe `hasGoal: Bool`, sem o índice de
-    /// verdade — ver o comentário em `LaunchTimeline`). Aqui, com o índice real (`goalPetalIndex`),
-    /// troca os dois conjuntos de números: a pétala de verdade do objetivo usa o adiamento e o corar; a
-    /// pétala designada, se não for ela, usa o número que a pétala do objetivo teria normalmente. As
-    /// outras três não mudam. Sem objetivo, ninguém troca.
-    private func displayPetal(for petalIndex: Int) -> LaunchFrame.Petal {
-        guard let goalPetalIndex, goalPetalIndex != LaunchTimeline.designatedGoalPetalIndex else {
-            return frame.petals[petalIndex]
-        }
-        if petalIndex == goalPetalIndex { return frame.petals[LaunchTimeline.designatedGoalPetalIndex] }
-        if petalIndex == LaunchTimeline.designatedGoalPetalIndex { return frame.petals[goalPetalIndex] }
-        return frame.petals[petalIndex]
     }
 
     private func petalTransform(for petalIndex: Int, petal: LaunchFrame.Petal, turnRadians: Double, center: CGPoint, scale: CGFloat) -> CGAffineTransform {
@@ -261,10 +263,19 @@ private struct LaunchCanvasView: View {
         transform = transform.concatenating(CGAffineTransform(scaleX: scale, y: scale))
         transform = transform.concatenating(CGAffineTransform(translationX: center.x, y: center.y))
 
+        // Degradê vertical do miolo (B6), de cima para baixo no espaço do miolo; transformado junto com
+        // o caminho, como nas pétalas (ver `drawPetals`).
+        let halfHeight = LaunchFlowerGeometry.coreGradientHalfHeight
         var layer = context
         layer.opacity = frame.coreOpacity
-        layer.concatenate(transform)
-        layer.fill(Self.corePath, with: .color(LaunchPalette.core(dark: isDark)))
+        layer.fill(
+            Self.corePath.applying(transform),
+            with: .linearGradient(
+                LaunchPalette.coreRamp(dark: isDark).gradient,
+                startPoint: CGPoint(x: 0, y: -halfHeight).applying(transform),
+                endPoint: CGPoint(x: 0, y: halfHeight).applying(transform)
+            )
+        )
     }
 
     private func drawPollen(context: GraphicsContext, center: CGPoint, scale: CGFloat) {
@@ -284,50 +295,5 @@ private struct LaunchCanvasView: View {
             layer.opacity = grain.opacity
             layer.fill(Path(ellipseIn: rect), with: .color(pollenColor))
         }
-    }
-}
-
-/// A paleta fixa da flor Brisa (`docs/design/render-app-icon.ps1`, `$Looks.default`/`.dark`) e dos
-/// detalhes sutis da abertura (`docs/design/v23-animation/launch.html`), separada do `Theme` do app: a
-/// abertura reproduz o ícone (owner notes item 3, "idêntica ao ícone"), não a direção Tinta e papel —
-/// só o fundo que ela revela (`Theme.background`) é o mesmo. `dark` já vem calculado
-/// (`colorScheme == .dark`), então as cores aqui são fixas, sem precisar de `Color` dinâmica por traço.
-private enum LaunchPalette {
-    static func background(dark: Bool) -> Color {
-        dark ? Color(hex: "#141D29") : Color(hex: "#24354C")
-    }
-
-    static func petal(dark: Bool) -> Color {
-        dark ? Color(hex: "#E3DED3") : Color(hex: "#F1EDE4")
-    }
-
-    static func core(dark: Bool) -> Color {
-        dark ? Color(hex: "#D3C4AB") : Color(hex: "#E9DCC6")
-    }
-
-    /// Só a aparência padrão tem halo (`glowA` = 55 de 255 no script do ícone); a escura não.
-    static func halo(dark: Bool) -> Color? {
-        dark ? nil : Color(hex: "#6B798A")
-    }
-
-    static let haloAlpha: Double = 0.216
-
-    static let warm = Color(hex: "#EBCFB0")
-
-    static func pollen(dark: Bool) -> Color {
-        dark ? Color(hex: "#E6DAC3") : Color(hex: "#F5EBD7")
-    }
-}
-
-private extension Color {
-    /// Cor sólida a partir de um hexadecimal `#RRGGBB`, só para a paleta fixa acima (nunca para
-    /// entrada do usuário): uma string malformada vira preto em vez de travar (R11).
-    init(hex: String) {
-        let digits = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
-        let value = UInt64(digits, radix: 16) ?? 0
-        let red = Double((value & 0xFF0000) >> 16) / 255
-        let green = Double((value & 0x00FF00) >> 8) / 255
-        let blue = Double(value & 0x0000FF) / 255
-        self.init(.sRGB, red: red, green: green, blue: blue, opacity: 1)
     }
 }
