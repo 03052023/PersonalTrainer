@@ -1,4 +1,4 @@
-# Passagem de bastão — estado em 2026-09-23
+# Passagem de bastão — estado em 2026-10-05 (versão 2.4 entregue, §5e)
 
 Documento para continuar o projeto num chat novo. Leia inteiro antes de agir. Os documentos de referência continuam sendo SPEC.md, ARCHITECTURE.md, TASKS.md, AGENTS.md, WINDOWS_SETUP.md e docs/M2-CONTRACT.md.
 
@@ -90,7 +90,14 @@ Workflow `wf_b80f610e-930`:
 
 Contratos escritos primeiro pelo arquiteto → implementadores em worktrees separados (um branch cada, escopo de arquivos exclusivo) → integrador único no `main` → revisores somente leitura com lentes distintas → corretor único. Código de app é escrito às cegas (sem Xcode): exigir lista de "verificado/incerto" e revisão estática antes do CI. O limite de uso do plano do usuário já foi atingido duas vezes com muitos agentes ao mesmo tempo; prefira ondas menores.
 
-## 5e. Versão 2.4 em andamento (2026-10-04)
+## 5e. Versão 2.4 entregue (2026-10-05): App build 37277483627 (IPA `PersonalTrainer-for-resigning` até 2026-10-08T07:33Z), Core tests 37277483632, os dois verdes em `ci/v8-final` (955d7ec); `main` com o merge de `v8/integration`
+
+- **Entregue:** atividades fora do app (RF-53, SPEC §7.17 X1–X8: registro, fixas, "Também hoje", Metas com "Fora do app", encaixe e recuperação), as pendências da 2.1 à 2.3 (lista em `docs/V24-CONTRACT.md`) e as 78 guias "Como fazer" que faltavam (133 no catálogo).
+- **Revisão da integração:** 11 achados. Corrigidos: A1/B-1 (major: o lembrete C8 agora vê equilíbrio e mobilidade registrados em "Fora do app"), B-2 (major: o Início mostra o nome e o detalhe do cartão da tela Hoje; com um plano só, a sessão só de aeróbico diz "30 min" também na tela Hoje), A2 (arquivo das atividades ilegível é guardado ao lado), A3 (o motivo "faltam lugares" desconta as fixas), A4/B-4 (apagar o registro do C8 desfaz a vez nas Metas; texto da confirmação), A5 ("Atividades fixas" na aba Plano também sem objetivo), B-3 (rodapé das Metas) e B-6 (a confirmação da importação cita as atividades). Rejeitado: B-5 ("Hoje é dia de descanso." com o cartão "Também hoje" embaixo é o desenho aprovado, DESIGN §9 itens 3 e 8; mudar a frase é decisão do dono).
+- **No `main` do repositório local** havia duas edições soltas (repositório e teste do Início, já contidas no `v8/integration`); foram guardadas no `git stash` ("stray edits in main before the v2.4 merge") antes do merge, e podem ser descartadas.
+- **Próximo:** o dono instala o IPA do run 37277483627 pelo Impactor e testa; atualizar a página e o PDF da Amanda (`docs/install/` + `build-pdf.ps1` no scratchpad) para esse run; mandar ao dono as folhas das guias dos lotes 4 a 7 (`docs/design/exercise-guides/sheet-4.png` a `sheet-7-dark.png`, T6.8).
+
+### Histórico da 2.4 (2026-10-04)
 
 Pedido do dono: "gere a próxima versão já com tudo que está pendente". O workflow `wf_f96cfe1b-071` cobre: o arquiteto reúne as pendências (item 19 das notas, os achados adiados da 2.3 e os [ ] antigos do TASKS) em `docs/V24-CONTRACT.md`; depois vêm os worktrees `pt-wt/w8-*`, `v8/integration` → `ci/v8-final`, revisão, correção e merge no main. **Ao retomar** (se o limite interromper): `Workflow({scriptPath: <script do run>, resumeFromRunId: "wf_f96cfe1b-071"})`; depois, IPA do run final e a página e o PDF da Amanda (`docs/install/` + `build-pdf.ps1` no scratchpad).
 
