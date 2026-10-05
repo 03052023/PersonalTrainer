@@ -152,17 +152,46 @@ struct RotationSelectorTests {
         #expect(result == Fixture.dayA)
     }
 
-    @Test("S2 dayID desconhecido (programa mudou) → D1")
-    func S2_unknownProgramDayID_returnsFirstDay() {
-        let removedDay = ProgramDayTemplate(id: Fixture.id(99), name: "Dia removido", order: 3)
+    @Test("S2 sessão de um dia que não existe mais é ignorada: vale a anterior (A3, 2.4)")
+    func S2_sessionOfRemovedDay_isIgnored() {
+        // Before 2.4 the removed day sent the rotation back to D1; now the session before it
+        // (Dia A) is the reference.
         let sessions = [
             Fixture.session(day: Fixture.dayA, startedAt: Fixture.t1),
-            Fixture.session(day: removedDay, startedAt: Fixture.t2),
+            Fixture.session(day: Fixture.removedDay, startedAt: Fixture.t2),
         ]
 
         let result = selector.nextDay(program: Fixture.program, recentSessions: sessions, now: Fixture.now)
 
-        #expect(result == Fixture.dayA)
+        #expect(result == Fixture.dayB)
+    }
+
+    @Test(
+        "S2 só as sessões feitas nos dias do próprio programa movem a rotação (A3, 2.4)",
+        arguments: RotationSelectorTests.ProgramDaysCase.all
+    )
+    func S2_onlySessionsOnThisProgramsDaysMoveTheRotation(_ testCase: ProgramDaysCase) {
+        let result = selector.nextDay(program: Fixture.program, recentSessions: testCase.sessions, now: Fixture.now)
+
+        #expect(result == testCase.expected)
+    }
+
+    @Test("S2 a ordem das sessões dos dois programas não muda o resultado (P11)")
+    func S2_mixedProgramsInAnyOrder_sameResult() {
+        let a = Fixture.session(day: Fixture.dayA, startedAt: Fixture.t1)
+        let walk = Fixture.session(day: Fixture.cardioA, startedAt: Fixture.t2)
+        let b = Fixture.session(day: Fixture.dayB, startedAt: Fixture.t3)
+        let intervals = Fixture.session(day: Fixture.cardioB, startedAt: Fixture.t4)
+        let permutations: [[SessionSummary]] = [
+            [a, walk, b, intervals],
+            [intervals, b, walk, a],
+            [walk, intervals, a, b],
+        ]
+
+        for sessions in permutations {
+            let result = selector.nextDay(program: Fixture.program, recentSessions: sessions, now: Fixture.now)
+            #expect(result == Fixture.dayC, "permutation \(sessions.map(\.programDayID))")
+        }
     }
 
     @Test("S2 ordem embaralhada de recentSessions → mesmo resultado")
@@ -245,6 +274,94 @@ struct RotationSelectorTests {
     }
 }
 
+// MARK: - Table cases
+
+extension RotationSelectorTests {
+    /// SPEC S2 (2.4, achado A3): sessions of the ABC program mixed with sessions of another
+    /// program (`Fixture.cardioA`, `Fixture.cardioB`) and of a removed day.
+    struct ProgramDaysCase: Sendable, CustomTestStringConvertible {
+        let label: String
+        let sessions: [SessionSummary]
+        let expected: ProgramDayTemplate
+
+        var testDescription: String { label }
+
+        static let all: [ProgramDaysCase] = [
+            ProgramDaysCase(
+                label: "sessão de outro programa depois de A não reinicia → B",
+                sessions: [
+                    Fixture.session(day: Fixture.dayA, startedAt: Fixture.t1),
+                    Fixture.session(day: Fixture.cardioA, startedAt: Fixture.t2),
+                ],
+                expected: Fixture.dayB
+            ),
+            ProgramDaysCase(
+                label: "tirar o segundo plano mantém a rotação: A, outro, B, outro → C",
+                sessions: [
+                    Fixture.session(day: Fixture.dayA, startedAt: Fixture.t1),
+                    Fixture.session(day: Fixture.cardioA, startedAt: Fixture.t2),
+                    Fixture.session(day: Fixture.dayB, startedAt: Fixture.t3),
+                    Fixture.session(day: Fixture.cardioB, startedAt: Fixture.t4),
+                ],
+                expected: Fixture.dayC
+            ),
+            ProgramDaysCase(
+                label: "voltar a um plano já usado continua de onde parou: B e depois só o outro → C",
+                sessions: [
+                    Fixture.session(day: Fixture.dayB, startedAt: Fixture.t1),
+                    Fixture.session(day: Fixture.cardioA, startedAt: Fixture.t2),
+                    Fixture.session(day: Fixture.cardioB, startedAt: Fixture.t3),
+                    Fixture.session(day: Fixture.cardioA, startedAt: Fixture.t4),
+                ],
+                expected: Fixture.dayC
+            ),
+            ProgramDaysCase(
+                label: "dia apagado depois de B: vale B → C",
+                sessions: [
+                    Fixture.session(day: Fixture.dayA, startedAt: Fixture.t1),
+                    Fixture.session(day: Fixture.dayB, startedAt: Fixture.t2),
+                    Fixture.session(day: Fixture.removedDay, startedAt: Fixture.t3),
+                ],
+                expected: Fixture.dayC
+            ),
+            ProgramDaysCase(
+                label: "só sessões de outro programa → D1",
+                sessions: [
+                    Fixture.session(day: Fixture.cardioA, startedAt: Fixture.t1),
+                    Fixture.session(day: Fixture.cardioB, startedAt: Fixture.t2),
+                ],
+                expected: Fixture.dayA
+            ),
+            ProgramDaysCase(
+                label: "S4 continua: C escolhido à mão e depois outro programa → A",
+                sessions: [
+                    Fixture.session(day: Fixture.dayA, startedAt: Fixture.t1),
+                    Fixture.session(day: Fixture.dayC, startedAt: Fixture.t2),
+                    Fixture.session(day: Fixture.cardioA, startedAt: Fixture.t3),
+                ],
+                expected: Fixture.dayA
+            ),
+            ProgramDaysCase(
+                label: "mesmo instante: a sessão de outro programa com id maior não é a referência → B",
+                sessions: [
+                    Fixture.session(day: Fixture.dayA, startedAt: Fixture.t1, id: Fixture.id(0x0A)),
+                    Fixture.session(day: Fixture.cardioA, startedAt: Fixture.t1, id: Fixture.id(0x0B)),
+                ],
+                expected: Fixture.dayB
+            ),
+            ProgramDaysCase(
+                label: "dia do programa sem séries depois de A, e outro programa com séries → B",
+                sessions: [
+                    Fixture.session(day: Fixture.dayA, startedAt: Fixture.t1),
+                    Fixture.session(day: Fixture.dayB, startedAt: Fixture.t2, status: .abandoned, workingSets: 0),
+                    Fixture.session(day: Fixture.cardioA, startedAt: Fixture.t3),
+                ],
+                expected: Fixture.dayB
+            ),
+        ]
+    }
+}
+
 // MARK: - Fixtures
 
 private enum Fixture {
@@ -253,6 +370,13 @@ private enum Fixture {
     static let dayC = ProgramDayTemplate(id: id(3), name: "Dia C", order: 2)
 
     static let program = ProgramTemplate(name: "ABC", days: [dayA, dayB, dayC], isActive: true)
+
+    /// Days of another program (a second plan, or one used before): never in `program`.
+    /// Their `order` differs from A, B and C so the derived session ids never collide.
+    static let cardioA = ProgramDayTemplate(id: id(0x21), name: "Cardio A", order: 10)
+    static let cardioB = ProgramDayTemplate(id: id(0x22), name: "Cardio B", order: 11)
+    /// A day that was in `program` and was removed since.
+    static let removedDay = ProgramDayTemplate(id: id(0x99), name: "Dia removido", order: 3)
 
     /// Fixed instants; `t1 < t2 < t3 < t4 < now`.
     static let t1: TimeInterval = 1_700_000_000

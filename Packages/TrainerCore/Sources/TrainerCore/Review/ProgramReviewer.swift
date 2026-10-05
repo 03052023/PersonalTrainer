@@ -85,8 +85,9 @@ public enum ProgramReviewer: Sendable {
 
         let stagnant = pools.filter(\.isStagnant)
         // SPEC R5: "R1 em ≥ 50 % dos exercícios" — distinct exercises of the program that R1
-        // measures. Aerobic exercises are outside R1 (SPEC R8), so they are not in the base.
-        let measuredCount = pools.filter { !$0.isCardio }.count
+        // measures. Aerobic exercises and, since 2.4, those measured in seconds or steps are
+        // outside R1 (SPEC R8), so they are not in the base.
+        let measuredCount = pools.filter { !$0.isOutsideR1 }.count
         let stagnationWide = measuredCount > 0 && stagnant.count * 2 >= measuredCount
         // A deload already running (its prescriptions carry the `deload` note, SPEC §7.5)
         // makes a new deload suggestion redundant.

@@ -462,7 +462,7 @@ struct ReviewVolumeAndAdherenceTests {
         #expect(
             reduceDays.reason
                 == "Nas últimas 4 semanas você concluiu 6 de 12 treinos previstos (50%), cerca de 1,5 por semana; "
-                + "um programa de 2 dias pode caber melhor na sua rotina antes de pensar em mais séries."
+                + "um plano de 2 dias pode caber melhor na sua rotina antes de pensar em mais séries."
         )
     }
 

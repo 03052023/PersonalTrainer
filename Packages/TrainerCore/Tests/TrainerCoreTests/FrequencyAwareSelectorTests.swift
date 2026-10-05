@@ -314,6 +314,105 @@ struct FrequencyAwareSelectorTests {
             #expect(selector.nextDay(program: shuffledProgram, recentSessions: sessions, now: Fixture.now) == Fixture.legs)
         }
     }
+
+    // MARK: - S6 with the activities logged outside the app (SPEC §7.17 X5, 2.4)
+
+    @Test(
+        "S6 com cargas de atividades: cada carga exclui os dias com grupo em comum na janela dela",
+        arguments: FrequencyAwareSelectorTests.RecoveryLoadCase.all
+    )
+    func S6_recoveryLoadsFromOutsideActivities(_ testCase: RecoveryLoadCase) {
+        // No session in the app: without loads the scores alone pick legs (5).
+        let result = Fixture.selector(recoveryLoads: testCase.loads).nextDay(
+            program: Fixture.program,
+            recentSessions: [],
+            now: Fixture.now
+        )
+
+        #expect(result == testCase.expected)
+    }
+
+    @Test("S6 com cargas: sessões do app e atividades se somam")
+    func S6_sessionsAndLoadsAddUp() {
+        // Pull trained in the app 24 h ago and a strength activity on the legs 30 h ago:
+        // both days rest, push is left.
+        let sessions = [Fixture.session(Fixture.pull, hoursAgo: 24)]
+        let loads = [Fixture.load(hoursAgo: 30, muscles: [.quads, .glutes], hours: 48)]
+
+        let result = Fixture.selector(recoveryLoads: loads).nextDay(
+            program: Fixture.program,
+            recentSessions: sessions,
+            now: Fixture.now
+        )
+
+        #expect(result == Fixture.push)
+    }
+
+    @Test("S6 cross com os 10 grupos: se as atividades excluem todos os dias, as sessões do app continuam valendo")
+    func S6_loadsExcludingEveryDay_stepBackBeforeTheSessions() {
+        // Legs in the app 24 h ago and a cross (every group, table X1) 30 h ago. With the cross,
+        // no day is rested; without it, legs still rests and push (3) beats pull (2). Ignoring S6
+        // altogether would hand legs (5) back the day after it was trained.
+        let sessions = [Fixture.session(Fixture.legs, hoursAgo: 24)]
+        let cross = [Fixture.load(hoursAgo: 30, muscles: Set(MuscleGroup.allCases), hours: 48)]
+
+        let result = Fixture.selector(recoveryLoads: cross).nextDay(
+            program: Fixture.program,
+            recentSessions: sessions,
+            now: Fixture.now
+        )
+
+        #expect(result == Fixture.push)
+    }
+
+    @Test("S6 cross com os 10 grupos e nenhuma sessão recente: nenhum dia descansou, S6 é ignorado")
+    func S6_loadsExcludingEveryDayWithoutSessions_ignoreS6() {
+        let cross = [Fixture.load(hoursAgo: 30, muscles: Set(MuscleGroup.allCases), hours: 48)]
+
+        let result = Fixture.selector(recoveryLoads: cross).nextDay(
+            program: Fixture.program,
+            recentSessions: [],
+            now: Fixture.now
+        )
+
+        #expect(result == Fixture.legs)
+    }
+
+    @Test("S5 não muda com as cargas: atividades fora do app não contam na meta semanal")
+    func S5_loadsNeverCountTowardsTheWeeklyTarget() {
+        // Two strength activities on every legs group this week, both rested (59 h and 52 h ago).
+        // Counted as sessions they would take legs to 2/2 (score 0) and push would win.
+        let legsGroups: Set<MuscleGroup> = [.quads, .hamstrings, .glutes, .calves, .core]
+        let loads = [
+            Fixture.load(hoursAgo: 59, muscles: legsGroups, hours: 48),
+            Fixture.load(hoursAgo: 52, muscles: legsGroups, hours: 48),
+        ]
+
+        let result = Fixture.selector(recoveryLoads: loads).nextDay(
+            program: Fixture.program,
+            recentSessions: [],
+            now: Fixture.now
+        )
+
+        #expect(result == Fixture.legs)
+    }
+
+    @Test("S6 com cargas: a ordem das cargas não muda o resultado (P11)")
+    func S6_loadOrder_doesNotChangeResult() {
+        let legs = Fixture.load(hoursAgo: 20, muscles: Fixture.vigorousAerobicLegs, hours: 24)
+        let chest = Fixture.load(hoursAgo: 30, muscles: [.chest], hours: 48)
+        let old = Fixture.load(hoursAgo: 100, muscles: [.back], hours: 48)
+
+        for loads in [[legs, chest, old], [old, chest, legs], [chest, old, legs]] {
+            let result = Fixture.selector(recoveryLoads: loads).nextDay(
+                program: Fixture.program,
+                recentSessions: [],
+                now: Fixture.now
+            )
+            // Legs and push rest; pull is left.
+            #expect(result == Fixture.pull)
+        }
+    }
 }
 
 // MARK: - Table cases
@@ -454,6 +553,80 @@ extension FrequencyAwareSelectorTests {
             CircularTieCase(label: "sem sessão (rotação A): empate A/C → A", lastDayIndex: nil, expectedIndex: 0),
         ]
     }
+
+    /// SPEC S6 with X5. A strength activity (the cross of table X1, here with only some groups
+    /// so the exclusion shows) keeps its groups for 48 h; a vigorous aerobic one keeps the legs
+    /// for 24 h. Light activities never become loads (`OutsideActivities.recoveryLoads`).
+    struct RecoveryLoadCase: Sendable, CustomTestStringConvertible {
+        let label: String
+        let loads: [RecoveryLoad]
+        let expected: ProgramDayTemplate
+
+        var testDescription: String { label }
+
+        static let all: [RecoveryLoadCase] = [
+            RecoveryLoadCase(
+                label: "sem cargas: nada muda → legs",
+                loads: [],
+                expected: Fixture.legs
+            ),
+            RecoveryLoadCase(
+                label: "força fora do app há 30 h com quadríceps e glúteos exclui legs → push",
+                loads: [Fixture.load(hoursAgo: 30, muscles: [.quads, .glutes], hours: 48)],
+                expected: Fixture.push
+            ),
+            RecoveryLoadCase(
+                label: "força fora do app com peito e quadríceps há 30 h exclui push e legs → pull",
+                loads: [Fixture.load(hoursAgo: 30, muscles: [.chest, .quads], hours: 48)],
+                expected: Fixture.pull
+            ),
+            RecoveryLoadCase(
+                label: "força fora do app há exatamente 48 h já descansou → legs",
+                loads: [Fixture.load(hoursAgo: 48, muscles: [.quads, .glutes], hours: 48)],
+                expected: Fixture.legs
+            ),
+            RecoveryLoadCase(
+                label: "aeróbico forte há 20 h exclui as pernas → push",
+                loads: [Fixture.load(hoursAgo: 20, muscles: Fixture.vigorousAerobicLegs, hours: 24)],
+                expected: Fixture.push
+            ),
+            RecoveryLoadCase(
+                label: "aeróbico forte há 25 h já não exclui → legs",
+                loads: [Fixture.load(hoursAgo: 25, muscles: Fixture.vigorousAerobicLegs, hours: 24)],
+                expected: Fixture.legs
+            ),
+            RecoveryLoadCase(
+                label: "aeróbico forte há exatamente 24 h já descansou → legs",
+                loads: [Fixture.load(hoursAgo: 24, muscles: Fixture.vigorousAerobicLegs, hours: 24)],
+                expected: Fixture.legs
+            ),
+            RecoveryLoadCase(
+                label: "carga 1 h depois de now (relógio adiantado) conta como recém-feita → push",
+                loads: [Fixture.load(hoursAgo: -1, muscles: Fixture.vigorousAerobicLegs, hours: 24)],
+                expected: Fixture.push
+            ),
+            RecoveryLoadCase(
+                label: "carga com 0 h é ignorada → legs",
+                loads: [Fixture.load(hoursAgo: 1, muscles: Fixture.vigorousAerobicLegs, hours: 0)],
+                expected: Fixture.legs
+            ),
+            RecoveryLoadCase(
+                label: "carga com horas negativas é ignorada → legs",
+                loads: [Fixture.load(hoursAgo: 1, muscles: Fixture.vigorousAerobicLegs, hours: -24)],
+                expected: Fixture.legs
+            ),
+            RecoveryLoadCase(
+                label: "carga com horas NaN é ignorada → legs",
+                loads: [Fixture.load(hoursAgo: 1, muscles: Fixture.vigorousAerobicLegs, hours: .nan)],
+                expected: Fixture.legs
+            ),
+            RecoveryLoadCase(
+                label: "carga sem grupos não exclui nada → legs",
+                loads: [Fixture.load(hoursAgo: 1, muscles: [], hours: 48)],
+                expected: Fixture.legs
+            ),
+        ]
+    }
 }
 
 // MARK: - Fixture
@@ -499,7 +672,8 @@ private enum Fixture {
         defaultWeeklyTarget: Int = 2,
         recoveryHours: Double = 48,
         weekStartsOnMonday: Bool = true,
-        dayMuscles: [UUID: Set<MuscleGroup>] = Fixture.dayMuscles
+        dayMuscles: [UUID: Set<MuscleGroup>] = Fixture.dayMuscles,
+        recoveryLoads: [RecoveryLoad] = []
     ) -> FrequencyAwareSelector {
         FrequencyAwareSelector(
             weeklyTargets: weeklyTargets,
@@ -507,8 +681,18 @@ private enum Fixture {
             recoveryHours: recoveryHours,
             calendar: calendar,
             weekStartsOnMonday: weekStartsOnMonday,
-            dayMuscles: dayMuscles
+            dayMuscles: dayMuscles,
+            recoveryLoads: recoveryLoads
         )
+    }
+
+    /// The legs of SPEC X5 for a vigorous aerobic activity (quadríceps, posteriores, glúteos e
+    /// panturrilhas), kept here so the engine tests do not depend on `OutsideActivities`.
+    static let vigorousAerobicLegs: Set<MuscleGroup> = [.quads, .hamstrings, .glutes, .calves]
+
+    /// An outside activity that started `hoursAgo` hours before `now` (negative = after `now`).
+    static func load(hoursAgo: Double, muscles: Set<MuscleGroup>, hours: Double) -> RecoveryLoad {
+        RecoveryLoad(start: now.addingTimeInterval(-hoursAgo * 3_600), muscles: muscles, hours: hours)
     }
 
     static func session(

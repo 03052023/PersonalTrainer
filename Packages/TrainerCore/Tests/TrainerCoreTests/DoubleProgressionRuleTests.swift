@@ -818,9 +818,15 @@ private let unloadedCases: [UnloadedCase] = [
         load: 2.5, targetReps: 8, note: .increase
     ),
     UnloadedCase(
-        "aeróbico de peso do corpo sem carga no topo: segura no topo, sem carga (§7.14 F3)",
+        "aeróbico de peso do corpo sem carga, 3 blocos no topo: mais um bloco, sem carga (§7.14 F6)",
         equipment: .bodyweight, pattern: .cardio,
         history: [entry(daysAgo: 2, sets: [working(0, 12, rir: nil), working(0, 12, rir: nil), working(0, 12, rir: nil)])],
+        load: 0, targetReps: 8, note: .increase
+    ),
+    UnloadedCase(
+        "aeróbico de peso do corpo sem carga, 5 blocos no topo: segura no topo, sem carga (§7.14 F3, F6)",
+        equipment: .bodyweight, pattern: .cardio,
+        history: [entry(daysAgo: 2, sets: Array(repeating: working(0, 12, rir: nil), count: 5))],
         load: 0, targetReps: 12, note: .hold
     ),
     UnloadedCase(
