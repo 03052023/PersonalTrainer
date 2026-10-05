@@ -52,14 +52,18 @@ private func input(
     activeGoals: [ProgramGoal] = [],
     frequency: WeeklyFrequencyReport = emptyFrequencyReport,
     health: HealthReport? = nil,
-    longevityDone: Set<String> = []
+    longevityDone: Set<String> = [],
+    outsideAerobicMinutes: Int = 0,
+    longevityCounts: [String: Int] = [:]
 ) -> WeeklyGoalsInput {
     WeeklyGoalsInput(
         plans: plans,
         activeGoals: activeGoals,
         frequency: frequency,
         health: health,
-        longevityDone: longevityDone
+        longevityDone: longevityDone,
+        outsideAerobicMinutes: outsideAerobicMinutes,
+        longevityCounts: longevityCounts
     )
 }
 
@@ -225,6 +229,100 @@ func weeklyGoalsHealthConnectedButEmptyWindowMakesStepsAndSleepDataless() throws
     #expect(aerobic.hasData, "o aeróbico tem número mesmo com poucos minutos")
     #expect(!steps.hasData)
     #expect(!sleep.hasData)
+}
+
+// MARK: - W2.3, W4 e W2.6 com as atividades fora do app (SPEC §7.17 X3, X6)
+
+@Test("W2.3 sem Saúde usa os minutos das atividades")
+func weeklyGoalsAerobicFromOutsideActivitiesWithoutHealth() throws {
+    let withoutHealth = WeeklyGoals.goals(input(health: nil, outsideAerobicMinutes: 75))
+    let aerobic = try #require(withoutHealth.first { $0.kind == .aerobic })
+    #expect(aerobic.done == 75)
+    #expect(aerobic.hasData)
+    #expect(aerobic.target == 150)
+    #expect(aerobic.fraction == 0.5)
+    #expect(!aerobic.isMet)
+
+    // Com o app Saúde, vale o relatório, que já traz os registros (X3): os minutos à parte não somam de novo.
+    let withHealth = WeeklyGoals.goals(input(health: healthReport(aerobicMinutes: 40), outsideAerobicMinutes: 75))
+    #expect(withHealth.first { $0.kind == .aerobic }?.done == 40)
+
+    // Passos e sono continuam vindo só do Saúde.
+    let sleep = try #require(withoutHealth.first { $0.kind == .sleep })
+    #expect(!sleep.hasData)
+}
+
+@Test("W4 sem Saúde e sem atividades fica sem dados")
+func weeklyGoalsAerobicWithoutHealthAndWithoutActivitiesIsDataless() throws {
+    let goals = WeeklyGoals.goals(input(health: nil, outsideAerobicMinutes: 0))
+    let aerobic = try #require(goals.first { $0.kind == .aerobic })
+    #expect(aerobic.done == nil)
+    #expect(!aerobic.hasData)
+    #expect(!aerobic.isMet)
+}
+
+/// Um caso de W2.6: as vezes registradas, a marca antiga do C8 e o número esperado.
+struct LongevityGoalCase: Sendable, CustomTestStringConvertible {
+    let label: String
+    let counts: [String: Int]
+    let done: Set<String>
+    let balance: Double
+    let mobility: Double
+
+    var testDescription: String {
+        label
+    }
+}
+
+let longevityGoalCases: [LongevityGoalCase] = [
+    LongevityGoalCase(label: "nada registrado", counts: [:], done: [], balance: 0, mobility: 0),
+    LongevityGoalCase(label: "1 de equilíbrio e 2 de mobilidade", counts: ["balance": 1, "mobility": 2], done: [], balance: 1, mobility: 2),
+    LongevityGoalCase(label: "3 vezes passa da meta", counts: ["balance": 3], done: [], balance: 3, mobility: 0),
+    LongevityGoalCase(label: "Feito antigo sem registro vale 1", counts: [:], done: ["balance"], balance: 1, mobility: 0),
+    LongevityGoalCase(label: "Feito e registros não somam: vale o maior", counts: ["mobility": 2], done: ["mobility"], balance: 0, mobility: 2),
+]
+
+@Test("W2.6 conta as vezes contra 2", arguments: longevityGoalCases)
+func weeklyGoalsLongevityTimesAgainstTwo(_ testCase: LongevityGoalCase) throws {
+    let goals = WeeklyGoals.goals(input(
+        plans: [plan(.longevity, completed: 1, perWeek: 3)],
+        activeGoals: [.longevity],
+        longevityDone: testCase.done,
+        longevityCounts: testCase.counts
+    ))
+    let balance = try #require(goals.first { $0.kind == .balance })
+    let mobility = try #require(goals.first { $0.kind == .mobility })
+
+    #expect(balance.done == testCase.balance)
+    #expect(mobility.done == testCase.mobility)
+    for goal in [balance, mobility] {
+        #expect(goal.target == 2)
+        #expect(goal.hasData)
+        #expect(goal.isMet == ((goal.done ?? 0) >= 2))
+        #expect(goal.referenceTopic == "goal.longevity")
+    }
+}
+
+@Test("W2.6 Feito antigo vale 1")
+func weeklyGoalsOldCoachDoneCountsOne() throws {
+    let goals = WeeklyGoals.goals(input(
+        activeGoals: [.longevity],
+        longevityDone: [CoachInput.balanceKey, CoachInput.mobilityKey]
+    ))
+    let balance = try #require(goals.first { $0.kind == .balance })
+    let mobility = try #require(goals.first { $0.kind == .mobility })
+
+    #expect(balance.done == 1)
+    #expect(mobility.done == 1)
+    #expect(balance.fraction == 0.5)
+    #expect(!balance.isMet, "1 de 2 vezes")
+
+    // Sem a Longevidade ativa, as linhas não aparecem, mesmo com registros.
+    let withoutLongevity = WeeklyGoals.goals(input(
+        activeGoals: [.hypertrophy],
+        longevityCounts: [CoachInput.balanceKey: 2]
+    ))
+    #expect(!withoutLongevity.contains { $0.kind == .balance || $0.kind == .mobility })
 }
 
 // MARK: - W5: reference topics exist in the real catalog
