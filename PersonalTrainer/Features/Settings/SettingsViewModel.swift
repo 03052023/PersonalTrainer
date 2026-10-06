@@ -136,7 +136,8 @@ final class SettingsViewModel {
             defaults.set(now().timeIntervalSince1970, forKey: CoachService.DefaultsKey.lastBackupAt)
             present(
                 title: "Backup salvo",
-                message: "\(url.lastPathComponent) foi salvo. Guarde-o fora do iPhone (iCloud Drive ou computador) antes de reinstalar o app."
+                // SPEC §7.18 L2: nenhum texto sugere um serviço de nuvem (diretriz 5.1.3(ii)).
+                message: "\(url.lastPathComponent) foi salvo. Guarde-o num lugar só seu antes de reinstalar ou apagar o app."
             )
         case .failure(let error):
             if Self.isUserCancellation(error) {
@@ -176,7 +177,7 @@ final class SettingsViewModel {
                 pendingImportData = nil
                 present(
                     title: "Não foi possível abrir o arquivo",
-                    message: "O arquivo escolhido não pôde ser lido. Verifique se ele terminou de baixar do iCloud Drive."
+                    message: "O arquivo escolhido não pôde ser lido. Confira se ele terminou de baixar e tente de novo."
                 )
             }
         case .failure(let error):
