@@ -19,8 +19,8 @@ struct RatingPromptPolicyTests {
         lastRequestDaysAgo: TimeInterval? = nil,
         isStoreInstall: Bool = true
     ) -> RatingPromptInput {
-        let first: Date? = firstDaysAgo.map { RatingPromptPolicyTests.now.addingTimeInterval(-$0 * RatingPromptPolicyTests.day) }
-        let lastAt: Date? = lastRequestDaysAgo.map { RatingPromptPolicyTests.now.addingTimeInterval(-$0 * RatingPromptPolicyTests.day) }
+        let first: Date? = firstDaysAgo.map(RatingPromptPolicyTests.daysBeforeNow)
+        let lastAt: Date? = lastRequestDaysAgo.map(RatingPromptPolicyTests.daysBeforeNow)
         return RatingPromptInput(
             firstCompletedSessionStart: first,
             completedSessionCount: completedCount,
@@ -30,6 +30,13 @@ struct RatingPromptPolicyTests {
             lastRequestAt: lastAt,
             isStoreInstall: isStoreInstall
         )
+    }
+
+    /// `days` períodos de 24 h antes de `now` (negativo cai no futuro). Tipos explícitos de propósito: o
+    /// Swift 6.3 do Linux demora para inferir fechamentos dentro das tabelas (HANDOFF §2).
+    static func daysBeforeNow(_ days: TimeInterval) -> Date {
+        let seconds: TimeInterval = days * RatingPromptPolicyTests.day
+        return RatingPromptPolicyTests.now.addingTimeInterval(-seconds)
     }
 
     struct DecisionCase: Sendable, CustomTestStringConvertible {
