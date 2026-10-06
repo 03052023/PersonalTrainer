@@ -31,6 +31,9 @@ import TrainerCore
 ///   opaco e pode estar liberado mesmo com a escrita negada.
 /// - `averageBPM`/`maxBPM` iguais a 0 no evento significam "sem FC": o evento não tem opcionais para
 ///   FC, e o UUID do treino precisa ser gravado mesmo sem amostras. O coordinator guarda `nil`.
+/// - 2.5 (SPEC §7.18 L3 c): cada passada guarda, em memória, como terminou (`healthOutcome(for:)`), para o
+///   pedido de avaliação não aparecer depois de um erro do Saúde. Isso só informa; o comportamento de
+///   gravar, vincular e reconciliar é o mesmo.
 ///
 /// A sessão da M2 é sempre do iPhone; a trava para sessões com `source == .watch` (o relógio grava o
 /// próprio treino) é T3.8.
@@ -51,6 +54,9 @@ final class HealthKitWorkoutRecorder {
     /// intercalam nos `await`; sem isto, as duas poderiam gravar um treino para a mesma sessão.
     private var sessionsInFlight: Set<UUID> = []
     private var isReconciling = false
+    /// Como terminou a última passada de cada sessão (SPEC §7.18 L3 c), só em memória. Uma sessão sem
+    /// entrada ainda não passou pelo gravador neste processo.
+    private var outcomes: [UUID: HealthRecordOutcome] = [:]
 
     init(healthKit: any HealthKitServicing, coordinator: any SessionCoordinating) {
         self.healthKit = healthKit
@@ -90,6 +96,20 @@ final class HealthKitWorkoutRecorder {
             return
         }
         await recordFinishedSession(id: event.sessionID, endedAt: endedAt, mayRequestAuthorization: true)
+    }
+
+    /// Como terminou a ida da sessão ao Saúde, para o pedido de avaliação (SPEC §7.18 L3 c):
+    /// - `notAttempted`: o Saúde não está no aparelho ou não há permissão de gravar (não é erro);
+    /// - `saved`: gravou o treino ou vinculou o de outro app;
+    /// - `failed`: a gravação, a busca do treino sobreposto ou o `apply` do resumo deu erro;
+    /// - `pending`: está gravando, ou o `sessionFinished` ainda não chegou (com o Saúde disponível).
+    ///
+    /// Só informa: o fluxo da sessão nunca espera por isto, e uma falha continua só no log (AGENTS §4).
+    func healthOutcome(for sessionID: UUID) -> HealthRecordOutcome {
+        if let outcome = outcomes[sessionID] {
+            return outcome
+        }
+        return healthKit.isAvailable ? .pending : .notAttempted
     }
 
     /// Revisita as sessões concluídas que começaram até `reconciliationWindow` antes de `now`
@@ -141,16 +161,30 @@ final class HealthKitWorkoutRecorder {
         }
     }
 
+    /// Faz a passada e guarda como ela terminou (SPEC §7.18 L3 c). Sem resultado, outra passada da mesma
+    /// sessão está em andamento e guarda o dela.
     private func recordFinishedSession(id sessionID: UUID, endedAt: Date, mayRequestAuthorization: Bool) async {
+        let outcome = await record(id: sessionID, endedAt: endedAt, mayRequestAuthorization: mayRequestAuthorization)
+        if let outcome {
+            outcomes[sessionID] = outcome
+        }
+    }
+
+    /// A passada de uma sessão sem treino vinculado. Devolve como ela terminou, ou `nil` quando outra
+    /// passada da mesma sessão já está em andamento.
+    private func record(id sessionID: UUID, endedAt: Date, mayRequestAuthorization: Bool) async -> HealthRecordOutcome? {
         guard let session = coordinator.session(withID: sessionID) else {
             logger.error("Sessão \(sessionID.uuidString, privacy: .public) não encontrada; nada enviado ao Saúde.")
-            return
+            return .failed
         }
         guard session.hkWorkoutUUID == nil else {
-            return
+            return .saved
         }
-        guard healthKit.isAvailable, !sessionsInFlight.contains(sessionID) else {
-            return
+        guard healthKit.isAvailable else {
+            return .notAttempted
+        }
+        guard !sessionsInFlight.contains(sessionID) else {
+            return nil
         }
         // Copia antes de qualquer `await`: o modelo pode ser apagado enquanto o HealthKit responde.
         let startedAt = session.startedAt
@@ -159,10 +193,11 @@ final class HealthKitWorkoutRecorder {
         let kind = WorkoutRecordKind.kind(for: session)
         guard endedAt > startedAt else {
             logger.error("Sessão \(sessionID.uuidString, privacy: .public) termina antes de começar; nada enviado ao Saúde.")
-            return
+            return .failed
         }
         sessionsInFlight.insert(sessionID)
         defer { sessionsInFlight.remove(sessionID) }
+        outcomes[sessionID] = .pending
 
         let canWrite: Bool
         if mayRequestAuthorization {
@@ -173,35 +208,45 @@ final class HealthKitWorkoutRecorder {
 
         let lookup = await lookUpOverlappingWorkout(kind, start: startedAt, end: endedAt)
         var workoutUUID: UUID?
+        // L3 (c): sem permissão de gravar não é erro; com ela, uma busca ou gravação que falha é.
+        var outcome: HealthRecordOutcome = .notAttempted
         switch lookup {
         case .linked(let linkedUUID):
             // RF-13: o treino do app Exercício já está no Saúde; vincula em vez de duplicar.
             workoutUUID = linkedUUID
+            outcome = .saved
         case .notFound:
             if canWrite, !lockWasTakenMeanwhile(sessionID: sessionID) {
                 workoutUUID = await saveWorkout(kind, start: startedAt, end: endedAt, sessionID: sessionID)
+                outcome = workoutUUID == nil ? .failed : .saved
+            } else if canWrite, coordinator.session(withID: sessionID) != nil {
+                // Outro escritor vinculou um treino durante os `await`.
+                outcome = .saved
             }
         case .failed:
             // Sem saber se já existe treino de outro app, gravar arriscaria duplicar (RF-13).
-            break
+            if canWrite {
+                outcome = .failed
+            }
         }
 
         let summary = await readHeartRate(start: startedAt, end: endedAt)
         let heartRateChanged = Self.heartRateDiffers(summary, averageBPM: storedAverage, maxBPM: storedMax)
         guard workoutUUID != nil || heartRateChanged else {
-            return
+            return outcome
         }
         // A sessão pode ter sido apagada, ou vinculada por outro escritor, durante os `await`.
         guard let current = coordinator.session(withID: sessionID) else {
             if workoutUUID != nil {
                 logger.notice("Sessão \(sessionID.uuidString, privacy: .public) apagada enquanto o Saúde respondia; o treino no Saúde fica com o usuário.")
             }
-            return
+            return outcome
         }
         guard current.hkWorkoutUUID == nil else {
-            return
+            return .saved
         }
-        apply(summary: summary, workoutUUID: workoutUUID, sessionID: sessionID, endedAt: endedAt)
+        let applied = apply(summary: summary, workoutUUID: workoutUUID, sessionID: sessionID, endedAt: endedAt)
+        return applied ? outcome : .failed
     }
 
     private func reconcile(_ snapshot: SessionSnapshot) async {
@@ -324,8 +369,10 @@ final class HealthKitWorkoutRecorder {
 
     /// FC só para exibição (SPEC P12, AGENTS R2): o evento guarda média/máxima na sessão e nada
     /// disso chega ao motor. `occurredAt` é o fim da sessão, o instante a que o resumo se refere,
-    /// o que também evita ler o relógio do sistema aqui.
-    private func apply(summary: HeartRateSummary?, workoutUUID: UUID?, sessionID: UUID, endedAt: Date) {
+    /// o que também evita ler o relógio do sistema aqui. Devolve `false` quando o coordinator recusou o
+    /// evento (SPEC §7.18 L3 c).
+    @discardableResult
+    private func apply(summary: HeartRateSummary?, workoutUUID: UUID?, sessionID: UUID, endedAt: Date) -> Bool {
         let event = SessionEvent(
             sessionID: sessionID,
             occurredAt: endedAt,
@@ -338,8 +385,10 @@ final class HealthKitWorkoutRecorder {
         )
         do {
             try coordinator.apply(event)
+            return true
         } catch {
             logger.error("Falha ao guardar o resumo do Saúde na sessão: \(String(describing: error), privacy: .public)")
+            return false
         }
     }
 }
