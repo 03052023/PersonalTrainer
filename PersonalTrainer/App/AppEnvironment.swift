@@ -30,8 +30,8 @@ final class AppEnvironment {
     /// Decisões de semana leve ("Fazer semana leve agora", "Seguir normal"), a mesma instância
     /// injetada no `SessionPlanner` (SPEC §7.5; contrato V2-FINAL §2.2).
     let deloadDecisions: any DeloadDecisionsStoring
-    /// O diálogo do app (SPEC §7.11 C1–C8): feed da Home, destaque na abertura, lembrete da
-    /// validade da instalação.
+    /// O diálogo do app (SPEC §7.11, regras C1–C3 e C5–C8): feed da Home e destaque na abertura.
+    /// A C4 (validade da instalação) saiu na 2.5 (SPEC §7.18 L4).
     let coach: CoachService
     /// Leva sessões finalizadas ao app Saúde (RF-13/RF-14). `nil` em previews e testes: sem
     /// observador, nenhum treino é gravado no Saúde. Mantido aqui para viver pelo processo.
@@ -57,6 +57,10 @@ final class AppEnvironment {
     /// previews. A mesma instância vai ao planejador (S6 e encaixe), ao diálogo (C8), ao backup e ao
     /// `ActivitiesModel` da raiz (AGENTS R4: atividades só pelo `OutsideActivityStoring`).
     let activities: any OutsideActivityStoring
+    /// Pedido de avaliação (SPEC §7.18 L3; AGENTS R9): `LiveRatingPromptStore` no app, que só pede
+    /// quando o app veio da loja; `FakeRatingPromptStore` (fora da loja, nunca pede) nos previews e
+    /// testes. Vai ao `SessionFlowView`, cujo resumo é o único lugar que pede.
+    let ratingPrompt: any RatingPromptStoring
 
     init(
         modelContainer: ModelContainer,
@@ -78,7 +82,8 @@ final class AppEnvironment {
         storeLoadError: String? = nil,
         traits: ExerciseTraitsCatalog = .empty,
         exerciseGuides: ExerciseGuideCatalog = .empty,
-        activities: any OutsideActivityStoring = FakeOutsideActivityStore()
+        activities: any OutsideActivityStoring = FakeOutsideActivityStore(),
+        ratingPrompt: any RatingPromptStoring = FakeRatingPromptStore()
     ) {
         self.modelContainer = modelContainer
         self.coordinator = coordinator
@@ -100,5 +105,6 @@ final class AppEnvironment {
         self.traits = traits
         self.exerciseGuides = exerciseGuides
         self.activities = activities
+        self.ratingPrompt = ratingPrompt
     }
 }

@@ -22,7 +22,8 @@ import TrainerCore
 ///
 /// Pedido de avaliação (SPEC §7.18 L3): só o resumo que vem de concluir nesta abertura da ficha
 /// (`showSummary()`, com a sessão `completed`) pode pedir. Reabrir uma sessão já encerrada nunca pede.
-/// `ratingPrompt` é o `FakeRatingPromptStore` (fora da loja, nunca pede) até o integrador passar o Live.
+/// O `RootView` passa o `ratingPrompt` do ambiente (o Live no app); o padrão `FakeRatingPromptStore`
+/// (fora da loja, nunca pede) fica para previews e testes.
 struct SessionFlowView: View {
     @State private var model: ActiveSessionViewModel
     /// Sessão encerrada, relida pelo coordinator ao concluir; `nil` enquanto a sessão corre.

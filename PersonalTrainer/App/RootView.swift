@@ -86,8 +86,8 @@ private struct StoreLoadErrorView: View {
 /// Destinos pedidos pelas respostas do diálogo (SPEC §7.11), numa folha só. Fora de `RootTabs`
 /// para a conformidade a `Identifiable` não depender do isolamento da view.
 private enum CoachDestination: Identifiable {
-    /// C6 "Ver evolução" (`ExerciseDefinition.id` e o nome para o título). A C4 ("Como renovar") saiu
-    /// na 2.5 (SPEC §7.18 L4).
+    /// C6 "Ver evolução" (`ExerciseDefinition.id` e o nome para o título). A C4 saiu na 2.5
+    /// (SPEC §7.18 L4).
     case progress(exerciseID: UUID, name: String)
 
     var id: String {
@@ -308,9 +308,15 @@ private struct RootTabs: View {
             refreshScreens()
             refreshCoach()
         }) { presented in
-            SessionFlowView(sessionID: presented.id, environment: environment, onClose: {
-                presentedSession = nil
-            })
+            // SPEC §7.18 L3: o resumo pode pedir avaliação (o Live só pede quando o app veio da loja).
+            SessionFlowView(
+                sessionID: presented.id,
+                environment: environment,
+                onClose: {
+                    presentedSession = nil
+                },
+                ratingPrompt: environment.ratingPrompt
+            )
         }
         // Primeiro launch (RF-45): um passo só, escolher o objetivo. O onboarding desliga o
         // gesto de dispensa; toda saída passa por "Começar" ou "Pular", que gravam a marca.
