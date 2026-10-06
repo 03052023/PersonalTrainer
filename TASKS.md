@@ -613,6 +613,8 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
   - Dependências: T11.0. Textos com "com base científica", nunca "validado cientificamente" (decisão 22). Bloqueia a T11.7: os endereços publicados da política e do suporte entram em `AppLinks` antes do primeiro envio.
   - Aceite: CA11-9.
 
+- [ ] **T11.11 [CI] Linha de idade no Sobre** — depois da cota de uso (decisão do dono de 2026-10-05: 16+)
+  - Fazer: acrescentar "Indicado para 16 anos ou mais; menores de 18, com acompanhamento." ao aviso do Sobre (L5), com a SPEC e o teste do texto exato (R7).
 - [ ] **T11.10 [USER] Bundle ID da loja** — bloqueada pelo dono (o nome já foi decidido em 2026-10-05: "Magister: Treino com Ciência")
   - Fazer (só o dono): escolher o nome na loja e o bundle ID da loja. O Impactor já instala a cópia de teste como `com.personaltrainer.app.<TEAMID>`, então a versão da loja é outro app no iPhone em qualquer caso, e os dados passam pelo backup (exportar na cópia de teste, importar na da loja). Depois do primeiro envio, o bundle ID não muda mais (AGENTS §7). Também esperam o dono: a classificação de idade (entra na T11.9) e o modelo do plano pago com o uso de IA (fora do M6).
   - Dependências: nenhuma. Bloqueia o bundle ID da T11.3, a T11.7 e o nome final da T11.9.

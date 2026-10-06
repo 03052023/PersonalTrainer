@@ -22,7 +22,7 @@ Depois que cada série é registrada (carga e repetições; um toque grava a met
 | # | Princípio | Consequência prática |
 |---|-----------|----------------------|
 | P-1 | Zero decisões na academia | A sessão de hoje já vem com tudo preenchido. Desde a 2.3, o app abre no Início (RF-49), calmo, e a sessão de hoje fica a um toque; na sessão, um botão grande guia série por série (RF-44 i), e a ficha continua para consultar (RF-44). |
-| P-2 | Tudo determinístico, sem IA | Mesma entrada → mesma prescrição e mesma sugestão. Toda regra é explícita, numerada na SPEC, testada por tabela e auditável na tela ("por que isso apareceu"). Decisão de 2026-09-23: não há LLM em nenhuma fase. Desde 2026-10-05, essa decisão (13) está em revisão pelo dono para o plano pago; até ele decidir, vale esta regra (decisão 22). |
+| P-2 | Tudo determinístico, sem IA | Mesma entrada → mesma prescrição e mesma sugestão. Toda regra é explícita, numerada na SPEC, testada por tabela e auditável na tela ("por que isso apareceu"). Decisão de 2026-09-23: não há LLM em nenhuma fase. Revista em 2026-10-05 (decisão 13): o app gratuito continua sem IA; o plano pago futuro pode usar só a IA da Apple no próprio iPhone, que traduz o pedido da pessoa em opções fechadas, e o motor determinístico continua decidindo. |
 | P-3 | Offline-first | Todas as funções principais funcionam sem rede. Nenhum backend, nenhuma API paga. |
 | P-4 | iPhone é a fonte da verdade | O Apple Watch é um cliente fino que espelha a sessão ativa e envia eventos. Não há dois bancos de dados a reconciliar. |
 | P-5 | Dados são sagrados | Cada série é persistida no momento em que é concluída. Exportação completa em JSON a partir do M2. |
@@ -65,7 +65,7 @@ Depois que cada série é registrada (carga e repetições; um toque grava a met
 
 ### 3.4 Fora do escopo (explicitamente)
 
-Backend, contas, sync em nuvem/CloudKit, funções sociais, nutrição, prescrição detalhada de cardio: zonas de FC, ritmo, distância, planos de prova. Desde a 2.3, o objetivo Cardio prescreve só sessões simples em minutos, com a intensidade pelo teste da fala (§7.14, decisão 14 revista); o resto do aeróbico continua no app Exercício do Watch, lido pelo HealthKit. Também ficam fora: vídeos de exercícios, plano pago (modelo e conteúdo em decisão; não antes do lançamento), Android, layout de iPad, localização para outros idiomas (UI em pt-BR fixo) e **qualquer uso de IA/LLM** (em revisão pelo dono para o plano pago; decisão pendente, decisão 22). A publicação na App Store saiu desta lista na 2.5 (§7.18).
+Backend, contas, sync em nuvem/CloudKit, funções sociais, nutrição, prescrição detalhada de cardio: zonas de FC, ritmo, distância, planos de prova. Desde a 2.3, o objetivo Cardio prescreve só sessões simples em minutos, com a intensidade pelo teste da fala (§7.14, decisão 14 revista); o resto do aeróbico continua no app Exercício do Watch, lido pelo HealthKit. Também ficam fora: vídeos de exercícios, plano pago (modelo e conteúdo em decisão; não antes do lançamento), Android, layout de iPad, localização para outros idiomas (UI em pt-BR fixo) e **qualquer uso de IA/LLM** no app gratuito (o plano pago futuro pode usar só a IA da Apple no aparelho; decisão 13 revista). A publicação na App Store saiu desta lista na 2.5 (§7.18).
 
 ## 4. Contexto de uso
 
@@ -529,7 +529,7 @@ Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → **versão 2 = M2 (o
 10. Só RIR entra na avaliação; séries com RIR ausente não recebem o bônus de P4.
 11. O app do Watch é **opcional** por desenho: tudo em M1–M2 funciona só com o iPhone, e a FC vem do app Exercício nativo do relógio via HealthKit até o companion existir (ver §7.6 e §13).
 12. Sem Mac: o projeto Xcode é gerado por XcodeGen no GitHub Actions; o motor é testado localmente no Windows (ARCHITECTURE ADR 008/009).
-13. **Sem IA no app gratuito** (2026-09-23). Revisão periódica e saúde são regras determinísticas (§7.8, §7.10). Ideia futura do usuário, fora do escopo atual: uma camada paga opcional com IA para personalização extra. Se for adiante, exige ADR própria e continua sem tocar no motor determinístico (a IA só proporia ajustes que o usuário aceita). Desde 2026-10-05, esta decisão está em revisão pelo dono, junto com o modelo do plano pago (decisão 22, pendências); até ele decidir, continua valendo.
+13. **Sem IA no app gratuito** (2026-09-23). Revisão periódica e saúde são regras determinísticas (§7.8, §7.10). Ideia futura do usuário, fora do escopo atual: uma camada paga opcional com IA para personalização extra. Se for adiante, exige ADR própria e continua sem tocar no motor determinístico (a IA só proporia ajustes que o usuário aceita). Revista em 2026-10-05 (decisão do dono, "vamos tentar"; decisão 22): o app gratuito continua sem IA. O plano pago futuro pode usar **só a IA da Apple que roda no próprio iPhone** (Foundation Models, iOS 26+, aparelhos com Apple Intelligence), sem API na nuvem, sem chave e sem servidor, para manter "Dados não coletados" (L1). A IA só traduz o pedido livre da pessoa em opções fechadas, que ela confirma; o motor determinístico continua decidindo a prescrição, e a IA nunca diagnostica dor nem sugere reabilitação. Antes de implementar: ADR própria, regras numeradas com teste e serviço com protocolo, Live e Fake (R9).
 15. **Identidade visual desvinculada da cultura de academia** (pedido do usuário, 2026-09-23): nada de halteres, preto/neon, músculos ou linguagem agressiva. Paleta terrosa (bege, areia, marrom), ícone com símbolo de pétalas ligado aos objetivos, e os **objetivos como elemento central** da interface. Guia em `DESIGN.md`; aplicado numa passada de design logo após a integração do M2.
 14. Aeróbico (revista na 2.3, decisão 19):
     - Até a 2.2, o aeróbico era registrado pelo app Exercício do Watch e só lido pelo app, que não prescrevia cardio (só meta semanal e sugestões de encaixe).
@@ -590,8 +590,8 @@ Ver [TASKS.md](TASKS.md): M0 esqueleto → M1 MVP iPhone → **versão 2 = M2 (o
     - **CI:** os builds de CI ficam menores (T11.1: o IPA só sai em run manual, em branch terminado em `-final` ou com `[ipa]` na mensagem de um commit que muda algum arquivo fora da documentação; commit vazio não dispara nada). Depois disso, o repositório deixa de ser público; no privado, os minutos de macOS do GitHub Actions são limitados (§13).
     - **Pendentes do dono** (nenhum agente decide):
       - o bundle ID da loja. O Impactor já instala a cópia de teste como `com.personaltrainer.app.<TEAMID>`, então a versão da loja é outro app no iPhone em qualquer caso, e os dados passam pelo backup (exportar na cópia de teste, importar na da loja). A frase "Os bundle IDs não mudam", da decisão 16, foi escrita para a instalação pela conta gratuita; para a loja, vale o que o dono decidir;
-      - a classificação de idade;
-      - o modelo do plano pago e o uso de IA: a decisão 13 está em revisão; até o dono decidir, continua valendo (P-2, §3.4).
+      - o modelo de cobrança do plano pago (sugestão em estudo: compra única do Pro; não antes de março/2027).
+    - **Decididos depois (2026-10-05):** classificação **16+** (o questionário da Apple respondido com a verdade, depois a opção de classificação mais alta; o app e a página de idade dizem "Indicado para 16 anos ou mais; menores de 18, com acompanhamento"); subtítulo da loja **"Organizador de treinos"**; IA do plano pago só no aparelho (decisão 13 revista).
 
 ## 12. Questões abertas (não bloqueiam M0–M1)
 

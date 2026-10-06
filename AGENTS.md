@@ -80,7 +80,7 @@ Conflito em TASKS.md é sempre de uma linha de status; resolva mantendo as duas 
 
 ## 7. O que NÃO fazer
 
-- Não adicionar CloudKit, iCloud sync, contas, backend, analytics, pacotes de terceiros, nem qualquer chamada a LLM/IA (SPEC decisão 13, em revisão pelo dono; até ele decidir, continua valendo).
+- Não adicionar CloudKit, iCloud sync, contas, backend, analytics, pacotes de terceiros, nem qualquer chamada a LLM/IA (SPEC decisão 13). Revista em 2026-10-05: só o plano pago futuro pode usar a IA da Apple que roda no iPhone (Foundation Models), com ADR própria; nunca IA na nuvem.
 - Não adicionar código de rede (`URLSession`, sockets, serviço web), SDK de terceiros, analytics, anúncio ou rastreamento: isso quebra o rótulo "Dados não coletados" da loja (SPEC §7.18 L1). As únicas saídas permitidas são as que a pessoa inicia: abrir um link (`Link`) e exportar ou compartilhar pela folha do sistema.
 - Não colocar SwiftData no target do Watch.
 - Não usar FC para carga, volume, deload ou seleção de treino, nem "só como desempate".

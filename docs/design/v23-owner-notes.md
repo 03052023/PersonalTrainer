@@ -49,4 +49,8 @@ Aplicar no contrato da onda de telas; também vão para o HANDOFF quando o main 
     - "3. só o que for indispensável" em avisos; "avaliação depois de 1 semana", "do jeito menos invasivo possível" (L3).
     - "Dados não coletados: inclua", mostrando com fatos que o app segue as regras e as leis (L1, L2), sem promessas absolutas.
     - **Nome na loja: "Magister: Treino com Ciência"** ("esse"). Embaixo do ícone continua "Magister". O dono queria ressaltar a base científica: os textos dizem "com base científica" ou "baseado em estudos publicados", nunca "validado cientificamente".
-    - Em aberto (decisões do dono): subtítulo da loja, bundle ID da loja, classificação de idade, modelo e conteúdo do plano pago (inclusive o uso de IA; decisão 13 em revisão).
+    - Em aberto (decisões do dono): bundle ID da loja e modelo de cobrança do plano pago.
+21. **Mais decisões de 2026-10-05** (PREVALECEM sobre o item 20 onde ele diz "em aberto"):
+    - **IA do plano pago: só a IA da Apple no iPhone** (Foundation Models), nada de API na nuvem ("vamos tentar"). O plano pago fica para março/2027.
+    - **Classificação 16+** ("ok"): questionário honesto, depois a opção de classificação mais alta.
+    - **Subtítulo da loja: "Organizador de treinos"**. A loja mostra "Magister: Treino com Ciência" com "Organizador de treinos" embaixo.
