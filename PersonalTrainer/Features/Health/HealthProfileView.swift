@@ -77,7 +77,7 @@ struct HealthProfileView: View {
                 }
 
                 Section {
-                    Text("Estes dados ficam só neste aparelho, servem apenas ao painel de saúde e nunca mudam a carga da musculação.")
+                    Text("O Magister usa estes dados só no aparelho, no painel de saúde, e eles nunca mudam a carga da musculação.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

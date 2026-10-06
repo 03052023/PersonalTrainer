@@ -95,6 +95,6 @@ private final class SettingsPreviewBackup: BackupServicing {
     }
 
     func suggestedFileName(now: Date) -> String {
-        "PersonalTrainer-backup-2025-09-23.json"
+        "Magister-backup-2025-09-23.json"
     }
 }

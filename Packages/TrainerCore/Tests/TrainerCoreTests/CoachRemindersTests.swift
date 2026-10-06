@@ -2,66 +2,14 @@ import Foundation
 import Testing
 @testable import TrainerCore
 
-// SPEC §7.11 C4 (installation expiry), C5 (comeback), C6 (best mark), C7 (backup) and
-// C8 (longevity blocks).
+// SPEC §7.11 C5 (comeback), C6 (best mark), C7 (backup) and C8 (longevity blocks). C4 was
+// removed in 2.5 (SPEC §7.18 L4; CoachInstallExpiryRemovedTests).
+// `now` is Wednesday 2026-09-23 12:00 UTC.
 
 private typealias CF = CoachFixtures
 
-@Suite("Coach — C4 a C8 lembretes")
+@Suite("Coach — C5 a C8 lembretes")
 struct CoachRemindersTests {
-    // MARK: C4
-
-    struct ExpiryCase: Sendable, CustomTestStringConvertible {
-        let expiry: Date
-        let title: String?
-        let label: String
-
-        var testDescription: String { label }
-    }
-
-    // `now` is Wednesday 2026-09-23 12:00 UTC.
-    static let expiryCases: [ExpiryCase] = [
-        ExpiryCase(expiry: CoachFixtures.at(5, hour: 8), title: nil, label: "sábado: 3 dias antes, ainda nada"),
-        ExpiryCase(expiry: CoachFixtures.at(4, hour: 23), title: "O app expira em 2 dias", label: "sexta: 2 dias antes"),
-        ExpiryCase(expiry: CoachFixtures.at(3, hour: 1), title: "O app expira amanhã", label: "quinta: véspera"),
-        ExpiryCase(expiry: CoachFixtures.at(2, hour: 18), title: "O app expira hoje", label: "hoje mais tarde"),
-        ExpiryCase(expiry: CoachFixtures.at(2, hour: 12), title: nil, label: "expira agora: o app já não abre"),
-        ExpiryCase(expiry: CoachFixtures.at(1, hour: 12), title: nil, label: "já expirou"),
-    ]
-
-    @Test("C4 a partir de 2 dias antes da expiração", arguments: CoachRemindersTests.expiryCases)
-    func expiryWindow(_ testCase: ExpiryCase) {
-        let feed = CF.feed(CoachInput(provisioningExpiry: testCase.expiry))
-
-        #expect(feed.map(\.title) == (testCase.title.map { [$0] } ?? []))
-    }
-
-    @Test("C4 mensagem: data e hora da expiração, Como renovar, sem tópico, no topo e em destaque")
-    func expiryMessage() throws {
-        let message = try #require(CF.feed(CoachInput(provisioningExpiry: CF.at(4, hour: 23))).first)
-
-        #expect(message.id == "expiry:2026-09-25:\(CF.today)")
-        #expect(message.rule == .installExpiry)
-        #expect(message.reason.contains("25/09 às 23:00"))
-        #expect(message.reason.contains("Impactor"))
-        #expect(message.actions == [.howToRenew])
-        #expect(message.referenceTopic == nil)
-        #expect(message.priority == 0)
-        #expect(message.highlightsOnLaunch)
-    }
-
-    @Test("C4 uma por dia: respondida hoje some e volta amanhã")
-    func expiryOncePerDay() {
-        let input = CoachInput(provisioningExpiry: CF.at(4, hour: 23))
-        var log = CoachLog()
-        for message in CF.feed(input) {
-            log.record(message, action: .howToRenew, at: CF.now)
-        }
-
-        #expect(CF.feed(input, log: log).isEmpty)
-        #expect(CF.feed(input, log: log, now: CF.at(3, hour: 9)).map(\.id) == ["expiry:2026-09-25:2026-09-24"])
-    }
-
     // MARK: C5
 
     struct ComebackCase: Sendable, CustomTestStringConvertible {

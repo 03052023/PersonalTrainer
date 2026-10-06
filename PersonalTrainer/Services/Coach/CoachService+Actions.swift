@@ -7,7 +7,6 @@ extension CoachService {
     /// Navegação pedida por uma resposta; quem navega é o integrador, pelos fechamentos.
     enum FollowUp: Equatable {
         case backup
-        case renewalHelp
         case start
         case progress(UUID)
         case chooseProgram
@@ -23,13 +22,6 @@ extension CoachService {
             try planner.dismissDeload(now: now)
             clearPendingDeload()
             return nil
-        case .howToRenew:
-            // SPEC §7.11 C4: a permissão do aviso da véspera é pedida nesta ação, se a pessoa
-            // o ligou (AGENTS §7: nunca no launch).
-            if isExpiryReminderEnabled {
-                syncExpiryReminder(now: now, requestsAuthorization: true)
-            }
-            return .renewalHelp
         case .backupNow:
             return .backup
         case .start:
@@ -46,8 +38,9 @@ extension CoachService {
                 recordLongevityActivity(for: message, now: now)
             }
             return nil
-        case .ok, .notNow, .neverAgain, .understood, .remindTomorrow, .later, .skip:
-            // Só o log: ele esconde a mensagem.
+        case .ok, .notNow, .neverAgain, .understood, .remindTomorrow, .later, .skip, .howToRenew:
+            // Só o log: ele esconde a mensagem. `howToRenew` (C4, removida na 2.5) nunca é
+            // oferecida; se chegar, não navega nem pede permissão (SPEC §7.18 L4).
             return nil
         }
     }
@@ -78,8 +71,6 @@ extension CoachService {
         switch followUp {
         case .backup:
             onBackupRequested?()
-        case .renewalHelp:
-            onRenewalHelpRequested?()
         case .start:
             onStartRequested?()
         case .progress(let exerciseID):

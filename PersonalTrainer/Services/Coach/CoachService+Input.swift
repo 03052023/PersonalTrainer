@@ -34,7 +34,6 @@ extension CoachService {
             deload: deload,
             review: review,
             healthSuggestions: lastHealthSuggestions,
-            provisioningExpiry: provisioningExpiry,
             lastSessionStart: lastSessionStart,
             nextDayName: nextDay,
             personalRecords: records,

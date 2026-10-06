@@ -2,7 +2,8 @@ import Foundation
 
 /// Everything the coach reads to build the feed (SPEC §7.11). Pure data computed by the
 /// app from its stores; `now` and the calendar are passed to `CoachFeedBuilder.feed`
-/// separately (AGENTS R3).
+/// separately (AGENTS R3). Since 2.5 there is no C4 input: the app no longer reads the
+/// installation expiry (SPEC §7.18 L4).
 public struct CoachInput: Sendable {
     /// C8 key of the balance block in `longevityDoneThisWeek`.
     public static let balanceKey = "balance"
@@ -18,9 +19,6 @@ public struct CoachInput: Sendable {
     public var review: ReviewReport?
     /// C3: `HealthReport.suggestions` of today.
     public var healthSuggestions: [HealthSuggestion]
-    /// C4: `ExpirationDate` of the embedded provisioning profile
-    /// (`ProvisioningProfileParser`), or `nil` when unknown.
-    public var provisioningExpiry: Date?
     /// C5: `startedAt` of the most recent session with ≥ 1 working set, deload included
     /// (the session SPEC P9 measures the pause from). `nil` before the first session.
     public var lastSessionStart: Date?
@@ -49,7 +47,6 @@ public struct CoachInput: Sendable {
         deload: CoachDeloadState = .none,
         review: ReviewReport? = nil,
         healthSuggestions: [HealthSuggestion] = [],
-        provisioningExpiry: Date? = nil,
         lastSessionStart: Date? = nil,
         nextDayName: String? = nil,
         personalRecords: [PersonalRecord] = [],
@@ -64,7 +61,6 @@ public struct CoachInput: Sendable {
         self.deload = deload
         self.review = review
         self.healthSuggestions = healthSuggestions
-        self.provisioningExpiry = provisioningExpiry
         self.lastSessionStart = lastSessionStart
         self.nextDayName = nextDayName
         self.personalRecords = personalRecords

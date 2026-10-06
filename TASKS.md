@@ -534,13 +534,13 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
 
 | CA | Verificação | Estado |
 |----|-------------|--------|
-| CA11-1 | L1: nenhum código de rede nem pacote de terceiros no app. Um grep por `URLSession`, `NWConnection`, `NSURLConnection` e `import Network` em `PersonalTrainer/` e `Packages/` volta vazio, e o `project.yml` não tem pacote externo. | |
-| CA11-2 | O `.app` do IPA tem o `PrivacyInfo.xcprivacy` com `NSPrivacyTracking` falso, nenhum domínio de rastreamento, nenhum tipo de dado coletado e as APIs de motivo obrigatório que o app usa, com o motivo (T11.2). | |
-| CA11-3 | L4: nenhum texto do app cita o "Impactor", o vencimento da instalação ou "Como renovar"; o diálogo nunca gera a C4 (teste "L4 …") (T11.4). | |
-| CA11-4 | L2 e L5: a seção Sobre dos Ajustes mostra a versão, a página "Privacidade" e a linha do aviso de saúde (T11.5). | |
-| CA11-5 | L3: testes de tabela verdes. Não pede com menos de 7 dias desde a primeira sessão concluída, com menos de 3 sessões concluídas, depois de uma sessão abandonada ou de um erro, nem duas vezes na mesma versão; pede quando tudo isso é cumprido (T11.6). | |
-| CA11-6 | O IPA da loja não leva o app do Watch, tem a versão 1.0.0, `ITSAppUsesNonExemptEncryption` falso e o texto de gravação no Saúde cita as sessões de força e as de aeróbico (T11.3). | |
-| CA11-7 | Um build enviado ao App Store Connect pelo `release.yml`, sem Mac, com os segredos cadastrados pelo dono e nenhum segredo nos logs (T11.7). | |
+| CA11-1 | L1: nenhum código de rede nem pacote de terceiros no app. Um grep por `URLSession`, `NWConnection`, `NSURLConnection` e `import Network` em `PersonalTrainer/` e `Packages/` volta vazio, e o `project.yml` não tem pacote externo. | Verde: passo "Check L1: no network code" do App build 37395008741 (`ci/v10-final`, dce26a3) e o grep do contrato §7, vazio. |
+| CA11-2 | O `.app` do IPA tem o `PrivacyInfo.xcprivacy` com `NSPrivacyTracking` falso, nenhum domínio de rastreamento, nenhum tipo de dado coletado e as APIs de motivo obrigatório que o app usa, com o motivo (T11.2). | Verde: manifesto conferido no `.app` do simulador e no IPA (`build-app.sh`), App build 37395008741. O grep das APIs de motivo obrigatório ainda só acha `UserDefaults`. |
+| CA11-3 | L4: nenhum texto do app cita o "Impactor", o vencimento da instalação ou "Como renovar"; o diálogo nunca gera a C4 (teste "L4 …") (T11.4). | Verde: testes "L4 …" (Core tests 37395008576) e `testL4_…` (App build 37395008741); o grep do contrato §7 só acha o legado de `CoachService+LegacyReminder.swift`. |
+| CA11-4 | L2 e L5: a seção Sobre dos Ajustes mostra a versão, a página "Privacidade" e a linha do aviso de saúde (T11.5). | Verde: `testL2_…` e `testL5_…` no App build 37395008741. A aparência das telas só se vê no aparelho. |
+| CA11-5 | L3: testes de tabela verdes. Não pede com menos de 7 dias desde a primeira sessão concluída, com menos de 3 sessões concluídas, depois de uma sessão abandonada ou de um erro, nem duas vezes na mesma versão; pede quando tudo isso é cumprido (T11.6). | Verde: tabela "L3 …" (Core tests 37395008576) e `testL3_…` (App build 37395008741), com o Live ligado no ambiente. A caixa de verdade só aparece no app da loja (T11.7). |
+| CA11-6 | O IPA da loja não leva o app do Watch, tem a versão 1.0.0, `ITSAppUsesNonExemptEncryption` falso e o texto de gravação no Saúde cita as sessões de força e as de aeróbico (T11.3). | Verde: `build-app.sh` no App build 37395008741 (IPA sem `Watch/`, 1.0.0, criptografia falsa, texto com força e aeróbico). |
+| CA11-7 | Um build enviado ao App Store Connect pelo `release.yml`, sem Mac, com os segredos cadastrados pelo dono e nenhum segredo nos logs; nesse build, `AppLinks.privacyPolicyURL` e `AppLinks.supportURL` têm os endereços publicados, e a página Privacidade mostra o link da política (diretriz 5.1.1(i)) (T11.7). | |
 | CA11-8 | Capturas de 6,9" geradas no simulador, como artefato de um run (T11.8). | |
 | CA11-9 | Política de privacidade, suporte, termos e ficha da loja escritos e aprovados pelo dono, sem "personal", "treinador" ou "coach" para o app e sem promessas absolutas (L2, L5, L8; T11.9). | |
 
@@ -559,45 +559,46 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
   - Aceite: um push só de `.md` em `ci/<nome>` não dispara o App build; um push com código roda os testes sem gerar IPA; `ci/<nome>-final`, `[ipa]` na mensagem ou o run manual geram o IPA.
   - Depois dela: o dono pode tornar o repositório privado (SPEC decisão 22) **[USER]**.
 
-- [~] **T11.2 [CI] Manifesto de privacidade (`PrivacyInfo.xcprivacy`)** — loja · `v10/loja` (junto com a T11.3, contrato `docs/V25-CONTRACT.md` §5.1)
+- [x] **T11.2 [CI] Manifesto de privacidade (`PrivacyInfo.xcprivacy`)** — loja · `v10/loja` (junto com a T11.3, contrato `docs/V25-CONTRACT.md` §5.1) · App build 37381465494 (`ci/v10-loja`); integrada no App build 37395008741
   - Escopo: `PersonalTrainer/Resources/PrivacyInfo.xcprivacy`. A pasta `Resources/` já entra no target; `Support/` não entra (ARCHITECTURE §17).
   - Fazer (L1): `NSPrivacyTracking` falso; `NSPrivacyTrackingDomains` vazio; `NSPrivacyCollectedDataTypes` vazio; `NSPrivacyAccessedAPITypes` com as APIs de motivo obrigatório que o código do app usa. Hoje o app usa `UserDefaults` (motivo `CA92.1`: dados só do próprio app). Conferido por grep pelo arquiteto em 2026-10-05: nenhuma outra categoria (data de arquivo, tempo desde o boot, espaço em disco, teclados ativos) aparece em `PersonalTrainer/` nem em `Packages/TrainerCore/Sources`; a tarefa confere de novo antes de fechar.
   - Dependências: nenhuma. Como a T11.3 está na mesma tarefa, a checagem do arquivo na raiz do `.app` entra no `app-build.yml` e no `Scripts/build-app.sh`.
   - Aceite: CA11-2.
 
-- [~] **T11.3 [PROJ][CI] `project.yml` da loja** — loja · `v10/loja` (contrato §5.1)
+- [x] **T11.3 [PROJ][CI] `project.yml` da loja** — loja · `v10/loja` (contrato §5.1) · App build 37381465494 (`ci/v10-loja`); integrada no App build 37395008741
   - Escopo: `project.yml`; `.github/workflows/app-build.yml` e `Scripts/build-app.sh` (checagens do Watch, do manifesto e do IPA).
   - Fazer: o app do iPhone sem o app do Watch (L6: sai a dependência no `project.yml`; o target fica no projeto para o M3), com as checagens de Watch do `app-build.yml` e do `build-app.sh` invertidas; `MARKETING_VERSION` 1.0.0 (L7); `ITSAppUsesNonExemptEncryption` = `NO` (o app não usa criptografia além da do próprio iOS); o texto de gravação do Saúde (`NSHealthUpdateUsageDescription`) passa a citar as sessões de força e as de aeróbico, que desde a 2.4 também vão ao Saúde (RF-13), e o de leitura troca "Os dados ficam só neste aparelho" por "usa esses dados só no aparelho" (L1). O IPA de teste do dono continua: o artefato `PersonalTrainer-for-resigning` e o arquivo `PersonalTrainer-iphone-only-for-resigning.ipa` mantêm o nome (o guia de instalação cita esse nome). O bundle ID **não** muda nesta fase (T11.10 pendente).
   - Dependências: T11.1 (uma [PROJ] por vez); T11.10 para o bundle ID, numa tarefa [PROJ] seguinte.
   - Aceite: CA11-6.
 
-- [~] **T11.4 [CI] Sem sideload no app (L4)** — sideload · `v10/sideload` (contrato §5.2)
+- [x] **T11.4 [CI] Sem sideload no app (L4)** — sideload · `v10/sideload` (contrato §5.2) · Core tests 37382224213 e App build 37382224427 (`ci/v10-sideload`)
   - Escopo: a lista exata está no contrato §5.2. `App/RootView.swift` e `App/AppEnvironment+Factories.swift` já foram ajustados no andaime (`edc8201`) e ficam com o integrador.
   - Fazer: tirar a C4, a notificação da véspera, a seção "Avisos", "Como renovar", o `ProvisioningExpiryReader`, o `ProvisioningProfileParser` e todo texto com "Impactor". Os cases `CoachRule.installExpiry` e `CoachAction.howToRenew` ficam, sem uso, porque o `rawValue` está gravado no log do diálogo (AGENTS §4: case persistido não some nem muda de nome). Uma cópia de teste que vem da 2.4 pode ter o aviso da véspera agendado (identificador `coach.expiryReminder`): cancelar esse pedido uma vez. Também: "Spinning ou bicicleta" vira "Bicicleta indoor" no `displayName` do `OutsideActivityKind`, sem mudar o raw value (L8, marca de terceiros), e o texto do Ajustes sobre o backup diz o fato sem absoluto (L2).
   - Teste (R7): "L4 …" no TrainerCore: o diálogo nunca gera mensagem da C4, com qualquer entrada; no app, o cancelamento do aviso antigo.
   - Dependências: T11.0 (SPEC) e o andaime.
   - Aceite: CA11-3.
 
-- [~] **T11.5 [CI] Sobre e Privacidade (L2, L5)** — sobre · `v10/sobre` (contrato §5.3)
+- [x] **T11.5 [CI] Sobre e Privacidade (L2, L5)** — sobre · `v10/sobre` (contrato §5.3) · App build 37381049724 (`ci/v10-sobre`)
   - Escopo: `PersonalTrainer/Features/Settings/MoreOptionsView.swift` (seção Sobre, inclusive o item "Avaliar o Magister" da T11.6), as views novas `PrivacyView.swift`, `PrivacyText.swift` e `AppLinks.swift` em `Features/Settings/`, os textos do backup (`SettingsViewModel.swift`, `Services/Backup/BackupService.swift`), o texto do perfil de saúde (`Features/Health/HealthProfileView.swift`) e os testes listados no contrato.
   - Fazer: na seção Sobre, a versão (já existe), a página "Privacidade" (L2) e a linha do aviso de saúde (L5). Os links da política e do suporte e o item "Avaliar o Magister" usam constantes opcionais num lugar só (`AppLinks`, hoje `nil`): sem o endereço, a linha não aparece. Textos factuais, sem promessa absoluta e sem mensagem de efeito (decisão 20). O backup sugere "Guarde-o num lugar só seu" (diretriz 5.1.3(ii)), e o arquivo passa a se chamar `Magister-backup-AAAA-MM-DD.json` (achado da T11.0; a importação aceita qualquer `.json`).
   - Dependências: nenhuma de código (a seção "Avisos" é da T11.4, noutro arquivo).
   - Aceite: CA11-4.
 
-- [~] **T11.6 [CI] Pedido de avaliação (L3)** — avaliacao · `v10/avaliacao` (contrato §5.4)
+- [x] **T11.6 [CI] Pedido de avaliação (L3)** — avaliacao · `v10/avaliacao` (contrato §5.4) · App build 37393614387 e Core tests 37393614634 (`ci/v10-avaliacao`)
   - Escopo: no TrainerCore, `Sources/TrainerCore/AppStore/` (pasta nova: `RatingPromptPolicy.swift`, `RatingPromptInput.swift`, `RatingSessionEnding.swift`) e `Tests/TrainerCoreTests/RatingPromptPolicyTests.swift`; no app, `Services/RatingPrompt/` (protocolo + Live + Fake, R9, e o `RatingPromptGate`), o resultado da gravação no Saúde por sessão (`Services/HealthKit/HealthKitWorkoutRecorder.swift` e `HealthRecordOutcome.swift`), o pedido com `@Environment(\.requestReview)` no resumo da sessão (`Features/Session/SessionFlowView.swift` e `SessionSummaryView.swift`) e os testes do app. O item "Avaliar o Magister" do Sobre ficou com a T11.5 (mesmo arquivo). A ARCHITECTURE §17 já tem as duas pastas novas.
   - Fazer: a L3 inteira, com os detalhes fixados na SPEC (L3, "Detalhes fixados na fase 2"). A função pura recebe a data da primeira sessão concluída, o número de sessões concluídas, `now`, a versão atual, a versão e a data do último pedido, como a sessão terminou e se o app veio da loja, e diz se pede ou não.
   - Teste (R7): tabela "L3 …" com cada condição.
   - Dependências: nenhuma de código; o integrador passa o `LiveRatingPromptStore` ao `SessionFlowView`.
   - Aceite: CA11-5.
 
-- [~] **Integração da fase 2** — integrador · `v10/integration` → `ci/v10-final` (contrato §7)
+- [x] **Integração da fase 2** — integrador · `v10/integration` → `ci/v10-final` (contrato §7) · dce26a3: App build 37395008741 (com o IPA) e Core tests 37395008576, verdes na primeira rodada. Revisão estática adversarial com 1 achado (A1, major: nada impedia o primeiro envio com a política e o suporte vazios em `AppLinks`), corrigido pelo corretor só no plano (T11.7, T11.9 e CA11-7; o app não muda). Mesclada no `main` em 2026-10-06; o código final é o do App build 37395008741 (os commits depois de dce26a3 só mudam documentação, que não dispara o App build).
   - Fazer: juntar `v10/loja`, `v10/sideload`, `v10/sobre` e `v10/avaliacao`; ligar o pedido de avaliação no `AppEnvironment` e no `RootView`; rodar as conferências de CA11-1 a CA11-6; IPA no `ci/v10-final`.
 
 - [ ] **T11.7 [PROJ][USER] Envio à loja (`release.yml`)**
-  - Escopo: `.github/workflows/release.yml`, `ExportOptions.plist`, `Scripts/build-release.sh`; na ARCHITECTURE, uma ADR para a distribuição pela loja.
+  - Escopo: `.github/workflows/release.yml`, `ExportOptions.plist`, `Scripts/build-release.sh`; `PersonalTrainer/Features/Settings/AppLinks.swift` (só os valores de `privacyPolicyURL` e `supportURL`); na ARCHITECTURE, uma ADR para a distribuição pela loja.
   - Fazer: um workflow manual que gera o build assinado para distribuição e o envia ao App Store Connect com a chave da API, com o número do build automático (L7). Os segredos (a chave da API e o que mais a assinatura pedir) o dono cadastra nos Secrets do GitHub **[USER]**; o workflow nunca os imprime (AGENTS §7).
-  - Dependências: T11.3; T11.10 (bundle ID); a conta paga do Apple Developer Program ativa e o app criado no App Store Connect **[USER]**.
+  - Antes do primeiro envio: `AppLinks.privacyPolicyURL` e `AppLinks.supportURL` recebem os endereços publicados da T11.9. A diretriz 5.1.1(i) pede o link da política dentro do app (e a Apple cobra mais de quem usa o Saúde); com `nil`, a linha não aparece na página Privacidade (L2) e a revisão da loja recusa o app. O `Scripts/build-release.sh` falha se um dos dois ainda for `nil`. O app sem endereço continua como está: a linha fica escondida, sem texto provisório.
+  - Dependências: T11.3; T11.10 (bundle ID); T11.9 publicada no site do dono (os endereços da política e do suporte); a conta paga do Apple Developer Program ativa e o app criado no App Store Connect **[USER]**.
   - Aceite: CA11-7.
 
 - [ ] **T11.8 [PROJ][CI] Capturas de 6,9" no simulador**
@@ -609,7 +610,7 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
 - [ ] **T11.9 Textos da loja: política, suporte, termos e ficha**
   - Escopo: `docs/store/` (pasta nova, em pt-BR): a política de privacidade, a página de suporte, os termos de uso e a ficha da loja.
   - Fazer: a política com os fatos de L1 (o app não envia dados a ninguém; o backup do iPhone no iCloud é da Apple; o que o app lê e grava no Saúde; o backup; apagar o app apaga os dados dele, e os treinos gravados no Saúde ficam no app Saúde, onde a pessoa pode apagá-los); o suporte (o contato entra quando o dono decidir, sem dado pessoal no repositório); os termos com a frase de L5; a ficha da loja (nome "Magister: Treino com Ciência", subtítulo a escolher, descrição, palavras-chave, o rótulo "Dados não coletados" e a classificação de idade quando o dono decidir). Linguagem de L8, sem promessas absolutas, frases curtas. As páginas precisam de um endereço público (o site do dono, pendente).
-  - Dependências: T11.0. Textos com "com base científica", nunca "validado cientificamente" (decisão 22).
+  - Dependências: T11.0. Textos com "com base científica", nunca "validado cientificamente" (decisão 22). Bloqueia a T11.7: os endereços publicados da política e do suporte entram em `AppLinks` antes do primeiro envio.
   - Aceite: CA11-9.
 
 - [ ] **T11.10 [USER] Bundle ID da loja** — bloqueada pelo dono (o nome já foi decidido em 2026-10-05: "Magister: Treino com Ciência")

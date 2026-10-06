@@ -19,6 +19,11 @@ import TrainerCore
 /// carregável há um botão "Voltar"; sessão já encerrada ao abrir (id obsoleto) vai direto ao
 /// resumo, onde "Fechar" chama `onClose`; durante a sessão, "Voltar" (minimizar) também chama
 /// `onClose`, sem encerrar nada: a sessão segue em andamento e a tela Hoje oferece "Retomar" (S3).
+///
+/// Pedido de avaliação (SPEC §7.18 L3): só o resumo que vem de concluir nesta abertura da ficha
+/// (`showSummary()`, com a sessão `completed`) pode pedir. Reabrir uma sessão já encerrada nunca pede.
+/// O `RootView` passa o `ratingPrompt` do ambiente (o Live no app); o padrão `FakeRatingPromptStore`
+/// (fora da loja, nunca pede) fica para previews e testes.
 struct SessionFlowView: View {
     @State private var model: ActiveSessionViewModel
     /// Sessão encerrada, relida pelo coordinator ao concluir; `nil` enquanto a sessão corre.
@@ -27,17 +32,32 @@ struct SessionFlowView: View {
     @State private var summaryGoal: ProgramGoal? = nil
     @State private var nextDayName: String? = nil
     @State private var hasLoadedSummary = false
+    /// L3 (c): `true` só depois de concluir nesta abertura da ficha.
+    @State private var mayAskForRating = false
 
     private let sessionID: UUID
     private let coordinator: any SessionCoordinating
     private let references: ReferenceCatalog
     private let onClose: () -> Void
+    private let ratingGate: RatingPromptGate
+    private let now: () -> Date
 
-    init(sessionID: UUID, environment: AppEnvironment, onClose: @escaping () -> Void) {
+    init(
+        sessionID: UUID,
+        environment: AppEnvironment,
+        onClose: @escaping () -> Void,
+        ratingPrompt: any RatingPromptStoring = FakeRatingPromptStore()
+    ) {
         self.sessionID = sessionID
         self.coordinator = environment.coordinator
         self.references = environment.references
         self.onClose = onClose
+        self.ratingGate = RatingPromptGate(
+            store: ratingPrompt,
+            planner: environment.planner,
+            recorder: environment.healthRecorder
+        )
+        self.now = environment.now
         self._model = State(initialValue: ActiveSessionViewModel(
             sessionID: sessionID,
             coordinator: environment.coordinator,
@@ -85,6 +105,8 @@ struct SessionFlowView: View {
             session: session,
             activeGoal: summaryGoal,
             nextDayName: nextDayName,
+            ratingGate: mayAskForRating ? ratingGate : nil,
+            now: now,
             onClose: onClose
         )
     }
@@ -107,7 +129,8 @@ struct SessionFlowView: View {
 
     /// `onFinished` só dispara depois de concluir ou encerrar com sucesso: a sessão já está
     /// gravada (RF-06) e o resumo lê esse estado final pelo coordinator, a fonte da verdade
-    /// (ARCHITECTURE §7).
+    /// (ARCHITECTURE §7). É o único caminho em que o resumo pode pedir avaliação (SPEC §7.18 L3 c): a
+    /// sessão acabou de ser concluída aqui. Encerrada sem registrar, não pede.
     private func showSummary() {
         guard let session = coordinator.session(withID: sessionID) ?? model.session else {
             // Sem sessão para resumir (store inacessível): volta direto à tela Hoje.
@@ -115,6 +138,7 @@ struct SessionFlowView: View {
             return
         }
         loadSummaryIfNeeded()
+        mayAskForRating = session.status == .completed
         finishedSession = session
     }
 

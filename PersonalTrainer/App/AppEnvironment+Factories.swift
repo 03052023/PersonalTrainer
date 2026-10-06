@@ -145,7 +145,10 @@ extension AppEnvironment {
             // SPEC E8: arquivo ausente, ilegível ou reprovado vira `.empty` (sem botão "Como fazer"),
             // com log; o launch nunca para por causa das guias.
             exerciseGuides: ExerciseGuideLibrary.load(bundle: .main),
-            activities: activities
+            activities: activities,
+            // SPEC §7.18 L3: guarda só a versão e a data do último pedido (UserDefaults, já no
+            // manifesto de privacidade) e só pede quando o app veio da loja.
+            ratingPrompt: LiveRatingPromptStore()
         )
     }
 
@@ -212,7 +215,9 @@ extension AppEnvironment {
             now: { fixedNow },
             traits: traits,
             exerciseGuides: ExerciseGuideLibrary.load(bundle: .main),
-            activities: activities
+            activities: activities,
+            // Fora da loja: nenhuma preview pede avaliação nem grava o último pedido (SPEC §7.18 L3).
+            ratingPrompt: FakeRatingPromptStore()
         )
     }
 }

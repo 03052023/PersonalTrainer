@@ -178,7 +178,8 @@ final class BackupService: BackupServicing {
         let year = Self.zeroPadded(components.year ?? 0, width: 4)
         let month = Self.zeroPadded(components.month ?? 0, width: 2)
         let day = Self.zeroPadded(components.day ?? 0, width: 2)
-        return "PersonalTrainer-backup-\(year)-\(month)-\(day).json"
+        // SPEC §7.18 L2 e L8: o nome do produto, não o do projeto. A importação aceita qualquer `.json`.
+        return "Magister-backup-\(year)-\(month)-\(day).json"
     }
 
     // MARK: - Exportação

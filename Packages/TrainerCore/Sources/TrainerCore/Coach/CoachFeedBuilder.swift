@@ -1,6 +1,7 @@
 import Foundation
 
-/// Builds the messages of the app's dialogue with the user (SPEC §7.11 C1–C8).
+/// Builds the messages of the app's dialogue with the user (SPEC §7.11 C1–C3 and C5–C8;
+/// C4 was removed in 2.5, SPEC §7.18 L4).
 ///
 /// Pure function of its input, the decision log, `now` and the calendar (SPEC §7.7,
 /// AGENTS R3): no clock, no randomness, no generated text. Every rule proposes at most
@@ -11,13 +12,11 @@ import Foundation
 /// - the rest is sorted by `priority`, then `id`, so the order never depends on the
 ///   order of the input.
 public enum CoachFeedBuilder: Sendable {
-    /// Priority bands (lower = more important). The installation expiry comes first
-    /// because an expired app does not open at all; then the lighter week, which changes
-    /// the next sessions on its own. Rules with several messages add their position
-    /// (at most `bandWidth − 1`) to the band.
+    /// Priority bands (lower = more important). The lighter week comes first, because it
+    /// changes the next sessions on its own. Rules with several messages add their position
+    /// (at most `bandWidth − 1`) to the band. The bands keep their values from before 2.5.
     enum Priority {
         static let bandWidth = 100
-        static let installExpiry = 0
         static let deload = 100
         static let comeback = 200
         static let review = 300
@@ -34,9 +33,6 @@ public enum CoachFeedBuilder: Sendable {
     /// The messages to show now, most important first (see the type's documentation).
     public static func feed(input: CoachInput, log: CoachLog, now: Date, calendar: Calendar) -> [CoachMessage] {
         var candidates: [CoachMessage] = []
-        if let message = installExpiryMessage(expiry: input.provisioningExpiry, now: now, calendar: calendar) {
-            candidates.append(message)
-        }
         if let message = deloadMessage(state: input.deload, detail: input.deloadDetail, calendar: calendar) {
             candidates.append(message)
         }

@@ -1,3 +1,4 @@
+import StoreKit
 import SwiftData
 import SwiftUI
 import TrainerCore
@@ -12,25 +13,48 @@ import TrainerCore
 /// escreve no `ModelContext` (AGENTS R4). A FC chega do HealthKit pelo gravador logo depois de
 /// concluir; como o modelo é observável, a linha aparece sozinha. O resumo não mantém a tela acesa
 /// (RF-44 g).
+///
+/// Pedido de avaliação (SPEC §7.18 L3), só com `ratingGate` (o `SessionFlowView` só o passa depois de
+/// concluir nesta abertura da ficha): uns 2 s depois de aparecer, a caixa do sistema
+/// (`RequestReviewAction`), se a `RatingPromptPolicy` deixar. Se a pessoa sair antes, a tarefa é cancelada e
+/// nada é pedido; com o Saúde ainda gravando, espera até mais 8 s e, sem resposta, não pede. Nunca ao tocar
+/// num botão, sem texto do app pedindo avaliação e sem perguntar antes se a pessoa gostou (diretrizes 5.6.1
+/// e 5.6.3 da App Store).
 struct SessionSummaryView: View {
+    /// L3: a espera depois de o resumo aparecer.
+    static let ratingDelay: Duration = .seconds(2)
+    /// L3: com o Saúde ainda gravando, mais `ratingHealthChecks` esperas de `ratingHealthInterval` (8 s).
+    static let ratingHealthInterval: Duration = .milliseconds(500)
+    static let ratingHealthChecks = 16
+
     private let session: WorkoutSessionModel
     private let activeGoal: ProgramGoal?
     private let nextDayName: String?
+    private let ratingGate: RatingPromptGate?
+    private let now: () -> Date
     private let onClose: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.requestReview) private var requestReview
     /// Objetivo mostrado na flor: começa vazio e se enche ao aparecer (DESIGN §10).
     @State private var shownGoal: ProgramGoal? = nil
 
+    /// - Parameters:
+    ///   - ratingGate: `nil` nunca pede avaliação (sessão reaberta, encerrada sem registrar, previews).
+    ///   - now: o relógio do `AppEnvironment`, para a regra da L3.
     init(
         session: WorkoutSessionModel,
         activeGoal: ProgramGoal?,
         nextDayName: String?,
+        ratingGate: RatingPromptGate? = nil,
+        now: @escaping () -> Date = { Date() },
         onClose: @escaping () -> Void
     ) {
         self.session = session
         self.activeGoal = activeGoal
         self.nextDayName = nextDayName
+        self.ratingGate = ratingGate
+        self.now = now
         self.onClose = onClose
     }
 
@@ -60,6 +84,9 @@ struct SessionSummaryView: View {
         }
         .onChange(of: activeGoal) { _, newGoal in
             fillPetal(with: newGoal)
+        }
+        .task {
+            await requestRatingIfAllowed()
         }
     }
 
@@ -158,6 +185,40 @@ struct SessionSummaryView: View {
             withAnimation(.easeInOut(duration: 0.6).delay(0.2)) {
                 shownGoal = goal
             }
+        }
+    }
+
+    // MARK: - Pedido de avaliação (SPEC §7.18 L3)
+
+    /// Roda no `.task` do resumo: o SwiftUI cancela a tarefa quando a view some, e o `Task.sleep` cancelado
+    /// lança, então sair antes dos 2 s nunca pede. Fora da loja, nem espera.
+    private func requestRatingIfAllowed() async {
+        guard let ratingGate, ratingGate.isStoreInstall else {
+            return
+        }
+        let sessionID = session.uuid
+        do {
+            try await Task.sleep(for: Self.ratingDelay)
+        } catch {
+            return
+        }
+        var outcome = ratingGate.healthOutcome(for: sessionID)
+        var remainingChecks = Self.ratingHealthChecks
+        while outcome == .pending, remainingChecks > 0 {
+            do {
+                try await Task.sleep(for: Self.ratingHealthInterval)
+            } catch {
+                return
+            }
+            remainingChecks -= 1
+            outcome = ratingGate.healthOutcome(for: sessionID)
+        }
+        guard !Task.isCancelled else {
+            return
+        }
+        // Ainda `pending` depois da espera vira `.failed` na regra: não pede nesta sessão.
+        ratingGate.requestIfAllowed(sessionID: sessionID, healthOutcome: outcome, now: now()) {
+            requestReview()
         }
     }
 }

@@ -13,12 +13,11 @@ struct CoachFeedTests {
         #expect(CF.feed(CoachInput()).isEmpty)
     }
 
-    @Test("C1–C8 ordem: prioridade, depois id; C4 e C1 no topo")
+    @Test("C1–C8 ordem: prioridade, depois id; C1 no topo")
     func orderIsPriorityThenID() {
         let feed = CF.feed(CF.fullInput())
 
         #expect(feed.map(\.rule) == [
-            .installExpiry,
             .deload,
             .comeback,
             .review,
@@ -49,13 +48,16 @@ struct CoachFeedTests {
         #expect(CF.feed(input) == CF.feed(reversed))
     }
 
-    @Test("C1–C8 destaque na abertura só para C4, C1, C5 e C2")
+    @Test("C1–C8 destaque na abertura só para C1, C5 e C2")
     func onlyImportantRulesHighlightOnLaunch() {
         let feed = CF.feed(CF.fullInput())
         let highlighted = Set(feed.filter(\.highlightsOnLaunch).map(\.rule))
 
-        #expect(highlighted == [.installExpiry, .deload, .comeback, .review])
+        #expect(highlighted == [.deload, .comeback, .review])
     }
+
+    /// The rules that still speak since 2.5: every case but C4 (SPEC §7.18 L4).
+    static let activeRules: Set<CoachRule> = Set(CoachRule.allCases).subtracting([CoachRule.installExpiry])
 
     struct RuleCase: Sendable, CustomTestStringConvertible {
         let rule: CoachRule
@@ -69,7 +71,6 @@ struct CoachFeedTests {
         RuleCase(rule: .deload, topic: "rule.D", actions: [.ok, .keepNormal]),
         RuleCase(rule: .review, topic: "topic.volume", actions: [.apply, .notNow, .neverAgain]),
         RuleCase(rule: .health, topic: "topic.updateVo2Max", actions: [.understood, .remindTomorrow]),
-        RuleCase(rule: .installExpiry, topic: nil, actions: [.howToRenew]),
         RuleCase(rule: .comeback, topic: "rule.P9", actions: [.start]),
         RuleCase(rule: .personalRecord, topic: "topic.e1rm", actions: [.seeProgress]),
         RuleCase(rule: .backup, topic: nil, actions: [.backupNow, .later]),
@@ -84,10 +85,10 @@ struct CoachFeedTests {
         #expect(message.actions == testCase.actions)
     }
 
-    @Test("C1–C8 cada regra do contrato aparece no feed completo")
+    @Test("C1–C8 cada regra ativa aparece no feed completo")
     func everyRuleSpeaks() {
-        #expect(Set(CF.feed(CF.fullInput()).map(\.rule)) == Set(CoachRule.allCases))
-        #expect(Set(CoachFeedTests.ruleCases.map(\.rule)) == Set(CoachRule.allCases))
+        #expect(Set(CF.feed(CF.fullInput()).map(\.rule)) == CoachFeedTests.activeRules)
+        #expect(Set(CoachFeedTests.ruleCases.map(\.rule)) == CoachFeedTests.activeRules)
     }
 
     @Test("C1–C8 mensagem respondida com qualquer ação some", arguments: CoachAction.allCases)
