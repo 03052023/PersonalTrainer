@@ -1,4 +1,5 @@
-# Build manual do app iPhone + companion watchOS em runner macOS padrão (ARCHITECTURE ADR 008).
+# Build manual do app do iPhone em runner macOS padrão (ARCHITECTURE ADR 008). Só o iPhone: o app do Watch
+# fica fora do build até o M3 (SPEC §7.18 L6); o projeto gerado não pode embuti-lo e o .app não pode ter Watch/.
 # Sem segredos e sem credenciais Apple: o IPA sai sem assinatura Apple e é reassinado localmente.
 # Antes de executar, confirmar o orçamento de US$ 0 do GitHub Actions (WINDOWS_SETUP.md).
 # Também roda em push para branches `ci/**`: o código do app é escrito sem compilador (AGENTS R11), e o agente
@@ -11,10 +12,11 @@
 #      Push sem nenhum arquivo mudado (commit vazio) também não: o GitHub não roda workflow com filtro de
 #      caminho quando o diff está vazio (verificado em 05/10/2026: commit vazio com `[ipa]` não criou run).
 #      Para gerar o IPA de um código que já passou sem mudar arquivo, use workflow_dispatch.
-#   2. Todo run compila e roda os testes no simulador (e a checagem estrutural do Watch). O IPA ("Build
-#      unsigned device IPA" + "Keep package for local re-signing") só sai quando o run é manual
-#      (workflow_dispatch), ou o branch termina em `-final` (ex.: `ci/v9-final`), ou a mensagem do commit da
-#      ponta do push contém `[ipa]` (o commit precisa mudar algum arquivo fora da documentação; ver item 1).
+#   2. Todo run compila e roda os testes no simulador e confere o manifesto de privacidade e o Info.plist do
+#      app do simulador (SPEC §7.18 L1, L6, L7). O IPA ("Build unsigned device IPA" + "Keep package for
+#      local re-signing") só sai quando o run é manual (workflow_dispatch), ou o branch termina em `-final`
+#      (ex.: `ci/v9-final`), ou a mensagem do commit da ponta do push contém `[ipa]` (o commit precisa mudar
+#      algum arquivo fora da documentação; ver item 1).
 #   3. Resultados de teste ficam 1 dia (só servem para diagnosticar o run); o IPA fica 3 dias.
 #   4. Push novo no mesmo branch cancela o run anterior (concurrency abaixo).
 name: App build (manual)
@@ -53,6 +55,44 @@ jobs:
       - uses: actions/checkout@v5
       - name: Check TrainerCore boundaries
         run: bash Scripts/check-boundaries.sh
+      - name: 'Check L1: no network code'
+        # SPEC §7.18 L1, CA11-1: o app não tem código de rede nem SDK de terceiros. Barato, roda antes do XcodeGen.
+        run: |
+          failures=0
+          annotate() {
+            local body
+            body="$(printf '%s' "$2" | sed -e 's/%/%25/g' -e 's/\r//g' | awk 'BEGIN{ORS="%0A"} {print}')"
+            echo "::error title=$1::$body"
+          }
+
+          # 1. Nenhuma API de rede nos fontes do app e do TrainerCore (testes incluídos).
+          status=0
+          matches="$(grep -rnE 'URLSession|NWConnection|NSURLConnection|import Network' PersonalTrainer Packages --include='*.swift')" || status=$?
+          case "$status" in
+            0) annotate "L1 código de rede" "$(printf 'API de rede nos fontes (SPEC L1):\n%s' "$(printf '%s\n' "$matches" | head -20)")"; failures=$((failures + 1)) ;;
+            1) echo "[OK] nenhum URLSession, NWConnection, NSURLConnection nem import Network" ;;
+            *) echo "::error title=L1 código de rede::grep saiu com $status"; exit 2 ;;
+          esac
+
+          # 2. Nenhum pacote remoto no project.yml (só `path:` local dentro de `packages:`).
+          remote="$(sed -n '/^packages:/,/^[^[:space:]#]/p' project.yml | grep -E '^[[:space:]]+(url|github|from|exactVersion|minVersion|maxVersion|majorVersion|minorVersion|version|branch|revision):' || true)"
+          if [ -n "$remote" ]; then
+            annotate "L1 pacote remoto" "$(printf 'project.yml tem pacote remoto (SPEC L1):\n%s' "$remote")"
+            failures=$((failures + 1))
+          else
+            echo "[OK] project.yml sem pacote remoto"
+          fi
+
+          # 3. Nenhuma dependência declarada nos Package.swift locais (o TrainerCore só usa Foundation).
+          status=0
+          deps="$(grep -rnE '\.package\(' Packages --include='Package.swift')" || status=$?
+          case "$status" in
+            0) annotate "L1 dependência de pacote" "$(printf 'Package.swift com dependência (SPEC L1):\n%s' "$deps")"; failures=$((failures + 1)) ;;
+            1) echo "[OK] Package.swift sem dependências" ;;
+            *) echo "::error title=L1 dependência de pacote::grep saiu com $status"; exit 2 ;;
+          esac
+
+          test "$failures" -eq 0
       - name: Report IPA policy
         # Anotação pública: quem lê o run sem login sabe por que não há artefato de IPA.
         run: |
@@ -73,14 +113,20 @@ jobs:
           test -d PersonalTrainer.xcodeproj
           test -f PersonalTrainer/Support/Info.plist
           test -f PersonalTrainerWatch/Support/Info.plist
-          # O watch app tem de ser embutido em Watch/ (Scripts/build-app.sh e instalador). O Homebrew
-          # instala sempre o XcodeGen mais novo; se uma versão mudar o destino da fase "Embed Watch
-          # Content" (issue #1613 / PR #1614), falhar aqui em segundos, não depois de 30 min de build.
-          # Mesma checagem estrutural de Scripts/check-device-probe.py.
+          # SPEC §7.18 L6: o app do iPhone não embute o app do Watch até o M3. O target PersonalTrainerWatch
+          # continua no projeto (o Info.plist dele é gerado, test -f acima), mas sem a dependência o XcodeGen
+          # não cria a fase "Embed Watch Content". Falhar aqui em segundos, não depois de 10 min de build.
           pbxproj=PersonalTrainer.xcodeproj/project.pbxproj
-          if ! grep -q 'dstSubfolderSpec = 16;' "$pbxproj" || ! grep -qF '$(CONTENTS_FOLDER_PATH)/Watch' "$pbxproj"; then
-            echo "::error::XcodeGen $(xcodegen --version) não gerou 'Embed Watch Content' em CONTENTS_FOLDER_PATH/Watch (dstSubfolderSpec 16)"
-            grep -n -A 8 'Embed Watch Content' "$pbxproj" || true
+          if grep -q 'Embed Watch Content' "$pbxproj"; then
+            echo "::error::O projeto gerado por XcodeGen $(xcodegen --version) tem a fase 'Embed Watch Content': o app do iPhone não pode embutir o Watch (SPEC L6; project.yml sem a dependência PersonalTrainerWatch)"
+            grep -n -B 2 -A 8 'Embed Watch Content' "$pbxproj" || true
+            exit 1
+          fi
+          # SPEC §7.18 L1: o manifesto de privacidade deve estar em "Copy Bundle Resources". Falha rápida aqui, em
+          # vez de depois dos testes; o passo "Check privacy manifest and Info.plist" confere o .app de verdade.
+          if ! grep -q 'PrivacyInfo.xcprivacy in Resources' "$pbxproj"; then
+            found="$(grep -n 'PrivacyInfo' "$pbxproj" | head -5 | tr '\n' ' ' || true)"
+            echo "::error title=L1 manifesto fora de Resources::PrivacyInfo.xcprivacy não está na fase Copy Bundle Resources do project.pbxproj. Linhas com PrivacyInfo: ${found:-nenhuma}"
             exit 1
           fi
       - name: Select iPhone simulator
@@ -150,6 +196,81 @@ jobs:
           if-no-files-found: ignore
           # Política de custo, item 3: só diagnostica este run; o próximo push gera outro.
           retention-days: 1
+      - name: 'Check privacy manifest and Info.plist (L1, L6, L7)'
+        # CA11-2 e CA11-6 sobre o app do simulador (Debug), só com os testes verdes (success() implícito).
+        # O mesmo vale para o IPA no Scripts/build-app.sh. Cada falha vira uma anotação pública.
+        run: |
+          app=build/app/DerivedData/Build/Products/Debug-iphonesimulator/PersonalTrainer.app
+          pb=/usr/libexec/PlistBuddy
+          failures=0
+          fail() {
+            echo "::error title=$1::$2"
+            failures=$((failures + 1))
+          }
+          # Um valor ausente vira texto vazio; `Print` de booleano devolve true/false.
+          plist_get() { "$pb" -c "Print :$2" "$1" 2>/dev/null || true; }
+
+          if [ ! -d "$app" ]; then
+            echo "::error title=App do simulador ausente::$app não existe"
+            exit 1
+          fi
+
+          # --- Manifesto de privacidade (L1) ---
+          manifest="$app/PrivacyInfo.xcprivacy"
+          if [ ! -f "$manifest" ]; then
+            fail "L1 manifesto ausente" "PrivacyInfo.xcprivacy não está na raiz do .app (fase Copy Bundle Resources do XcodeGen). Raiz: $(ls "$app" | tr '\n' ' ')"
+          elif ! plutil -lint "$manifest"; then
+            fail "L1 manifesto inválido" "plutil -lint rejeitou o PrivacyInfo.xcprivacy"
+          else
+            tracking="$(plist_get "$manifest" NSPrivacyTracking)"
+            if [ "$tracking" != "false" ]; then
+              fail "L1 rastreamento" "NSPrivacyTracking = '$tracking' (esperado false)"
+            fi
+            for key in NSPrivacyTrackingDomains NSPrivacyCollectedDataTypes; do
+              if ! "$pb" -c "Print :$key" "$manifest" >/dev/null 2>&1; then
+                fail "L1 $key" "$key ausente no manifesto (esperado um array vazio)"
+              elif "$pb" -c "Print :$key:0" "$manifest" >/dev/null 2>&1; then
+                fail "L1 $key" "$key tem itens (esperado um array vazio)"
+              fi
+            done
+            # Motivo CA92.1 (dados só do próprio app) na categoria UserDefaults.
+            found_reason=false
+            i=0
+            while category="$("$pb" -c "Print :NSPrivacyAccessedAPITypes:$i:NSPrivacyAccessedAPIType" "$manifest" 2>/dev/null)"; do
+              if [ "$category" = "NSPrivacyAccessedAPICategoryUserDefaults" ]; then
+                j=0
+                while reason="$("$pb" -c "Print :NSPrivacyAccessedAPITypes:$i:NSPrivacyAccessedAPITypeReasons:$j" "$manifest" 2>/dev/null)"; do
+                  if [ "$reason" = "CA92.1" ]; then found_reason=true; fi
+                  j=$((j + 1))
+                done
+              fi
+              i=$((i + 1))
+            done
+            if [ "$found_reason" != "true" ]; then
+              fail "L1 UserDefaults" "O manifesto não declara NSPrivacyAccessedAPICategoryUserDefaults com o motivo CA92.1"
+            fi
+          fi
+
+          # --- Info.plist do app (L7 e criptografia) ---
+          plist="$app/Info.plist"
+          version="$(plist_get "$plist" CFBundleShortVersionString)"
+          if [ "$version" != "1.0.0" ]; then
+            fail "L7 versão" "CFBundleShortVersionString = '$version' (esperado 1.0.0)"
+          fi
+          encryption="$(plist_get "$plist" ITSAppUsesNonExemptEncryption)"
+          if [ "$encryption" != "false" ]; then
+            fail "L1 criptografia" "ITSAppUsesNonExemptEncryption = '$encryption' (esperado false)"
+          fi
+
+          # --- Sem o app do Watch (L6) ---
+          if [ -e "$app/Watch" ]; then
+            fail "L6 Watch no app" "O .app do simulador tem a pasta Watch/: o iPhone não pode embutir o relógio até o M3"
+          fi
+
+          if [ "$failures" -ne 0 ]; then
+            exit 1
+          fi
+          echo "Manifesto, versão $version, criptografia $encryption e ausência de Watch/ conferidos em $app"
       - name: Build unsigned device IPA
         # Política de custo, item 2. Um `if:` sem função de status mantém o success() implícito.
         if: ${{ env.PACKAGE_IPA == 'true' }}
@@ -176,8 +297,8 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: PersonalTrainer-for-resigning
+          # O nome do artefato e do IPA não mudam (o guia de instalação cita): só o app do iPhone, sem Watch/.
           path: |
-            build/app/PersonalTrainer-for-resigning.ipa
             build/app/PersonalTrainer-iphone-only-for-resigning.ipa
             build/app/SHA256.txt
             build/app/SOURCE_COMMIT.txt
