@@ -540,7 +540,7 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
 | CA11-4 | L2 e L5: a seção Sobre dos Ajustes mostra a versão, a página "Privacidade" e a linha do aviso de saúde (T11.5). | Verde: `testL2_…` e `testL5_…` no App build 37395008741. A aparência das telas só se vê no aparelho. |
 | CA11-5 | L3: testes de tabela verdes. Não pede com menos de 7 dias desde a primeira sessão concluída, com menos de 3 sessões concluídas, depois de uma sessão abandonada ou de um erro, nem duas vezes na mesma versão; pede quando tudo isso é cumprido (T11.6). | Verde: tabela "L3 …" (Core tests 37395008576) e `testL3_…` (App build 37395008741), com o Live ligado no ambiente. A caixa de verdade só aparece no app da loja (T11.7). |
 | CA11-6 | O IPA da loja não leva o app do Watch, tem a versão 1.0.0, `ITSAppUsesNonExemptEncryption` falso e o texto de gravação no Saúde cita as sessões de força e as de aeróbico (T11.3). | Verde: `build-app.sh` no App build 37395008741 (IPA sem `Watch/`, 1.0.0, criptografia falsa, texto com força e aeróbico). |
-| CA11-7 | Um build enviado ao App Store Connect pelo `release.yml`, sem Mac, com os segredos cadastrados pelo dono e nenhum segredo nos logs (T11.7). | |
+| CA11-7 | Um build enviado ao App Store Connect pelo `release.yml`, sem Mac, com os segredos cadastrados pelo dono e nenhum segredo nos logs; nesse build, `AppLinks.privacyPolicyURL` e `AppLinks.supportURL` têm os endereços publicados, e a página Privacidade mostra o link da política (diretriz 5.1.1(i)) (T11.7). | |
 | CA11-8 | Capturas de 6,9" geradas no simulador, como artefato de um run (T11.8). | |
 | CA11-9 | Política de privacidade, suporte, termos e ficha da loja escritos e aprovados pelo dono, sem "personal", "treinador" ou "coach" para o app e sem promessas absolutas (L2, L5, L8; T11.9). | |
 
@@ -591,13 +591,14 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
   - Dependências: nenhuma de código; o integrador passa o `LiveRatingPromptStore` ao `SessionFlowView`.
   - Aceite: CA11-5.
 
-- [x] **Integração da fase 2** — integrador · `v10/integration` → `ci/v10-final` (contrato §7) · dce26a3: App build 37395008741 (com o IPA) e Core tests 37395008576, verdes na primeira rodada. A revisão estática adversarial e o corretor vêm a seguir; o merge no `main` é do corretor.
+- [x] **Integração da fase 2** — integrador · `v10/integration` → `ci/v10-final` (contrato §7) · dce26a3: App build 37395008741 (com o IPA) e Core tests 37395008576, verdes na primeira rodada. Revisão estática adversarial com 1 achado (A1, major: nada impedia o primeiro envio com a política e o suporte vazios em `AppLinks`), corrigido pelo corretor só no plano (T11.7, T11.9 e CA11-7; o app não muda). Mesclada no `main` em 2026-10-06; o código final é o do App build 37395008741 (os commits depois de dce26a3 só mudam documentação, que não dispara o App build).
   - Fazer: juntar `v10/loja`, `v10/sideload`, `v10/sobre` e `v10/avaliacao`; ligar o pedido de avaliação no `AppEnvironment` e no `RootView`; rodar as conferências de CA11-1 a CA11-6; IPA no `ci/v10-final`.
 
 - [ ] **T11.7 [PROJ][USER] Envio à loja (`release.yml`)**
-  - Escopo: `.github/workflows/release.yml`, `ExportOptions.plist`, `Scripts/build-release.sh`; na ARCHITECTURE, uma ADR para a distribuição pela loja.
+  - Escopo: `.github/workflows/release.yml`, `ExportOptions.plist`, `Scripts/build-release.sh`; `PersonalTrainer/Features/Settings/AppLinks.swift` (só os valores de `privacyPolicyURL` e `supportURL`); na ARCHITECTURE, uma ADR para a distribuição pela loja.
   - Fazer: um workflow manual que gera o build assinado para distribuição e o envia ao App Store Connect com a chave da API, com o número do build automático (L7). Os segredos (a chave da API e o que mais a assinatura pedir) o dono cadastra nos Secrets do GitHub **[USER]**; o workflow nunca os imprime (AGENTS §7).
-  - Dependências: T11.3; T11.10 (bundle ID); a conta paga do Apple Developer Program ativa e o app criado no App Store Connect **[USER]**.
+  - Antes do primeiro envio: `AppLinks.privacyPolicyURL` e `AppLinks.supportURL` recebem os endereços publicados da T11.9. A diretriz 5.1.1(i) pede o link da política dentro do app (e a Apple cobra mais de quem usa o Saúde); com `nil`, a linha não aparece na página Privacidade (L2) e a revisão da loja recusa o app. O `Scripts/build-release.sh` falha se um dos dois ainda for `nil`. O app sem endereço continua como está: a linha fica escondida, sem texto provisório.
+  - Dependências: T11.3; T11.10 (bundle ID); T11.9 publicada no site do dono (os endereços da política e do suporte); a conta paga do Apple Developer Program ativa e o app criado no App Store Connect **[USER]**.
   - Aceite: CA11-7.
 
 - [ ] **T11.8 [PROJ][CI] Capturas de 6,9" no simulador**
@@ -609,7 +610,7 @@ Pesquisa e alternativas descartadas: `docs/design/exercise-guides/PROPOSAL.md`.
 - [ ] **T11.9 Textos da loja: política, suporte, termos e ficha**
   - Escopo: `docs/store/` (pasta nova, em pt-BR): a política de privacidade, a página de suporte, os termos de uso e a ficha da loja.
   - Fazer: a política com os fatos de L1 (o app não envia dados a ninguém; o backup do iPhone no iCloud é da Apple; o que o app lê e grava no Saúde; o backup; apagar o app apaga os dados dele, e os treinos gravados no Saúde ficam no app Saúde, onde a pessoa pode apagá-los); o suporte (o contato entra quando o dono decidir, sem dado pessoal no repositório); os termos com a frase de L5; a ficha da loja (nome "Magister: Treino com Ciência", subtítulo a escolher, descrição, palavras-chave, o rótulo "Dados não coletados" e a classificação de idade quando o dono decidir). Linguagem de L8, sem promessas absolutas, frases curtas. As páginas precisam de um endereço público (o site do dono, pendente).
-  - Dependências: T11.0. Textos com "com base científica", nunca "validado cientificamente" (decisão 22).
+  - Dependências: T11.0. Textos com "com base científica", nunca "validado cientificamente" (decisão 22). Bloqueia a T11.7: os endereços publicados da política e do suporte entram em `AppLinks` antes do primeiro envio.
   - Aceite: CA11-9.
 
 - [ ] **T11.10 [USER] Bundle ID da loja** — bloqueada pelo dono (o nome já foi decidido em 2026-10-05: "Magister: Treino com Ciência")
