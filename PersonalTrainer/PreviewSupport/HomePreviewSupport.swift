@@ -322,7 +322,6 @@ private enum HomePreviewFixture {
             planner: planner,
             programs: ProgramRepository(modelContext: container.mainContext),
             log: logStore,
-            expiry: .unavailable,
             notifications: FakeNotificationScheduler(),
             now: { fixedNow },
             calendar: .current,

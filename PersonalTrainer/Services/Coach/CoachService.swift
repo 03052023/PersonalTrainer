@@ -3,7 +3,8 @@ import Observation
 import os
 import TrainerCore
 
-/// O diálogo do app com o usuário (SPEC §7.11 C1–C8; contrato V2-FINAL §2.3).
+/// O diálogo do app com o usuário (SPEC §7.11: C1–C3 e C5–C8; contrato V2-FINAL §2.3). A C4 saiu na
+/// 2.5 (SPEC §7.18 L4): o app não lê nem avisa a validade da instalação.
 ///
 /// Monta o `CoachInput` com o planejador, os programas, o log e os ajustes, pede o feed ao
 /// `CoachFeedBuilder` (TrainerCore, função pura) e aplica as respostas: grava cada uma no log e
@@ -16,8 +17,8 @@ import TrainerCore
 ///   destaque) e depois de mudanças na tela (sem destaque);
 /// - `messages` no `CoachFeedSection`, `highlight` no `CoachHighlightSheet` com
 ///   `.sheet(item: $coach.highlight, onDismiss: { coach.highlightDidDismiss() })`;
-/// - `handle(_:on:)` em toda resposta; `onBackupRequested`, `onRenewalHelpRequested`,
-///   `onStartRequested`, `onProgressRequested` e `onChooseProgramRequested` para navegar;
+/// - `handle(_:on:)` em toda resposta; `onBackupRequested`, `onStartRequested`,
+///   `onProgressRequested` e `onChooseProgramRequested` para navegar;
 /// - `errorMessage` num `.alert` (ou `isPresentingError`).
 @Observable
 @MainActor
@@ -26,8 +27,6 @@ final class CoachService {
     enum DefaultsKey {
         /// Double (`timeIntervalSince1970`), gravada pelo Ajustes depois de exportar backup.
         static let lastBackupAt = "lastBackupAt"
-        /// Bool: a pessoa pediu aviso na véspera da expiração (SPEC §7.11 C4).
-        static let expiryReminderEnabled = "expiryReminderEnabled"
         /// Double: desde quando o status da semana leve é `.pending` (período do id do C1).
         static let pendingDeloadSince = "coachPendingDeloadSince"
         /// String (`DeloadTrigger.rawValue`) do pendente acima; só o `CoachService` usa, para
@@ -42,10 +41,6 @@ final class CoachService {
         static let longevityEntriesSince = "coachLongevityEntriesSince"
     }
 
-    /// Identificador do lembrete de expiração (um só: reagendar substitui).
-    nonisolated static let expiryReminderIdentifier = "coach.expiryReminder"
-    /// SPEC §7.11 C4: "notificação local na véspera"; o contrato fixa as 10h.
-    nonisolated static let expiryReminderHour = 10
     /// SPEC §7.11 C5: dias de calendário sem sessão a partir dos quais o próximo dia entra na
     /// mensagem (o mesmo limiar do `CoachFeedBuilder`).
     nonisolated static let comebackDays = 6
@@ -58,10 +53,6 @@ final class CoachService {
     /// a primeira do feed com `highlightsOnLaunch` que ainda não foi destacada neste processo.
     /// Settable para o `.sheet(item:)`; fechar a folha sem responder deixa a mensagem no feed.
     var highlight: CoachMessage?
-    /// `ExpirationDate` do perfil embutido; `nil` no simulador.
-    private(set) var provisioningExpiry: Date?
-    /// Espelho de `DefaultsKey.expiryReminderEnabled`, relido a cada `refresh`.
-    private(set) var isExpiryReminderEnabled: Bool
     /// Frase do que "Aplicar" vai mudar, por `CoachMessage.id` (só C2); ver `applySummary(for:)`.
     private(set) var applyDetails: [String: String] = [:]
     /// Mensagem pt-BR para o `.alert`; a view zera ao fechar.
@@ -71,8 +62,6 @@ final class CoachService {
 
     /// C7 "Fazer backup".
     @ObservationIgnored var onBackupRequested: (() -> Void)?
-    /// C4 "Como renovar": abrir a `RenewalHelpView`.
-    @ObservationIgnored var onRenewalHelpRequested: (() -> Void)?
     /// C5 "Começar".
     @ObservationIgnored var onStartRequested: (() -> Void)?
     /// C6 "Ver evolução" do exercício (`ExerciseDefinition.id`).
@@ -81,8 +70,9 @@ final class CoachService {
     /// Programa.
     @ObservationIgnored var onChooseProgramRequested: (() -> Void)?
 
-    /// Fila das notificações (pedido de permissão, agendar, cancelar), encadeada para manter a
-    /// ordem. Os testes aguardam `pendingWork?.value` em vez de dormir (AGENTS §7).
+    /// Fila das notificações, encadeada para manter a ordem. Desde a 2.5 só leva o cancelamento do
+    /// aviso antigo (SPEC §7.18 L4; `CoachService+LegacyReminder`). Os testes aguardam
+    /// `pendingWork?.value` em vez de dormir (AGENTS §7).
     @ObservationIgnored private(set) var pendingWork: Task<Void, Never>?
 
     // MARK: - Dependências
@@ -115,8 +105,6 @@ final class CoachService {
     /// Navegação pedida a partir do destaque, feita só depois que a folha fecha (duas folhas ao
     /// mesmo tempo não abrem no SwiftUI).
     @ObservationIgnored var deferredFollowUp: FollowUp?
-    /// O último estado do lembrete de expiração enviado ao agendador; `nil` antes do primeiro.
-    @ObservationIgnored var appliedReminder: ReminderState?
 
     /// AGENTS §4: `subsystem` = bundle id, `category` = nome do serviço.
     static let logger = Logger(
@@ -126,13 +114,10 @@ final class CoachService {
 
     /// - Parameter activities: o app passa o `LiveOutsideActivityStore` do resto do app; o padrão em
     ///   memória serve aos testes e previews.
-    /// - Parameter expiry: andaime da 2.5 (docs/V25-CONTRACT.md §3): o app já não passa o leitor do
-    ///   perfil (SPEC §7.18 L4); a tarefa `sideload` tira o parâmetro e o leitor.
     init(
         planner: any SessionPlanning,
         programs: any ProgramRepositoring,
         log: any CoachLogStoring,
-        expiry: ProvisioningExpiryReader = .unavailable,
         notifications: any NotificationScheduling,
         now: @escaping () -> Date,
         calendar: Calendar,
@@ -149,9 +134,6 @@ final class CoachService {
         self.defaults = defaults
         self.traits = traits
         self.activities = activities
-        // O perfil só muda numa reinstalação, que reinicia o processo: basta ler uma vez.
-        self.provisioningExpiry = expiry.expirationDate()
-        self.isExpiryReminderEnabled = defaults.bool(forKey: DefaultsKey.expiryReminderEnabled)
     }
 
     /// Ponte para `.alert(isPresented:)`: verdadeiro enquanto há mensagem; atribuir `false` limpa.
@@ -177,6 +159,8 @@ final class CoachService {
         lastHealthSuggestions = healthSuggestions
         lastRecovery = recovery
         rebuild(allowsNewHighlight: allowsHighlight)
+        // SPEC §7.18 L4: uma cópia que vem da 2.4 pode ter o aviso antigo agendado; sai uma vez só.
+        cancelLegacyExpiryReminderIfNeeded()
     }
 
     /// O que "Aplicar" vai mudar, para a confirmação (SPEC §7.11: "ações que alteram o programa
@@ -201,7 +185,7 @@ final class CoachService {
     }
 
     /// Chamar no `onDismiss` do `.sheet` do destaque: faz a navegação que uma resposta dada na
-    /// folha pediu (ex.: "Como renovar" abre a `RenewalHelpView` depois que o destaque fecha).
+    /// folha pediu (ex.: o "Começar" do C5 abre a sessão depois que o destaque fecha).
     func highlightDidDismiss() {
         highlight = nil
         guard let followUp = deferredFollowUp else {
@@ -220,7 +204,9 @@ final class CoachService {
     /// - `keepNormal` (C1): `SessionPlanning.dismissDeload`;
     /// - `done` (C8): a própria resposta no log é a marca da semana; desde a 2.4, também grava um
     ///   registro de 10 min nas atividades fora do app (SPEC §7.17 X6);
-    /// - `backupNow`, `howToRenew`, `start`, `seeProgress`: navegação pelos fechamentos.
+    /// - `backupNow`, `start`, `seeProgress`: navegação pelos fechamentos;
+    /// - `howToRenew` (C4, removida na 2.5, SPEC §7.18 L4): nunca é oferecida; se chegar, só vai
+    ///   para o log.
     func handle(_ action: CoachAction, on message: CoachMessage) {
         let now = self.now()
         let wasHighlight = highlight?.id == message.id
@@ -265,27 +251,16 @@ final class CoachService {
         }
     }
 
-    /// Liga ou desliga o aviso da véspera (SPEC §7.11 C4). Ligar é uma ação da pessoa, então é
-    /// aqui (e na resposta à mensagem C4) que a permissão de notificação é pedida, nunca no
-    /// launch (AGENTS §7).
-    func setExpiryReminderEnabled(_ enabled: Bool) {
-        defaults.set(enabled, forKey: DefaultsKey.expiryReminderEnabled)
-        isExpiryReminderEnabled = enabled
-        syncExpiryReminder(now: now(), requestsAuthorization: enabled)
-    }
-
     // MARK: - Internos
 
     /// Recalcula o feed com o log e os ajustes atuais.
     func rebuild(allowsNewHighlight: Bool) {
         let now = self.now()
-        isExpiryReminderEnabled = defaults.bool(forKey: DefaultsKey.expiryReminderEnabled)
         var log = logStore.load()
         let input = makeInput(log: &log, now: now)
         messages = CoachFeedBuilder.feed(input: input, log: log, now: now, calendar: calendar)
         applyDetails = makeApplyDetails(for: messages)
         updateHighlight(allowsNew: allowsNewHighlight)
-        syncExpiryReminder(now: now, requestsAuthorization: false)
     }
 
     /// Mantém o destaque aberto enquanto a mensagem existir; um novo só quando permitido (o

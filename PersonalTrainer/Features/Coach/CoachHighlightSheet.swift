@@ -2,7 +2,7 @@ import SwiftUI
 import TrainerCore
 
 /// Destaque de uma mensagem ao abrir o app (SPEC §7.11: "exibidas na abertura, se houver algo
-/// novo e importante"): C4, C1, C5 e C2 (`CoachMessage.highlightsOnLaunch`).
+/// novo e importante"): C1, C5 e C2 (`CoachMessage.highlightsOnLaunch`).
 ///
 /// Apresentação pelo integrador:
 /// ```swift
@@ -74,10 +74,10 @@ struct CoachHighlightSheet: View {
     }
 }
 
-#Preview("Destaque — expiração") {
+#Preview("Destaque — semana leve") {
     Text("Home")
         .sheet(isPresented: .constant(true)) {
-            CoachHighlightSheet(message: CoachPreviewData.expiry, references: WhySheet.previewCatalog, onAction: { _ in })
+            CoachHighlightSheet(message: CoachPreviewData.deload, references: WhySheet.previewCatalog, onAction: { _ in })
         }
 }
 

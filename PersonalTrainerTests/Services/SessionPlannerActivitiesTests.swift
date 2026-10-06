@@ -370,7 +370,6 @@ final class SessionPlannerActivitiesTests: XCTestCase {
             planner: fixture.planner,
             programs: ProgramRepository(modelContext: fixture.context),
             log: FakeCoachLogStore(),
-            expiry: .unavailable,
             notifications: FakeNotificationScheduler(),
             now: { fixedNow },
             calendar: calendar,

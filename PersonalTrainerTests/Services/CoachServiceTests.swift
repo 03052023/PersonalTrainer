@@ -6,8 +6,8 @@ import XCTest
 /// Contrato V2-FINAL §2.3: `CoachService` sobre doubles de `SessionPlanning` e
 /// `ProgramRepositoring`, `FakeCoachLogStore`, `FakeNotificationScheduler`, relógio controlado e
 /// `UserDefaults` descartável. Cobre a montagem do `CoachInput` (C1 com `since` estável, C2 com a
-/// revisão guardada, C4, C5, C6, C7, C8), os efeitos de cada resposta, o destaque na abertura e o
-/// aviso da véspera (permissão só por ação da pessoa, AGENTS §7).
+/// revisão guardada, C5, C6, C7, C8), os efeitos de cada resposta, o destaque na abertura e, desde a
+/// 2.5, a saída da C4 com o cancelamento único do aviso antigo (SPEC §7.18 L4).
 @MainActor
 final class CoachServiceTests: XCTestCase {
     private let calendar: Calendar = {
@@ -19,7 +19,7 @@ final class CoachServiceTests: XCTestCase {
     /// Quinta-feira, 24/09/2026, 12:00 em UTC−3 (semana ISO 2026-W39).
     private var now: Date { date(2026, 9, 24) }
 
-    // MARK: - Feed vazio e C4 / destaque
+    // MARK: - Feed vazio e destaque
 
     func testRefresh_withoutAnyData_hasNoMessagesAndNoHighlight() throws {
         let fixture = try makeFixture()
@@ -32,22 +32,24 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertNil(fixture.service.errorMessage)
     }
 
-    func testRefresh_expiryInTwoDays_showsC4AsHighlight() throws {
-        let expiry = date(2026, 9, 26, hour: 21)
-        let fixture = try makeFixture(expiry: expiry)
+    /// Desde a 2.5, o C5 (que também destaca na abertura) faz o papel que a C4 fazia nestes testes do
+    /// destaque: duas semanas sem sessão.
+    func testRefresh_afterTwoWeeksAway_showsC5AsHighlight() throws {
+        let fixture = try makeFixture()
         defer { fixture.cleanUp() }
+        fixture.planner.sessionsToReturn = [session(startedAt: date(2026, 9, 10))]
 
         fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
 
-        XCTAssertEqual(fixture.service.provisioningExpiry, expiry)
         let message = try XCTUnwrap(fixture.service.messages.first)
-        XCTAssertEqual(message.rule, .installExpiry)
-        XCTAssertEqual(fixture.service.highlight?.id, message.id, "C4 destaca na abertura")
+        XCTAssertEqual(message.rule, .comeback)
+        XCTAssertEqual(fixture.service.highlight?.id, message.id, "C5 destaca na abertura")
     }
 
     func testHighlight_eachMessageIsHighlightedOnlyOnce() throws {
-        let fixture = try makeFixture(expiry: date(2026, 9, 26, hour: 21))
+        let fixture = try makeFixture()
         defer { fixture.cleanUp() }
+        fixture.planner.sessionsToReturn = [session(startedAt: date(2026, 9, 10))]
 
         fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
         let highlighted = try XCTUnwrap(fixture.service.highlight)
@@ -59,37 +61,40 @@ final class CoachServiceTests: XCTestCase {
     }
 
     func testRefresh_withoutHighlight_updatesTheFeedButOpensNoSheet() throws {
-        let fixture = try makeFixture(expiry: date(2026, 9, 26, hour: 21))
+        let fixture = try makeFixture()
         defer { fixture.cleanUp() }
+        fixture.planner.sessionsToReturn = [session(startedAt: date(2026, 9, 10))]
 
         // Troca de aba, fim da sessão, leitura do Saúde: só o feed muda (SPEC §7.11, "na abertura").
         fixture.service.refresh(healthSuggestions: [], recovery: .unknown, allowsHighlight: false)
-        XCTAssertTrue(fixture.service.messages.contains { $0.rule == .installExpiry })
+        XCTAssertTrue(fixture.service.messages.contains { $0.rule == .comeback })
         XCTAssertNil(fixture.service.highlight)
 
         fixture.service.refresh(healthSuggestions: [], recovery: .unknown, allowsHighlight: true)
-        XCTAssertEqual(fixture.service.highlight?.rule, .installExpiry, "Na abertura, o destaque aparece")
+        XCTAssertEqual(fixture.service.highlight?.rule, .comeback, "Na abertura, o destaque aparece")
 
         fixture.service.refresh(healthSuggestions: [], recovery: .unknown, allowsHighlight: false)
-        XCTAssertEqual(fixture.service.highlight?.rule, .installExpiry, "Um destaque já escolhido continua")
+        XCTAssertEqual(fixture.service.highlight?.rule, .comeback, "Um destaque já escolhido continua")
     }
 
     func testHandle_onHighlight_defersNavigationUntilSheetCloses() throws {
-        let fixture = try makeFixture(expiry: date(2026, 9, 26, hour: 21))
+        let fixture = try makeFixture()
         defer { fixture.cleanUp() }
-        var renewalRequests = 0
-        fixture.service.onRenewalHelpRequested = { renewalRequests += 1 }
+        fixture.planner.sessionsToReturn = [session(startedAt: date(2026, 9, 10))]
+        var startRequests = 0
+        fixture.service.onStartRequested = { startRequests += 1 }
 
         fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
         let message = try XCTUnwrap(fixture.service.highlight)
-        fixture.service.handle(.howToRenew, on: message)
+        XCTAssertEqual(message.rule, .comeback)
+        fixture.service.handle(.start, on: message)
 
         XCTAssertNil(fixture.service.highlight, "Responder fecha o destaque")
-        XCTAssertEqual(renewalRequests, 0, "Duas folhas ao mesmo tempo não abrem: espera o destaque fechar")
+        XCTAssertEqual(startRequests, 0, "Duas folhas ao mesmo tempo não abrem: espera o destaque fechar")
         fixture.service.highlightDidDismiss()
-        XCTAssertEqual(renewalRequests, 1)
+        XCTAssertEqual(startRequests, 1)
         XCTAssertFalse(fixture.service.messages.contains { $0.id == message.id })
-        XCTAssertEqual(fixture.logStore.log.entries.last?.action, .howToRenew)
+        XCTAssertEqual(fixture.logStore.log.entries.last?.action, .start)
         XCTAssertEqual(fixture.logStore.log.entries.last?.messageID, message.id)
     }
 
@@ -1193,112 +1198,83 @@ final class CoachServiceTests: XCTestCase {
         XCTAssertEqual(CoachService.isoWeekLabel(for: date(2027, 1, 1), calendar: calendar), "2026-W53")
     }
 
-    // MARK: - Aviso da véspera (C4)
+    // MARK: - L4 Sem sideload no app (2.5)
 
-    func testRefresh_neverAsksForNotificationPermission() async throws {
-        let fixture = try makeFixture(expiry: date(2026, 9, 27, hour: 21))
+    /// SPEC §7.18 L4: uma cópia que vem da 2.4 pode ter o aviso antigo agendado e a chave gravada. No
+    /// primeiro refresh, o pedido é cancelado e a chave apagada; no segundo, nada acontece.
+    func testL4_legacyExpiryReminderIsCancelledOnce() async throws {
+        let fixture = try makeFixture()
         defer { fixture.cleanUp() }
-        fixture.defaults.set(true, forKey: CoachService.DefaultsKey.expiryReminderEnabled)
+        fixture.defaults.set(true, forKey: "expiryReminderEnabled")
+        // O pedido que a 2.4 deixou pendente (o Fake guarda qualquer agendamento pelo identificador).
+        await fixture.notifications.scheduleRestTimerEnd(
+            at: date(2026, 9, 26, hour: 10),
+            identifier: "coach.expiryReminder",
+            body: "Aviso antigo"
+        )
 
         fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
         await fixture.service.pendingWork?.value
 
-        let requests = await fixture.notifications.authorizationRequestCount
-        XCTAssertEqual(requests, 0, "AGENTS §7: nunca pedir permissão no launch")
+        var cancelled = await fixture.notifications.cancelledIdentifiers
+        XCTAssertEqual(cancelled, ["coach.expiryReminder"])
         let pending = await fixture.notifications.pendingRequests
-        XCTAssertEqual(pending.map(\.identifier), [CoachService.expiryReminderIdentifier])
-    }
+        XCTAssertTrue(pending.isEmpty, "o aviso antigo sai da fila do iPhone")
+        XCTAssertNil(fixture.defaults.object(forKey: "expiryReminderEnabled"), "a chave antiga é apagada")
+        let requests = await fixture.notifications.authorizationRequestCount
+        XCTAssertEqual(requests, 0, "cancelar não pede permissão de notificação (AGENTS §7)")
+        XCTAssertEqual(CoachService.DefaultsKey.expiryReminderEnabled, "expiryReminderEnabled")
+        XCTAssertEqual(CoachService.expiryReminderIdentifier, "coach.expiryReminder")
 
-    func testSetExpiryReminderEnabled_asksPermissionAndSchedulesAtTenTheDayBefore() async throws {
-        let expiry = date(2026, 9, 27, hour: 21)
-        let fixture = try makeFixture(expiry: expiry)
-        defer { fixture.cleanUp() }
-
-        fixture.service.setExpiryReminderEnabled(true)
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
         await fixture.service.pendingWork?.value
 
-        XCTAssertTrue(fixture.defaults.bool(forKey: CoachService.DefaultsKey.expiryReminderEnabled))
-        XCTAssertTrue(fixture.service.isExpiryReminderEnabled)
-        let requests = await fixture.notifications.authorizationRequestCount
-        XCTAssertEqual(requests, 1)
-        let pending = await fixture.notifications.pendingRequests
-        XCTAssertEqual(pending.count, 1)
-        XCTAssertEqual(pending.first?.fireDate, date(2026, 9, 26, hour: 10))
-        XCTAssertEqual(pending.first?.title, CoachService.expiryReminderTitle)
-        XCTAssertTrue(pending.first?.body.contains("21:00") ?? false)
+        cancelled = await fixture.notifications.cancelledIdentifiers
+        XCTAssertEqual(cancelled, ["coach.expiryReminder"], "no segundo refresh, nada")
     }
 
-    func testDisablingTheReminder_cancelsIt() async throws {
-        let fixture = try makeFixture(expiry: date(2026, 9, 27, hour: 21))
+    /// SPEC §7.18 L4: sem a chave antiga (instalação nova ou já limpa), nada é cancelado nem enfileirado.
+    func testL4_noLegacyKeyCancelsNothing() async throws {
+        let fixture = try makeFixture()
         defer { fixture.cleanUp() }
 
-        fixture.service.setExpiryReminderEnabled(true)
-        fixture.service.setExpiryReminderEnabled(false)
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
         await fixture.service.pendingWork?.value
 
-        let pending = await fixture.notifications.pendingRequests
-        XCTAssertTrue(pending.isEmpty)
+        XCTAssertNil(fixture.service.pendingWork, "sem a chave, nada vai para a fila")
         let cancelled = await fixture.notifications.cancelledIdentifiers
-        XCTAssertEqual(cancelled.last, CoachService.expiryReminderIdentifier)
-    }
-
-    func testHowToRenew_withReminderOn_asksPermissionInTheAction() async throws {
-        let fixture = try makeFixture(expiry: date(2026, 9, 26, hour: 21))
-        defer { fixture.cleanUp() }
-        fixture.defaults.set(true, forKey: CoachService.DefaultsKey.expiryReminderEnabled)
-        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
-        let message = try XCTUnwrap(fixture.service.messages.first { $0.rule == .installExpiry })
-
-        fixture.service.handle(.howToRenew, on: message)
-        await fixture.service.pendingWork?.value
-
-        let requests = await fixture.notifications.authorizationRequestCount
-        XCTAssertEqual(requests, 1, "SPEC §7.11 C4: a permissão é pedida na ação da mensagem")
-    }
-
-    func testHowToRenew_withReminderOff_doesNotAskPermission() async throws {
-        let fixture = try makeFixture(expiry: date(2026, 9, 26, hour: 21))
-        defer { fixture.cleanUp() }
-        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
-        let message = try XCTUnwrap(fixture.service.messages.first { $0.rule == .installExpiry })
-
-        fixture.service.handle(.howToRenew, on: message)
-        await fixture.service.pendingWork?.value
-
+        XCTAssertEqual(cancelled, [])
         let requests = await fixture.notifications.authorizationRequestCount
         XCTAssertEqual(requests, 0)
+        XCTAssertNil(fixture.defaults.object(forKey: "expiryReminderEnabled"))
     }
 
-    func testDeniedPermission_explainsWhyTheReminderWillNotShow() async throws {
-        let fixture = try makeFixture(expiry: date(2026, 9, 27, hour: 21), authorizationToGrant: false)
+    /// SPEC §7.18 L4: `howToRenew` nunca é oferecida; se chegar (por exemplo, de uma folha antiga), só
+    /// vai para o log, sem navegar nem pedir permissão, nem depois que o destaque fecha.
+    func testL4_howToRenewOnlyLogs() async throws {
+        let fixture = try makeFixture()
         defer { fixture.cleanUp() }
+        fixture.planner.sessionsToReturn = [session(startedAt: date(2026, 9, 10))]
+        var navigations = 0
+        fixture.service.onBackupRequested = { navigations += 1 }
+        fixture.service.onStartRequested = { navigations += 1 }
+        fixture.service.onProgressRequested = { _ in navigations += 1 }
+        fixture.service.onChooseProgramRequested = { navigations += 1 }
 
-        fixture.service.setExpiryReminderEnabled(true)
+        fixture.service.refresh(healthSuggestions: [], recovery: .unknown)
+        let message = try XCTUnwrap(fixture.service.highlight)
+        fixture.service.handle(.howToRenew, on: message)
+        fixture.service.highlightDidDismiss()
         await fixture.service.pendingWork?.value
 
-        XCTAssertNotNil(fixture.service.errorMessage)
-    }
-
-    func testReminderTimeAlreadyPast_isNotScheduled() async throws {
-        let fixture = try makeFixture(expiry: date(2026, 9, 24, hour: 20))
-        defer { fixture.cleanUp() }
-
-        fixture.service.setExpiryReminderEnabled(true)
-        await fixture.service.pendingWork?.value
-
-        let scheduled = await fixture.notifications.scheduledRequests
-        XCTAssertTrue(scheduled.isEmpty, "As 10h da véspera já passaram")
-    }
-
-    func testExpiryReminderDate_isTenOClockOfTheDayBefore() {
-        XCTAssertEqual(
-            CoachService.expiryReminderDate(expiry: date(2026, 9, 27, hour: 8, minute: 30), calendar: calendar),
-            date(2026, 9, 26, hour: 10)
-        )
-        XCTAssertEqual(
-            CoachService.expiryReminderBody(expiry: date(2026, 9, 27, hour: 8, minute: 5), calendar: calendar),
-            "A instalação atual vale até amanhã às 08:05. Renove hoje pelo Impactor no computador; reinstalar por cima mantém seus dados."
-        )
+        XCTAssertEqual(navigations, 0, "nenhuma navegação")
+        XCTAssertNil(fixture.service.errorMessage)
+        let requests = await fixture.notifications.authorizationRequestCount
+        XCTAssertEqual(requests, 0, "nenhum pedido de permissão")
+        XCTAssertEqual(fixture.logStore.log.entries.map(\.action), [.howToRenew])
+        XCTAssertEqual(fixture.logStore.log.entries.last?.messageID, message.id)
+        XCTAssertFalse(fixture.service.messages.contains { $0.id == message.id }, "o log esconde a mensagem")
+        XCTAssertFalse(fixture.service.messages.contains { $0.rule == .installExpiry })
     }
 
     func testJoinedNames_readsLikeASentence() {
@@ -1327,7 +1303,6 @@ final class CoachServiceTests: XCTestCase {
     }
 
     private func makeFixture(
-        expiry: Date? = nil,
         logStore: FakeCoachLogStore? = nil,
         authorizationToGrant: Bool = true,
         traits: ExerciseTraitsCatalog = .empty,
@@ -1340,18 +1315,10 @@ final class CoachServiceTests: XCTestCase {
         let store = logStore ?? FakeCoachLogStore()
         let notifications = FakeNotificationScheduler(authorizationToGrant: authorizationToGrant)
         let clock = CoachTestClock(now)
-        let reader: ProvisioningExpiryReader
-        if let expiry {
-            let data = try Self.profileData(expiry: expiry)
-            reader = ProvisioningExpiryReader(readData: { data })
-        } else {
-            reader = .unavailable
-        }
         let service = CoachService(
             planner: planner,
             programs: programs,
             log: store,
-            expiry: reader,
             notifications: notifications,
             now: { clock.now },
             calendar: calendar,
@@ -1370,16 +1337,6 @@ final class CoachServiceTests: XCTestCase {
             clock: clock,
             activities: activities
         )
-    }
-
-    /// Um `embedded.mobileprovision` mínimo: bytes quaisquer em volta do plist XML, como o CMS.
-    static func profileData(expiry: Date) throws -> Data {
-        let payload: [String: Any] = ["ExpirationDate": expiry, "Name": "Magister"]
-        let plist = try PropertyListSerialization.data(fromPropertyList: payload, format: .xml, options: 0)
-        var data = Data([0x30, 0x82, 0x0B, 0x5A, 0x06, 0x09])
-        data.append(plist)
-        data.append(contentsOf: [0xA0, 0x82, 0x03])
-        return data
     }
 
     private func date(_ year: Int, _ month: Int, _ day: Int, hour: Int = 12, minute: Int = 0) -> Date {

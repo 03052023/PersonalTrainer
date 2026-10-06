@@ -62,7 +62,8 @@ let outsideKindRows: [OutsideKindRow] = [
     OutsideKindRow(kind: .mobility, rawValue: "mobility", name: "Mobilidade", intensity: .light, minutes: 10, role: .light, muscles: [], aerobic: false),
     OutsideKindRow(kind: .cross, rawValue: "cross", name: "Cross ou funcional", intensity: .vigorous, minutes: 60, role: .strength, muscles: Set(MuscleGroup.allCases), aerobic: false),
     OutsideKindRow(kind: .fightClass, rawValue: "fightClass", name: "Aula de luta", intensity: .moderate, minutes: 60, role: .cardio, muscles: [], aerobic: true),
-    OutsideKindRow(kind: .spinning, rawValue: "spinning", name: "Spinning ou bicicleta", intensity: .vigorous, minutes: 45, role: .cardio, muscles: [], aerobic: true),
+    // SPEC §7.18 L8: o nome sem a marca de terceiros; o raw value `spinning` fica.
+    OutsideKindRow(kind: .spinning, rawValue: "spinning", name: "Bicicleta indoor", intensity: .vigorous, minutes: 45, role: .cardio, muscles: [], aerobic: true),
     OutsideKindRow(kind: .teamSport, rawValue: "teamSport", name: "Futebol ou esporte com bola", intensity: .vigorous, minutes: 60, role: .cardio, muscles: [], aerobic: true),
     OutsideKindRow(kind: .swimming, rawValue: "swimming", name: "Natação", intensity: .moderate, minutes: 45, role: .cardio, muscles: [], aerobic: true),
     OutsideKindRow(kind: .dance, rawValue: "dance", name: "Dança", intensity: .moderate, minutes: 60, role: .cardio, muscles: [], aerobic: true),
@@ -89,6 +90,34 @@ func outsideKindsAreTheTwelveOfTheTable() {
     #expect(OutsideActivityKind.allCases.count == 12)
     #expect(OutsideActivityKind.cross.primaryMuscles == allMuscleGroups)
     #expect(allMuscleGroups.count == 10)
+}
+
+/// SPEC §7.18 L8: marcas de terceiros ficam fora dos textos. O tipo gravado como `spinning` se chama
+/// "Bicicleta indoor" desde a 2.5, e o resumo do compêndio no `references.v1.json` diz o mesmo.
+@Test("L8 bicicleta indoor: o nome sem marca de terceiros e o raw value gravado igual")
+func outsideIndoorBikeNameWithoutBrand() throws {
+    #expect(OutsideActivityKind.spinning.displayName == "Bicicleta indoor")
+    #expect(OutsideActivityKind.spinning.rawValue == "spinning")
+    let decoded = try JSONDecoder().decode([OutsideActivityKind].self, from: Data(#"["spinning"]"#.utf8))
+    #expect(decoded == [.spinning], "um registro gravado pela 2.4 continua legível")
+    for kind in OutsideActivityKind.allCases {
+        #expect(!kind.displayName.lowercased().contains("spinning"), "\(kind.rawValue)")
+    }
+
+    // Packages/TrainerCore/Tests/TrainerCoreTests/<este arquivo> → raiz do repositório.
+    var root = URL(fileURLWithPath: #filePath)
+    for _ in 0..<5 {
+        root.deleteLastPathComponent()
+    }
+    let url = root
+        .appendingPathComponent("PersonalTrainer", isDirectory: true)
+        .appendingPathComponent("Resources", isDirectory: true)
+        .appendingPathComponent("Seed", isDirectory: true)
+        .appendingPathComponent("references.v1.json", isDirectory: false)
+    let data = try Data(contentsOf: url)
+    let text = String(decoding: data, as: UTF8.self)
+    #expect(!text.lowercased().contains("spinning"))
+    #expect(text.contains("e bicicleta indoor, futebol e circuito, no vigoroso."))
 }
 
 /// Uma duração e se ela é aceita (X1: 5 a 300 min).
@@ -306,7 +335,7 @@ func outsideSamplesEnterTheHealthReport() {
         calendar: outsideUTC
     )
 
-    // O spinning é "bicicleta" no Saúde (moderado pelo tipo), mas a pessoa disse forte: vale forte.
+    // A bicicleta indoor é "bicicleta" no Saúde (moderado pelo tipo), mas a pessoa disse forte: vale forte.
     #expect(report.aerobic.moderateMinutes == 30)
     #expect(report.aerobic.vigorousMinutes == 45)
     #expect(report.aerobic.moderateEquivalentMinutes == 120)

@@ -12,6 +12,8 @@ public enum OutsideActivityKind: String, Codable, Sendable, Hashable, CaseIterab
     case mobility
     case cross
     case fightClass
+    /// Bicicleta indoor. O raw value `spinning` fica (gravado); desde a 2.5 o nome não usa a marca de
+    /// terceiros (SPEC §7.18 L8).
     case spinning
     case teamSport
     case swimming
@@ -28,7 +30,7 @@ public enum OutsideActivityKind: String, Codable, Sendable, Hashable, CaseIterab
         case .mobility: return "Mobilidade"
         case .cross: return "Cross ou funcional"
         case .fightClass: return "Aula de luta"
-        case .spinning: return "Spinning ou bicicleta"
+        case .spinning: return "Bicicleta indoor"
         case .teamSport: return "Futebol ou esporte com bola"
         case .swimming: return "Natação"
         case .dance: return "Dança"

@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import TrainerCore
 
-/// Shared fixtures for the coach tests (SPEC §7.11 C1–C8).
+/// Shared fixtures for the coach tests (SPEC §7.11 C1–C3 and C5–C8).
 ///
 /// Every instant is fixed (AGENTS R3). `now` is Wednesday 2026-09-23 12:00 UTC, the same
 /// instant as `ReviewFixtures.now`: ISO week 2026-W39, whose Monday is 2026-09-21.
@@ -116,7 +116,7 @@ enum CoachFixtures {
 
     // MARK: Everything at once
 
-    /// One reason for every rule to speak at `now`.
+    /// One reason for every active rule to speak at `now` (C4 was removed in 2.5, SPEC §7.18 L4).
     static func fullInput() -> CoachInput {
         CoachInput(
             deload: .scheduled(trigger: .scheduled, since: at(0, hour: 10)),
@@ -125,7 +125,6 @@ enum CoachFixtures {
                 suggestion(.switchProgram, id: "switchProgram:\(id(1).uuidString):\(week)", topic: "topic.mesocycle"),
             ]),
             healthSuggestions: [health(.lowSteps), health(.updateVo2Max)],
-            provisioningExpiry: at(4, hour: 23),
             lastSessionStart: at(-5),
             nextDayName: "Dia B",
             personalRecords: [record(exercise: 101, load: 105, reps: 5, previousBest: 100 * (1 + 5.0 / 30))],

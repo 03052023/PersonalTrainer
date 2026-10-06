@@ -67,11 +67,13 @@ struct CoachLogTests {
         ])
     }
 
+    /// `howToRenew` (C4, removida na 2.5) nunca é oferecida; o rótulo neutro "Ok" tira o texto de
+    /// sideload do app (SPEC §7.18 L4).
     @Test("C1–C8 rótulos das ações em pt-BR, como na SPEC §7.11")
     func actionLabels() {
         #expect(CoachAction.allCases.map(\.label) == [
             "Ok", "Seguir normal", "Aplicar", "Agora não", "Não sugerir mais isto", "Entendi", "Lembrar amanhã",
-            "Como renovar", "Começar", "Ver evolução", "Fazer backup", "Depois", "Feito", "Pular",
+            "Ok", "Começar", "Ver evolução", "Fazer backup", "Depois", "Feito", "Pular",
         ])
     }
 
